@@ -10,6 +10,8 @@ specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이�
 
 > **clone 마다 1회**: `bash scripts/_internal/install-git-hooks.sh` — 2단 git hook 게이트를 설치한다 (`core.hooksPath` 는 `.git/config` 로컬 설정이라 버전관리되지 않는다). `pre-commit` = validate-structure + check-propagation(~5s) · `pre-push` = origin main **CI 상태 경고**(`gh` 있을 때만, ~1s, 비차단) + `run-all.sh` 전체(**192 스위트** <!-- doc-lock: suite-count --> · 작업자 풀 병렬 — 2026-09-11 실측 median 병렬 382s(5회) / 직렬 813s(3회). `SPECOPS_RUN_ALL_JOBS` 로 병렬 수 지정(기본 코어 수·상한 8, `1`=직렬). 스위트별 600s 상한). **Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로**, 로컬의 도구 무관 게이트는 이 층뿐이다 (계기: run-all 없이 나간 커밋이 main 을 하루 red 로 만들었다). 원격에는 main 브랜치 보호가 있다(20261010 — PR 머지는 CI 4종 `run-all`·`run-all-macos`·`shellcheck`·`security-scan` 통과가 필요하다. 관리자의 직접 push 는 막지 않는다: `release.sh` 가 main 에 직접 push 한다). 탈출구는 `--no-verify`.
 
+> **릴리즈 주기** (20261011 결정): 릴리즈 대상은 **행동 변경**(skill·command·agent·hook·template·비테스트 script 의 동작 변화)뿐이고, **주 1회 상한**으로 묶어 발행한다. 테스트·문서·주석만의 PR 은 `[Unreleased]` 에 둔다. 예외는 훅이 정상 커밋을 막거나 설치본이 깨지는 오류(즉시 패치). PR 마다 발행하지 않는다 — 10월 1~11일 22회 발행으로 하류가 제각각 버전에 고정됐다. 상세는 README `### 릴리즈 주기`.
+
 ```bash
 # 전체 테스트 (run-all.sh — 릴리즈 pre-flight 게이트와 동일)
 bash scripts/tests/run-all.sh

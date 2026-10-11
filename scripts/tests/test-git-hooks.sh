@@ -4,6 +4,7 @@
 #       Claude Code PreToolUse 훅은 Cursor 등 다른 도구의 커밋에 발화하지 않는다 —
 #       git hook 은 도구 무관하게 걸리는 유일한 층이다.
 set -uo pipefail
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
@@ -191,6 +192,83 @@ else
   nope "GH-env.3 링크 worktree push 오염" "user.name=$_un core.worktree=$_wt wt=$([ -d "$_gp/wt" ] && echo 있음 || echo 없음)"
 fi
 rm -rf "$_gp"
+
+# GH-env.4 ★ 모든 스위트가 선두에서 git 저장소 변수를 지운다 (20261011-suite-gitdir-isolation)
+#   왜: pre-push·run-all 은 지우지만(GH-env.1·2) 스위트를 run-all 없이 직접 돌리면(영수증·검증 러너·변이 측정·수동 실행)
+#   훅이 내보낸 GIT_DIR 이 픽스처로 샌다. 2026-10-06 에 test-release 의 push 가 그렇게 실 origin 으로 나갔고,
+#   희생용 복제본 실측에서 191개 스위트 중 32개가 저장소를 바꿨다(그중 11개는 통과로 끝났다).
+#   규칙은 "모든 test-*.sh" 다 — git 을 쓰는 스위트만 고르면 스크립트를 거쳐 git 에 닿는 스위트를 놓친다.
+#   판별: 첫 코드 줄(주석·빈 줄 제외 — 보통 `set -u`) 다음의 첫 코드 줄이 들여쓰기 없는 unset 이고 아래 7개를 모두 지운다.
+#   한계: 줄이 있는지만 본다 — 그 뒤에서 변수를 다시 내보내는 스위트는 GH-env.6 의 표본 밖이면 보지 못한다.
+_GIT_ENV_VARS="GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES"
+_suite_lacks_git_unset() {  # <파일…> → 방어 줄이 제자리에 없는 파일(줄마다)
+  awk -v vars="$_GIT_ENV_VARS" '
+    function flush() { if (cur != "" && !good) print cur }
+    FNR == 1 { flush(); cur = FILENAME; state = 0; good = 0 }
+    state == 2 || /^[[:space:]]*(#|$)/ { next }
+    state == 0 { state = 1; next }
+    { state = 2; good = ($0 ~ /^unset[[:space:]]/); n = split(vars, v, " ")
+      for (i = 1; good && i <= n; i++) if ($0 !~ ("(^|[[:space:]])" v[i] "([[:space:]]|$)")) good = 0 }
+    END { flush() }' "$@"
+}
+_e4_arr=()
+while IFS= read -r _e4_f; do [ -n "$_e4_f" ] && _e4_arr+=("$_e4_f"); done <<< "$(find "$PLUGIN/scripts/tests" -type f -name 'test-*.sh' | sort)"
+_e4_n=${#_e4_arr[@]}
+_e4_bad=""; _e4_known=0
+if [ "$_e4_n" -gt 0 ]; then
+  _e4_bad=$(_suite_lacks_git_unset "${_e4_arr[@]}")
+  for _e4_f in "${_e4_arr[@]}"; do [ "$_e4_f" = "$PLUGIN/scripts/tests/test-release.sh" ] && _e4_known=1; done
+fi
+if [ "$_e4_n" -gt 0 ] && [ "$_e4_known" = 1 ] && [ -z "$_e4_bad" ]; then
+  ok "GH-env.4 ★ 스위트 ${_e4_n}개 전부가 선두에서 git 저장소 변수 7개를 지운다"
+else
+  nope "GH-env.4 선두에서 git 저장소 변수를 지우지 않는 스위트" "대상 ${_e4_n}개(0개거나 test-release.sh 가 없으면 대상 목록이 깨진 것이다) 중 $(grep -c . <<< "$_e4_bad")개 — 첫 코드 줄(set -u) 바로 뒤에 'unset $_GIT_ENV_VARS' 를 둘 것: $(printf '%s\n' "$_e4_bad" | sed "s|^$PLUGIN/||" | head -5 | tr '\n' ' ')"
+fi
+
+# GH-env.5 잠금(GH-env.4)의 판별식이 실제로 가려낸다 — 맞는 형태만 통과한다
+#   왜: 판별식이 아무것도 못 잡게 되면(awk 구현 차이·정규식 손상) GH-env.4 는 조용히 통과한다. 임시 파일로 양쪽을 다 잰다.
+_e5=$(mktemp -d)
+( cd "$_e5" || exit 1
+  printf '%s\n' '#!/usr/bin/env bash' '# 머리 주석' 'set -u' "unset $_GIT_ENV_VARS   # 격리" 'PASS=0' > a.sh
+  printf '%s\n' '#!/usr/bin/env bash' 'set -u' 'PASS=0' > b.sh
+  printf '%s\n' '#!/usr/bin/env bash' 'set -u' 'PASS=0' "unset $_GIT_ENV_VARS" > c.sh
+  printf '%s\n' '#!/usr/bin/env bash' 'set -u' "  unset $_GIT_ENV_VARS" > d.sh
+  printf '%s\n' '#!/usr/bin/env bash' 'set -u' 'unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX' > e.sh
+  printf '%s\n' '#!/usr/bin/env bash' 'set -uo pipefail' '# 사이의 주석' '' "unset $_GIT_ENV_VARS" 'PASS=0' > f.sh
+)
+_e5_bad=$(_suite_lacks_git_unset "$_e5/a.sh" "$_e5/b.sh" "$_e5/c.sh" "$_e5/d.sh" "$_e5/e.sh" "$_e5/f.sh" | sed 's|.*/||' | tr '\n' ' ' | sed 's/ $//')
+rm -rf "$_e5"
+if [ "$_e5_bad" = "b.sh c.sh d.sh e.sh" ]; then
+  ok "GH-env.5 판별식 — 줄이 없음·다른 코드 뒤·들여쓴 줄·변수 5개는 걸리고, 맞는 형태(사이에 주석·빈 줄 허용)는 걸리지 않는다"
+else
+  nope "GH-env.5 판별식이 가려내지 못한다" "걸린 파일='$_e5_bad' (기대 'b.sh c.sh d.sh e.sh')"
+fi
+
+# GH-env.6 행동: 훅 환경(GIT_DIR 절대경로)에서 스위트를 직접 실행해도 그 저장소와 원격이 그대로다
+#   표본은 사고의 두 스위트다 — test-git-branch-create(실저장소에 브랜치를 만들고 HEAD 를 옮겼다)와
+#   test-release(그 브랜치를 origin 으로 push 했다). 전부 sandbox 저장소·sandbox bare 원격이다.
+#   SPECOPS_RUN_ALL=1 — test-release 의 T10.b 가 실제 pre-flight(run-all)로 가지 않게 한다(아래 GH-ci 의 하드 규칙과 같은 이유).
+_e6=$(mktemp -d)
+( cd "$_e6" && git init -q --bare remote.git && git init -q repo && cd repo && git config user.email t@t && git config user.name orig \
+  && git commit -q --allow-empty -m base && git branch -M main && git remote add origin "$_e6/remote.git" && git push -q origin main ) >/dev/null 2>&1
+_e6_snap() {
+  { git --git-dir="$_e6/repo/.git" for-each-ref --format='%(refname) %(objectname)'
+    git --git-dir="$_e6/repo/.git" symbolic-ref HEAD
+    cat "$_e6/repo/.git/config"
+    git --git-dir="$_e6/remote.git" for-each-ref --format='원격 %(refname) %(objectname)'; } 2>/dev/null
+}
+_e6_before=$(_e6_snap)
+for _e6_s in test-git-branch-create.sh test-release.sh; do
+  ( cd "$_e6/repo" && SPECOPS_RUN_ALL=1 GH_TOKEN=invalid-for-test GIT_DIR="$_e6/repo/.git" bash "$PLUGIN/scripts/tests/$_e6_s" ) >/dev/null 2>&1
+done
+_e6_after=$(_e6_snap)
+_e6_diff=$(diff <(printf '%s\n' "$_e6_before") <(printf '%s\n' "$_e6_after") | grep -E '^[<>]' | head -4 | cut -c1-90 | tr '\n' ' ')
+rm -rf "$_e6"
+if [ -n "$_e6_before" ] && [ "$_e6_before" = "$_e6_after" ]; then
+  ok "GH-env.6 훅 환경에서 스위트 직접 실행(test-git-branch-create · test-release) — 저장소의 참조·HEAD·설정과 원격이 그대로다"
+else
+  nope "GH-env.6 스위트 직접 실행이 GIT_DIR 저장소를 바꿨다" "$_e6_diff"
+fi
 
 # GH-ci.*: pre-push CI 상태 경고 (FID 20260807-doctor-ci-check)
 #

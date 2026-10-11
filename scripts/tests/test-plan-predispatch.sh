@@ -2,6 +2,7 @@
 # test-plan-predispatch.sh — plan-reviewer 사전검사 회귀
 #   FID 20260809-predispatch-fail-check
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 CHK="$PLUGIN/scripts/_internal/check-plan-predispatch.sh"
 FX="$PLUGIN/scripts/tests/fixtures/predispatch"

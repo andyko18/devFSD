@@ -55,6 +55,8 @@ bash scripts/_internal/validate-structure.sh
 bash scripts/_internal/check-doc-numbers.sh
 ```
 
+> **스위트는 스스로 격리한다** (20261011): `scripts/tests` 아래 모든 `test-*.sh` 는 첫 코드 줄(`set -u`) 바로 뒤에서 git 저장소 변수 7개를 지운다(`unset GIT_DIR …` — `.githooks/pre-push` 와 같은 목록). 훅이 내보낸 `GIT_DIR` 이 남은 환경에서 스위트를 `run-all` 없이 직접 돌리면(영수증·검증 러너·변이 측정·수동 실행) 픽스처의 git 명령이 임시 저장소가 아니라 실저장소에 실행되기 때문이다 — 2026-10-06 에 픽스처 커밋 50개가 그렇게 실 origin 의 브랜치로 push 됐고, 희생용 복제본 실측에서 스위트 191개 가운데 32개가 저장소를 바꿨다(그중 11개는 통과로 끝났다). **새 스위트에도 같은 줄을 넣는다** — 빠지면 `test-git-hooks.sh` GH-env.4 가 그 파일을 대며 실패한다(GH-env.6 은 사고의 두 스위트를 훅 환경에서 직접 돌려 저장소·원격이 그대로인지 본다). 재현 실험은 희생용 복제본과 로컬 원격에서만 한다.
+
 ## 아키텍처
 
 ### Skill 계층 구조

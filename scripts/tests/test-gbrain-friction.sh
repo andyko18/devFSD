@@ -9,6 +9,7 @@
 #   본 집계기가 그 첫 단계다: 흩어진 관찰을 **반복 패턴으로 묶어 사람에게 제시**한다.
 #   게이트 자동 생성은 하지 않는다 — 클래스 B 정적 메타 규칙이 4/4 오탐으로 철회된 전례.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

@@ -4,6 +4,7 @@
 #   spec 에 `**§auto**: true` 를 적는 것으로 성립한다. 뒤 단계는 전부 그 라벨만 본다.
 #   이 사슬의 한 곳이라도 빠지면 무인 커맨드가 대화형으로 돌거나(목표 실패), 사람 검토 없이 지나간 것이 끝 보고에서 빠진다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

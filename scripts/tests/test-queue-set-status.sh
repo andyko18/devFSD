@@ -6,6 +6,7 @@
 #   산출물·review-skip 검사가 **대상 0건으로 조용히 통과**했다(FR 31건 무검증).
 #   읽는 쪽 정규화(queue-lib)가 사후 방어라면, 이 스크립트는 유입 자체를 끊는다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }

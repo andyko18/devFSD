@@ -3,6 +3,7 @@
 #   ① 대괄호 접두를 쓰는 description 은 frontmatter 파싱 실패를 막기 위해 따옴표 필수
 #   ② /maintain 은 형제 8건과 동일하게 모드 라벨 접두를 갖는다
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

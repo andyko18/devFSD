@@ -6,6 +6,7 @@
 #  `**미재사용 근거**` 를 반드시 기재, 누락 시 implementing-ko 호출 금지" — 는
 # decomposing-ko 산문뿐이었다(검사 스크립트 0곳). 모델이 안 쓰면 그대로 통과.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

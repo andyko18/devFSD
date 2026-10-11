@@ -2,6 +2,7 @@
 # shortcut: 부채 장부 스캐너(scan-shortcuts.sh) + 과잉 설계 리뷰 관점 잠금 (20261007-ponytail-review-debt)
 # run-all: sandbox 트리(mktemp)만 쓴다 — 실 트리 쓰기 0
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 # 훅 환경 격리 — sandbox git 호출이 GIT_DIR 상속으로 실 저장소를 건드리지 않게 한다(링크 worktree pre-push 사고 계열)
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX
 PASS=0; FAIL=0

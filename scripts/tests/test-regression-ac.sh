@@ -9,6 +9,7 @@
 # 추가: 템플릿이 AC-R-1/AC-R-2 섹션을 **기본 포함**하므로 "헤더 존재" 만 보면
 #   템플릿 복사만으로 뚫린다 — Given/When/Then 의 템플릿 문구 잔존을 미채움으로 판정.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

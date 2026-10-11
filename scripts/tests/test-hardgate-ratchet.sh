@@ -3,6 +3,7 @@
 # 왜: 메타 규칙이 꺾쇠 마커 보유 파일만 검사해 산문 HARD GATE 선언이 규칙 밖이었다.
 #   회피법이 "마커를 안 쓰는 것" 이라 §auto 자기발급 면제표와 같은 형태였다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }

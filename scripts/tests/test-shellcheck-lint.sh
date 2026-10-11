@@ -3,6 +3,7 @@
 # CI 만 돌던 -S error 게이트가 로컬 run-all green 후 push 에서 최초 발각되던 비대칭 해소
 # 도구(shellcheck) 미설치 환경은 graceful SKIP (CI 가 최종 게이트)
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 

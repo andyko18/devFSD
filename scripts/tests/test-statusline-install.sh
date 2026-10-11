@@ -10,6 +10,7 @@
 # 종료코드 계약(--check): 0 = 이미 동일(변경 없음) · 1 = 변경 발생 예정 · 2 = 사용 오류.
 #   `--check-conf` 의 0/1 관용구와 같다 — 1 은 "에러" 가 아니라 "차이 있음" 이다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }

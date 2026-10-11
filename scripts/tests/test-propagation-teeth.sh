@@ -7,6 +7,7 @@
 #   **잠금을 시험하는 코드는 잠금 대상 밖에 산다.** `test-hardgate-ratchet.sh` 와 동형.
 #   이 파일을 `test-propagation.sh` 로 합치지 마라 — 합치는 순간 아래 전부가 공허해진다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

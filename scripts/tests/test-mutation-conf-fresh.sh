@@ -13,6 +13,7 @@
 #   넣고 빼는 편집으로는 더 이상 stale 이 되지 않는다 — T6 이 실제 conf 로 그것을 잠근다. 등재한 줄 자체를 고치거나
 #   같은 원문의 줄을 함수 안에 늘리고 줄이면 stale 이고, 그때는 그 행의 근거를 다시 읽는다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }

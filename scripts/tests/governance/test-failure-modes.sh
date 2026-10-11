@@ -4,6 +4,7 @@
 # rules.jsonl 부재 / transcript 부재 / stdin JSON 파싱 실패 3 시나리오 × 2 hook = 6 케이스
 # 기대: exit 0 + {continue:true} 보장 + (파싱 실패 시) stderr ERROR 로그
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 POSTTOOL="$PLUGIN/hooks/posttool-governance.sh"

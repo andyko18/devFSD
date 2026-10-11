@@ -6,7 +6,7 @@
 set -uo pipefail
 # 훅(pre-push)·릴리즈 등이 export 한 git 저장소 변수가 스위트 픽스처로 새면 실저장소가 변조된다(20261007-prepush-gitdir) —
 #   훅이 이미 지우지만 훅 밖 경로(release.sh pre-flight·수동 실행)도 같은 방어를 갖게 한다.
-unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 # 재귀 가드: test-release.sh 의 release.sh dry-run 이 pre-flight 로 run-all 을 재호출하는 무한 재귀 차단

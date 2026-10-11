@@ -3,6 +3,7 @@
 # 왜: 탐지기가 조용히 무력화되면 "0건" 이 안전처럼 보인다. 쓰는 더미·읽는 더미가 있는 fixture 에서
 #   **실제로 무는지**를 잠근다. 실 repo 전체 실행은 수 분이라 여기서 하지 않는다(수동 도구).
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }

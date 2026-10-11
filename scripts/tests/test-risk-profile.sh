@@ -725,6 +725,98 @@ r=$(_rp_case 20261008-rp-sb-heading "$(printf '%s\n' '    T=$(mktemp -d)' '## �
 [ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs \
   && ok "T58o 펜스 밖에서는 제목이 구간 경계다 → destructive_fs 유지" || nope "T58o" "$r"
 
+# T59: ★ 재대입 키워드는 줄 전체에서 찾는다 — 종전 판정을 잠근다 (20261011-risk-sandbox-quote-rebind)
+#   이 판정은 문자열·주석 속 낱말에도 반응하는 오발이 있다(`printf '%s\n' 'unset X' > "$T/a.sh"` 뒤의 정리가 신호로 남는다 —
+#   PR #180 에서 경량 승격 가드가 틀리게 울렸다). 따옴표·주석을 읽어 빼는 수정을 네 번 설계했고, 독립 리뷰가 그때마다
+#   "종전에는 잡히던 재대입이 빠지는" 입력을 찾아 접었다. 아래는 그 입력들이다 — 문자열이 실제로 실행되거나,
+#   따옴표·주석을 잘못 읽으면 실행되는 코드가 사라지는 형태. 다시 고칠 때 이 단언이 깨지면 새 미탐이다.
+#   종전에 단언이 없던 재대입 경로(unset·mapfile·readarray·getopts·printf -v·:=)와 가림 실패 경로도 함께 잠근다.
+_sb() { _fence 'T=$(mktemp -d)' "$@" 'rm -rf "$T"'; }   # 가운데 줄만 바꾸는 틀
+_sb_sig() {  # $1=fid $2=id $3=설명 $4…=가운데 줄 → destructive_fs 를 유지해야 한다
+  local fid=$1 id=$2 msg=$3; shift 3
+  r=$(_rp_case "$fid" "$(_sb "$@")")
+  [ "$(_eff "$r")" = "strict" ] && _has "$r" destructive_fs && ok "$id $msg → destructive_fs 유지" || nope "$id" "$r"
+}
+#   문자열에 담은 재대입이 실제로 실행된다 — 따옴표 안이라고 빼면 놓친다
+_sb_sig 20261011-rp-w-btcmt   T59a "백틱 안의 # 뒤에서 닫히고 unset" 'x=`echo a #b`; unset T'
+_sb_sig 20261011-rp-w-assign  T59b "대입 줄의 문자열 — 뒤에서 \$cmd 로 실행된다" "cmd='unset T'" '$cmd'
+_sb_sig 20261011-rp-w-brace   T59c "대입 줄의 문자열 — 뒤에서 \${cmd} 로 실행된다" 'cmd="read -r T"' '${cmd} < /dev/null'
+_sb_sig 20261011-rp-w-func    T59d "함수에 넘긴 문자열 — 함수가 \$1 로 실행한다" 'f() { $1; }' "f 'unset T' > \"\$T/log\""
+#   재대입 키워드 경로 (unset·mapfile·readarray·getopts·printf -v·:= 는 종전에 단언이 없었다)
+_sb_sig 20261011-rp-k-unset   T59e "명령 위치의 unset" 'unset T'
+_sb_sig 20261011-rp-k-mapfile T59f "mapfile 이 변수를 다시 묶는다" 'mapfile -t T < /dev/null'
+_sb_sig 20261011-rp-k-rdarr   T59g "readarray 가 변수를 다시 묶는다" 'readarray -t T < /dev/null'
+_sb_sig 20261011-rp-k-getopts T59h "getopts 가 변수를 다시 묶는다" 'getopts "ab" T'
+_sb_sig 20261011-rp-k-pluseq  T59i "따옴표 안 +=" 'declare "T+=/../.."'
+_sb_sig 20261011-rp-k-pv      T59j "printf -v 가 변수를 다시 묶는다" "printf -v T '%s' /var/lib/app"
+#   (다음 줄은 경로 잠금이다 — 변수가 이미 있으면 := 는 값을 바꾸지 않는다. := 판정을 바르게 고치면 이 단언은 지운다)
+_sb_sig 20261011-rp-k-coleq   T59k "큰따옴표 안 :=" ': "${T:=/var/lib/app}"'
+_sb_sig 20261011-rp-k-qname   T59l "이름이 따옴표 안인 unset" 'unset "T"'
+_sb_sig 20261011-rp-k-bsl     T59m "역슬래시로 부른 unset" '\unset T'
+_sb_sig 20261011-rp-k-hash    T59n "\${#T} 는 주석이 아니다 — 뒤의 unset" 'n=${#T}; unset T'
+#   따옴표 짝이 어긋나기 쉬운 입력 — 잘못 짝지으면 실행되는 재대입이 문자열로 보인다
+_sb_sig 20261011-rp-k-apos    T59o "아포스트로피 사이의 진짜 unset" "echo \"don't\"; unset T; echo 'x'"
+_sb_sig 20261011-rp-k-escq    T59p "이스케이프된 따옴표 뒤의 unset" 'echo \"; unset T; echo \"'
+_sb_sig 20261011-rp-k-dqesc   T59q "큰따옴표 안 이스케이프된 따옴표 뒤의 unset" 'echo "a\"b"; unset T; echo "c"'
+_sb_sig 20261011-rp-k-escsq   T59r "이스케이프된 작은따옴표 사이의 unset" "echo \\'; unset T; echo \\'"
+_sb_sig 20261011-rp-k-dqcmt   T59s "큰따옴표 안 이스케이프 + 주석의 따옴표 — 사이의 unset" 'echo "a\"b"; unset T   # say "hi'
+_sb_sig 20261011-rp-k-cmtapos T59t "주석의 아포스트로피 다음 줄 unset" "# it's a temp dir" 'unset T'
+#   여러 줄에 걸친 문자열·ANSI-C 따옴표 — 줄마다 따로 읽으면 안팎이 뒤집힌다
+_sb_sig 20261011-rp-k-multi   T59u "여러 줄 문자열이 닫힌 뒤의 unset" 'echo "first' 'second"; unset T; echo "third' 'fourth"'
+_sb_sig 20261011-rp-k-heredoc T59v "heredoc 본문의 아포스트로피 뒤 unset" 'cat <<EOF' "don't" 'EOF' "unset T; echo 'x'"
+_sb_sig 20261011-rp-k-ansi    T59w "ANSI-C 따옴표 뒤의 unset" "echo \$'it\\'s'; unset T; echo 'x'"
+_sb_sig 20261011-rp-k-ansicmt T59x "ANSI-C 따옴표 + 주석의 아포스트로피 — 사이의 unset" "X=\$'\\''; unset T   # it's gone"
+_sb_sig 20261011-rp-k-ansiml  T59y "여러 줄 ANSI-C 문자열이 닫힌 뒤의 unset" "X=\$'first" "second\\''; unset T   # it's gone"
+_sb_sig 20261011-rp-k-dqmis   T59z "큰따옴표 안의 이스케이프된 따옴표 뒤에서 닫히고 unset — 주석에 따옴표가 하나 더 있다" 'echo > "$T/a" "\""; unset T  # "'
+#   echo 로 시작하지만 뒤에 재대입이 이어지는 줄 — 따옴표·주석을 잘못 읽으면 단순한 파일 쓰기로 보인다
+_sb_sig 20261011-rp-k-mlcmt   T59aa "여러 줄 문자열이 닫힌 뒤의 unset" 'X="first' 'echo > "$T/a" x"; unset T  # "'
+_sb_sig 20261011-rp-k-anscmt  T59ab "ANSI-C 문자열 뒤의 unset" "echo > \"\$T/a\" \$'\\''; unset T  # '"
+_sb_sig 20261011-rp-k-ansml2  T59ac "여러 줄 ANSI-C 문자열이 닫힌 뒤의 unset" "X=\$'first" "echo > \"\$T/a\" x\\''; unset T  # '"
+_sb_sig 20261011-rp-k-escsp   T59ad "이스케이프된 공백 뒤의 # 는 주석이 아니다 — 뒤의 unset" 'echo > "$T/a" a \ # b; unset T'
+#   문자열을 현재 셸에서 실행하는 명령
+_sb_sig 20261011-rp-k-eval    T59ae "eval 문자열의 unset" "eval 'unset T'"
+_sb_sig 20261011-rp-k-source  T59af "source 에 넘긴 문자열의 read" 'source <(echo "read -r T < /dev/null")'
+_sb_sig 20261011-rp-k-dot     T59ag "점 명령에 넘긴 문자열의 unset" '. /dev/stdin <<< "unset T"'
+_sb_sig 20261011-rp-k-thendot T59ah "then 뒤의 점 명령" 'if true; then . /dev/stdin <<< "unset T"; fi'
+_sb_sig 20261011-rp-k-dodot   T59ai "do 뒤의 점 명령" 'for i in 1; do . /dev/stdin <<< "unset T"; done'
+_sb_sig 20261011-rp-k-semidot T59aj "; 바로 뒤의 점 명령" 'true;. /dev/stdin <<< "unset T"'
+_sb_sig 20261011-rp-k-anddot  T59ak "&& 바로 뒤의 점 명령" 'true &&. /dev/stdin <<< "unset T"'
+#   echo·printf 가 함수로 다시 정의돼 있으면 파일에 쓰는 줄의 문자열도 실행된다
+_sb_sig 20261011-rp-w-echofn  T59al "함수로 다시 정의한 echo 가 문자열을 실행한다" 'echo() { $1; }' "echo 'unset T' > \"\$T/f\""
+_sb_sig 20261011-rp-w-printffn T59am "함수로 다시 정의한 printf 가 문자열을 실행한다" 'function printf { $1; }' "printf 'unset T' > \"\$T/f\""
+#   파일에 쓴 문자열을 뒤에서 실행한다
+_sb_sig 20261011-rp-k-fdot    T59an "파일에 쓴 unset 을 점 명령으로 읽는다" "echo 'unset T' > \"\$T/f.sh\"" '. "$T/f.sh"'
+_sb_sig 20261011-rp-k-fsource T59ao "파일에 쓴 read 를 source 로 읽는다" "printf '%s\\n' 'read -r T < /dev/null' > \"\$T/f.sh\"" 'source "$T/f.sh"'
+_sb_sig 20261011-rp-k-fpv     T59ap "파일에 쓴 printf -v 를 뒤에서 실행한다" "echo 'printf -v T %s /var/lib/app' > \"\$T/f.sh\"" '. "$T/f.sh"'
+_sb_sig 20261011-rp-k-ffor    T59aq "파일에 쓴 for 를 뒤에서 실행한다" "echo 'for T in /var/lib/app; do :; done' > \"\$T/f.sh\"" '. "$T/f.sh"'
+_sb_sig 20261011-rp-k-fopen   T59ar "숨겨 넘긴 뒤 닫히지 않은 따옴표를 지나 실행한다" "echo 'unset T' > \"\$T/f.sh\"" 'echo "open' 'close"' 'eval "$(cat "$T/f.sh")"'
+_sb_sig 20261011-rp-k-fthen   T59as "파일에 쓴 unset 을 then 뒤의 점 명령이 읽는다" "echo 'unset T' > \"\$T/f.sh\"" 'if true; then . "$T/f.sh"; fi'
+_sb_sig 20261011-rp-k-fsemi   T59at "파일에 쓴 unset 을 ; 바로 뒤의 점 명령이 읽는다" "echo 'unset T' > \"\$T/f.sh\"" 'true;. "$T/f.sh"'
+_sb_sig 20261011-rp-k-fand    T59au "파일에 쓴 unset 을 && 바로 뒤의 점 명령이 읽는다" "echo 'unset T' > \"\$T/f.sh\"" 'true &&. "$T/f.sh"'
+_sb_sig 20261011-rp-k-for     T59av "파일에 쓴 unset 을 || 바로 뒤의 점 명령이 읽는다" "echo 'unset T' > \"\$T/f.sh\"" 'false ||. "$T/f.sh"'
+_sb_sig 20261011-rp-k-fearly  T59aw "읽는 함수를 먼저 정의하고 그 뒤에 파일을 쓴다" 'run() { . "$T/f.sh"; }' "echo 'unset T' > \"\$T/f.sh\"" 'run'
+_sb_sig 20261011-rp-k-evcont  T59ax "eval 과 문자열이 줄 이음으로 나뉜다" 'eval \' "  'unset T'"
+_sb_sig 20261011-rp-k-wrapper T59ay "eval 하는 함수를 먼저 정의하고 문자열을 넘긴다" 'f() { eval "$1"; }' "f 'unset T'"
+#   \${ } 안의 # · 낱말 중간의 # 는 주석이 아니다
+_sb_sig  20261011-rp-k-brace  T59az "\${y/ #/} 뒤의 unset" 'echo > "$T/a" ${y/ #/}; unset T'
+_sb_sig  20261011-rp-k-midhash T59ba "낱말 중간의 # 뒤의 unset" 'echo > "$T/a" a#b; unset T'
+#   다른 변수의 재대입은 출처를 끊지 않는다 — 키워드가 있어도 이름이 다르면 그대로 가린다
+r=$(_rp_case 20261011-rp-q-other "$(_sb 'unset OTHER; read -r LINE < /dev/null')")
+[ "$(_eff "$r")" != "strict" ] && ! _has "$r" destructive_fs \
+  && ok "T59bb 이름이 다른 변수의 unset·read → strict 아님" || nope "T59bb" "$r"
+#   가림 awk 가 실패하면 조용히 약해지지 않는다 — 원 코퍼스로 판정하고 stderr 에 알린다(T31 과 같은 shim: 표지가 있는 호출만 실패)
+TD=$(mktemp -d); FID=20261011-rp-q-fallback; SHIM=$(mktemp -d)
+_setup "$TD" "$FID"
+printf '**§유형**: 신규\n' > "$TD/.specops/$FID/spec.md"
+_sb 'printf x > "$T/a"' > "$TD/.specops/$FID/tasks.md"   # 평소에는 가려지는 정리다(T58a 와 같은 형태)
+printf '#!/bin/sh\ncase "$*" in *rp-sandbox*) exit 2 ;; esac\nexec %s "$@"\n' "$(command -v awk)" > "$SHIM/awk"
+chmod +x "$SHIM/awk"
+out=$(cd "$TD" && PATH="$SHIM:$PATH" bash "$RP" compute "$FID" 2>"$TD/err"); rc=$?
+[ "$rc" -eq 0 ] && grep -q 'sandbox mask unavailable' "$TD/err" \
+  && jq -e '.signals.strict | index("destructive_fs")' "$TD/.specops/$FID/risk-profile.json" >/dev/null \
+  && ok "T59bc 가림 awk 실패 → 원 코퍼스 판정(destructive_fs) + stderr 경고" || nope "T59bc" "rc=$rc out=$out err=$(cat "$TD/err")"
+rm -rf "$TD" "$SHIM"
+
 # ── T60: 신호별 키워드와 가드 — 변이 실측(20261009)에서 지워도 아무 테스트도 실패하지 않던 것들 ──
 #   신호 정규식은 대안(|)이 여럿이라 하나를 지워도 다른 대안으로 잡히는 테스트뿐이었다. 대안마다 그 낱말만으로 판정한다.
 r=$(_rp_case 20261009-rp-api-path '`src/app/api/users/route.ts` 의 응답 필드를 정리한다')

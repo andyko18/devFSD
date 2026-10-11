@@ -60,16 +60,20 @@ echo "  skill 계약상 Phase B/C 는 생략 금지다(end-loaded 는 시점 통
 echo "  현재는 **관측만** 하고 chain 을 막지 않는다(warn-only). 리뷰 산출물은"
 echo "  reviews/<tid>-B-report.md · <tid>-C-report.md 규약으로 남긴다."
 
-# friction-log 기록 — 빈도 관측이 전환 판단의 근거다
+# friction-log 기록 — 빈도 관측이 전환 판단의 근거다.
+#   키는 훅의 log_friction(hooks/governance-lib.sh)과 같다: ts·fid·rule_id·severity·principle·evidence_snippet.
+#   읽는 쪽(gbrain-friction.sh `select(.rule_id != null)` · doctor.sh `.rule_id`·`.ts`)이 그 키만 읽는다 —
+#   종전 키(rule·recorded_at·evidence)로는 이 기록이 집계에서 통째로 빠졌다(20261011 실측: 하류 31건 누락).
+#   transcript_offset 은 쓰지 않는다 — 이 스크립트는 transcript 를 읽지 않는다.
 log="$DIR/friction-log.jsonl"
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "")
 if command -v jq >/dev/null 2>&1; then
-  jq -nc --arg fid "$FID" --arg rule "REVIEW-PRESENCE" --arg ev "$miss" \
-     --arg ts "$ts" --argjson principle 2 \
-     '{fid:$fid,rule:$rule,severity:"warn",evidence:$ev,recorded_at:$ts,principle:$principle}' \
+  jq -nc --arg ts "$ts" --arg fid "$FID" --arg rule_id "REVIEW-PRESENCE" --arg ev "$miss" \
+     --argjson principle 2 \
+     '{ts:$ts,fid:$fid,rule_id:$rule_id,severity:"warn",principle:$principle,evidence_snippet:$ev}' \
      >> "$log" 2>/dev/null || true
 else
-  printf '{"fid":"%s","rule":"REVIEW-PRESENCE","severity":"warn","evidence":"%s","recorded_at":"%s"}\n' \
-    "$FID" "$miss" "$ts" >> "$log" 2>/dev/null || true
+  printf '{"ts":"%s","fid":"%s","rule_id":"REVIEW-PRESENCE","severity":"warn","principle":2,"evidence_snippet":"%s"}\n' \
+    "$ts" "$FID" "$miss" >> "$log" 2>/dev/null || true
 fi
 exit 0

@@ -6,6 +6,7 @@
 
 ### Fixed
 
+- **REVIEW-PRESENCE 마찰 기록이 집계에 잡힌다.** `check-review-presence.sh` 가 훅과 다른 키(`rule`·`recorded_at`·`evidence`)로 friction-log 를 써서 `gbrain-friction.sh`·`doctor.sh`(둘 다 `rule_id`·`ts` 로 읽는다)가 그 기록을 0건으로 셌다 — 하류 5곳에 31건이 있었다. 이제 `log_friction` 과 같은 키(`ts`·`fid`·`rule_id`·`severity`·`principle`·`evidence_snippet`)로 쓴다. 과거 기록은 변환하지 않는다(새 기록부터 집계).
 - **테스트 스위트를 직접 실행해도 git 저장소 변수가 픽스처로 새지 않는다.** git 이 훅에 내보낸 `GIT_DIR` 이 남은 환경에서 스위트를 `run-all` 없이 직접 돌리면 픽스처의 git 명령(`git init`·`commit`·`checkout`·`push`)이 임시 저장소가 아니라 실저장소에 실행됐다. 희생용 복제본 실측: 스위트 191개 가운데 32개가 저장소를 바꿨고(11개는 통과로 끝났다) `test-release.sh` 는 원격 `main` 을 픽스처 커밋으로 옮겼다. 이제 모든 스위트가 첫 코드 줄 바로 뒤에서 git 저장소 변수 7개를 지운다(`run-all.sh` 도 5개에서 같은 7개로). `test-git-hooks.sh` GH-env.4 가 그 줄이 빠진 스위트를 잡고, GH-env.5 가 판별식을, GH-env.6 이 훅 환경의 직접 실행에서 저장소·원격이 그대로인지를 잰다. 훅 → `run-all` 경로는 v2.5.0 에서 이미 막혀 있었다.
 - **정정 — 2026-10-06 사고 때 원격에 올라간 것이 있었다.** 당시 "원격에는 아무것도 푸시되지 않았다" 고 기록했으나, 픽스처 커밋 50개(init-project 픽스처 6개 포함)가 `feat/test-fid-abc` 브랜치로 GitHub 에 올라가 있었다(생성 기록 14:08:00 KST · `test-release.sh` 의 push). `main` · 다른 브랜치 · PR · 릴리즈에는 들어가지 않았고 비밀값도 없었다. 그 브랜치는 2026-10-11 에 로컬과 원격에서 지웠다.
 

@@ -92,6 +92,29 @@ TD=$(mktemp -d); _fid "$TD" 20260806-p
   && ok "T7 friction-log 관측 기록" || nope "T7" "기록 없음"
 rm -rf "$TD"
 
+# T7b: 기록 키는 훅(log_friction)과 같다 — 읽는 쪽(gbrain-friction·doctor)이 rule_id·ts 로만 읽는다
+TD=$(mktemp -d); _fid "$TD" 20260806-p
+(cd "$TD" && bash "$CHK" 20260806-p >/dev/null 2>&1)
+keys=$(tail -n 1 "$TD/.specops/20260806-p/friction-log.jsonl" | jq -r 'keys | join(",")' 2>/dev/null)
+vals=$(tail -n 1 "$TD/.specops/20260806-p/friction-log.jsonl" | jq -r '[.rule_id, .severity, (.principle|tostring), (.ts|test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$")|tostring), (.evidence_snippet|length > 0|tostring)] | join("|")' 2>/dev/null)
+[ "$keys" = "evidence_snippet,fid,principle,rule_id,severity,ts" ] && [ "$vals" = "REVIEW-PRESENCE|warn|2|true|true" ] \
+  && ok "T7b 기록 키 = 훅 형식(evidence_snippet·fid·principle·rule_id·severity·ts) · 값 형식" || nope "T7b" "keys=$keys vals=$vals"
+
+# T7c: 집계 도구가 그 기록을 센다 (종전 키 rule·recorded_at 은 select(.rule_id != null) 에 걸러져 0건이었다)
+agg=$(cd "$TD" && bash "$PLUGIN/scripts/gbrain-friction.sh" 2>/dev/null | grep -E '^\| REVIEW-PRESENCE \|' | awk -F'|' '{gsub(/ /,"",$3); print $3}')
+[ "$agg" = "1" ] && ok "T7c gbrain-friction 집계에 REVIEW-PRESENCE 1행" || nope "T7c" "agg='$agg'"
+rm -rf "$TD"
+
+# T7d: jq 부재 fallback 도 같은 키 (필요한 도구만 링크한 PATH · bash 는 전체 경로)
+TD=$(mktemp -d); _fid "$TD" 20260806-p
+mkdir -p "$TD/nojq"; for t in ls grep tail date printf mkdir cat; do p=$(command -v "$t") && [ -n "$p" ] && ln -sf "$p" "$TD/nojq/$t"; done
+(cd "$TD" && PATH="$TD/nojq" "$(command -v bash)" "$CHK" 20260806-p >/dev/null 2>&1)
+line=$(tail -n 1 "$TD/.specops/20260806-p/friction-log.jsonl")
+printf '%s' "$line" | grep -q '"rule_id":"REVIEW-PRESENCE"' && printf '%s' "$line" | grep -q '"evidence_snippet":' \
+  && printf '%s' "$line" | grep -q '"ts":"' && ! printf '%s' "$line" | grep -qE '"(rule|recorded_at|evidence)":' \
+  && ok "T7d jq 부재 fallback 도 rule_id·evidence_snippet·ts" || nope "T7d" "$line"
+rm -rf "$TD"
+
 # ── §lite 는 하드 (20260806 lite 검토) ──────────────────────────────────────
 # 근거: lite 는 clarify·plan 을 **이미 뺀** 모드라 Phase B/C 가 **남은 유일한 리뷰층**이다.
 #   여기서도 B/C 가 조용히 사라지면 lite = spec → implement → verify (외부 리뷰 0) 가 된다.

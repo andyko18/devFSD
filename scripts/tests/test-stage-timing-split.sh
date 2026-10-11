@@ -373,6 +373,56 @@ else
   echo "SKIP T6.g~i — UTF-8 로케일(C.UTF-8·en_US.UTF-8) 없음"
 fi
 
+# ══ AC-10 (20261011-friction-key-transcript-dirs): worktree 합집합 · --transcript-dir 반복 ══
+# 저장소 + 링크 worktree 1개. 각 경로를 인코딩한 projects 디렉토리에 세션 1개씩 — 두 세션이 서로 다른 구간을 덮는다.
+R10="$SB/r10"; mkdir -p "$R10" && (cd "$R10" && git init -q && git -c user.name=t -c user.email=t@e.com commit -q --allow-empty -m init && git worktree add -q "$SB/r10-wt" -b wt 2>/dev/null)
+mkdir -p "$R10/.specops"
+ledger r10x <<'EOF'
+## 20261001-aaa · A
+
+- 2026-10-01 10:30 /tasks 완료 (x)
+- 2026-10-01 10:15 /plan 완료 (x)
+- 2026-10-01 10:00 /specify 완료 (x)
+EOF
+cp "$SB/r10x/session-progress.md" "$R10/.specops/session-progress.md"
+ENC_A=$(cd "$R10" && pwd -P | sed 's/[^A-Za-z0-9]/-/g'); ENC_W=$(cd "$SB/r10-wt" && pwd -P | sed 's/[^A-Za-z0-9]/-/g')
+mktr "$SB/cfg10/projects/$ENC_A/s1.jsonl" < "$SB/td1/s1.jsonl"          # 10:00~10:15 구간을 덮는다
+mktr "$SB/cfg10/projects/$ENC_W/s2.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:16:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY-E"}}
+{"type":"system","subtype":"turn_duration","timestamp":"2026-10-01T10:26:00.000Z","durationMs":600000}
+{"type":"user","timestamp":"2026-10-01T10:30:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY-F"}}
+EOF
+mktr "$SB/cfg10/projects/$ENC_W/sub/subagents/agent-w.jsonl" <<'EOF'
+{"type":"system","subtype":"turn_duration","timestamp":"2026-10-01T10:20:00.000Z","durationMs":120000}
+EOF
+r10() { OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfg10" SPECOPS_ROOT="$R10/.specops" "$BASH_BIN" "$ST" "$@" 2>"$SB/err"); RC=$?; ERR=$(cat "$SB/err"); }
+r10 --split
+ck "T10.a 자동 탐지가 저장소+worktree 두 디렉토리를 읽는다 → 머리에 '2개 읽음' · 두 세션의 구간이 모두 분류(worktree 쪽 작업 10 · 사람 4 — 기타는 이벤트 없는 1분뿐)" "$RC|$(cnt 'transcript 디렉토리 2개 읽음')|$(row '/plan 완료')|$(row '/tasks 완료')" "0|1|15 5 3 4 3|15 10 4 0 1"
+r10 --split --transcript-dir "$SB/cfg10/projects/$ENC_A" --transcript-dir "$SB/cfg10/projects/$ENC_W"
+ck "T10.b --transcript-dir 반복 지정 → 합집합(2개 읽음) · 같은 결과" "$RC|$(cnt 'transcript 디렉토리 2개 읽음')|$(row '/tasks 완료')" "0|1|15 10 4 0 1"
+r10 --split --transcript-dir "$SB/cfg10/projects/$ENC_A"
+ck "T10.c 단일 지정은 종전과 같다 — 그 디렉토리만(1개 읽음) · worktree 세션 구간은 기타" "$RC|$(cnt 'transcript 디렉토리 1개 읽음')|$(row '/tasks 완료')" "0|1|15 0 0 0 15"
+r10 --split --transcript-dir "$SB/cfg10/projects/$ENC_A" --transcript-dir "$SB/없는디렉토리"
+ck "T10.d 반복 지정 중 하나라도 없으면 종전 오류(rc=2 · 디렉토리가 아닙니다)" "$RC|$(printf '%s' "$ERR" | grep -c '디렉토리가 아닙니다')" "2|1"
+r10 --by-agent
+ck "T10.e --by-agent 도 두 디렉토리의 subagents/ 를 읽는다(worktree 쪽 에이전트 2분 집계)" "$RC|$(printf '%s\n' "$OUT" | grep -c '서브에이전트 1개')" "0|1"
+mkdir -p "$SB/r10-wt/.specops" && cp "$SB/r10x/session-progress.md" "$SB/r10-wt/.specops/session-progress.md"
+OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfg10" SPECOPS_ROOT="$SB/r10-wt/.specops" "$BASH_BIN" "$ST" --split 2>"$SB/err"); RC=$?
+ck "T10.g 루트가 worktree 목록에 다시 나와도(후보 3개 중 중복 2) 중복 없이 2개" "$RC|$(cnt 'transcript 디렉토리 2개 읽음')" "0|1"
+mv "$SB/cfg10/projects/$ENC_W" "$SB/cfg10/gone-w"; r10 --split   # 삭제 대신 옮긴다(픽스처 보존 · 위험 판정기의 destructive_fs 낱말 회피가 아니라 실제로 지우지 않는다)
+ck "T10.f worktree 의 인코딩 디렉토리가 없으면 '대응 디렉토리 없는 worktree 1개' 를 적고 나머지는 읽는다" "$RC|$(cnt 'transcript 디렉토리 1개 읽음')|$(cnt '대응 디렉토리 없는 worktree 1개')" "0|1|1"
+# T10.h 저장소 경로에 글롭 문자(repo[ab])가 있고 형제 repoa·repob 가 있어도 루트가 후보에서 사라지지 않는다
+mkdir -p "$SB/g/repo[ab]/.specops" "$SB/g/repoa" "$SB/g/repob"
+cp "$SB/r10x/session-progress.md" "$SB/g/repo[ab]/.specops/session-progress.md"
+ENC_G=$(cd "$SB/g/repo[ab]" && pwd -P | sed 's/[^A-Za-z0-9]/-/g')
+mktr "$SB/cfgG/projects/$ENC_G/s1.jsonl" < "$SB/td1/s1.jsonl"
+OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfgG" SPECOPS_ROOT="$SB/g/repo[ab]/.specops" "$BASH_BIN" "$ST" --split 2>"$SB/err"); RC=$?
+ck "T10.h 경로의 글롭 문자가 후보 분할에서 해석되지 않는다 → 1개 읽음 · 없는 worktree 0개" "$RC|$(cnt 'transcript 디렉토리 1개 읽음')|$(cnt '대응 디렉토리 없는 worktree 0개')" "0|1|1"
+# T10.i 루트 디렉토리만 없고 worktree 디렉토리는 있을 때 — 루트가 목록에 두 번 나와도 없는 쪽은 1개로 센다
+mktr "$SB/cfgI/projects/$ENC_W/s2.jsonl" < "$SB/cfg10/gone-w/s2.jsonl"
+OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfgI" SPECOPS_ROOT="$R10/.specops" "$BASH_BIN" "$ST" --split 2>"$SB/err"); RC=$?
+ck "T10.i 후보를 실경로로 먼저 중복 제거한 뒤 센다 → 1개 읽음 · 없는 worktree 1개" "$RC|$(cnt 'transcript 디렉토리 1개 읽음')|$(cnt '대응 디렉토리 없는 worktree 1개')" "0|1|1"
+
 # ══ AC-7: 읽기 전용 · 정적 규약 · 성능 ══
 BEFORE="$(cksum < "$SB/l3a/session-progress.md")|$(cat "$SB/td1/s1.jsonl" | cksum)|$(ls -A "$SB/tmp" | wc -l | tr -d ' ')"
 runs l3a --split --transcript-dir "$SB/td1"

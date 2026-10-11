@@ -20,7 +20,7 @@ export LC_ALL=C
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 LEDGER="$SPECOPS/session-progress.md"
 SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-SINCE=0; CAP=720; MINN=1; SPLIT=0; BYAGENT=0; TDIR=""
+SINCE=0; CAP=720; MINN=1; SPLIT=0; BYAGENT=0; TDIR=""; TDIRS=(); TDIR_MISS=0
 
 die() { echo "stage-timing: $1" >&2; exit 2; }
 need_val() { [ "$#" -ge 2 ] && [ -n "${2:-}" ] || die "$1 값 필요"; }
@@ -41,15 +41,16 @@ while [ "$#" -gt 0 ]; do
       MINN="$2"; shift 2 ;;
     --split) SPLIT=1; shift ;;
     --by-agent) BYAGENT=1; SPLIT=1; shift ;;
-    --transcript-dir) need_val "$@"; TDIR="$2"; shift 2 ;;
+    --transcript-dir) need_val "$@"; TDIRS+=("$2"); shift 2 ;;
     *) die "알 수 없는 옵션: $1" ;;
   esac
 done
 
 { [ -f "$LEDGER" ] && [ -r "$LEDGER" ]; } || die "원장 없음 또는 읽기 불가: $LEDGER"
-if [ -n "$TDIR" ]; then
+if [ "${#TDIRS[@]}" -gt 0 ]; then
   [ "$SPLIT" = 1 ] || die "--transcript-dir 는 --split 과 함께만 쓸 수 있습니다"
-  [ -d "$TDIR" ] || die "--transcript-dir 가 디렉토리가 아닙니다: $TDIR"
+  for TDIR in "${TDIRS[@]}"; do [ -d "$TDIR" ] || die "--transcript-dir 가 디렉토리가 아닙니다: $TDIR"; done
+  TDIR="${TDIRS[0]}"
 fi
 
 # --split 준비: 측정 불가 사유가 있으면 기존 표만 내고 끝에 사실 한 줄을 붙인다(오류 아님).
@@ -58,23 +59,51 @@ if [ "$SPLIT" = 1 ]; then
   if ! command -v jq >/dev/null 2>&1; then
     SPLIT_NA="jq 없음"
   else
-    if [ -z "$TDIR" ]; then
+    if [ "${#TDIRS[@]}" -eq 0 ]; then
       # Claude Code 는 작업 디렉토리의 실경로에서 영숫자 아닌 글자를 '-' 로 바꾼 이름으로 세션을 모은다.
       #   ASCII 경로는 실제 이름과 대조했다. 비ASCII 는 바이트 단위(LC_ALL=C)와 문자 단위(UTF-8 로케일)가 갈려 둘 다 시도한다 — 규칙은 미검증.
-      #   worktree 등 다른 작업 디렉토리의 세션은 다른 projects 디렉토리에 있다(한계 — --transcript-dir 로 지정).
+      #   링크 worktree 의 세션은 worktree 경로로 인코딩된 다른 디렉토리에 있다 — 같은 저장소의 worktree 전부를
+      #   합집합으로 읽는다(20261011: 이 저장소 10월 집계에서 기타 2325분 중 2323분이 "범위 밖"이었다 — 한 디렉토리만 읽어서).
       PROJ_ROOT="${CLAUDE_CONFIG_DIR:-${HOME:-}/.claude}/projects"
       ROOT_DIR=$(cd "$(dirname "$SPECOPS")" 2>/dev/null && pwd -P) || ROOT_DIR=""
       if [ -z "$ROOT_DIR" ]; then
         SPLIT_NA="원장 루트 경로를 해석할 수 없음 — --transcript-dir 로 지정하세요"
       else
-        ENC_B=$(printf '%s' "$ROOT_DIR" | sed 's/[^A-Za-z0-9]/-/g'); ENC_C=""
+        UTF8LOC=""
         for LOC in C.UTF-8 en_US.UTF-8; do
-          if [ "$(LC_ALL=$LOC locale charmap 2>/dev/null)" = "UTF-8" ]; then ENC_C=$(printf '%s' "$ROOT_DIR" | LC_ALL=$LOC sed 's/[^A-Za-z0-9]/-/g'); break; fi
+          if [ "$(LC_ALL=$LOC locale charmap 2>/dev/null)" = "UTF-8" ]; then UTF8LOC=$LOC; break; fi
         done
-        if [ -d "$PROJ_ROOT/$ENC_B" ]; then TDIR="$PROJ_ROOT/$ENC_B"
-        elif [ -n "$ENC_C" ] && [ -d "$PROJ_ROOT/$ENC_C" ]; then TDIR="$PROJ_ROOT/$ENC_C"
+        # 후보 경로: 루트 + git worktree 목록(절대경로). git 부재·저장소 아님이면 루트 하나.
+        CANDS=$(printf '%s\n' "$ROOT_DIR"; git -C "$ROOT_DIR" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
+        ENC_B=$(printf '%s' "$ROOT_DIR" | sed 's/[^A-Za-z0-9]/-/g')
+        SEEN="
+"
+        OLD_IFS=$IFS; IFS='
+'
+        set -f   # 경로의 글롭 문자(repo[ab] 등)를 해석하지 않는다
+        for CAND in $CANDS; do
+          [ -n "$CAND" ] || continue
+          CP=$(cd "$CAND" 2>/dev/null && pwd -P) || continue
+          case "$SEEN" in *"
+$CP
+"*) continue ;; esac   # 같은 실경로(루트가 worktree 목록에 다시 나옴)는 한 번만 센다
+          SEEN="$SEEN$CP
+"
+          EB=$(printf '%s' "$CP" | sed 's/[^A-Za-z0-9]/-/g'); EC=""
+          [ -n "$UTF8LOC" ] && EC=$(printf '%s' "$CP" | LC_ALL=$UTF8LOC sed 's/[^A-Za-z0-9]/-/g')
+          if [ -d "$PROJ_ROOT/$EB" ]; then HIT="$PROJ_ROOT/$EB"
+          elif [ -n "$EC" ] && [ -d "$PROJ_ROOT/$EC" ]; then HIT="$PROJ_ROOT/$EC"
+          else TDIR_MISS=$((TDIR_MISS + 1)); continue; fi
+          DUP=0; for X in "${TDIRS[@]:-}"; do [ "$X" = "$HIT" ] && DUP=1; done   # IFS 가 개행이라 ${TDIRS[*]} 문자열 대조는 쓸 수 없다
+          [ "$DUP" = 1 ] || TDIRS+=("$HIT")
+        done
+        set +f; IFS=$OLD_IFS
+        if [ "${#TDIRS[@]}" -gt 0 ]; then TDIR="${TDIRS[0]}"
         else TDIR="$PROJ_ROOT/$ENC_B"; SPLIT_NA="transcript 디렉토리 없음: $TDIR — --transcript-dir 로 지정하세요"; fi
       fi
+      TDIR_NOTE="transcript 디렉토리 ${#TDIRS[@]}개 읽음: $(for d in "${TDIRS[@]:-}"; do [ -n "$d" ] && basename "$d"; done | paste -sd' ' -) · 대응 디렉토리 없는 worktree ${TDIR_MISS}개"
+    else
+      TDIR_NOTE="transcript 디렉토리 ${#TDIRS[@]}개 읽음"
     fi
     if [ -z "$SPLIT_NA" ]; then
       # 원장 최초 행 날짜 이후에 수정된 세션만 읽는다(그 전에 끝난 세션은 구간과 겹칠 수 없다).
@@ -82,7 +111,7 @@ if [ "$SPLIT" = 1 ]; then
       if [ -z "$MINDATE" ]; then
         SPLIT_NA="원장에 시각이 있는 행이 없음"
       else
-        FILES_RAW=$(find "$TDIR" -maxdepth 1 -type f -name '*.jsonl' -newermt "$MINDATE" 2>/dev/null | sort)
+        FILES_RAW=$(find "${TDIRS[@]}" -maxdepth 1 -type f -name '*.jsonl' -newermt "$MINDATE" 2>/dev/null | sort -u)
         if [ -n "$FILES_RAW" ]; then   # 줄 단위 분할로 배열을 채운다(경로의 공백 보존 · 글롭 해석 금지 · 행 단위 read 루프 없음)
           OLD_IFS=$IFS; IFS='
 '
@@ -138,7 +167,7 @@ if [ "$BYAGENT" = 1 ]; then
   else
     AG_NEWER=$MINDATE   # 파일 선별: --since 가 더 늦으면 그 날짜 이상으로(그 전에 끝난 파일에는 기준일 이후 시작한 에이전트가 있을 수 없다)
     if [ "$SINCE" != 0 ]; then AG_SD="${SINCE:0:4}-${SINCE:4:2}-${SINCE:6:2}"; if [[ "$AG_SD" > "$MINDATE" ]]; then AG_NEWER=$AG_SD; fi; fi
-    AG_RAW=$(find "$TDIR" -mindepth 3 -maxdepth 3 -type f -name 'agent-*.jsonl' -path '*/subagents/*' -newermt "$AG_NEWER" 2>/dev/null | sort)
+    AG_RAW=$(find "${TDIRS[@]}" -mindepth 3 -maxdepth 3 -type f -name 'agent-*.jsonl' -path '*/subagents/*' -newermt "$AG_NEWER" 2>/dev/null | sort -u)
     if [ -n "$AG_RAW" ]; then   # 줄 단위 분할(경로의 공백 보존 · 글롭 해석 금지)
       OLD_IFS=$IFS; IFS='
 '
@@ -195,7 +224,7 @@ function dn(y, m, d,   yy, mm) {
 }
 END { printf "\t%d\n", bad + 0 }' "$LEDGER" \
 | sort -t "$TAB" -k1,1 -k2,2n -k3,3nr \
-| STAGE_TIMING_LEDGER="$LEDGER" STAGE_TIMING_CAP="$CAP" STAGE_TIMING_SEGFILE="$SEGTMP" STAGE_TIMING_BGFILE="$BGTMP" awk -v since="$SINCE" -v cap="$CAP" -v minn="$MINN" -v seg_ok="$SEG_OK" '
+| STAGE_TIMING_LEDGER="$LEDGER" STAGE_TIMING_CAP="$CAP" STAGE_TIMING_TDIRNOTE="${TDIR_NOTE:-}" STAGE_TIMING_SEGFILE="$SEGTMP" STAGE_TIMING_BGFILE="$BGTMP" awk -v since="$SINCE" -v cap="$CAP" -v minn="$MINN" -v seg_ok="$SEG_OK" '
 # 표시용 원장 경로·방치 상한은 ENVIRON 으로 받아 원문 그대로 쓴다 — awk -v 는 역슬래시 이스케이프를 해석하고,
 # 거대 정수는 awk 구현마다 %d 표기가 갈린다. 비교용 숫자(cap·since·minn)는 -v 로 받는다.
 function dn(y, m, d,   yy, mm) {
@@ -302,6 +331,7 @@ END {
   if (seg_ok == 1) {
     printf "분리: 작업 = 에이전트 턴 진행 시간(모델 추론 + 도구 실행 포함) · 턴 안의 권한 승인·질문 응답 대기도 섞여 있을 수 있음 · 사람 = 턴 종료 뒤 사람 프롬프트까지 · 백그라운드 = 턴 종료 뒤 알림(서브에이전트 등)이 재개할 때까지\n"
     printf "      기타 = 나머지(미분류 포함) · 게이트(질문) 구분 없음 · 동시 세션 이중 계상 가능(같은 세션 누적 turn_duration 은 직전 턴 끝·직전 트리거로 잘라냄) · transcript 본문은 읽지 않음(구조 필드만) · 구간 경계 ±1분 · 행 끝 [겹침 N] = 겹친 구간이 있어 열 합이 합계와 다를 수 있음\n"
+    if (ENVIRON["STAGE_TIMING_TDIRNOTE"] != "") printf "      %s\n", ENVIRON["STAGE_TIMING_TDIRNOTE"]
   }
   printf "원장: %s · FID %d개 · 구간 %d건(통계 %d · 방치 제외 %d) · 방치 상한 %s분 · since %s\n\n", ENVIRON["STAGE_TIMING_LEDGER"], fidn + 0, cnt + gapn, cnt + 0, gapn + 0, ENVIRON["STAGE_TIMING_CAP"], (since + 0 > 0 ? since : "없음")
   if (cnt == 0) {

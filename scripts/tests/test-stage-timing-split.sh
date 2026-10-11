@@ -411,6 +411,17 @@ OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfg10" SPECOPS_ROOT="$SB/r1
 ck "T10.g 루트가 worktree 목록에 다시 나와도(후보 3개 중 중복 2) 중복 없이 2개" "$RC|$(cnt 'transcript 디렉토리 2개 읽음')" "0|1"
 mv "$SB/cfg10/projects/$ENC_W" "$SB/cfg10/gone-w"; r10 --split   # 삭제 대신 옮긴다(픽스처 보존 · 위험 판정기의 destructive_fs 낱말 회피가 아니라 실제로 지우지 않는다)
 ck "T10.f worktree 의 인코딩 디렉토리가 없으면 '대응 디렉토리 없는 worktree 1개' 를 적고 나머지는 읽는다" "$RC|$(cnt 'transcript 디렉토리 1개 읽음')|$(cnt '대응 디렉토리 없는 worktree 1개')" "0|1|1"
+# T10.h 저장소 경로에 글롭 문자(repo[ab])가 있고 형제 repoa·repob 가 있어도 루트가 후보에서 사라지지 않는다
+mkdir -p "$SB/g/repo[ab]/.specops" "$SB/g/repoa" "$SB/g/repob"
+cp "$SB/r10x/session-progress.md" "$SB/g/repo[ab]/.specops/session-progress.md"
+ENC_G=$(cd "$SB/g/repo[ab]" && pwd -P | sed 's/[^A-Za-z0-9]/-/g')
+mktr "$SB/cfgG/projects/$ENC_G/s1.jsonl" < "$SB/td1/s1.jsonl"
+OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfgG" SPECOPS_ROOT="$SB/g/repo[ab]/.specops" "$BASH_BIN" "$ST" --split 2>"$SB/err"); RC=$?
+ck "T10.h 경로의 글롭 문자가 후보 분할에서 해석되지 않는다 → 1개 읽음 · 없는 worktree 0개" "$RC|$(cnt 'transcript 디렉토리 1개 읽음')|$(cnt '대응 디렉토리 없는 worktree 0개')" "0|1|1"
+# T10.i 루트 디렉토리만 없고 worktree 디렉토리는 있을 때 — 루트가 목록에 두 번 나와도 없는 쪽은 1개로 센다
+mktr "$SB/cfgI/projects/$ENC_W/s2.jsonl" < "$SB/cfg10/gone-w/s2.jsonl"
+OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfgI" SPECOPS_ROOT="$R10/.specops" "$BASH_BIN" "$ST" --split 2>"$SB/err"); RC=$?
+ck "T10.i 후보를 실경로로 먼저 중복 제거한 뒤 센다 → 1개 읽음 · 없는 worktree 1개" "$RC|$(cnt 'transcript 디렉토리 1개 읽음')|$(cnt '대응 디렉토리 없는 worktree 1개')" "0|1|1"
 
 # ══ AC-7: 읽기 전용 · 정적 규약 · 성능 ══
 BEFORE="$(cksum < "$SB/l3a/session-progress.md")|$(cat "$SB/td1/s1.jsonl" | cksum)|$(ls -A "$SB/tmp" | wc -l | tr -d ' ')"

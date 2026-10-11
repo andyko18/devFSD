@@ -76,11 +76,19 @@ if [ "$SPLIT" = 1 ]; then
         # 후보 경로: 루트 + git worktree 목록(절대경로). git 부재·저장소 아님이면 루트 하나.
         CANDS=$(printf '%s\n' "$ROOT_DIR"; git -C "$ROOT_DIR" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')
         ENC_B=$(printf '%s' "$ROOT_DIR" | sed 's/[^A-Za-z0-9]/-/g')
+        SEEN="
+"
         OLD_IFS=$IFS; IFS='
 '
+        set -f   # 경로의 글롭 문자(repo[ab] 등)를 해석하지 않는다
         for CAND in $CANDS; do
           [ -n "$CAND" ] || continue
           CP=$(cd "$CAND" 2>/dev/null && pwd -P) || continue
+          case "$SEEN" in *"
+$CP
+"*) continue ;; esac   # 같은 실경로(루트가 worktree 목록에 다시 나옴)는 한 번만 센다
+          SEEN="$SEEN$CP
+"
           EB=$(printf '%s' "$CP" | sed 's/[^A-Za-z0-9]/-/g'); EC=""
           [ -n "$UTF8LOC" ] && EC=$(printf '%s' "$CP" | LC_ALL=$UTF8LOC sed 's/[^A-Za-z0-9]/-/g')
           if [ -d "$PROJ_ROOT/$EB" ]; then HIT="$PROJ_ROOT/$EB"
@@ -89,7 +97,7 @@ if [ "$SPLIT" = 1 ]; then
           DUP=0; for X in "${TDIRS[@]:-}"; do [ "$X" = "$HIT" ] && DUP=1; done   # IFS 가 개행이라 ${TDIRS[*]} 문자열 대조는 쓸 수 없다
           [ "$DUP" = 1 ] || TDIRS+=("$HIT")
         done
-        IFS=$OLD_IFS
+        set +f; IFS=$OLD_IFS
         if [ "${#TDIRS[@]}" -gt 0 ]; then TDIR="${TDIRS[0]}"
         else TDIR="$PROJ_ROOT/$ENC_B"; SPLIT_NA="transcript 디렉토리 없음: $TDIR — --transcript-dir 로 지정하세요"; fi
       fi

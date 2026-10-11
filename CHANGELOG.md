@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.20.2] — 2026-10-12
+
 ### Docs
 
 - **릴리즈 주기 규칙을 적었다** (README `### 릴리즈 주기` · CLAUDE.md `## 테스트 명령`). 릴리즈 대상은 행동 변경뿐이고 주 1회 상한으로 묶어 발행한다 — 테스트·문서만의 PR 은 `[Unreleased]` 에 둔다. 근거: 2026-10-01~11 에 22회 발행해 플러그인 캐시에 버전 18개가 쌓이고 하류 프로젝트가 제각각의 버전에 고정됐다. 절차(`release.sh`)는 그대로다.
@@ -3224,7 +3226,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.20.1...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.20.2...HEAD
+[2.20.2]: https://github.com/andyko18/specops-ko/compare/v2.20.1...v2.20.2
 [2.20.1]: https://github.com/andyko18/specops-ko/compare/v2.20.0...v2.20.1
 [2.20.0]: https://github.com/andyko18/specops-ko/compare/v2.19.0...v2.20.0
 [2.19.0]: https://github.com/andyko18/specops-ko/compare/v2.18.0...v2.19.0

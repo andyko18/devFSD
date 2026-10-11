@@ -3,6 +3,7 @@
 # 잠그는 계약: ① 그림(구성도·ERD·프로세스 흐름)이 실제로 그려진다 ② 외부 리소스 0 ③ 원문 HTML 은 이스케이프된다
 #   ④ 미확정·가정·추적표·미연결 요구가 집계된다 ⑤ --check 가 원본 변경을 낡음으로 판정한다 ⑥ 문서 없음은 rc 2
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

@@ -8,6 +8,7 @@
 #     강제하는 층이 0곳이었다(실측: 7개 AC 픽스처 중 6개가 우선순위 0건).
 #   본 게이트가 그 스위치를 잠근다 — 게이트를 끄는 스위치의 무검증 노출 차단.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

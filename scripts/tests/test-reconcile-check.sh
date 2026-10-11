@@ -3,6 +3,7 @@
 # 배경: show-fid-status FR-6 reconcile 로직을 공유 스크립트로 추출 → show-fid-status·SessionStart 훅 공용.
 #   default 모드 = 기존 reconcile 블록(show-fid-status 위임, 출력 동일), --hook 모드 = DESYNC 시 간결 경고/정합 시 무출력.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 SCRIPT="$PLUGIN/scripts/_internal/reconcile-check.sh"

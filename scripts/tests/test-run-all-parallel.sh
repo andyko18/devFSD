@@ -5,6 +5,7 @@
 # ★ 동시성은 ps 로 보지 않는다 — Claude Code sandbox 의 ps 는 자식 프로세스조차 못 본다(실측).
 #   더미 스위트가 공용 로그에 남기는 시작·종료 시각(ms)과 heartbeat 줄 수로 관측한다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }

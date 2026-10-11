@@ -3,6 +3,7 @@
 # 왜 필요한가: 면제 판정(_files_all_docs)과 무효화 판정(지문·편집이벤트)이 같은 기준을 써야 한다.
 #   두 벌이 되면 문서 한 줄이 커밋을 막는 결함이 재발한다(20260912 실측: 문서 4종 STALE 오탐).
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

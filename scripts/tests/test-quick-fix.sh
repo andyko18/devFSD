@@ -5,6 +5,7 @@
 #   실사용 0건이라 드러나지 않았을 뿐인 통로다. 그 통로를 quick 경로로 정식화하면서 범위·리뷰를 커밋 시점에 강제한다.
 #   판정은 판정기 한 곳(quick-scope.sh)이 하고, 훅이 부르는 영수증 검사기와 봉인 스크립트가 같이 쓴다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }

@@ -2,6 +2,7 @@
 # DESIGN.md 템플릿·소비측 배선 계약 + 외부 디자인 플러그인 재유입 금지 — FID 20260928-uiux-promax-removal-design-master
 #   이관 원본: test-uiux-assets.sh(삭제). 그 스위트에 promax 무관 가드가 섞여 있어 통째 삭제하면 조용히 사라졌다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 # 상속된 GIT_* 가 N 절의 git grep·ls-files 를 다른 repo/빈 인덱스로 돌려 위반이 45/0 으로 위장됐다(Phase C 2회차 ④a~④d 실측) — doc-lock 선례(a24e039)와 동형
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE

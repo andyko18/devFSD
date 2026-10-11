@@ -2,6 +2,7 @@
 # run-all: serial — T2.g 가 1000건 recall 을 < 2000ms 로 잰다(CPU 경합 시 초과)
 # scripts/gbrain-recall.sh 검증 — GBRAIN_FILE 격리 fixture
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 SCRIPT="$PLUGIN/scripts/gbrain-recall.sh"

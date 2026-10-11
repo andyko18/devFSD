@@ -3,6 +3,7 @@
 # FID: 20260709-init-project-llm-enrich · AC-1~AC-6 + FR-8
 # 계약: 지시문 "존재" 검증 (품질은 e2e V21 placeholder 스캔 + 수동 리뷰 담당)
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 CMD="$PLUGIN/commands/init-project.md"
 BM_SKILL="$PLUGIN/skills/brainstorming-ko/SKILL.md"

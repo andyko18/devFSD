@@ -2,6 +2,7 @@
 # test-screen-placeholder.sh — 화면 껍데기 마커 판정 헬퍼 검증 (FID 20260722-screen-design-quality)
 # AC-1(껍데기 판정) · AC-2(정상 무해 통과) · AC-11(bash 3.2) · AC-12(마커 단일출처) · AC-13(함수 배치)
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

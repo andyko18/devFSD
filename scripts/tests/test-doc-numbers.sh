@@ -6,6 +6,7 @@
 #   printf 로 조립한다. 리터럴을 두면 tracked 되는 순간 자기 스캔에 걸려
 #   검사가 자기 자신 때문에 FAIL 한다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 # ★★ 훅 환경 격리 — 반드시 sandbox git 호출보다 앞에 온다.
 #   git 은 pre-push 훅에 GIT_DIR 를 export 하고 run-all 은 그 훅에서 돈다. 떼지 않으면
 #   아래 sandbox 의 `git init`·`git add -A` 가 **실 저장소 인덱스**에 기록해 실 트리 파일

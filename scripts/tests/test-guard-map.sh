@@ -7,6 +7,7 @@
 # 시각·세션 독립: 이 스위트는 시각·CLAUDE_CODE_SESSION_ID·실 ~/.claude 를 읽지 않는다(T6 이 date shim·세션 변수로 실증).
 #   SPECOPS_GM_REAL_ROOT 는 T7 스모크 대상 root 를 바꾼다(변이 하네스가 사본 트리에서 돌릴 때 쓴다 — 기본은 이 스위트가 속한 repo).
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 GM="$PLUGIN/scripts/guard-map.sh"

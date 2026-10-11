@@ -2,6 +2,7 @@
 # test-screen-generation-gate.sh — 화면 생성 지시 2경로의 껍데기 판정 앵커 검증
 # AC-3(Phase 2.5 재사용 판정) · AC-4(Step 5.5 판정 + 채움 요건) · AC-12 ③(마커 제거 명시)
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

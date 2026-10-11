@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # test-session-progress-backup — AC-1~3 검증 (백업·직전상태·복원·template fallback·비차단·무손상)
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 APPEND="$PLUGIN/scripts/session-progress-append.sh"

@@ -2,6 +2,7 @@
 # DoD 바닥선 + 기준 약화 탐지 정적 잠금 — fixture 전용(실제 .specops·~/.claude 를 읽지 않는다)
 # 한계: 프롬프트·템플릿 문구의 존재·위치·불변식만 잠근다. 모델이 그 규칙을 실제로 따르는지는 잠글 수 없다(수동 llm-eval 몫).
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 AG="$PLUGIN/agents/code-reviewer-ko.md"

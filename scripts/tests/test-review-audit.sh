@@ -11,6 +11,7 @@
 #   자기보고라 파일 대조로 판별 불가 — transcript join 은 context-resets-ko 의
 #   implement↔verify 리셋 경계 때문에 fail-open 이라 실효가 낮다 (#120 자기보고 구조적 한계).
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd .. && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

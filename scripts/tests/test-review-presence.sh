@@ -10,6 +10,7 @@
 #   presence 를 즉시 하드 차단하면 본 repo 기존 FID 20건 중 **7건(35%)이 소급 FAIL** 한다(실측).
 #   그래서 1단계는 **관측만** — friction-log 에 남기고 chain 은 통과시킨다. 빈도를 본 뒤 전환 판단.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"

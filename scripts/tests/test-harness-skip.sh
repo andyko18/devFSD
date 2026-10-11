@@ -3,6 +3,7 @@
 # 왜: 환경 조건부 skip 이 ok() 로 계상돼 15 어서션이 가짜 PASS 1개로 붕괴해도 안 보였다.
 # SKIP=0 일 때 finish 출력이 종전과 바이트 동일해야 한다 — 여러 스위트가 이 형식을 tail 로 읽는다.
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }

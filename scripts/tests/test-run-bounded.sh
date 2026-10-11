@@ -10,6 +10,7 @@
 #   현재 배선은 로컬 룰셋 + 그 차단이라 이 경로를 타지 않는다. 이 스위트의 대상은 semgrep 이
 #   아니라 **상한·자손 정리 계약**이므로 검증 가치는 그대로다(다른 스캐너·미래 도구에 유효).
 set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }

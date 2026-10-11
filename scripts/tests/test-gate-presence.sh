@@ -462,7 +462,7 @@ fi
 _cm_bytes=$(wc -c < "$PLUGIN/CLAUDE.md" | tr -d ' ')
 _gh_secs=$(grep -c -E '^## [1-7]\. ' "$PLUGIN/docs/governance-history.md" 2>/dev/null || echo 0)
 if [ "$_cm_bytes" -le 29000 ] && [ "$_gh_secs" -eq 7 ]; then
-  ok "T-diet CLAUDE.md ${_cm_bytes}B ≤ 22000 · docs/governance-history.md 절 7개"
+  ok "T-diet CLAUDE.md ${_cm_bytes}B ≤ 29000 · docs/governance-history.md 절 7개"
 else
   nope "T-diet" "CLAUDE.md ${_cm_bytes}B (상한 29000) · governance-history 절 ${_gh_secs}/7 — 이력·근거는 docs 로"
 fi

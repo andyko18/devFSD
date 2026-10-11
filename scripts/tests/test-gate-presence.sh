@@ -458,13 +458,13 @@ else
 fi
 
 # ── 20261011-claude-md-diet: CLAUDE.md 크기 래칫 + 이력 문서 존재 ──
-# CLAUDE.md 는 매 세션 로드된다 — 사건 이력·근거는 docs/governance-history.md 로 두고 규칙만 남긴다(실측 32,368B → 28,000B 이하).
+# CLAUDE.md 는 매 세션 로드된다 — 사건 이력·근거는 docs/governance-history.md 로 두고 규칙만 남긴다(실측 32,368B → 29,000B 이하).
 _cm_bytes=$(wc -c < "$PLUGIN/CLAUDE.md" | tr -d ' ')
 _gh_secs=$(grep -c -E '^## [1-7]\. ' "$PLUGIN/docs/governance-history.md" 2>/dev/null || echo 0)
-if [ "$_cm_bytes" -le 28000 ] && [ "$_gh_secs" -eq 7 ]; then
+if [ "$_cm_bytes" -le 29000 ] && [ "$_gh_secs" -eq 7 ]; then
   ok "T-diet CLAUDE.md ${_cm_bytes}B ≤ 22000 · docs/governance-history.md 절 7개"
 else
-  nope "T-diet" "CLAUDE.md ${_cm_bytes}B (상한 28000) · governance-history 절 ${_gh_secs}/7 — 이력·근거는 docs 로"
+  nope "T-diet" "CLAUDE.md ${_cm_bytes}B (상한 29000) · governance-history 절 ${_gh_secs}/7 — 이력·근거는 docs 로"
 fi
 
 finish

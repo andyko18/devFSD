@@ -10,6 +10,10 @@
 - **README 히어로 배너를 단계별 색 구분 시안으로 바꿨다.** 상단 색 띠와 단계 묶음별 칩 색 막대를 더하고, HARD GATE 칩의 테두리를 2px 에서 3px 로 굵히고 glow 를 더했다. 배너의 글자(제품명·태그라인·단계 이름·범례)는 그대로다. 색 묶음은 장식이다 — 새 설명 문구나 수치는 없다.
 - **README 에서 `### 상류 프로젝트` 소절을 삭제했다.** 상류 프로젝트 표와 "원본 코드를 복사(vendoring)하지 않았다" 인용문이 README 에서 빠지고, 남은 절의 헤딩을 `## 라이선스` 로 바꿨다. 상류 출처 기록은 각 파일의 `reference_upstream` frontmatter 와 `docs/upstream-drift-log.md` 에 남는다. 단 ponytail 번안분은 이 두 곳에 없고 `agents/code-reviewer-ko.md`·`scripts/_internal/scan-shortcuts.sh` 본문과 이 문서의 과거 항목에 남는다. 코드·동작 변경은 없다.
 
+### Fixed
+
+- **`security-scan.sh` 가 문서 파일을 인자로 받을 때 서술문 속 `eval(`·`exec(` 낱말을 위험함수로 잡던 오탐을 없앴다.** `CHANGELOG.md`·`agents/code-reviewer-ko.md`·`scripts/README.md` 를 파일 인자로 주면 `high=1` 이 나 `security-review-ko` 의 변경 파일 목록 스캔이 막혔다(디렉토리 스캔은 영향 없음). 문서 확장자(`.md`·`.markdown`·`.txt`·`.rst`·`.adoc`, 대소문자 무시)에서만 위험함수·SQL 룰을 끈다. 문서의 secret 과 `.py`·`.html`·확장자 없는 스크립트의 위험함수 탐지는 그대로다. `test-security-scan.sh` 에 문서 무오탐과 양성 대조군 케이스를 더했다.
+
 ### Tests/CI
 
 - **README 대문 불변식 스위트 `test-readme-frontdoor.sh` 를 더했다.** 히어로·배지·카드·정직한 박스가 `## 설치` 앞에 있는지, 정적 버전 배지가 없는지, 히어로 SVG 가 well-formed 이고 외부 참조가 없는지, README·`docs/adoption-notes.md` 의 로컬 링크가 해석되는지, 이동한 9절이 있는지를 본다. 사본 트리에 위반을 하나씩 넣어 각 검사가 실제로 실패하는지도 확인한다.

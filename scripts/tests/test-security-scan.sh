@@ -278,6 +278,57 @@ else
   skip "AC-4-sglink semgrep 미설치 — 실 심볼릭 링크 인자 스캔 미실행 (PASS 집계 제외)"
 fi
 
+# ── 문서 확장자 파일 인자 (FID 20261012-security-scan-md-fp) ─────────────────
+# 서술문 속 위험함수 낱말은 코드가 아니다. 파일 인자일 때만 high 가 나던 비대칭(디렉토리 분기는 코드 확장자만 순회)을 잠근다.
+# 해제 범위는 위험함수·SQL 룰뿐이다 — 문서의 secret 과 코드 파일·.html·확장자 없는 스크립트는 계속 잡혀야 한다(양성 대조군).
+T=$(mktemp -d)
+DOC_PROSE='이 함수에서 eval(x) 나 exec(y), os.system, el.innerHTML = z 를 쓰지 말라는 서술이다.'
+DOC_SQL='나쁜 예: f"SELECT * FROM t WHERE id={uid}" 같은 문자열 조립.'
+for ext in md markdown txt rst adoc MD; do
+  printf '%s\n%s\n' "$DOC_PROSE" "$DOC_SQL" > "$T/note.$ext"
+  o=$(bash "$SC" "$T/note.$ext" 2>&1); e=$?
+  { [ "$e" = 0 ] && printf '%s' "$o" | grep -q 'crit=0 high=0'; } \
+    && ok "DOC-1 .$ext 서술은 위험함수·SQL high 를 내지 않는다" || nope "DOC-1 .$ext" "o=$o e=$e"
+done
+# 계약: 문서 확장자면 shebang 이 있어도 문서다(확장자가 이긴다) — 문서 확장자 파일을 직접 실행하는 경로가 이 플러그인에 없다(spec §7).
+printf '#!/usr/bin/env python3\n%s\n%s\n' "$DOC_PROSE" "$DOC_SQL" > "$T/shebang.md"
+o=$(bash "$SC" "$T/shebang.md" 2>&1); e=$?
+{ [ "$e" = 0 ] && printf '%s' "$o" | grep -q 'crit=0 high=0'; } \
+  && ok "DOC-1b 문서 확장자는 shebang 이 있어도 문서다(확장자 우선 계약)" || nope "DOC-1b" "o=$o e=$e"
+printf '%s\n%s\n' "$DOC_PROSE" "$DOC_SQL" > "$T/code.py"
+printf '%s\n%s\n' "$DOC_PROSE" "$DOC_SQL" > "$T/page.html"
+printf '#!/usr/bin/env python3\n%s\n%s\n' "$DOC_PROSE" "$DOC_SQL" > "$T/script"
+# 경계 번짐 대조군 — 문서 확장자와 닮았지만 문서가 아닌 것: .mdx(JSX 를 담을 수 있다 — clarifications 결정) · .md.py(끝 확장자가 py)
+printf '%s\n%s\n' "$DOC_PROSE" "$DOC_SQL" > "$T/note.mdx"
+printf '%s\n%s\n' "$DOC_PROSE" "$DOC_SQL" > "$T/note.md.py"
+for f in code.py page.html script note.mdx note.md.py; do
+  o=$(bash "$SC" "$T/$f" 2>&1); e=$?
+  { [ "$e" = 1 ] && printf '%s' "$o" | grep -qE 'high=[1-9]'; } \
+    && ok "DOC-2 양성 대조군: 같은 문장이 $f 에서는 여전히 high" || nope "DOC-2 $f" "o=$o e=$e"
+done
+for f in note.md note.markdown; do
+  printf 'aws=%s\n' "AKIA""IOSFODNN7EXAMPLE" > "$T/sec.$f"
+  o=$(bash "$SC" "$T/sec.$f" 2>&1); e=$?
+  { [ "$e" = 1 ] && printf '%s' "$o" | grep -qE 'crit=[1-9]'; } \
+    && ok "DOC-3 문서 확장자(sec.$f)의 secret 은 여전히 crit" || nope "DOC-3 sec.$f" "o=$o e=$e"
+done
+oc=$(bash "$SC" "$T/code.py" 2>&1)
+o1=$(bash "$SC" "$T/note.md" "$T/code.py" 2>&1); e1=$?
+o2=$(bash "$SC" "$T/code.py" "$T/note.md" 2>&1); e2=$?
+hc=$(printf '%s' "$oc" | grep -oE 'high=[0-9]+' | head -1)
+{ [ "$e1" = 1 ] && [ "$e2" = 1 ] && [ -n "$hc" ] && [ "$hc" != "high=0" ] \
+  && [ "$(printf '%s' "$o1" | grep -oE 'high=[0-9]+' | head -1)" = "$hc" ] && [ "$(printf '%s' "$o2" | grep -oE 'high=[0-9]+' | head -1)" = "$hc" ]; } \
+  && ok "DOC-4 문서와 코드 파일을 함께 주면 순서 무관하게 차단되고 high 는 코드 파일 단독($hc)과 같다(문서 기여 0)" || nope "DOC-4" "e1=$e1 e2=$e2 hc=$hc o1=$o1 o2=$o2"
+# DOC-5: 외부 스캐너를 켠 채에도 문서 서술은 high 를 내지 않는다 (semgrep 룰은 bash 전용 — 설치된 환경에서만)
+if command -v semgrep >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then
+  o=$(SPECOPS_SAST_EXTERNAL=1 bash "$SC" "$T/note.md" "$T/note.rst" 2>&1); e=$?
+  { [ "$e" = 0 ] && printf '%s' "$o" | grep -q 'crit=0 high=0' && printf '%s' "$o" | grep -qF '(룰셋: 로컬 bash-injection)'; } \
+    && ok "DOC-5 외부 스캐너를 켠 채에도 문서 서술은 high 를 내지 않는다(룰셋 receipt 유지)" || nope "DOC-5" "o=$o e=$e"
+else
+  skip "DOC-5 semgrep·jq 미설치 — 외부 스캐너를 켠 문서 스캔 미실행 (PASS 집계 제외)"
+fi
+rm -rf "$T"
+
 # SKIP 을 요약에 드러낸다 — green 이 곧 전량 실행은 아니다(도구 부재로 축소 실행 가능).
 #   SKIP=0 이면 종전 출력과 바이트 동일하다.
 sk=""; [ "${SKIP:-0}" -gt 0 ] && sk=" SKIP=$SKIP"

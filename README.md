@@ -314,29 +314,9 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 
 ---
 
-## 라이선스 · 출처
+## 라이선스
 
 **MIT** — [LICENSE](LICENSE). `Copyright (c) 2026 andyko18`.
-
-### 상류 프로젝트
-
-이 플러그인의 **skill 구조와 여러 패턴은 아래 프로젝트에서 왔다**. 각 파일의 `reference_upstream`
-frontmatter 가 어디서 무엇을 가져왔는지 개별로 밝힌다(실측 54건).
-
-| 프로젝트 | 라이선스 | 이 repo 에서 |
-|---|---|---|
-| [obra/superpowers](https://github.com/obra/superpowers) | MIT | skill 계층·harness 구조의 원형 |
-| [obra/omc](https://github.com/obra/omc) | — | 릴리즈 패턴 일부 |
-| [revfactory/harness](https://github.com/revfactory/harness) | — | harness 패턴 4건 |
-| [forrestchang/andrej-karpathy-skills](https://github.com/forrestchang/andrej-karpathy-skills) | — | `karpathy-ko` 원형 |
-| [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) v4.13.0 | MIT | 최소 범위(YAGNI) rung 사다리(4 skill, v2.3.0) · 과잉 설계 리뷰 태그·`shortcut:` 부채 장부(`code-reviewer-ko`·`scan-shortcuts.sh`) · `/improve-arch --lean` 감사 |
-| [github/spec-kit](https://github.com/github/spec-kit) · garrytan/gstack · mattpocock · alirezarezvani/claude-skills | — | 패턴 번안·한국어 재창작 |
-
-> **원본 코드를 복사(vendoring)하지 않았다.** 전부 패턴 참조 · 번안 · 한국어 재창작이고,
-> `reference_upstream` 에 `specops-ko 독자 추가` 로 표시된 것(실측 30여 건)은 상류에 대응물이 없는
-> 자체 설계다. 상류 라이선스 확인 결과 지배적 출처(superpowers)가 MIT 라 본 repo 의 MIT 와 호환된다.
-> 표에서 라이선스를 `—` 로 둔 것은 **확인하지 않았다는 뜻**이다 — 해당 프로젝트 코드를 복사하지
-> 않았으므로 라이선스 의무가 발생하지 않는다고 판단했으나, 그 판단 자체는 검증되지 않았다.
 
 ---
 

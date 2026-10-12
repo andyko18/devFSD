@@ -8,6 +8,7 @@
 
 - **README 대문을 재구성했다.** 히어로 배너(`docs/assets/hero.svg`) · 동적 배지 · "왜 쓰나" 표 · 보장하는 것/보장하지 않는 것 · Mermaid 도식 3개를 앞에 두고, `## 알아둘 것` 의 상세 9절은 `docs/adoption-notes.md` 로 원문 그대로 옮겼다(README 에는 요약 4줄). 모델·effort 실측 단락은 README 안에서 접었다. Lifecycle ASCII 도식은 Mermaid 로 바꾸면서 괄호 부가 설명을 일부 줄였다. 사실과 수치는 줄거나 바뀌지 않았다.
 - **README 히어로 배너를 단계별 색 구분 시안으로 바꿨다.** 상단 색 띠와 단계 묶음별 칩 색 막대를 더하고, HARD GATE 칩의 테두리를 2px 에서 3px 로 굵히고 glow 를 더했다. 배너의 글자(제품명·태그라인·단계 이름·범례)는 그대로다. 색 묶음은 장식이다 — 새 설명 문구나 수치는 없다.
+- **README 에서 `### 상류 프로젝트` 소절을 삭제했다.** 상류 프로젝트 표와 "원본 코드를 복사(vendoring)하지 않았다" 인용문이 README 에서 빠지고, 남은 절의 헤딩을 `## 라이선스` 로 바꿨다. 상류 출처 기록은 각 파일의 `reference_upstream` frontmatter 와 `docs/upstream-drift-log.md` 에 남는다. 단 ponytail 번안분은 이 두 곳에 없고 `agents/code-reviewer-ko.md`·`scripts/_internal/scan-shortcuts.sh` 본문과 이 문서의 과거 항목에 남는다. 코드·동작 변경은 없다.
 
 ### Tests/CI
 

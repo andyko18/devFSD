@@ -1,56 +1,69 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-labelledby="t d">
   <title id="t">specops-ko — 명세에서 PR 까지 이어지는 자율 Lifecycle</title>
   <desc id="d">명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 순서로 이어지는 단계. 명세·명확화·계획·PR 은 HARD GATE 다(유지보수 진입은 분석 단계도).</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop class="a1" offset="0"/><stop class="a2" offset="1"/></linearGradient>
+    <linearGradient id="strip" x1="0" y1="0" x2="1" y2="0"><stop class="c0" offset="0"/><stop class="c1" offset="0.35"/><stop class="c2" offset="0.7"/><stop class="c3" offset="1"/></linearGradient>
+    <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <clipPath id="card"><rect x="1" y="1" width="1278" height="318" rx="20"/></clipPath>
+  </defs>
   <style>
     text{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic','Segoe UI',sans-serif}
-    .bg{fill:#f6f8fa;stroke:#d0d7de}
-    .name{fill:#1f2328;font-weight:700}
-    .tag{fill:#57606a}
-    .chip{fill:#ffffff;stroke:#d0d7de}
-    .gate{fill:#ddf4ff;stroke:#0969da}
-    .lbl{fill:#1f2328}
-    .arrow{stroke:#8c959f}
-    .note{fill:#57606a}
+    .a1{stop-color:#ffffff}.a2{stop-color:#eef2ff}
+    .c0{stop-color:#3b82f6}.c1{stop-color:#10b981}.c2{stop-color:#f59e0b}.c3{stop-color:#f43f5e}
+    .bg{stroke:#e2e8f0}
+    .chip{fill:#ffffff;stroke:#cbd5e1;stroke-width:1.5}
+    .gate{fill:#ffffff;stroke:#334155;stroke-width:3}
+    .lbl,.gl{fill:#0f172a}.gl{font-weight:700}
+    .name{fill:#0f172a}.tag{fill:#475569}.note{fill:#475569}.arrow{stroke:#94a3b8}
+    .bar0{fill:#3b82f6}.bar1{fill:#10b981}.bar2{fill:#f59e0b}.bar3{fill:#f43f5e}
     @media (prefers-color-scheme: dark){
-      .bg{fill:#0d1117;stroke:#30363d}
-      .name{fill:#e6edf3}
-      .tag{fill:#8b949e}
-      .chip{fill:#161b22;stroke:#30363d}
-      .gate{fill:#0d2a4d;stroke:#58a6ff}
-      .lbl{fill:#e6edf3}
-      .arrow{stroke:#6e7681}
-      .note{fill:#8b949e}
+      .a1{stop-color:#0b1020}.a2{stop-color:#141c36}
+      .bg{stroke:#1e293b}
+      .chip{fill:#111a33;stroke:#334155}
+      .gate{fill:#111a33;stroke:#e2e8f0}
+      .lbl,.gl{fill:#f1f5f9}.name{fill:#f8fafc}.tag{fill:#94a3b8}.note{fill:#94a3b8}.arrow{stroke:#475569}
     }
   </style>
-  <rect class="bg" x="1" y="1" width="1278" height="318" rx="18" stroke-width="2"/>
-  <text class="name" x="640" y="104" font-size="64" text-anchor="middle">specops-ko</text>
-  <text class="tag" x="640" y="148" font-size="22" text-anchor="middle">Claude Code 전용 한국어 자율 Lifecycle 플러그인</text>
-  <rect class="gate" x="45" y="190" width="118" height="48" rx="10" stroke-width="2"/>
-  <text class="lbl" x="104" y="220" font-size="17" text-anchor="middle">★ 명세</text>
-  <path class="arrow" d="M163 214H179" fill="none" stroke-width="2"/>
-  <rect class="gate" x="179" y="190" width="118" height="48" rx="10" stroke-width="2"/>
-  <text class="lbl" x="238" y="220" font-size="17" text-anchor="middle">★ 명확화</text>
-  <path class="arrow" d="M297 214H313" fill="none" stroke-width="2"/>
-  <rect class="gate" x="313" y="190" width="118" height="48" rx="10" stroke-width="2"/>
-  <text class="lbl" x="372" y="220" font-size="17" text-anchor="middle">★ 계획</text>
-  <path class="arrow" d="M431 214H447" fill="none" stroke-width="2"/>
-  <rect class="chip" x="447" y="190" width="118" height="48" rx="10" stroke-width="1.5"/>
+  <rect class="bg" x="1" y="1" width="1278" height="318" rx="20" fill="url(#bg)" stroke-width="2"/>
+  <rect x="1" y="1" width="1278" height="8" fill="url(#strip)" clip-path="url(#card)"/>
+  <text class="name" x="640" y="108" font-size="66" font-weight="800" text-anchor="middle">specops-ko</text>
+  <text class="tag" x="640" y="150" font-size="22" text-anchor="middle">Claude Code 전용 한국어 자율 Lifecycle 플러그인</text>
+  <rect class="gate" x="45" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>
+  <rect class="bar0" x="55" y="190" width="98" height="5" rx="2.5"/>
+  <text class="gl" x="104" y="220" font-size="17" text-anchor="middle">★ 명세</text>
+  <path class="arrow" d="M163 214H179" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <rect class="gate" x="179" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>
+  <rect class="bar0" x="189" y="190" width="98" height="5" rx="2.5"/>
+  <text class="gl" x="238" y="220" font-size="17" text-anchor="middle">★ 명확화</text>
+  <path class="arrow" d="M297 214H313" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <rect class="gate" x="313" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>
+  <rect class="bar0" x="323" y="190" width="98" height="5" rx="2.5"/>
+  <text class="gl" x="372" y="220" font-size="17" text-anchor="middle">★ 계획</text>
+  <path class="arrow" d="M431 214H447" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <rect class="chip" x="447" y="190" width="118" height="48" rx="12"/>
+  <rect class="bar1" x="457" y="190" width="98" height="5" rx="2.5"/>
   <text class="lbl" x="506" y="220" font-size="17" text-anchor="middle">분해</text>
-  <path class="arrow" d="M565 214H581" fill="none" stroke-width="2"/>
-  <rect class="chip" x="581" y="190" width="118" height="48" rx="10" stroke-width="1.5"/>
+  <path class="arrow" d="M565 214H581" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <rect class="chip" x="581" y="190" width="118" height="48" rx="12"/>
+  <rect class="bar1" x="591" y="190" width="98" height="5" rx="2.5"/>
   <text class="lbl" x="640" y="220" font-size="17" text-anchor="middle">TDD 구현</text>
-  <path class="arrow" d="M699 214H715" fill="none" stroke-width="2"/>
-  <rect class="chip" x="715" y="190" width="118" height="48" rx="10" stroke-width="1.5"/>
+  <path class="arrow" d="M699 214H715" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <rect class="chip" x="715" y="190" width="118" height="48" rx="12"/>
+  <rect class="bar2" x="725" y="190" width="98" height="5" rx="2.5"/>
   <text class="lbl" x="774" y="220" font-size="17" text-anchor="middle">검증</text>
-  <path class="arrow" d="M833 214H849" fill="none" stroke-width="2"/>
-  <rect class="chip" x="849" y="190" width="118" height="48" rx="10" stroke-width="1.5"/>
+  <path class="arrow" d="M833 214H849" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <rect class="chip" x="849" y="190" width="118" height="48" rx="12"/>
+  <rect class="bar2" x="859" y="190" width="98" height="5" rx="2.5"/>
   <text class="lbl" x="908" y="220" font-size="17" text-anchor="middle">리뷰</text>
-  <path class="arrow" d="M967 214H983" fill="none" stroke-width="2"/>
-  <rect class="chip" x="983" y="190" width="118" height="48" rx="10" stroke-width="1.5"/>
+  <path class="arrow" d="M967 214H983" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <rect class="chip" x="983" y="190" width="118" height="48" rx="12"/>
+  <rect class="bar2" x="993" y="190" width="98" height="5" rx="2.5"/>
   <text class="lbl" x="1042" y="220" font-size="15" text-anchor="middle">보안·통합·성능</text>
-  <path class="arrow" d="M1101 214H1117" fill="none" stroke-width="2"/>
-  <rect class="gate" x="1117" y="190" width="118" height="48" rx="10" stroke-width="2"/>
-  <text class="lbl" x="1176" y="220" font-size="17" text-anchor="middle">★ PR</text>
+  <path class="arrow" d="M1101 214H1117" fill="none" stroke-width="2.5" stroke-linecap="round"/>
+  <rect class="gate" x="1117" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>
+  <rect class="bar3" x="1127" y="190" width="98" height="5" rx="2.5"/>
+  <text class="gl" x="1176" y="220" font-size="17" text-anchor="middle">★ PR</text>
   <text class="note" x="640" y="266" font-size="16" text-anchor="middle">★ = HARD GATE — 되돌리기 비싼 지점에서만 멈춘다</text>
   <text class="note" x="640" y="294" font-size="16" text-anchor="middle">verify 없이 git commit·gh pr create 하면 훅이 실행 전에 차단한다 (.specops/ 가 있는 repo)</text>
 </svg>

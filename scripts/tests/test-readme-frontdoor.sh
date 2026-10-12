@@ -30,7 +30,7 @@ frontdoor_check() {
   else
     echo "F2-order"
   fi
-  grep -E 'img\.shields\.io|badge\.svg' "$rd" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+|\(v[0-9]' && echo "F3-static-version"
+  grep -E 'img\.shields\.io|badge\.svg' "$rd" | grep -qE '[0-9]+\.[0-9]+(\.[0-9]+)?|[=(/-]v[0-9]' && echo "F3-static-version"
   grep -q 'github/v/release/andyko18/specops-ko' "$rd" || echo "F3-no-dynamic-release"
   if [ -f "$svg" ]; then
     python3 -I -c 'import sys, xml.etree.ElementTree as E; E.parse(sys.argv[1])' "$svg" 2>/dev/null || echo "F4-svg-malformed"
@@ -95,7 +95,8 @@ if [ "$got" = "$out" ]; then ok "FD-m0 사본 기준선이 실 트리와 같다"
 
 fresh; edit "$T/README.md" -e '/docs\/assets\/hero\.svg/d';                          inject "F1-hero-ref" "히어로 참조 삭제"
 fresh; { printf '## 설치\n'; cat "$T/README.md"; } > "$T/R.new" && mv "$T/R.new" "$T/README.md"; inject "F2-order" "설치 헤딩을 맨 위로"
-fresh; awk '{print} /img\.shields\.io|badge\.svg/ && !d {print "[![v](https://img.shields.io/badge/version-2.20.2-blue)](x)"; d=1}' "$T/README.md" > "$T/R.new" && mv "$T/R.new" "$T/README.md"; inject "F3-static-version" "정적 버전 배지 삽입"
+fresh; awk '{print} /img\.shields\.io|badge\.svg/ && !d {print "[![v](https://img.shields.io/badge/version-2.20.2-blue)](https://x)"; d=1}' "$T/README.md" > "$T/R.new" && mv "$T/R.new" "$T/README.md"; inject "F3-static-version" "정적 버전 배지 삽입"
+fresh; awk '{print} /img\.shields\.io|badge\.svg/ && !d {print "[![v](https://img.shields.io/badge/version-2.20-blue)](https://x)"; d=1}' "$T/README.md" > "$T/R.new" && mv "$T/R.new" "$T/README.md"; inject "F3-static-version" "점 두 개짜리 정적 버전 배지 삽입"
 fresh; edit "$T/README.md" -e 's#github/v/release#github/license#';                  inject "F3-no-dynamic-release" "동적 릴리즈 배지 제거"
 fresh; rm -f "$T/docs/assets/hero.svg";                                              inject "F4-svg-missing" "SVG 삭제"
 fresh; edit "$T/docs/assets/hero.svg" -e '/<\/svg>/d';                               inject "F4-svg-malformed" "SVG 닫는 태그 삭제"

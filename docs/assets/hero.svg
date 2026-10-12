@@ -5,6 +5,7 @@
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop class="a1" offset="0"/><stop class="a2" offset="1"/></linearGradient>
     <linearGradient id="strip" x1="0" y1="0" x2="1" y2="0"><stop class="c0" offset="0"/><stop class="c1" offset="0.35"/><stop class="c2" offset="0.7"/><stop class="c3" offset="1"/></linearGradient>
     <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <clipPath id="card"><rect x="1" y="1" width="1278" height="318" rx="20"/></clipPath>
   </defs>
   <style>
     text{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic','Segoe UI',sans-serif}
@@ -25,7 +26,7 @@
     }
   </style>
   <rect class="bg" x="1" y="1" width="1278" height="318" rx="20" fill="url(#bg)" stroke-width="2"/>
-  <rect x="1" y="1" width="1278" height="8" rx="4" fill="url(#strip)"/>
+  <rect x="1" y="1" width="1278" height="8" fill="url(#strip)" clip-path="url(#card)"/>
   <text class="name" x="640" y="108" font-size="66" font-weight="800" text-anchor="middle">specops-ko</text>
   <text class="tag" x="640" y="150" font-size="22" text-anchor="middle">Claude Code 전용 한국어 자율 Lifecycle 플러그인</text>
   <rect class="gate" x="45" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>

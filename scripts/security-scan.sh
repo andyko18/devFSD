@@ -45,15 +45,19 @@ fi
 sast_timeout_note=""
 ruleset_note=""
 
-# ── self-check 1단계 (설치 0, 항상 실행) — secret 전 파일·위험함수/SQL 비-bash ──
+# ── self-check 1단계 (설치 0, 항상 실행) — secret 전 파일·위험함수/SQL 비-bash·비-문서 ──
 # 언어 판별: .sh/.bash 확장자 또는 bash shebang → bash (위험함수 룰 제외, secret 만)
 _is_bash() { case "$1" in *.sh|*.bash) return 0;; esac; head -1 "$1" 2>/dev/null | grep -q '^#!.*\(bash\|sh\)' && return 0; return 1; }
+# 문서 확장자 — 실행되지 않는 산문이라 아래 위험함수·SQL 룰을 걸지 않는다(서술문 속 `eval(` 낱말이 high 가 되던 오탐, 파일 인자일 때만).
+#   secret 룰은 문서에도 건다(붙여 넣은 키). 목록은 이 함수 한 곳에만 둔다. 대소문자 무시는 대괄호 패턴 — bash 3.2(macOS 기본)에 ${v,,} 가 없고,
+#   tr 같은 외부 프로세스는 디렉토리 스캔이 비-bash 파일마다 이 함수를 평가하므로 파일 수만큼 포크가 늘어난다(2000개 .py 실측 +29%).
+_is_doc() { case "$1" in *.[Mm][Dd]|*.[Mm][Aa][Rr][Kk][Dd][Oo][Ww][Nn]|*.[Tt][Xx][Tt]|*.[Rr][Ss][Tt]|*.[Aa][Dd][Oo][Cc]) return 0;; esac; return 1; }
 _selfcheck_file() {
   local f="$1"
   # secret (전 파일) → crit
   grep -Eq 'AKIA[0-9A-Z]{16}|ghp_[0-9A-Za-z]{36}|sk-[0-9A-Za-z]{20,}|-----BEGIN[^-]*PRIVATE KEY|(password|api_key|secret)[[:space:]]*=[[:space:]]*["'"'"'][^"'"'"']{6,}' "$f" 2>/dev/null && crit=$((crit+1))
-  # 위험함수·SQL (비-bash 만) → high
-  if ! _is_bash "$f"; then
+  # 위험함수·SQL (비-bash·비-문서 만) → high
+  if ! _is_bash "$f" && ! _is_doc "$f"; then
     grep -Eq '\beval\(|\bexec\(|os\.system|subprocess[^)]*shell[[:space:]]*=[[:space:]]*True|dangerouslySetInnerHTML|\.innerHTML[[:space:]]*=' "$f" 2>/dev/null && high=$((high+1))
     grep -Eq '(query|execute).*\+.*(req\.|request\.|params)|f["'"'"'][^"'"'"']*SELECT[^"'"'"']*\{' "$f" 2>/dev/null && high=$((high+1))
   fi

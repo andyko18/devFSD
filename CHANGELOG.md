@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Docs
+
+- **README 대문을 재구성했다.** 히어로 배너(`docs/assets/hero.svg`) · 동적 배지 · "왜 쓰나" 표 · 보장하는 것/보장하지 않는 것 · Mermaid 도식 3개를 앞에 두고, `## 알아둘 것` 의 상세 9절은 `docs/adoption-notes.md` 로 원문 그대로 옮겼다(README 에는 요약 4줄). 모델·effort 실측 단락은 README 안에서 접었다. Lifecycle ASCII 도식은 Mermaid 로 바꾸면서 괄호 부가 설명을 일부 줄였다. 사실과 수치는 줄거나 바뀌지 않았다.
+
+### Tests/CI
+
+- **README 대문 불변식 스위트 `test-readme-frontdoor.sh` 를 더했다.** 히어로·배지·카드·정직한 박스가 `## 설치` 앞에 있는지, 정적 버전 배지가 없는지, 히어로 SVG 가 well-formed 이고 외부 참조가 없는지, README·`docs/adoption-notes.md` 의 로컬 링크가 해석되는지, 이동한 9절이 있는지를 본다. 사본 트리에 위반을 하나씩 넣어 각 검사가 실제로 실패하는지도 확인한다.
+
 ## [2.20.2] — 2026-10-12
 
 ### Docs

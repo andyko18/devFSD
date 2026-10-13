@@ -53,8 +53,8 @@ cmd_measure() {
   local out="$SPECOPS/$fid/reuse-metrics.json" tmp otmp
   otmp="$out.tmp.$$"      # 기록은 같은 디렉터리의 이 파일에 쓴 뒤 mv 로 바꾼다(아래 「기록」)
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/specops-reuse.XXXXXX") || { echo "reuse-metrics: 임시 디렉터리 생성 실패" >&2; return 0; }
-  # shellcheck disable=SC2064   # $tmp 는 지역 변수라 **지금** 확장돼야 한다 (함수가 끝나면 trap 실행 시점에는 값이 없다)
-  trap "rm -rf '$tmp' '$otmp'" EXIT
+  _RM_TMP="$tmp"; _RM_OTMP="$otmp"   # 전역 — 경로를 trap 문자열에 끼우면 경로의 작은따옴표가 인자를 가른다. 실행 시점에 변수로 참조한다($tmp 는 지역이라 그때는 값이 없다)
+  trap 'rm -rf "$_RM_TMP" "$_RM_OTMP"' EXIT
   trap 'exit 143' TERM INT HUP      # 시간 상한(run-bounded.sh 의 TERM)에 끊겨도 위 EXIT 정리가 돌게 한다
 
   # ── 분기점 ── git 명령은 전부 저장소 루트 기준·경로 인용 없이 돈다(하위 디렉터리에서 불러도, 비ASCII·따옴표 경로여도 같은 결과).

@@ -366,5 +366,16 @@ echo "y = 2" >> "$R/src/x.py"
 { [ -n "$old_rec" ] && [ "$(cat "$ROOT/keep.link" 2>/dev/null)" = "$old_rec" ] && [ "$(J "$R" '.size.impl.added')" = 2 ] \
   && [ "$(ls -A "$R/.specops/$FID" | tr '\n' ' ')" = "reuse-metrics.json " ]; } \
   && ok "R6.h 재측정은 기록을 통째로 바꾼다(앞선 기록 파일을 비우지 않는다) · 새 값(+2) 기록 · 임시 파일을 남기지 않는다" || nope "R6.h" "새 값=$(J "$R" '.size.impl.added') 디렉터리=$(ls -A "$R/.specops/$FID" | tr '\n' ' ')"
+# 정리(EXIT trap)는 경로의 글자에 좌우되지 않는다 — 작은따옴표 2개와 공백이 든 절대 SPECOPS_ROOT.
+#   경로를 trap 문자열에 끼우면 `…/sp' victim 'y/…` 가 `…/sp` · `victim`(cwd 기준) · `y/…` 세 인자로 갈라져 표지가 지워진다.
+Q="$ROOT/q"; QSP="$Q/sp' victim 'y/.specops"; QTD="$Q/td"
+R=$(mk_repo); echo "x = 1" > "$R/src/x.py"; commit_all "$R"
+mkdir -p "$QSP/$FID" "$QTD" "$Q/sp" "$R/victim"; : > "$Q/sp/keep"; : > "$R/victim/keep"
+( cd "$R" && SPECOPS_ROOT="$QSP" TMPDIR="$QTD" bash "$RM" measure "$FID" ) >/dev/null 2>&1; rc=$?
+q_tmp=$(find "$QTD" -maxdepth 1 -name 'specops-reuse.*' | wc -l | tr -d ' ')
+{ [ "$rc" = 0 ] && [ -s "$QSP/$FID/reuse-metrics.json" ] && [ "$q_tmp" = 0 ] \
+  && [ "$(ls -A "$QSP/$FID" | tr '\n' ' ')" = "reuse-metrics.json " ] && [ -e "$Q/sp/keep" ] && [ -e "$R/victim/keep" ]; } \
+  && ok "R6.i 작은따옴표·공백이 든 절대 SPECOPS_ROOT 에서도 정리가 제 경로만 지운다 — rc 0 · 기록 생성 · 임시 0개 · 형제·cwd 표지 그대로" \
+  || nope "R6.i" "rc=$rc 임시 디렉터리=${q_tmp} 기록 디렉터리=$(ls -A "$QSP/$FID" 2>/dev/null | tr '\n' ' ') 형제 표지=$([ -e "$Q/sp/keep" ] && echo 있음 || echo 지워짐) cwd 표지=$([ -e "$R/victim/keep" ] && echo 있음 || echo 지워짐)"
 
 finish

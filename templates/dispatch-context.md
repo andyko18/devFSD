@@ -68,6 +68,15 @@ bash scripts/tests/test-<feature>.sh
 
 > leaf 는 사용자와 직접 대화할 수 없다(부모 중개). auto·batch 는 부모도 되묻지 못한다 — 질문은 **시작 시 NEEDS_CONTEXT 한 번에**, 일부가 막혀도 **의존 없는 나머지는 끝까지**, 비가역 삭제·범위 변경은 먼저 NEEDS_APPROVAL. 정본: `agents/implementer-ko.md` 「실행 모드 계약」.
 
+## 8. 구조 규칙 (헌법 — 선택, 규칙이 있을 때만 emit)
+
+> `emit-context.sh` 가 헌법(`.specops/memory/constitution.md`)의 「구조 규칙」 표를 `check-constitution-rules.sh --list` 로 읽어 싣는다. 규칙이 없으면(헌법 없음 · 절 없음 · 규칙 0건) 본 섹션 생략. leaf 는 이 규칙을 **따르고**, 지키면 태스크를 끝낼 수 없으면 어기지 말고 규칙 ID 와 사유를 보고한다. 코드 리뷰어는 판정이 `리뷰`인 규칙을 변경과 대조한다.
+
+- **S-1** 규칙 문장 — 적용: 경로 · 판정: 리뷰
+- **S-2** 규칙 문장 — 적용: 경로 · 판정: 명령 — 판정 명령
+
+> 표가 형식 위반·판정 불가면 규칙 대신 "구조 규칙을 싣지 못했다"와 사유가 실린다(dispatch 는 막지 않는다) — 그때는 헌법의 표를 직접 읽는다.
+
 ---
 
 ## leaf 의무 (5원칙 주입)

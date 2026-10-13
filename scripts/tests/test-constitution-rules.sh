@@ -110,6 +110,9 @@ printf '# 헌법\n\n<!-- structure-rules:start -->\n%s\n%s\n<!-- structure-rules
 badfile "C3.u 구분 행 없이 규칙 행이 바로 옴 → 위반" "$ROOT/sep.md" 5 "구분 행이 아님"
 bad "C3.v 머리 행처럼 ID 칸이 ID 인 뒤쪽 행은 건너뛰지 않는다(4칸 위반으로 잡힌다)" 12 "칸이 5개가 아님(4개)" '| ID | 규칙 | `src/` | 검사 |'
 bad "C3.w 구분 행처럼 생긴 뒤쪽 행도 건너뛰지 않는다" 12 "ID 가 S-숫자 꼴이 아님" '| - | - | - | - | - |'
+# 표지 낱말을 변형해 적으면 정확한 표지도 아니고 structure-rules: 낱말도 없다 — 머리 행이 남아 있으면 절 없음(rc 0)이 아니라 위반
+printf '# 헌법\n\n<!-- STRUCTURE-RULES:START -->\n%s\n%s\n| S-1 | 규칙 | `src/` | 검사 | - |\n<!-- STRUCTURE-RULES:END -->\n' "$HDR" "$SEP" > "$ROOT/upper.md"
+badfile "C3.x 표지 낱말 변형(대문자) + 머리 행 → 절 없음(rc 0)이 아니라 위반(머리 행 줄)" "$ROOT/upper.md" 4 "시작 표지가 없음"
 
 # ── C4: 해당 없음 (AC-4) ──
 run "$ROOT/nope/constitution.md"; rc1=$rc; out1=$out; run --list "$ROOT/nope/constitution.md"
@@ -178,6 +181,24 @@ else
   { [ "$rc1" = 2 ] && [ -z "$out1" ] && printf '%s' "$err1" | grep -q '판정 불가' && [ "$rc" = 2 ] && [ -z "$out" ]; } \
     && ok "C6.h 들어갈 수 없는 상위 디렉터리 아래의 헌법 → rc 2 — 헌법 없음(0)으로 답하지 않는다" || nope "C6.h" "rc=$rc1/$rc out=$out1 err=$err1"
 fi
+# 정책(샌드박스 등)으로 stat 이 거부된 실재 헌법 — 권한 비트로는 재현되지 않아 sandbox-exec 로 만든다. literal 경로는 실제 경로(pwd -P)여야 걸린다.
+mkdir -p "$ROOT/sb/memory"; mk "$ROOT/sb/memory/constitution.md" "$R1"; : > "$ROOT/sb/memory/other.md"
+sbd=$(cd "$ROOT/sb/memory" && pwd -P); sbf="$sbd/constitution.md"
+sbp="(version 1)(allow default)(deny file-read* (literal \"$sbf\"))"
+if ! command -v sandbox-exec >/dev/null 2>&1; then
+  skip "C6.l 정책으로 stat 이 거부된 헌법 — sandbox-exec 없음(macOS 전용) 미실행"
+elif ! sandbox-exec -p '(version 1)(allow default)' /usr/bin/true >/dev/null 2>&1; then
+  skip "C6.l 정책으로 stat 이 거부된 헌법 — sandbox-exec 를 쓸 수 없음(이미 샌드박스 안 등) 미실행"
+elif sandbox-exec -p "$sbp" /bin/test -e "$sbf" 2>/dev/null || ! sandbox-exec -p "$sbp" /bin/ls -a "$sbd" 2>/dev/null | grep -qxF constitution.md; then
+  nope "C6.l" "deny 미적용 — 샌드박스 안에서 stat 이 되거나 목록에 이름이 없다($sbf)"
+else
+  out=$(sandbox-exec -p "$sbp" /bin/bash "$CK" "$sbf" 2>"$ROOT/err"); rc1=$?; err1=$(cat "$ROOT/err"); out1=$out
+  out=$(sandbox-exec -p "$sbp" /bin/bash "$CK" --list "$sbf" 2>"$ROOT/err"); rc=$?; err=$(cat "$ROOT/err")
+  { [ "$rc1" = 2 ] && [ -z "$out1" ] && printf '%s' "$err1" | grep -q '판정 불가' && [ "$rc" = 2 ] && [ -z "$out" ]; } \
+    && ok "C6.l 정책으로 stat 이 거부된 헌법(목록에는 이름이 있음) → rc 2 — 헌법 없음(0)으로 답하지 않는다" || nope "C6.l" "rc=$rc1/$rc out=$out1 err=$err1 list_out=$out"
+fi
+run "$ROOT/sb/memory/none.md"; rc1=$rc; out1=$out; run --list "$ROOT/sb/memory/none.md"
+{ [ "$rc1" = 0 ] && printf '%s' "$out1" | grep -q 'SKIP (헌법 없음' && [ "$rc" = 0 ] && [ -z "$out" ]; } && ok "C6.m 형제 파일이 있는 디렉터리에 헌법이 정말 없으면 종전대로 헌법 없음 · rc 0" || nope "C6.m" "rc=$rc1/$rc out=$out1 err=$err"
 before=$(cd "$ROOT/p" && find . -type f -exec cksum {} + | sort); ( cd "$ROOT/p" && bash "$CK" >/dev/null 2>&1; bash "$CK" --list >/dev/null 2>&1 ); after=$(cd "$ROOT/p" && find . -type f -exec cksum {} + | sort)
 [ "$before" = "$after" ] && ok "C6.e 읽기 전용 — 실행 전후 파일 목록·내용이 같다" || nope "C6.e" "파일이 바뀜"
 

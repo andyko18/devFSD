@@ -515,7 +515,7 @@ bash scripts/reuse-metrics.sh report          # .specops/*/reuse-metrics.json �
 
 ## check-constitution-rules.sh — 헌법 「구조 규칙」 표 읽기 (읽기 전용 · 비차단)
 
-프로젝트 헌법(`.specops/memory/constitution.md`)의 「구조 규칙」 절에 적은 표를 읽어 형식을 판정하고, 규칙 행을 기계가 쓰기 좋은 줄로 내준다. 이 스크립트를 부르는 훅·게이트는 없다 — 표가 없거나 틀려도 아무것도 막지 않는다. 규칙을 구현자·리뷰어에게 전달하는 배선은 다음 작업의 몫이다.
+프로젝트 헌법(`.specops/memory/constitution.md`)의 「구조 규칙」 절에 적은 표를 읽어 형식을 판정하고, 규칙 행을 기계가 쓰기 좋은 줄로 내준다. 부르는 곳은 `scripts/dag/emit-context.sh` 하나다 — `--list` 출력을 태스크별 dispatch 컨텍스트의 `## 8. 구조 규칙` 절로 실어 구현자와 코드 리뷰어에게 전달한다. 표가 없으면 절도 없고, 표가 틀려도 **아무것도 막지 않는다**: 컨텍스트의 그 절과 `emit-context: WARN` 줄에 "싣지 못했다"와 사유가 남는다. `명령` 판정 규칙의 명령은 아직 자동으로 실행되지 않는다.
 
 ```bash
 bash scripts/_internal/check-constitution-rules.sh            # 형식 판정 (기본: .specops/memory/constitution.md)

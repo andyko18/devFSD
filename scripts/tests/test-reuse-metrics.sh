@@ -94,6 +94,13 @@ printf '#!/usr/bin/env bash\nexit 3\n' > "$STUB/bad/jscpd"; chmod +x "$STUB/ok/j
 ( cd "$R" && PATH="$STUB/bad:$PATH" bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.jscpd.status')" = not_measured ] && [ "$(J "$R" '.jscpd.duplicated_lines')" = null ] && [ "$(J "$R" '.dup.status')" = measured ]; } \
   && ok "R2.f jscpd 가 실패하면 jscpd 칸만 not_measured(null) · 자체 수치는 유지" || nope "R2.f" "$(J "$R" '.jscpd')"
+# 분기점에 같은 확장자의 비UTF-8(latin-1) 파일이 있어도 측정한다 — awk 구현(시스템 awk · mawk · gawk)과 무관하게 바이트 기준으로 센다.
+R=$(mk_repo)
+( cd "$R" && git checkout -q main && printf '# caf\351\n' > src/latin.py && git add -A && git commit -qm latin && git checkout -q -B "feat/$FID" ) >/dev/null 2>&1
+{ echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.dup.existing.status')" = measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = 8 ] && [ "$(J "$R" '.dup.existing.corpus_files')" = 2 ]; } \
+  && ok "R2.j 분기점에 비UTF-8(latin-1) 파일이 있어도 측정한다 — 기존 8줄 블록 복사 → 8줄 · 코퍼스 2개" || nope "R2.j" "$(J "$R" '.dup')"
 
 # ── R3: 재사용 이행률 (AC-3) ──
 mk_manifest() {
@@ -130,6 +137,28 @@ printf "const i = arr.indexOf(x)\nconst updates = []\nimport { get } from '../li
 ( cd "$R" && SPECOPS_REUSE_MAX_FILES=0 bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.reuse.status')" = not_measured ] && [ "$(J "$R" '.reuse.fulfilled')" = null ] && [ "$(J "$R" '.reuse.declared')" = null ]; } \
   && ok "R3.d 파일 수 상한 초과: 이행률도 not_measured·null (0/N 으로 쓰지 않는다)" || nope "R3.d" "$(J "$R" '.reuse')"
+# 선언 조회가 실패한 것(rc≠0)은 "선언 없음"(rc 0·무출력)이 아니다. 측정 스크립트의 사본 옆에 실패하는 조회 스텁을 둔다(실 트리 쓰기 0).
+P2="$ROOT/pl2"; mkdir -p "$P2/scripts/_internal"; cp "$RM" "$P2/scripts/"; cp "$PLUGIN/scripts/_internal/file-class.sh" "$P2/scripts/_internal/"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$P2/scripts/_internal/check-foundation-reuse.sh"
+( cd "$R" && bash "$P2/scripts/reuse-metrics.sh" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = not_measured ] && [ "$(J "$R" '.reuse.declared')" = null ] && [ "$(J "$R" '.reuse.fulfilled')" = null ] && [ -n "$(J "$R" '.reuse.reason')" ] && [ "$(J "$R" '.size.status')" = measured ]; } \
+  && ok "R3.e 재사용 선언 조회가 실패하면(rc 1) not_applicable 이 아니라 not_measured·null·사유" || nope "R3.e" "$(J "$R" '.reuse')"
+# 이행 판정 awk 가 오류로 끝난 것(rc 2)은 "미이행"(rc 1)이 아니다 — 0/3 으로 쓰지 않는다.
+REAL_AWK=$(command -v awk); mkdir -p "$ROOT/awkfail"
+printf '#!/usr/bin/env bash\nfor a in "$@"; do case "$a" in T=*) exit 2 ;; esac; done\nexec "%s" "$@"\n' "$REAL_AWK" > "$ROOT/awkfail/awk"; chmod +x "$ROOT/awkfail/awk"
+( cd "$R" && PATH="$ROOT/awkfail:$PATH" bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = not_measured ] && [ "$(J "$R" '.reuse.declared')" = null ] && [ "$(J "$R" '.reuse.fulfilled')" = null ] && [ -n "$(J "$R" '.reuse.reason')" ] && [ "$(J "$R" '.dup.status')" = measured ]; } \
+  && ok "R3.f 이행 판정이 오류로 끝나면(awk rc 2) 미이행으로 세지 않는다 — not_measured·null·사유" || nope "R3.f" "$(J "$R" '.reuse')"
+# grep 래퍼 — 그 인자를 만나면 rc 2(오류), 나머지는 진짜 grep 으로.
+REAL_GREP=$(command -v grep)
+mk_grep_fail() {   # $1=디렉터리 $2=맞출 인자
+  mkdir -p "$1"
+  printf '#!/usr/bin/env bash\nfor a in "$@"; do if [ "$a" = %s ]; then exit 2; fi; done\nexec "%s" "$@"\n' "$2" "$REAL_GREP" > "$1/grep"; chmod +x "$1/grep"
+}
+mk_grep_fail "$ROOT/grepoe" -oE
+( cd "$R" && PATH="$ROOT/grepoe:$PATH" bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = not_measured ] && [ "$(J "$R" '.reuse.declared')" = null ] && [ "$(J "$R" '.reuse.fulfilled')" = null ] && [ -n "$(J "$R" '.reuse.reason')" ]; } \
+  && ok "R3.g 선언의 근거 토큰을 뽑지 못하면(grep rc 2) 토큰 없음으로 읽어 0/3 으로 쓰지 않는다 — not_measured·null·사유" || nope "R3.g" "$(J "$R" '.reuse')"
 
 # ── R4: 재지 못한 것을 0 으로 쓰지 않는다 (AC-4) ──
 NG="$ROOT/nogit"; mkdir -p "$NG/.specops/$FID"
@@ -175,10 +204,10 @@ echo "w = 1" > "$R/src/wip.py"; ( cd "$R" && git add -A ) >/dev/null 2>&1      #
   && ok "R4.j 분기점 = HEAD 여도 커밋 전 변경이 있으면 측정한다(+1)" || nope "R4.j" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
 # git 래퍼 — cat-file 만 다르게 굴고 나머지는 진짜 git 으로 넘긴다(스크립트는 `git -C <루트> -c … cat-file` 로 부르므로 인자 전체를 훑는다).
 REAL_GIT=$(command -v git)
-mk_git_wrap() {   # $1=디렉터리 $2=cat-file 을 만났을 때 할 일
+mk_git_wrap() {   # $1=디렉터리 $2=그 인자를 만났을 때 할 일 $3=맞출 인자(기본 cat-file)
   mkdir -p "$1"
   { printf '#!/usr/bin/env bash\n'
-    printf 'for a in "$@"; do if [ "$a" = cat-file ]; then %s; fi; done\n' "$2"
+    printf 'for a in "$@"; do if [ "$a" = %s ]; then %s; fi; done\n' "${3:-cat-file}" "$2"
     printf 'exec "%s" "$@"\n' "$REAL_GIT"; } > "$1/git"
   chmod +x "$1/git"
 }
@@ -201,6 +230,46 @@ m1=$(J "$R" '[.dup.status,.dup.new_lines,.dup.dup_within_new]|join(",")')
 m2=$(J "$R" '[.dup.status,.dup.new_lines,.dup.dup_within_new]|join(",")')
 { [ "$m1" = "measured,18,16" ] && [ "$m2" = "measured,18,16" ]; } \
   && ok "R4.l 사용자 git 설정(diff.mnemonicPrefix · diff.noprefix)과 무관하게 같은 값(새 코드 18줄 중 16 복제)" || nope "R4.l" "mnemonicPrefix=$m1 noprefix=$m2"
+# 변경 범위(numstat)를 읽지 못하면 size·dup·existing 전부 미측정이다 — "변경 0" 이 아니다.
+mk_git_wrap "$ROOT/gnum" 'exit 128' --numstat
+R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
+out=$( cd "$R" && PATH="$ROOT/gnum:$PATH" bash "$RM" measure "$FID" 2>&1 ); rc=$?
+{ [ "$rc" = 0 ] && [ "$(J "$R" '[.size.status,.dup.status,.dup.existing.status]|join(",")')" = "not_measured,not_measured,not_measured" ] \
+  && [ "$(J "$R" '[.size.impl.added,.size.files,.dup.new_lines,.dup.dup_within_new,.dup.existing.dup_of_existing]|map(tostring)|join(",")')" = "null,null,null,null,null" ] \
+  && [ -n "$(J "$R" '.size.reason')" ] && [ -n "$(J "$R" '.dup.reason')" ] && [ -n "$(J "$R" '.dup.existing.reason')" ] && [ -n "$(J "$R" '.base // empty')" ]; } \
+  && ok "R4.n 변경 범위를 읽지 못하면(git diff --numstat rc 128) size·dup·existing 이 not_measured·null·사유 · 분기점은 기록 · rc 0" || nope "R4.n" "rc=$rc $(cat "$R/.specops/$FID/reuse-metrics.json" 2>/dev/null)"
+# 분기점 blob 의 object 가 없으면(ls-tree -l 의 크기 칸이 숫자가 아님) 그 파일이 코퍼스에서 조용히 빠진다 — 그 위에서 센 값을 내지 않는다.
+#   새 파일을 먼저 커밋하고 그다음 object 를 지운다(커밋이 blob 을 다시 만들지 않게). 작업 트리의 src/old.py 는 그대로라 diff 는 정상이다.
+R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
+osha=$( cd "$R" && git rev-parse main:src/old.py 2>/dev/null ); oobj="$R/.git/objects/${osha:0:2}/${osha:2}"
+if [ -n "$osha" ] && [ -f "$oobj" ]; then
+  rm -f "$oobj"
+  ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+  { [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.existing.corpus_files')" = null ] \
+    && [ -n "$(J "$R" '.dup.existing.reason')" ] && [ "$(J "$R" '.size.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 9 ]; } \
+    && ok "R4.o 분기점 blob 의 object 가 없으면 기존 코드 복제는 not_measured·null·사유 — 그 파일을 뺀 코퍼스로 센 0 이 아니다 · size 는 유지" || nope "R4.o" "$(cat "$R/.specops/$FID/reuse-metrics.json" 2>/dev/null)"
+else
+  nope "R4.o" "fixture: main:src/old.py 의 loose object 를 찾지 못함(sha=${osha})"
+fi
+# 줄 뽑기(diff -U0)가 실패하면 dup 은 미측정이다. 삭제만 있는 변경이라 추가 줄 수 대조(기대 0 = 읽은 0)로는 걸리지 않는 경우다.
+mk_git_wrap "$ROOT/gu0" 'exit 128' -U0
+R=$(mk_repo); { echo "def existing():"; blk old | sed -n '1,5p'; } > "$R/src/old.py"; commit_all "$R"
+( cd "$R" && PATH="$ROOT/gu0:$PATH" bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.dup.status')" = not_measured ] && [ "$(J "$R" '[.dup.new_lines,.dup.dup_within_new,.dup.existing.dup_of_existing]|map(tostring)|join(",")')" = "null,null,null" ] \
+  && [ -n "$(J "$R" '.dup.reason')" ] && [ "$(J "$R" '.size.status')" = measured ] && [ "$(J "$R" '.size.impl.deleted')" = 3 ]; } \
+  && ok "R4.p 추가·삭제된 줄을 읽지 못하면(git diff -U0 rc 128 · 삭제만 있는 변경) dup 은 not_measured·null·사유 · size 는 계속 측정" || nope "R4.p" "$(cat "$R/.specops/$FID/reuse-metrics.json" 2>/dev/null)"
+# cat-file 이 rc 0 인데 일부만 낸다 — 종료 코드가 아니라 읽은 blob 수 대조만으로 잡아야 한다(R4.k 는 rc 1 이라 두 조건이 함께 참).
+mk_git_wrap "$ROOT/gpart" "head -n 1 | \"$REAL_GIT\" \"\$@\"; exit 0"
+R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; echo "const z = 1" > "$R/src/z.js"; commit_all "$R"      # 코퍼스 대상 2개(src/old.py · lib/dates.js)
+( cd "$R" && PATH="$ROOT/gpart:$PATH" bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && J "$R" '.dup.existing.reason' | grep -q '2개 중 1개' && [ "$(J "$R" '.dup.status')" = measured ]; } \
+  && ok "R4.q cat-file 이 rc 0 으로 blob 을 일부만 내도(2개 중 1개) 기존 코드 복제는 not_measured·null" || nope "R4.q" "$(J "$R" '.dup')"
+# 코드 파일 수를 세는 외부 명령이 실패해도 "코드 변경 0" 가지(코퍼스를 읽지 않고 measured 0)로 빠지지 않는다.
+mk_grep_fail "$ROOT/grepdot" .
+R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
+( cd "$R" && PATH="$ROOT/grepdot:$PATH" bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.dup.existing.status')" = measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = 8 ] && [ "$(J "$R" '.dup.existing.corpus_files')" = 1 ]; } \
+  && ok "R4.r 줄 수를 세는 grep 이 실패해도(rc 2) 기존 코드 복제를 0 으로 쓰지 않는다 — 8줄 · 코퍼스 1개" || nope "R4.r" "$(J "$R" '.dup')"
 
 # ── R7: batch — review-base.sha 가 있으면 그 FR 의 시작점부터만 센다 ──
 R=$(mk_repo); printf 'a = 1\nb = 2\nc = 3\n' > "$R/src/first.py"; commit_all "$R"
@@ -287,5 +356,15 @@ gres=$(
 ) 2>/dev/null
 { [ "$left_ok" = 0 ] && [ "$gres" = "1 1 0" ] && grep -q "^  trap 'exit 143' TERM" "$RM"; } \
   && ok "R6.g 임시 디렉터리를 남기지 않는다 — 정상 종료 뒤 0개 · 측정 도중(코퍼스 읽기) TERM 으로 끊겨도 1개→0개" || nope "R6.g" "정상 종료 뒤=${left_ok} 끊김(도달 중간 끝)=${gres}"
+# 재측정은 앞선 기록 파일을 비우고 쓰지 않고 통째로 바꾼다(쓰는 도중 끊겨도 빈·일부 기록이 남지 않게).
+#   앞선 기록에 하드 링크를 걸어 둔다 — 바꿔 끼우면 링크는 옛 내용을 그대로 갖고, 비우고 쓰면 링크 내용도 바뀐다.
+R=$(mk_repo); echo "x = 1" > "$R/src/x.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+ln "$R/.specops/$FID/reuse-metrics.json" "$ROOT/keep.link" 2>/dev/null; old_rec=$(cat "$ROOT/keep.link" 2>/dev/null)
+echo "y = 2" >> "$R/src/x.py"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ -n "$old_rec" ] && [ "$(cat "$ROOT/keep.link" 2>/dev/null)" = "$old_rec" ] && [ "$(J "$R" '.size.impl.added')" = 2 ] \
+  && [ "$(ls -A "$R/.specops/$FID" | tr '\n' ' ')" = "reuse-metrics.json " ]; } \
+  && ok "R6.h 재측정은 기록을 통째로 바꾼다(앞선 기록 파일을 비우지 않는다) · 새 값(+2) 기록 · 임시 파일을 남기지 않는다" || nope "R6.h" "새 값=$(J "$R" '.size.impl.added') 디렉터리=$(ls -A "$R/.specops/$FID" | tr '\n' ' ')"
 
 finish

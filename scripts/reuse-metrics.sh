@@ -33,7 +33,7 @@ case "$MAX_CORPUS_LINES" in ''|*[!0-9]*) MAX_CORPUS_LINES=150000 ;; esac
 
 _js() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' | tr '\n\t' '  '; }   # JSON 문자열 이스케이프(한 줄)
 _num_or_null() { case "${1:-}" in ''|*[!0-9]*) printf 'null' ;; *) printf '%s' "$1" ;; esac; }
-_count() { local n; n=$(grep -c "$1" "$2" 2>/dev/null || true); printf '%s' "${n:-0}"; }
+_count() { local n; n=$(LC_ALL=C grep -c "$1" "$2" 2>/dev/null || true); printf '%s' "${n:-0}"; }   # 바이트 기준 — 비UTF-8 줄도 센다
 # 테스트 경로 판정 — quick-scope.sh 의 qs::is_test 와 같은 규칙이다(그 파일은 source 할 수 없는 구조라 옮겨 적었다 — 바꿀 때 함께 본다).
 _is_test_path() {
   case "$1" in tests/*|test/*|__tests__/*|*/tests/*|*/test/*|*/__tests__/*) return 0 ;; esac
@@ -50,10 +50,11 @@ cmd_measure() {
   local fid="${1:-}"
   printf '%s' "$fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || { echo "reuse-metrics: FID 형식 오류: '$fid'" >&2; return 2; }
   [ -d "$SPECOPS/$fid" ] || { echo "reuse-metrics: FID 디렉터리 없음: $SPECOPS/$fid" >&2; return 2; }
-  local out="$SPECOPS/$fid/reuse-metrics.json" tmp
+  local out="$SPECOPS/$fid/reuse-metrics.json" tmp otmp
+  otmp="$out.tmp.$$"      # 기록은 같은 디렉터리의 이 파일에 쓴 뒤 mv 로 바꾼다(아래 「기록」)
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/specops-reuse.XXXXXX") || { echo "reuse-metrics: 임시 디렉터리 생성 실패" >&2; return 0; }
   # shellcheck disable=SC2064   # $tmp 는 지역 변수라 **지금** 확장돼야 한다 (함수가 끝나면 trap 실행 시점에는 값이 없다)
-  trap "rm -rf '$tmp'" EXIT
+  trap "rm -rf '$tmp' '$otmp'" EXIT
   trap 'exit 143' TERM INT HUP      # 시간 상한(run-bounded.sh 의 TERM)에 끊겨도 위 EXIT 정리가 돌게 한다
 
   # ── 분기점 ── git 명령은 전부 저장소 루트 기준·경로 인용 없이 돈다(하위 디렉터리에서 불러도, 비ASCII·따옴표 경로여도 같은 결과).
@@ -79,6 +80,7 @@ cmd_measure() {
 
   # ── size ── numstat -z: 경로를 인용하지 않는다. 삭제된 파일의 줄도 센다(코드 경로 목록에는 지금 있는 파일만 넣는다).
   local size_status=not_measured size_reason="$base_reason" ia="" id_="" ta="" td="" da="" dd="" nfiles="" ngen=""
+  local ncode=0      # 코드 경로 목록의 줄 수 — 목록에 쓸 때 함께 센다(파일을 다시 세는 외부 명령이 실패하면 "코드 변경 0" 으로 읽힌다)
   : > "$tmp/code.paths"
   if [ -n "$base" ]; then
     local plugin_rc=1
@@ -89,6 +91,9 @@ cmd_measure() {
     fi
     ia=0; id_=0; ta=0; td=0; da=0; dd=0; nfiles=0; ngen=0
     local a d p expa=0     # expa = 코드 경로 목록에 넣은 파일들의 추가 줄 합(아래 자기 점검의 기대값)
+    # 파일로 받고 종료 코드를 따로 받는다 — 프로세스 치환·파이프는 git 의 실패를 "변경 없음"으로 읽게 만든다.
+    local nrc=0
+    _git diff --no-ext-diff --no-textconv --numstat -z --no-renames "$base" > "$tmp/numstat.z" 2>/dev/null || nrc=$?
     while IFS=$'\t' read -r -d '' a d p; do
       [ -n "$p" ] || continue
       if _is_generated "$p"; then ngen=$((ngen + 1)); continue; fi
@@ -97,25 +102,33 @@ cmd_measure() {
       case "$d" in ''|*[!0-9]*) d=0 ;; esac
       if command -v fc::is_doc >/dev/null 2>&1 && fc::is_doc "$p" "$plugin_rc"; then da=$((da + a)); dd=$((dd + d)); continue; fi
       if _is_test_path "$p"; then ta=$((ta + a)); td=$((td + d)); else ia=$((ia + a)); id_=$((id_ + d)); fi
-      [ -f "$top/$p" ] && { printf '%s\n' "$p" >> "$tmp/code.paths"; expa=$((expa + a)); }
-    done < <(_git diff --no-ext-diff --no-textconv --numstat -z --no-renames "$base" 2>/dev/null)
+      [ -f "$top/$p" ] && { printf '%s\n' "$p" >> "$tmp/code.paths"; expa=$((expa + a)); ncode=$((ncode + 1)); }
+    done < "$tmp/numstat.z"
     size_status=measured; size_reason=""
     # 빈 범위 — 분기점과 HEAD 가 같고 작업 트리 변경도 없으면 "변경 0" 이 아니라 볼 범위가 없는 것이다(기본 브랜치 위·이미 합쳐진 뒤). 0 으로 쓰지 않는다.
     if [ "$base" = "$head" ] && [ "$((nfiles + ngen))" -eq 0 ]; then
       size_status=not_measured; size_reason="변경 범위가 비었음(분기점과 HEAD 가 같고 작업 트리 변경 없음 — 기본 브랜치 위이거나 이미 합쳐진 뒤)"
       base_reason="$size_reason"; base_out="$base"; base=""; ia=""; id_=""; ta=""; td=""; da=""; dd=""; nfiles=""; ngen=""
     fi
+    # 변경 범위를 읽지 못함 — 위에서 센 값(0 이거나 일부)은 버린다. 빈 범위와 같은 방식으로 뒤 항목도 이 사유로 미측정이 된다.
+    if [ "$nrc" -ne 0 ]; then
+      size_status=not_measured; size_reason="변경 범위를 읽을 수 없음(git diff --numstat rc=${nrc})"
+      base_reason="$size_reason"; base_out="${base_out:-$base}"; base=""; ia=""; id_=""; ta=""; td=""; da=""; dd=""; nfiles=""; ngen=""
+      expa=0; ncode=0; : > "$tmp/code.paths"
+    fi
   fi
 
   # ── 추가·삭제된 줄 뽑기 (dup·reuse 공용) ── F=파일 시작 · R=연속 구간 시작 · L<TAB>줄. 추가분은 코드 경로만, 삭제분은 전부.
-  local ncode added_ok=0 added_reason="$base_reason"
-  ncode=$(_count . "$tmp/code.paths")
+  local added_ok=0 added_reason="$base_reason"
   : > "$tmp/added.txt"; : > "$tmp/removed.txt"
   if [ -n "$base" ]; then
     if [ "$ncode" -gt "$MAX_FILES" ]; then
       added_reason="변경된 비문서 파일 ${ncode}개 > 상한 ${MAX_FILES}"
     else
-      _git diff --no-ext-diff --no-textconv -U0 --no-color --no-renames --src-prefix=a/ --dst-prefix=b/ "$base" 2>/dev/null | awk -v OUTA="$tmp/added.txt" -v OUTD="$tmp/removed.txt" -v LIST="$tmp/code.paths" '
+      # diff 는 파일로 받고 git·awk 의 종료 코드를 각각 받는다(파이프면 git 의 실패가 "줄 없음"으로 읽힌다). awk 는 바이트 기준(LC_ALL=C).
+      local drc=0 xrc=0
+      _git diff --no-ext-diff --no-textconv -U0 --no-color --no-renames --src-prefix=a/ --dst-prefix=b/ "$base" > "$tmp/diff.txt" 2>/dev/null || drc=$?
+      LC_ALL=C awk -v OUTA="$tmp/added.txt" -v OUTD="$tmp/removed.txt" -v LIST="$tmp/code.paths" '
         BEGIN { while ((getline q < LIST) > 0) want[q] = 1 }
         /^diff --git /  { on = 0; hdr = 1; next }
         hdr && /^\+\+\+ / { f = substr($0, 5); sub(/^b\//, "", f); sub(/\t$/, "", f); on = (f in want); if (on) print "F" > OUTA; print "F" > OUTD; hdr = 0; next }
@@ -123,13 +136,18 @@ cmd_measure() {
         /^@@/           { if (on) print "R" > OUTA; print "R" > OUTD; next }
         /^\+/           { if (on) print "L\t" substr($0, 2) > OUTA; next }
         /^-/            { print "L\t" substr($0, 2) > OUTD; next }
-      '
+      ' "$tmp/diff.txt" 2>/dev/null || xrc=$?
       # 자기 점검 — 읽은 추가 줄 수가 변경 규모(numstat)와 다르면 뽑기가 틀린 것이다(예: git 이 인용한 경로). 일부만 읽은 값을 보고하지 않는다.
       local got; got=$(_count '^L' "$tmp/added.txt")
       if [ "$got" -ne "$expa" ]; then
         added_reason="추가된 줄을 다 읽지 못함(변경 규모는 +${expa} 인데 diff 에서 ${got}줄 — 경로 해석 불일치)"
       else
         added_ok=1; added_reason=""
+      fi
+      # 줄 수 대조는 추가 줄만 본다 — 기대가 0 이거나 삭제 줄 목록만 잃은 경우는 종료 코드로만 드러난다.
+      if [ "$drc" -ne 0 ] || [ "$xrc" -ne 0 ]; then
+        added_ok=0; added_reason="추가·삭제된 줄을 읽을 수 없음(git diff -U0 rc=${drc} · 줄 뽑기 awk rc=${xrc})"
+        : > "$tmp/added.txt"; : > "$tmp/removed.txt"
       fi
     fi
   fi
@@ -145,45 +163,52 @@ cmd_measure() {
       #   (git archive 는 export-ignore 경로를 조용히 빼고, checkout 계열은 smudge 필터를 돌린다).
       #   ls-tree 한 번으로 상한 판정(파일 수·바이트 합)과 대상 고르기를 함께 한다 — 읽기 **전에** 세어 큰 저장소에서 시간을 쓰지 않는다.
       #   대상: 일반 blob(심볼릭 링크 120000·하위 모듈 제외) · 1MiB 미만 · 확장자 분류(cls)가 변경된 코드 파일의 분류 집합에 드는 것.
-      local tree_n tree_b tree_s tree_rc nsel
+      #   object 가 없는 blob 은 ls-tree 가 rc 0 으로 크기 칸에 숫자가 아닌 값을 낸다 — 조용히 빼지 않고 센다(bad). 하위 모듈(commit 형 · 크기 "-")은 해당 없음.
+      local tree_n tree_b tree_s tree_rc nsel tree_bad
       _git ls-tree -r -l "$base" > "$tmp/tree.txt" 2>/dev/null; tree_rc=$?
       : > "$tmp/sel.shas"
-      tree_s=$(awk -v LIST="$tmp/code.paths" -v SEL="$tmp/sel.shas" '
+      tree_s=$(LC_ALL=C awk -v LIST="$tmp/code.paths" -v SEL="$tmp/sel.shas" '
         function cls(p,   b, n, a) { b = p; sub(/.*\//, "", b); n = split(b, a, "."); return (n < 2 || a[n] == "" || b ~ /^\.[^.]*$/) ? "." : a[n] }
         BEGIN { while ((getline q < LIST) > 0) want[cls(q)] = 1 }
-        { n++; if ($4 ~ /^[0-9]+$/) b += $4 }
+        { n++; if ($4 ~ /^[0-9]+$/) b += $4; else if ($2 == "blob") bad++ }
         $1 != "120000" && $2 == "blob" && $4 ~ /^[0-9]+$/ && $4 + 0 < 1048576 {
           p = substr($0, index($0, "\t") + 1)
           if (p ~ /^".*"$/) p = substr(p, 2, length(p) - 2)      # ls-tree 는 따옴표가 든 경로를 따옴표로 감싼다
           if (cls(p) in want) { print $3 > SEL; s++ }
         }
-        END { printf "%d %.0f %d", n, b, s }' "$tmp/tree.txt" 2>/dev/null)
-      tree_n=${tree_s%% *}; tree_b=${tree_s#* }; nsel=${tree_b#* }; tree_b=${tree_b%% *}
+        END { printf "%d %.0f %d %d", n, b, s, bad }' "$tmp/tree.txt" 2>/dev/null)
+      read -r tree_n tree_b nsel tree_bad <<< "$tree_s"
       case "$tree_n" in ''|*[!0-9]*) tree_n=0 ;; esac; case "$tree_b" in ''|*[!0-9]*) tree_b=0 ;; esac
       case "$nsel" in ''|*[!0-9]*) tree_rc=1 ;; esac      # 집계 awk 가 답을 못 냈다 — 트리를 못 읽은 것과 같이 다룬다
+      case "$tree_bad" in ''|*[!0-9]*) tree_rc=1 ;; esac
       if [ "$tree_rc" -ne 0 ]; then
         exist_reason="분기점 트리를 읽을 수 없음(git ls-tree 실패)"
+      elif [ "$tree_bad" -gt 0 ]; then
+        exist_reason="분기점 트리에 읽을 수 없는 blob ${tree_bad}개(object 없음 — git ls-tree 의 크기 칸이 숫자가 아님)"
       elif [ "$tree_n" -gt "$MAX_TREE_FILES" ]; then
         exist_reason="분기점 트리 ${tree_n}개 파일 > 상한 ${MAX_TREE_FILES}"
       elif [ "$tree_b" -gt "$MAX_TREE_BYTES" ]; then
         exist_reason="분기점 트리 ${tree_b}바이트 > 상한 ${MAX_TREE_BYTES}"
       else
         # 머리표지는 실행마다 다른 값 — 내용 줄과 겹치지 않게. 파이프로 잇지 않고 종료 코드를 따로 받는다.
-        local clines mark got_f crc=0
+        local clines mark got_f crc=0 csrc="git cat-file"
         mark="SPECOPS-REUSE-BLOB-$$-$RANDOM"
         if [ "$nsel" -gt 0 ]; then
           _git cat-file --batch="$mark %(objectname)" < "$tmp/sel.shas" > "$tmp/blobs.raw" 2>/dev/null; crc=$?
           # cat-file --batch 는 blob 마다 내용 뒤에 LF 를 하나 더 붙인다 — 그 빈 줄 하나(머리표지·끝 바로 앞)는 내용이 아니라 버린다.
           #   빈 줄은 잡아 두었다가 뒤에 내용 줄이 오면 그때 낸다(줄 수 상한이 파일의 실제 줄 수를 세게).
-          awk -v M="$mark " '
+          #   변환 awk 가 중간에 죽으면 머리표지 수는 맞고 줄만 잘릴 수 있다 — 그 종료 코드도 같은 대조에 건다.
+          if [ "$crc" -eq 0 ]; then
+            LC_ALL=C awk -v M="$mark " '
             index($0, M) == 1 { pend = 0; print "F"; next }
             $0 == ""          { if (pend) print "L\t"; pend = 1; next }
-                              { if (pend) { print "L\t"; pend = 0 } print "L\t" $0 }' "$tmp/blobs.raw" > "$tmp/corpus.txt" 2>/dev/null
+                              { if (pend) { print "L\t"; pend = 0 } print "L\t" $0 }' "$tmp/blobs.raw" > "$tmp/corpus.txt" 2>/dev/null || { crc=$?; csrc="코퍼스 변환 awk"; }
+          fi
         fi
         # 자기 점검 — 읽은 blob 수가 요청한 수와 다르면 코퍼스가 빈 것·일부인 것이다. 그 위에서 센 0 을 보고하지 않는다.
         got_f=$(_count '^F$' "$tmp/corpus.txt")
         if [ "$crc" -ne 0 ] || [ "$got_f" -ne "$nsel" ]; then
-          exist_reason="분기점 코퍼스를 다 읽지 못함(요청 ${nsel}개 중 ${got_f}개 — git cat-file rc=${crc})"; : > "$tmp/corpus.txt"
+          exist_reason="분기점 코퍼스를 다 읽지 못함(요청 ${nsel}개 중 ${got_f}개 — ${csrc} rc=${crc})"; : > "$tmp/corpus.txt"
         else
           corpus_files=$got_f
           clines=$(_count '^L' "$tmp/corpus.txt")
@@ -192,9 +217,10 @@ cmd_measure() {
         fi
       fi
     fi
-    # 정규화: 앞뒤 공백 제거, 빈 줄과 2자 이하 줄(괄호·fi 등)은 버린다. 창은 같은 파일·같은 연속 구간 안에서만 만든다.
+    # 정규화: 앞뒤 공백 제거, 빈 줄과 2바이트 이하 줄(괄호·fi 등)은 버린다. 창은 같은 파일·같은 연속 구간 안에서만 만든다.
+    #   LC_ALL=C — 길이·비교를 바이트로 통일한다(시스템 awk 는 비UTF-8 바이트에서 죽고, awk 구현마다 length 가 글자·바이트로 갈린다).
     local res
-    res=$(awk -v N="$WINDOW" -v USE_CORPUS="$([ "$exist_status" = measured ] && echo 1 || echo 0)" -v FC="$tmp/corpus.txt" -v FR="$tmp/removed.txt" '
+    res=$(LC_ALL=C awk -v N="$WINDOW" -v USE_CORPUS="$([ "$exist_status" = measured ] && echo 1 || echo 0)" -v FC="$tmp/corpus.txt" -v FR="$tmp/removed.txt" '
       function norm(s) { sub(/^[ \t\r]+/, "", s); sub(/[ \t\r]+$/, "", s); return s }
       function windows(file, set,   line, s, n, buf, k, j) {      # file 의 모든 N줄 창을 set 에 넣는다
         n = 0
@@ -226,7 +252,7 @@ cmd_measure() {
         }
         a = 0; b = 0; for (i = 1; i <= n; i++) { if (i in mw) a++; if (i in me) b++ }
         printf "%d %d %d\n", n, a, b
-      }' "$tmp/added.txt" 2>/dev/null)
+      }' "$tmp/added.txt" 2>/dev/null) || res=""
     if [ -n "$res" ]; then
       new_lines=${res%% *}; res=${res#* }; dup_new=${res%% *}; dup_exist=${res#* }
       dup_status=measured; dup_reason=""
@@ -265,29 +291,41 @@ cmd_measure() {
   if [ ! -f "$manifest" ]; then r_reason="foundation-manifest 없음(공통부가 없는 프로젝트)"
   elif [ ! -f "$REUSE_SH" ]; then r_status=not_measured; r_reason="check-foundation-reuse.sh 없음"
   else
-    local decl
-    decl=$(bash "$REUSE_SH" --declarations "$fid" 2>/dev/null || true)
-    if [ -z "$decl" ]; then r_reason="재사용 게이트 비발동(§유형=foundation 또는 산출물 부재)"
+    # --declarations 의 계약: 게이트가 발동하지 않으면 rc 0·무출력. rc≠0 은 "선언 없음"이 아니라 조회 실패다.
+    local decl decl_rc=0
+    decl=$(bash "$REUSE_SH" --declarations "$fid" 2>/dev/null) || decl_rc=$?
+    if [ "$decl_rc" -ne 0 ]; then r_status=not_measured; r_reason="재사용 선언을 조회할 수 없음(check-foundation-reuse.sh --declarations rc=${decl_rc})"
+    elif [ -z "$decl" ]; then r_reason="재사용 게이트 비발동(§유형=foundation 또는 산출물 부재)"
     elif printf '%s\n' "$decl" | grep -q '^NOMAP|'; then r_status=not_measured; r_reason="태스크 절 번호와 task id 가 어긋나 선언을 대응시킬 수 없음"
     elif [ "$added_ok" != 1 ]; then r_status=not_measured; r_reason="$added_reason"
     else
       declared=0; fulfilled=0
-      grep '^L' "$tmp/added.txt" 2>/dev/null | cut -f2- > "$tmp/added.plain"
-      local line val tok hit
+      # 오류(rc≥2)를 "미이행"(rc 1)으로 세지 않는다 — r_err 에 모아 아래에서 미측정으로 돌린다. 줄 내용을 다루는 도구는 바이트 기준(LC_ALL=C).
+      local line val tok hit arc r_err=""
+      LC_ALL=C sed -n $'s/^L\t//p' "$tmp/added.txt" > "$tmp/added.plain" 2>/dev/null || r_err="추가된 줄 변환 sed rc=$?"
+      # 백틱 표기 뽑기 — $1 파일 → $tmp/tok. grep 은 rc 1(백틱 없음)이 정상 흐름이고 rc≥2 만 오류다(파이프로 이으면 둘이 구분되지 않는다).
+      _toks() {
+        local g=0
+        LC_ALL=C grep -oE '`[^`]+`' "$1" > "$tmp/tok.raw" 2>/dev/null || g=$?
+        [ "$g" -le 1 ] || r_err="토큰 추출 grep rc=${g}"
+        tr -d '`' < "$tmp/tok.raw" > "$tmp/tok" 2>/dev/null
+      }
       while IFS= read -r line; do
         case "$line" in *"|재사용 foundation|"*) ;; *) continue ;; esac
         declared=$((declared + 1)); val=${line#*|재사용 foundation|}; hit=0
         # 근거 토큰: 선언의 백틱 표기 → 없으면 manifest 표에서 선언에 모듈 이름이 나온 행의 백틱 표기
-        printf '%s\n' "$val" | grep -oE '`[^`]+`' | tr -d '`' > "$tmp/tok" 2>/dev/null
+        printf '%s\n' "$val" > "$tmp/val"; _toks "$tmp/val"
         if [ ! -s "$tmp/tok" ]; then
-          awk -F'|' -v V="$val" 'NF >= 3 { m = $2; gsub(/^[ \t]+|[ \t]+$/, "", m); if (m != "" && m !~ /^-+$/ && index(V, m) > 0) print }' "$manifest" \
-            | grep -oE '`[^`]+`' | tr -d '`' > "$tmp/tok" 2>/dev/null
+          LC_ALL=C awk -F'|' -v V="$val" 'NF >= 3 { m = $2; gsub(/^[ \t]+|[ \t]+$/, "", m); if (m != "" && m !~ /^-+$/ && index(V, m) > 0) print }' "$manifest" \
+            > "$tmp/mrows" 2>/dev/null || r_err="manifest 행 조회 awk rc=$?"
+          _toks "$tmp/mrows"
         fi
         # 바늘: 토큰 그대로 · 확장자를 뗀 경로(import 는 확장자를 안 쓴다) · 파일 이름(4자 이상).
         #   **식별자 경계**에서만 맞춘다 — `index` 가 `indexOf` 에, `dates` 가 `updates` 에 맞으면 안 된다.
         while IFS= read -r tok; do
           [ "${#tok}" -ge 3 ] || continue
-          if awk -v T="$tok" '
+          arc=0
+          LC_ALL=C awk -v T="$tok" '
               function isw(c) { return c ~ /[A-Za-z0-9_]/ }
               function has(s, nd,   i, st, b, a, L) {
                 L = length(nd); st = 1
@@ -304,13 +342,16 @@ cmd_measure() {
                 b = p; sub(/.*\//, "", b); if (b != p && length(b) >= 4) nd[++n] = b
               }
               { for (k = 1; k <= n; k++) if (has($0, nd[k])) { found = 1; exit } }
-              END { exit(found ? 0 : 1) }' "$tmp/added.plain" 2>/dev/null; then hit=1; break; fi
+              END { exit(found ? 0 : 1) }' "$tmp/added.plain" 2>/dev/null || arc=$?
+          if [ "$arc" -eq 0 ]; then hit=1; break; fi
+          [ "$arc" -eq 1 ] || r_err="이행 판정 awk rc=${arc}"
         done < "$tmp/tok"
         fulfilled=$((fulfilled + hit))
       done <<EOF_DECL
 $decl
 EOF_DECL
-      r_status=measured; r_reason=""
+      if [ -n "$r_err" ]; then r_status=not_measured; r_reason="재사용 이행을 판정할 수 없음(${r_err})"; declared=""; fulfilled=""
+      else r_status=measured; r_reason=""; fi
     fi
   fi
 
@@ -328,9 +369,10 @@ EOF_DECL
     printf ' "jscpd":{"status":"%s","reason":"%s","lines":%s,"duplicated_lines":%s},\n' "$j_status" "$(_js "$j_reason")" "$(_num_or_null "$j_lines")" "$(_num_or_null "$j_dup")"
     printf ' "reuse":{"status":"%s","reason":"%s","declared":%s,"fulfilled":%s}}\n' "$r_status" "$(_js "$r_reason")" "$(_num_or_null "$declared")" "$(_num_or_null "$fulfilled")"
   } > "$tmp/out.json"
-  # cp 가 아니라 리다이렉트로 쓴다 — 대상이 디렉터리면 cp 는 그 안에 복사해 성공으로 끝난다(기록 실패를 못 본다).
-  if [ ! -d "$out" ] && cat "$tmp/out.json" > "$out" 2>/dev/null; then echo "REUSE-METRICS: $out"
-  else echo "reuse-metrics: 기록 실패 — $out 에 쓸 수 없음" >&2; fi
+  # 같은 디렉터리의 임시 파일에 다 쓴 뒤 mv 로 바꾼다 — 쓰는 도중 끊겨도(시간 상한의 TERM) 빈·일부 기록이 남지 않는다(임시 파일은 EXIT 정리가 지운다).
+  #   대상이 디렉터리면 쓰지 않는다 — cp·mv 는 그 안에 넣고 성공으로 끝나 기록 실패를 못 본다.
+  if [ ! -d "$out" ] && [ -s "$tmp/out.json" ] && cat "$tmp/out.json" > "$otmp" 2>/dev/null && mv -f "$otmp" "$out" 2>/dev/null; then echo "REUSE-METRICS: $out"
+  else rm -f "$otmp" 2>/dev/null; echo "reuse-metrics: 기록 실패 — $out 에 쓸 수 없음" >&2; fi
   return 0
 }
 

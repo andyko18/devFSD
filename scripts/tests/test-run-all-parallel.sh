@@ -151,21 +151,53 @@ done
 [ -z "$_d_bad" ] && ok "T4.d 잘못된 값(abc·0·-2) → 중단 없이 자동 기본값" || nope "T4.d" "$_d_bad"
 
 # ── T5: 중단 = 즉시 전부 종료 (AC-9 · clarify Q1) ──
-#   ★ run-all 을 set -m 으로 띄운다 — 비대화형 셸의 `&` 는 SIGINT 를 무시 상태로 물려주고,
+#   ★ SIGINT 무시 상태는 두 겹으로 막는다 — 비대화형 셸의 `&` 는 자식의 SIGINT 를 무시 상태로 두고,
 #     무시 상태로 시작한 셸은 INT 를 trap 할 수 없다(bash 규약). 실제 호출(pre-push 의 $(...))은 포그라운드다.
+#     (1) 안쪽 run-all 은 set -m 으로 띄운다. (2) **이 스위트 자신이** `&` 로(예: implementing-ko 의 전체 스위트 병행) 기동되면
+#     SIGINT 를 무시한 채 시작하고, set -m 은 "원래 상태(무시)" 를 자식에게 되돌려 주므로 (1) 만으로는 INT 가 먹지 않는다
+#     (실측 20261012, macOS bash 3.2: 백그라운드 기동 → T5.b `rc=0(기대 130) el=61s`. ubuntu bash 5.2 에서는 이 조합이 INT 를 받아 재현되지 않는다).
+#     그래서 안쪽 run-all 을 perl 로 SIGINT 기본 상태로 되살려 띄운다.
 S=$(_sb)
 for n in 1 2 3 4 5 6; do
   # 손자까지 만든다 — 스위트 그룹째 끝나는지 본다(pkill -P 류는 손자에 뚫린다).
   #   루프는 유한(최대 ~20s)이다 — 종료가 실패해도 이 스위트가 무한 부하를 남기지 않게.
   _suite "$S" "h$n" 'echo "start" >> "$LOG"; bash -c '"'"'for k in $(seq 1 100); do echo x >> "$HB"; sleep 0.2; done'"'"''
 done
-_t5() {  # $1=신호 $2=기대 rc $3=라벨
-  local tmpd="$ROOT/t5tmp.$1" pid rc t0 el n1 n2 h1 h2
-  mkdir -p "$tmpd"; LOG="$ROOT/t5.$1.log"; HB="$ROOT/t5.$1.hb"; : > "$LOG"; : > "$HB"
+_DFL=(); command -v perl >/dev/null 2>&1 && _DFL=(perl -e '$SIG{INT}="DEFAULT"; exec @ARGV')
+# 백그라운드 기동 헬퍼 — $1=ign|- , 나머지=명령. 출력은 $_OUT, pid 는 $_PID. ign 이면 이 셸이 SIGINT 를 무시한 채 띄운다
+#   (= 스위트가 `&` 로 기동돼 SIGINT 무시 상태로 시작한 경우의 재현 — 실제 호출과 같은 경로라서 아래 전제 확인이 T5.c 의 기동을 그대로 검증한다).
+_PID=""; _OUT=/dev/null
+_spawn() {
+  local ign="$1"; shift
+  [ "$ign" = ign ] && trap '' INT
   set -m
-  LOG="$LOG" HB="$HB" TMPDIR="$tmpd" SPECOPS_RUN_ALL_JOBS=2 bash "$S/scripts/tests/run-all.sh" --quiet > "$ROOT/t5.$1.out" 2>&1 &
-  pid=$!
+  "$@" > "$_OUT" 2>&1 &
+  _PID=$!
   set +m
+  [ "$ign" = ign ] && trap - INT
+  return 0
+}
+_t5() {  # $1=신호 $2=기대 rc $3=라벨 $4=ign(선택: 무시 상태로 기동된 스위트 재현)
+  if [ "$1" = INT ] && [ "${#_DFL[@]}" -eq 0 ]; then
+    skip "$3 INT perl 부재 — 안쪽 run-all 의 SIGINT 를 되살릴 수 없어 INT 중단 미검증 (PASS 집계 제외)"; return 0
+  fi
+  if [ "$3" = "T5.c" ] && [ "${4:-}" != ign ]; then   # T5.c 는 무시 상태 재현이 존재 이유 — ign 없이는 T5.b 의 중복으로 공허하게 통과한다
+    nope "$3" "ign 인자 누락 — 호출부에서 ign 이 빠졌다"; return 0
+  fi
+  local tmpd="$ROOT/t5tmp.$3" pid rc t0 el n1 n2 h1 h2 probe
+  if [ "${4:-}" = ign ]; then   # 전제 — _spawn ign 으로 띄운 자식은 INT 를 trap 할 수 없다. 깨지면 T5.c 는 아무것도 재현하지 못한다
+    _OUT="$ROOT/t5.$3.probe"
+    #   ★ `trap -p INT` 출력으로 감지하지 않는다 — bash 5.x 는 무시 상태인 신호에도 `trap -- '' SIGINT` 를 출력해 항상 "trappable" 로 오판한다
+    #     (ubuntu bash 5.1/5.2 실측 — CI 에서만 FAIL). 실제로 INT 를 보내 핸들러가 도는지 본다.
+    _spawn ign bash -c 'trap "echo trappable; exit 0" INT; kill -INT $$; sleep 1; echo ignored'
+    wait "$_PID"; probe=$(cat "$_OUT")
+    [ "$probe" = ignored ] && ok "$3 전제: _spawn ign 으로 띄운 자식은 INT 를 trap 할 수 없다(무시 상속 흉내가 실제로 유효)" \
+      || { nope "$3 전제" "probe=$probe — _spawn ign 이 무시를 물려주지 못한다"; return 0; }
+  fi
+  mkdir -p "$tmpd"; LOG="$ROOT/t5.$3.log"; HB="$ROOT/t5.$3.hb"; : > "$LOG"; : > "$HB"
+  _OUT="$ROOT/t5.$1.out"   # 판정 블록이 읽는 경로(`t5.$1.out`)는 그대로 둔다 — T5.b·T5.c 는 순차이고 `>` 가 매번 비운다(판정 블록 0줄 변경: AC-2)
+  _spawn "${4:--}" env LOG="$LOG" HB="$HB" TMPDIR="$tmpd" SPECOPS_RUN_ALL_JOBS=2 ${_DFL[@]+"${_DFL[@]}"} bash "$S/scripts/tests/run-all.sh" --quiet
+  pid=$_PID
   sleep 2
   n1=$(wc -l < "$LOG" | tr -d ' ')
   t0=$(date +%s); kill -"$1" "$pid"; wait "$pid"; rc=$?; el=$(( $(date +%s) - t0 ))
@@ -181,6 +213,7 @@ _t5() {  # $1=신호 $2=기대 rc $3=라벨
 }
 _t5 TERM 143 "T5.a"
 _t5 INT 130 "T5.b"
+_t5 INT 130 "T5.c" ign   # 스위트가 SIGINT 무시 상태로 기동된 경우를 기동 방식과 무관하게 결정적으로 재현 (전제 확인 포함)
 
 # ── T6: 병렬 수 stderr 표시 · 비quiet FAIL 줄 위치 (AC-11) ──
 S=$(_sb)

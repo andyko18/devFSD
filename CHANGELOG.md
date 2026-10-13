@@ -17,6 +17,7 @@
 ### Tests/CI
 
 - **README 대문 불변식 스위트 `test-readme-frontdoor.sh` 를 더했다.** 히어로·배지·카드·정직한 박스가 `## 설치` 앞에 있는지, 정적 버전 배지가 없는지, 히어로 SVG 가 well-formed 이고 외부 참조가 없는지, README·`docs/adoption-notes.md` 의 로컬 링크가 해석되는지, 이동한 9절이 있는지를 본다. 사본 트리에 위반을 하나씩 넣어 각 검사가 실제로 실패하는지도 확인한다.
+- **`test-run-all-parallel.sh` 의 T5.b(INT 로 run-all 중단)가 스위트를 백그라운드로 띄우면 FAIL 하던 것을 고쳤다.** `&` 로 띄운 프로세스는 SIGINT 를 무시 상태로 시작하고 `set -m` 은 그 상태를 자식에게 되돌려 줘서, 안쪽 run-all 이 INT 를 받지 못하고 끝까지 돌아 `rc=0(기대 130)` 이 됐다(macOS bash 3.2 실측 — ubuntu bash 5.2 에서는 재현되지 않는다). `implementing-ko` 의 전체 스위트 병행 절차에서 매번 났고 부하 때문이 아니다. 안쪽 run-all 을 perl 로 SIGINT 기본 상태로 되살려 띄운다. 스위트가 무시 상태로 기동된 경우를 재현하는 T5.c(전제 확인 포함)를 더했고 perl 이 없으면 INT 케이스는 SKIP 으로 보고한다. 제품 코드(`run-all.sh`)와 T5.b 의 판정 조건은 그대로다.
 
 ## [2.20.2] — 2026-10-12
 

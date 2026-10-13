@@ -73,6 +73,13 @@ R=$(mk_repo); { echo "def existing():"; echo "    if flag:"; blk old | sed 's/^/
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.dup.existing.dup_of_existing')" = 0 ] && [ "$(J "$R" '.dup.new_lines')" = 9 ]; } \
   && ok "R2.h 기존 블록을 if 로 감싸 들여쓰기만 바뀐 것은 복제가 아니다(0)" || nope "R2.h" "$(J "$R" '.dup')"
+# 분기점 커밋에 export-ignore 가 걸린 파일도 기존 코드다 — 코퍼스에서 조용히 빠지면 실제 복사가 0 으로 나온다.
+R=$(mk_repo)
+( cd "$R" && git checkout -q main && echo "src/old.py export-ignore" > .gitattributes && git add -A && git commit -qm attrs && git checkout -q -B "feat/$FID" ) >/dev/null 2>&1
+{ echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.dup.existing.status')" = measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = 8 ] && [ "$(J "$R" '.dup.existing.corpus_files')" -ge 1 ] 2>/dev/null; } \
+  && ok "R2.i export-ignore 가 걸린 기존 파일의 8줄 블록을 복사 → 8줄(코퍼스에서 빠지지 않는다)" || nope "R2.i" "$(J "$R" '.dup')"
 # jscpd 스텁 — 리포트를 쓰는 것 / 실패하는 것
 STUB="$ROOT/stub"; mkdir -p "$STUB/ok" "$STUB/bad"
 cat > "$STUB/ok/jscpd" <<'EOS'
@@ -134,7 +141,7 @@ R=$(mk_repo); echo "a = 1" > "$R/src/a.py"; echo "b = 2" > "$R/src/b.py"; commit
 ( cd "$R" && SPECOPS_REUSE_MAX_FILES=1 bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.dup.status')" = not_measured ] && [ "$(J "$R" '.dup.dup_within_new')" = null ] && [ "$(J "$R" '.size.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 2 ]; } \
   && ok "R4.b 파일 수 상한 초과: dup 만 not_measured(null) · size 는 계속 측정" || nope "R4.b" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
-o1=$( cd "$R" && bash "$RM" measure "not-a-fid" 2>&1 ); r1=$?; o2=$( cd "$R" && bash "$RM" 2>&1 ); r2=$?
+( cd "$R" && bash "$RM" measure "not-a-fid" ) >/dev/null 2>&1; r1=$?; ( cd "$R" && bash "$RM" ) >/dev/null 2>&1; r2=$?
 { [ "$r1" = 2 ] && [ "$r2" = 2 ]; } && ok "R4.c 잘못된 FID·인자 없음 → rc 2(사용 오류)" || nope "R4.c" "r1=$r1 r2=$r2"
 
 R=$(mk_repo); { echo "def a():"; blk new; echo "def b():"; blk new; } > "$R/src/한글 모듈.py"; printf '설계\n둘째\n셋째\n' > "$R/docs설계.md"; commit_all "$R"
@@ -155,8 +162,8 @@ echo "z = 1" > "$R/src/ok.py"; commit_all "$R"      # 읽히는 파일이 섞여
   && ok "R4.g 따옴표 든 경로 + 읽히는 파일 혼합: 전부 읽었으면 10, 아니면 not_measured·null — 일부(1줄)만 읽고 measured 로 내지 않는다($(J "$R" '.dup.status'))" || nope "R4.g" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
 R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
 ( cd "$R" && SPECOPS_REUSE_MAX_TREE_BYTES=10 bash "$RM" measure "$FID" ) >/dev/null 2>&1
-{ [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && J "$R" '.dup.existing.reason' | grep -q '바이트' && [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 9 ]; } \
-  && ok "R4.h 분기점 트리 바이트 상한 초과: 스냅샷을 풀지 않고 기존 코드 복제만 not_measured(null)·사유 · 새 코드끼리·size 는 계속 측정" || nope "R4.h" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
+{ [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.existing.corpus_files')" = null ] && J "$R" '.dup.existing.reason' | grep -q '바이트' && [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 9 ]; } \
+  && ok "R4.h 분기점 트리 바이트 상한 초과: 코퍼스를 읽지 않고 기존 코드 복제만 not_measured(null)·사유 · 새 코드끼리·size 는 계속 측정" || nope "R4.h" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
 R=$(mk_repo)      # 분기 직후 — 변경 없음
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.size.status')" = not_measured ] && [ "$(J "$R" '.size.impl.added')" = null ] && [ "$(J "$R" '.dup.status')" = not_measured ] && [ "$(J "$R" '.dup.new_lines')" = null ] \
@@ -166,6 +173,34 @@ echo "w = 1" > "$R/src/wip.py"; ( cd "$R" && git add -A ) >/dev/null 2>&1      #
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.size.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 1 ]; } \
   && ok "R4.j 분기점 = HEAD 여도 커밋 전 변경이 있으면 측정한다(+1)" || nope "R4.j" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
+# git 래퍼 — cat-file 만 다르게 굴고 나머지는 진짜 git 으로 넘긴다(스크립트는 `git -C <루트> -c … cat-file` 로 부르므로 인자 전체를 훑는다).
+REAL_GIT=$(command -v git)
+mk_git_wrap() {   # $1=디렉터리 $2=cat-file 을 만났을 때 할 일
+  mkdir -p "$1"
+  { printf '#!/usr/bin/env bash\n'
+    printf 'for a in "$@"; do if [ "$a" = cat-file ]; then %s; fi; done\n' "$2"
+    printf 'exec "%s" "$@"\n' "$REAL_GIT"; } > "$1/git"
+  chmod +x "$1/git"
+}
+mk_git_wrap "$ROOT/gfail" 'exit 1'
+R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"      # review-base.sha 없음 — cat-file 은 코퍼스 읽기에서만 불린다
+( cd "$R" && PATH="$ROOT/gfail:$PATH" bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.existing.corpus_files')" = null ] \
+  && [ -n "$(J "$R" '.dup.existing.reason')" ] && [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.dup.dup_within_new')" = 0 ] && [ "$(J "$R" '.size.status')" = measured ]; } \
+  && ok "R4.k 분기점 코퍼스를 읽지 못하면(cat-file 실패) 기존 코드 복제만 not_measured·null·사유 — measured 0 이 아니다 · 새 코드끼리·size 는 유지" || nope "R4.k" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
+( cd "$R" && SPECOPS_REUSE_MAX_CORPUS_LINES=9 bash "$RM" measure "$FID" ) >/dev/null 2>&1      # 코퍼스 = src/old.py 9줄
+c9=$(J "$R" '[.dup.existing.status,.dup.existing.dup_of_existing]|join(",")')
+( cd "$R" && SPECOPS_REUSE_MAX_CORPUS_LINES=8 bash "$RM" measure "$FID" ) >/dev/null 2>&1
+c8=$(J "$R" '[.dup.existing.status,.dup.existing.dup_of_existing,.dup.existing.corpus_files]|map(tostring)|join(",")')
+{ [ "$c9" = "measured,8" ] && [ "$c8" = "not_measured,null,null" ] && J "$R" '.dup.existing.reason' | grep -q '대조 코퍼스 9줄'; } \
+  && ok "R4.m 코퍼스 줄 수 상한 경계: 9줄 코퍼스는 상한 9 에서 측정(8) · 상한 8 에서 not_measured·null — 줄 수는 파일의 실제 줄 수다" || nope "R4.m" "상한9=$c9 상한8=$c8 사유=$(J "$R" '.dup.existing.reason')"
+R=$(mk_repo); { echo "def a():"; blk new; echo "def b():"; blk new; } > "$R/src/new.py"; commit_all "$R"
+( cd "$R" && git config diff.mnemonicPrefix true && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+m1=$(J "$R" '[.dup.status,.dup.new_lines,.dup.dup_within_new]|join(",")')
+( cd "$R" && git config --unset diff.mnemonicPrefix && git config diff.noprefix true && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+m2=$(J "$R" '[.dup.status,.dup.new_lines,.dup.dup_within_new]|join(",")')
+{ [ "$m1" = "measured,18,16" ] && [ "$m2" = "measured,18,16" ]; } \
+  && ok "R4.l 사용자 git 설정(diff.mnemonicPrefix · diff.noprefix)과 무관하게 같은 값(새 코드 18줄 중 16 복제)" || nope "R4.l" "mnemonicPrefix=$m1 noprefix=$m2"
 
 # ── R7: batch — review-base.sha 가 있으면 그 FR 의 시작점부터만 센다 ──
 R=$(mk_repo); printf 'a = 1\nb = 2\nc = 3\n' > "$R/src/first.py"; commit_all "$R"
@@ -221,5 +256,36 @@ R=$(mk_repo); echo "x = 1" > "$R/src/x.py"; mk_verify "$R" pass; commit_all "$R"
 out=$( cd "$R" && bash "$PL/scripts/_internal/run-verification.sh" "$FID" 2>&1 ); rc=$?
 { [ "$rc" = 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] && [ ! -e "$R/.specops/$FID/reuse-metrics.json" ]; } \
   && ok "R6.e 측정 스크립트가 없어도 verify 는 VERIFY: PASS · rc 0" || nope "R6.e" "rc=$rc out=$out"
+# 측정이 매달려도 verify 는 상한에서 끊고 끝난다. 사본의 상한 숫자만 30→2 로 줄여 60초 자는 스텁을 붙인다(한도 20초 — 부하 여유).
+RV="$PL/scripts/_internal/run-verification.sh"
+sed 's/bounded_run 30 bash/bounded_run 2 bash/' "$RV" > "$RV.new" && mv "$RV.new" "$RV"
+printf '#!/usr/bin/env bash\nsleep 60\n' > "$PL/scripts/reuse-metrics.sh"
+if [ "$(grep -c 'bounded_run 2 bash "$PLUGIN/scripts/reuse-metrics.sh" measure' "$RV")" = 1 ]; then
+  R=$(mk_repo); echo "x = 1" > "$R/src/x.py"; mk_verify "$R" pass; commit_all "$R"
+  t0=$SECONDS; out=$( cd "$R" && bash "$RV" "$FID" 2>&1 ); rc=$?; el=$((SECONDS - t0))
+  { [ "$rc" = 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] && [ "$el" -lt 20 ]; } \
+    && ok "R6.f 측정이 매달려도(60초 스텁) verify 는 시간 상한에서 끊고 VERIFY: PASS · rc 0 (사본 상한 2초 · 한도 20초 안)" || nope "R6.f" "rc=$rc el=${el}s out=$out"
+else
+  nope "R6.f" "run-verification.sh 의 측정 호출에 시간 상한(bounded_run 30)이 없다 — 실행 생략"
+fi
+# 측정이 끝나든 TERM 으로 끊기든 임시 디렉터리를 남기지 않는다. 끊는 방식은 run-bounded.sh 와 같다(프로세스 그룹째 TERM).
+TD="$ROOT/tmpd"; mkdir -p "$TD"
+mk_git_wrap "$ROOT/gslow" ": > '$ROOT/gslow.reached'; sleep 30; exit 1"
+R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
+( cd "$R" && TMPDIR="$TD" bash "$RM" measure "$FID" ) >/dev/null 2>&1
+left_ok=$(find "$TD" -maxdepth 1 -name 'specops-reuse.*' | wc -l | tr -d ' ')
+gres=$(
+  set -m
+  ( cd "$R" && TMPDIR="$TD" PATH="$ROOT/gslow:$PATH" exec bash "$RM" measure "$FID" ) >/dev/null 2>&1 &
+  gp=$!
+  set +m
+  i=0; while [ ! -e "$ROOT/gslow.reached" ] && [ "$i" -lt 100 ]; do sleep 0.2; i=$((i + 1)); done
+  mid=$(find "$TD" -maxdepth 1 -name 'specops-reuse.*' | wc -l | tr -d ' ')
+  kill -TERM -- "-$gp" 2>/dev/null; kill -TERM "$gp" 2>/dev/null
+  wait "$gp" 2>/dev/null
+  echo "$([ -e "$ROOT/gslow.reached" ] && echo 1 || echo 0) $mid $(find "$TD" -maxdepth 1 -name 'specops-reuse.*' | wc -l | tr -d ' ')"
+) 2>/dev/null
+{ [ "$left_ok" = 0 ] && [ "$gres" = "1 1 0" ] && grep -q "^  trap 'exit 143' TERM" "$RM"; } \
+  && ok "R6.g 임시 디렉터리를 남기지 않는다 — 정상 종료 뒤 0개 · 측정 도중(코퍼스 읽기) TERM 으로 끊겨도 1개→0개" || nope "R6.g" "정상 종료 뒤=${left_ok} 끊김(도달 중간 끝)=${gres}"
 
 finish

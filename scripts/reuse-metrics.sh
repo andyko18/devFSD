@@ -22,8 +22,8 @@ FC_SH="$SELF_DIR/_internal/file-class.sh"
 REUSE_SH="$SELF_DIR/_internal/check-foundation-reuse.sh"
 WINDOW="${SPECOPS_REUSE_DUP_WINDOW:-6}"                        # 연속 줄 수
 MAX_FILES="${SPECOPS_REUSE_MAX_FILES:-200}"                    # 변경된 비문서 파일 수 상한 — 넘으면 dup·jscpd·reuse 는 not_measured
-MAX_TREE_FILES="${SPECOPS_REUSE_MAX_TREE_FILES:-10000}"        # 분기점 트리의 파일 수 상한 — 넘으면 풀지 않고 (b) 만 not_measured
-MAX_TREE_BYTES="${SPECOPS_REUSE_MAX_TREE_BYTES:-209715200}"    # 분기점 트리의 바이트 합 상한(200MB) — 넘으면 풀지 않고 (b) 만 not_measured
+MAX_TREE_FILES="${SPECOPS_REUSE_MAX_TREE_FILES:-10000}"        # 분기점 트리의 파일 수 상한 — 넘으면 읽지 않고 (b) 만 not_measured
+MAX_TREE_BYTES="${SPECOPS_REUSE_MAX_TREE_BYTES:-209715200}"    # 분기점 트리의 바이트 합 상한(200MB) — 넘으면 읽지 않고 (b) 만 not_measured
 MAX_CORPUS_LINES="${SPECOPS_REUSE_MAX_CORPUS_LINES:-150000}"   # 대조 코퍼스 줄 수 상한 — 넘으면 (b) 만 not_measured
 case "$WINDOW" in ''|*[!0-9]*|0) WINDOW=6 ;; esac
 case "$MAX_FILES" in ''|*[!0-9]*) MAX_FILES=200 ;; esac
@@ -52,8 +52,9 @@ cmd_measure() {
   [ -d "$SPECOPS/$fid" ] || { echo "reuse-metrics: FID 디렉터리 없음: $SPECOPS/$fid" >&2; return 2; }
   local out="$SPECOPS/$fid/reuse-metrics.json" tmp
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/specops-reuse.XXXXXX") || { echo "reuse-metrics: 임시 디렉터리 생성 실패" >&2; return 0; }
-  # shellcheck disable=SC2064
+  # shellcheck disable=SC2064   # $tmp 는 지역 변수라 **지금** 확장돼야 한다 (함수가 끝나면 trap 실행 시점에는 값이 없다)
   trap "rm -rf '$tmp'" EXIT
+  trap 'exit 143' TERM INT HUP      # 시간 상한(run-bounded.sh 의 TERM)에 끊겨도 위 EXIT 정리가 돌게 한다
 
   # ── 분기점 ── git 명령은 전부 저장소 루트 기준·경로 인용 없이 돈다(하위 디렉터리에서 불러도, 비ASCII·따옴표 경로여도 같은 결과).
   local ts head="" base="" base_reason="" top="" base_src="" base_out=""
@@ -114,7 +115,7 @@ cmd_measure() {
     if [ "$ncode" -gt "$MAX_FILES" ]; then
       added_reason="변경된 비문서 파일 ${ncode}개 > 상한 ${MAX_FILES}"
     else
-      _git diff --no-ext-diff --no-textconv -U0 --no-color --no-renames "$base" 2>/dev/null | awk -v OUTA="$tmp/added.txt" -v OUTD="$tmp/removed.txt" -v LIST="$tmp/code.paths" '
+      _git diff --no-ext-diff --no-textconv -U0 --no-color --no-renames --src-prefix=a/ --dst-prefix=b/ "$base" 2>/dev/null | awk -v OUTA="$tmp/added.txt" -v OUTD="$tmp/removed.txt" -v LIST="$tmp/code.paths" '
         BEGIN { while ((getline q < LIST) > 0) want[q] = 1 }
         /^diff --git /  { on = 0; hdr = 1; next }
         hdr && /^\+\+\+ / { f = substr($0, 5); sub(/^b\//, "", f); sub(/\t$/, "", f); on = (f in want); if (on) print "F" > OUTA; print "F" > OUTD; hdr = 0; next }
@@ -140,32 +141,54 @@ cmd_measure() {
     if [ "$ncode" -eq 0 ]; then
       exist_status=measured; exist_reason=""
     else
-      # 분기점 코퍼스 — 변경 파일과 같은 확장자의 추적 파일만. 풀기 **전에** 트리 크기를 세어 큰 저장소에서 시간을 쓰지 않는다.
-      local tree_n tree_b tree_s
-      tree_s=$(_git ls-tree -r -l "$base" 2>/dev/null | awk '{ n++; if ($4 ~ /^[0-9]+$/) b += $4 } END { printf "%d %.0f", n, b }')
-      tree_n=${tree_s%% *}; tree_b=${tree_s#* }
+      # 분기점 코퍼스 — 변경 파일과 같은 확장자 분류의 추적 파일만. 트리를 디스크에 풀지 않고 blob 을 직접 읽는다
+      #   (git archive 는 export-ignore 경로를 조용히 빼고, checkout 계열은 smudge 필터를 돌린다).
+      #   ls-tree 한 번으로 상한 판정(파일 수·바이트 합)과 대상 고르기를 함께 한다 — 읽기 **전에** 세어 큰 저장소에서 시간을 쓰지 않는다.
+      #   대상: 일반 blob(심볼릭 링크 120000·하위 모듈 제외) · 1MiB 미만 · 확장자 분류(cls)가 변경된 코드 파일의 분류 집합에 드는 것.
+      local tree_n tree_b tree_s tree_rc nsel
+      _git ls-tree -r -l "$base" > "$tmp/tree.txt" 2>/dev/null; tree_rc=$?
+      : > "$tmp/sel.shas"
+      tree_s=$(awk -v LIST="$tmp/code.paths" -v SEL="$tmp/sel.shas" '
+        function cls(p,   b, n, a) { b = p; sub(/.*\//, "", b); n = split(b, a, "."); return (n < 2 || a[n] == "" || b ~ /^\.[^.]*$/) ? "." : a[n] }
+        BEGIN { while ((getline q < LIST) > 0) want[cls(q)] = 1 }
+        { n++; if ($4 ~ /^[0-9]+$/) b += $4 }
+        $1 != "120000" && $2 == "blob" && $4 ~ /^[0-9]+$/ && $4 + 0 < 1048576 {
+          p = substr($0, index($0, "\t") + 1)
+          if (p ~ /^".*"$/) p = substr(p, 2, length(p) - 2)      # ls-tree 는 따옴표가 든 경로를 따옴표로 감싼다
+          if (cls(p) in want) { print $3 > SEL; s++ }
+        }
+        END { printf "%d %.0f %d", n, b, s }' "$tmp/tree.txt" 2>/dev/null)
+      tree_n=${tree_s%% *}; tree_b=${tree_s#* }; nsel=${tree_b#* }; tree_b=${tree_b%% *}
       case "$tree_n" in ''|*[!0-9]*) tree_n=0 ;; esac; case "$tree_b" in ''|*[!0-9]*) tree_b=0 ;; esac
-      if [ "$tree_n" -gt "$MAX_TREE_FILES" ]; then
+      case "$nsel" in ''|*[!0-9]*) tree_rc=1 ;; esac      # 집계 awk 가 답을 못 냈다 — 트리를 못 읽은 것과 같이 다룬다
+      if [ "$tree_rc" -ne 0 ]; then
+        exist_reason="분기점 트리를 읽을 수 없음(git ls-tree 실패)"
+      elif [ "$tree_n" -gt "$MAX_TREE_FILES" ]; then
         exist_reason="분기점 트리 ${tree_n}개 파일 > 상한 ${MAX_TREE_FILES}"
       elif [ "$tree_b" -gt "$MAX_TREE_BYTES" ]; then
         exist_reason="분기점 트리 ${tree_b}바이트 > 상한 ${MAX_TREE_BYTES}"
       else
-        mkdir -p "$tmp/base"
-        if _git archive --format=tar "$base" 2>/dev/null | tar -xf - -C "$tmp/base" 2>/dev/null; then
-          local exts e clines
-          exts=$(awk -F/ '{ b = $NF; n = split(b, a, "."); print (n < 2 || a[n] == "" || b ~ /^\.[^.]*$/) ? "." : a[n] }' "$tmp/code.paths" 2>/dev/null | sort -u | tr '\n' ' ')
-          : > "$tmp/corpus.list"
-          for e in $exts; do
-            if [ "$e" = "." ]; then find "$tmp/base" -type f ! -name '*.*' -size -1024k 2>/dev/null >> "$tmp/corpus.list"
-            else find "$tmp/base" -type f -name "*.$e" -size -1024k 2>/dev/null >> "$tmp/corpus.list"; fi
-          done
-          corpus_files=$(_count . "$tmp/corpus.list")
-          [ "$corpus_files" -gt 0 ] && tr '\n' '\0' < "$tmp/corpus.list" | xargs -0 awk 'FNR == 1 { print "F" } { print "L\t" $0 }' > "$tmp/corpus.txt" 2>/dev/null
+        # 머리표지는 실행마다 다른 값 — 내용 줄과 겹치지 않게. 파이프로 잇지 않고 종료 코드를 따로 받는다.
+        local clines mark got_f crc=0
+        mark="SPECOPS-REUSE-BLOB-$$-$RANDOM"
+        if [ "$nsel" -gt 0 ]; then
+          _git cat-file --batch="$mark %(objectname)" < "$tmp/sel.shas" > "$tmp/blobs.raw" 2>/dev/null; crc=$?
+          # cat-file --batch 는 blob 마다 내용 뒤에 LF 를 하나 더 붙인다 — 그 빈 줄 하나(머리표지·끝 바로 앞)는 내용이 아니라 버린다.
+          #   빈 줄은 잡아 두었다가 뒤에 내용 줄이 오면 그때 낸다(줄 수 상한이 파일의 실제 줄 수를 세게).
+          awk -v M="$mark " '
+            index($0, M) == 1 { pend = 0; print "F"; next }
+            $0 == ""          { if (pend) print "L\t"; pend = 1; next }
+                              { if (pend) { print "L\t"; pend = 0 } print "L\t" $0 }' "$tmp/blobs.raw" > "$tmp/corpus.txt" 2>/dev/null
+        fi
+        # 자기 점검 — 읽은 blob 수가 요청한 수와 다르면 코퍼스가 빈 것·일부인 것이다. 그 위에서 센 0 을 보고하지 않는다.
+        got_f=$(_count '^F$' "$tmp/corpus.txt")
+        if [ "$crc" -ne 0 ] || [ "$got_f" -ne "$nsel" ]; then
+          exist_reason="분기점 코퍼스를 다 읽지 못함(요청 ${nsel}개 중 ${got_f}개 — git cat-file rc=${crc})"; : > "$tmp/corpus.txt"
+        else
+          corpus_files=$got_f
           clines=$(_count '^L' "$tmp/corpus.txt")
           if [ "$clines" -gt "$MAX_CORPUS_LINES" ]; then exist_reason="대조 코퍼스 ${clines}줄 > 상한 ${MAX_CORPUS_LINES}"; : > "$tmp/corpus.txt"
           else exist_status=measured; exist_reason=""; fi
-        else
-          exist_reason="분기점 스냅샷을 풀 수 없음(git archive 실패)"
         fi
       fi
     fi
@@ -292,6 +315,7 @@ EOF_DECL
   fi
 
   # ── 기록 ──
+  [ "$exist_status" = measured ] || corpus_files=""      # 재지 못했으면 부가 칸도 숫자로 내지 않는다
   {
     printf '{"schema_version":1,"fid":"%s","ts":"%s","base":%s,"base_source":"%s","head":%s,\n' "$fid" "$ts" \
       "$([ -n "${base_out:-$base}" ] && printf '"%s"' "${base_out:-$base}" || printf null)" "$(_js "$base_src")" "$([ -n "$head" ] && printf '"%s"' "$head" || printf null)"

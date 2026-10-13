@@ -138,6 +138,13 @@ if [ -f .specops/memory/constitution.md ] \
 else
   nope "T5.a skip" "constitution placeholder 미유지"
 fi
+# T5.b — 초기화가 만든 헌법에 「구조 규칙」 절이 들어 있고, 읽는 스크립트가 규칙 0건의 해당 없음으로 통과한다 (FID 20261013-constitution-structure-rules)
+_ck_out=$(bash "$PLUGIN/scripts/_internal/check-constitution-rules.sh" 2>&1); _ck_rc=$?
+if grep -q 'structure-rules:start' .specops/memory/constitution.md 2>/dev/null && [ "$_ck_rc" = 0 ] && printf '%s' "$_ck_out" | grep -q 'SKIP (규칙 0건'; then
+  ok "T5.b 초기화가 만든 헌법에 구조 규칙 절 · check-constitution-rules 는 해당 없음(rc 0)"
+else
+  nope "T5.b 구조 규칙 절" "rc=$_ck_rc out=$_ck_out"
+fi
 teardown_fixture
 
 # ── T6.a git init 안 된 디렉토리 → exit 1 ─────

@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **재사용·복제 관측 `scripts/reuse-metrics.sh` 를 더했다 (관측 전용 — 차단·경고 없음).** `measure <FID>` 가 변경 규모(구현·테스트·문서별 추가·삭제 줄), 복제(추가된 코드 안의 반복 · 저장소에 이미 있던 코드의 복사 — 이름 변경·이동·들여쓰기 변경은 뺀다), 재사용 선언 이행(`재사용 foundation` 선언에 적힌 경로·심볼이 추가된 코드에 나오는 건수 / 선언 건수)을 `.specops/<FID>/reuse-metrics.json` 에 남기고 `report` 가 FID 별 표로 보인다. 재지 못한 항목은 0 이 아니라 `not_measured`·`not_applicable` 과 사유로 기록한다. `run-verification.sh` 가 `VERIFY: PASS` 뒤에 한 번 부르며 측정의 실패는 판정과 종료 코드를 바꾸지 않는다. `jscpd` 가 설치돼 있으면 그 수치를 추가로 기록한다(실 도구로는 미검증 — 스텁으로만 확인). 이행률은 이름 등장 여부를 보는 근사치다.
+
 ### Docs
 
 - **README 대문을 재구성했다.** 히어로 배너(`docs/assets/hero.svg`) · 동적 배지 · "왜 쓰나" 표 · 보장하는 것/보장하지 않는 것 · Mermaid 도식 3개를 앞에 두고, `## 알아둘 것` 의 상세 9절은 `docs/adoption-notes.md` 로 원문 그대로 옮겼다(README 에는 요약 4줄). 모델·effort 실측 단락은 README 안에서 접었다. Lifecycle ASCII 도식은 Mermaid 로 바꾸면서 괄호 부가 설명을 일부 줄였다. 사실과 수치는 줄거나 바뀌지 않았다.

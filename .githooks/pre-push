@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# specops-ko push 전 전체 스위트 게이트 (193 스위트 · doc-lock: suite-count · 작업자 풀 병렬 20260911. 동일 비문서 트리면 마커로 skip)
+# specops-ko push 전 전체 스위트 게이트 (194 스위트 · doc-lock: suite-count · 작업자 풀 병렬 20260911. 동일 비문서 트리면 마커로 skip)
 #
 # 소요는 **머신 부하가 좌우한다** — 절대값으로 읽지 말 것. 같은 날 같은 트리 실측:
 #   2026-09-11 실측 median: 병렬 382s(5회) · 직렬(SPECOPS_RUN_ALL_JOBS=1) 813s(3회).
@@ -59,7 +59,7 @@ EOF
   exit 0
 fi
 
-echo "▶ pre-push: run-all.sh 전체 스위트 실행 중 (193 스위트 병렬 — ~7분, 머신이 바쁘면 그 이상)…" >&2  # doc-lock: suite-count
+echo "▶ pre-push: run-all.sh 전체 스위트 실행 중 (194 스위트 병렬 — ~7분, 머신이 바쁘면 그 이상)…" >&2  # doc-lock: suite-count
 out=$(bash "$RUN_ALL" --quiet 2>&1); rc=$?
 if [ "$rc" -ne 0 ]; then
   cat >&2 <<EOF

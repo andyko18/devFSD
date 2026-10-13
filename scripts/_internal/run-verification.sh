@@ -348,6 +348,9 @@ fi
 if [ "$all_pass" = "1" ]; then
   _record_result PASS
   echo "VERIFY: PASS"
+  # 재사용·복제 관측 (FID 20261013-reuse-dup-metrics) — 판정을 **낸 뒤** 1회. 관측 전용·fail-open:
+  #   스크립트 부재·측정 실패·기록 실패는 위 판정 줄과 아래 종료 코드에 영향을 주지 않는다(출력도 버린다).
+  [ -f "$PLUGIN/scripts/reuse-metrics.sh" ] && bash "$PLUGIN/scripts/reuse-metrics.sh" measure "$FID" >/dev/null 2>&1
   exit 0
 fi
 _record_result FAIL

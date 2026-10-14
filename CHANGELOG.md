@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.21.0] — 2026-10-14
+
 ### Added
 
 - **헌법의 구조 규칙이 구현자·코드 리뷰어에게 전달된다 (dispatch 컨텍스트 §8).** `emit-context.sh` 가 `check-constitution-rules.sh --list` 로 헌법의 「구조 규칙」 표를 읽어 모든 태스크 컨텍스트 끝에 `## 8. 구조 규칙 (헌법 — 준수)` 절을 싣는다(규칙마다 ID · 문장 · 적용 경로 · 판정). `implementer-ko` 는 그 규칙을 따르고 지킬 수 없으면 어기지 않고 보고하며, `code-reviewer-ko` 는 판정이 `리뷰`인 규칙을 변경과 대조한다(이번 변경의 위반은 Important · 기존 코드는 Suggestion). 규칙이 없으면 컨텍스트는 종전과 바이트 단위로 같다. 표가 형식 위반·판정 불가면 **막지 않고** 절과 표준 오류(`emit-context: WARN`)에 "싣지 못했다"와 사유를 남긴다. `명령` 판정 규칙의 명령은 아직 자동 실행되지 않는다. 함께: `check-constitution-rules.sh` 가 색 강제 환경(`CLICOLOR_FORCE`)에서 정책으로 거부된 상위 디렉터리 아래의 실재 헌법을 "헌법 없음"으로 답하던 것을 닫았다.
@@ -3249,7 +3251,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.20.2...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.21.0...HEAD
+[2.21.0]: https://github.com/andyko18/specops-ko/compare/v2.20.2...v2.21.0
 [2.20.2]: https://github.com/andyko18/specops-ko/compare/v2.20.1...v2.20.2
 [2.20.1]: https://github.com/andyko18/specops-ko/compare/v2.20.0...v2.20.1
 [2.20.0]: https://github.com/andyko18/specops-ko/compare/v2.19.0...v2.20.0

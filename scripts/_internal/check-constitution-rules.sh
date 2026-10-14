@@ -21,7 +21,7 @@
 #   (칸 앞뒤 공백 제거 · 판정 명령이 없으면(`-` 포함) 빈 칸 · 백틱은 적힌 그대로). 그 밖의 줄은 전부 표준 오류로 간다.
 # 한계: 칸 안에 `|` 를 쓸 수 없다(칸 수 위반으로 잡힌다). 규칙 내용의 옳고 그름·경로 실재·명령 실행 가능 여부는 보지 않는다.
 #   UTF-8 이 아닌 헌법은 지원하지 않는다(NUL 바이트가 있으면 판정 불가, 그 밖의 인코딩은 표지·낱말이 맞지 않아 위반이나 절 없음으로 읽힌다).
-#   이 스크립트를 부르는 훅·게이트는 없다 — 표가 틀려도 아무것도 막지 않는다(FID 20261013-constitution-structure-rules).
+#   부르는 곳은 scripts/dag/emit-context.sh 하나다(--list 를 dispatch 컨텍스트 §8 로 싣는다). 표가 틀려도 아무것도 막지 않는다 — 그쪽이 경고만 남긴다.
 set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
@@ -51,7 +51,9 @@ if [ ! -e "$FILE" ]; then
   done
   if [ ! -d "$d" ] || [ ! -x "$d" ]; then cant "경로를 확인할 수 없음(들어갈 수 없는 상위 경로 $d)"; fi
   # 목록에는 이름이 있는데 stat 이 안 되면 없는 것이 아니라 거부된 것이다(샌드박스·TCC·SELinux 류 정책). 목록을 못 읽으면(ls 실패) stat 의 "없음"을 따른다.
-  if LC_ALL=C ls -a "$d" 2>/dev/null | LC_ALL=C grep -qxF -- "$(basename "$c")"; then cant "이름은 있는데 확인할 수 없음(접근 거부 — $c)"; fi
+  # ls 출력은 호출자 환경(CLICOLOR 류)에 따라 바뀐다 — 색을 내려고 stat 하다 거부된 항목을 목록에서 뺀다. 셸이 디렉터리 항목을 직접 읽는다.
+  cb=$(basename "$c")
+  if ( shopt -s nullglob dotglob; for e in "$d"/*; do [ "${e##*/}" = "$cb" ] && exit 0; done; exit 1 ); then cant "이름은 있는데 확인할 수 없음(접근 거부 — $c)"; fi
   say "CONSTITUTION-RULES: SKIP (헌법 없음: $FILE)"; exit 0
 fi
 if [ ! -f "$FILE" ] || [ ! -r "$FILE" ]; then cant "읽을 수 없는 파일"; fi

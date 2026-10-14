@@ -197,6 +197,20 @@ else
   { [ "$rc1" = 2 ] && [ -z "$out1" ] && printf '%s' "$err1" | grep -q '판정 불가' && [ "$rc" = 2 ] && [ -z "$out" ]; } \
     && ok "C6.l 정책으로 stat 이 거부된 헌법(목록에는 이름이 있음) → rc 2 — 헌법 없음(0)으로 답하지 않는다" || nope "C6.l" "rc=$rc1/$rc out=$out1 err=$err1 list_out=$out"
 fi
+# 색 강제 환경 — ls 는 색을 내려고 stat 하다 거부된 항목을 목록에서 뺀다. 상위 디렉터리째 거부된 실재 헌법을 "없음"으로 답하면 안 된다.
+sbq="(version 1)(allow default)(deny file-read* (subpath \"$sbd\"))"
+if ! command -v sandbox-exec >/dev/null 2>&1; then
+  skip "C6.n 색 강제 환경 + 거부된 상위 디렉터리 — sandbox-exec 없음(macOS 전용) 미실행"
+elif ! sandbox-exec -p '(version 1)(allow default)' /usr/bin/true >/dev/null 2>&1; then
+  skip "C6.n 색 강제 환경 + 거부된 상위 디렉터리 — sandbox-exec 를 쓸 수 없음(이미 샌드박스 안 등) 미실행"
+elif sandbox-exec -p "$sbq" /bin/test -e "$sbf" 2>/dev/null; then
+  nope "C6.n" "deny 미적용 — 샌드박스 안에서 stat 이 된다($sbf)"
+else
+  out=$(env CLICOLOR=1 CLICOLOR_FORCE=1 TERM=xterm-256color sandbox-exec -p "$sbq" /bin/bash "$CK" "$sbf" 2>"$ROOT/err"); rc1=$?; err1=$(cat "$ROOT/err"); out1=$out
+  out=$(env CLICOLOR=1 CLICOLOR_FORCE=1 TERM=xterm-256color sandbox-exec -p "$sbq" /bin/bash "$CK" --list "$sbf" 2>"$ROOT/err"); rc=$?
+  { [ "$rc1" = 2 ] && [ -z "$out1" ] && printf '%s' "$err1" | grep -q '판정 불가' && [ "$rc" = 2 ] && [ -z "$out" ]; } \
+    && ok "C6.n 색 강제 환경(CLICOLOR·CLICOLOR_FORCE)에서 상위 디렉터리째 거부된 실재 헌법 → rc 2 — 헌법 없음(0)으로 답하지 않는다" || nope "C6.n" "rc=$rc1/$rc out=$out1 err=$err1 list_out=$out"
+fi
 run "$ROOT/sb/memory/none.md"; rc1=$rc; out1=$out; run --list "$ROOT/sb/memory/none.md"
 { [ "$rc1" = 0 ] && printf '%s' "$out1" | grep -q 'SKIP (헌법 없음' && [ "$rc" = 0 ] && [ -z "$out" ]; } && ok "C6.m 형제 파일이 있는 디렉터리에 헌법이 정말 없으면 종전대로 헌법 없음 · rc 0" || nope "C6.m" "rc=$rc1/$rc out=$out1 err=$err"
 before=$(cd "$ROOT/p" && find . -type f -exec cksum {} + | sort); ( cd "$ROOT/p" && bash "$CK" >/dev/null 2>&1; bash "$CK" --list >/dev/null 2>&1 ); after=$(cd "$ROOT/p" && find . -type f -exec cksum {} + | sort)

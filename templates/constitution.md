@@ -59,7 +59,7 @@
 
 칸 안에는 세로줄 문자를 쓸 수 없다(명령에 파이프가 필요하면 스크립트 파일로 감싼다). 형식 확인: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-constitution-rules.sh`
 
-판정 `명령` 은 검증(verify) 때 실행된다 — 결과는 경고로만 남는다(evidence.md `### structure-rule-commands`). 테스트 명령과 같은 허용 형식만 실행하고(예: `bash scripts/tests/test-structure.sh S-2` · `pytest …`), 그 밖(`! grep …` · `make …` 등)은 실행하지 않고 SKIP 으로 보고한다.
+판정 `명령` 은 검증(verify) 때 실행된다 — 결과는 경고로만 남는다(evidence.md `### structure-rule-commands`). 테스트 명령과 같은 허용 형식만 실행하고(예: `bash scripts/tests/test-structure.sh S-2` · `pytest …`), 그 밖(`! grep …` · `make …` 등)은 실행하지 않고 SKIP 으로 보고한다. 판정 명령의 종료 코드는 `0` = 지킴 · `2` = 판정 불가(도구·환경이 없어 확인하지 못함) · 그 밖 = 위반으로 읽는다.
 
 <!-- structure-rules:start -->
 | ID | 규칙 | 적용 경로 | 판정 | 판정 명령 |

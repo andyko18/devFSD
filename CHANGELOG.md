@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **테스트만 바꾸는 FID 가 `rm -rf` 인용 하나로 strict 판정되지 않는다.** `risk-profile.sh` 는 변경 파일에서 문서를 뺀 파일이 1개 이상이고 전부 테스트 경로(`tests/`·`test/`·`__tests__/` · `test_*.py`·`*_test.py`·`*_test.go`·`test-*.sh`·`*.test.*`·`*.spec.*`)일 때, `destructive_fs` 의 근거가 `rm -rf` 글자뿐이면 그 신호를 빼고 stderr 에 1줄을 남긴다. 이름에 test 가 든 제품 파일(`backtest.py`)·빈 변경 목록·문서뿐인 변경·다른 파괴 신호(`irreversible: true`·`Delete:`·`unlink(`) 동반은 종전대로 strict 다. 텍스트 판독기는 바꾸지 않았다. 계기: 테스트 1파일만 바꾸는 lite FID 가 tasks.md 의 설명 한 줄 `( sleep 0.5; rm -rf … ) &` 로 LITE-STRICT-GUARD 에 걸렸다(20261015). 저장소 8곳 FID 문서 358건 재판정에서 바뀐 것은 테스트 전용 5건뿐이다(strict → standard) — 구현 파일을 함께 바꾸는 FID 의 같은 오탐 27건은 남는다.
+
 ### Docs
 
 - **릴리즈 주 1회 상한을 없앴다.** README `### 릴리즈 주기`·CLAUDE.md 의 "주 1회 상한" 문구를 지우고 발행 시점은 사용자가 정한다고 적었다(20261011 결정 중 주기 상한만 폐지 — 릴리즈 대상은 행동 변경뿐이라는 규칙은 그대로).

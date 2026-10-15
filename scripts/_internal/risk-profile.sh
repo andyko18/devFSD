@@ -263,6 +263,24 @@ rp::mask_sandbox_cleanup() {
   fi
 }
 
+# 테스트 전용 변경 판정 (20261015-risk-test-only-rmrf).
+# 문서(rp::docs_only 와 같은 무늬)를 뺀 변경 파일이 1개 이상이고 그 전부가 테스트 경로일 때만 rc 0 이다.
+#   테스트 경로는 엄격하게 본다 — 경로 조각 tests/·test/·__tests__/ 이거나 파일 이름이 test_*.py·*_test.py·*_test.go·
+#   test-*.sh·*.test.*·*.spec.* 인 것. rp::impl_file_count 의 부분 문자열(*test*)은 쓰지 않는다 — backtest.py 같은
+#   제품 파일이 테스트로 읽힌다(Argus 실측). 빈 목록·문서뿐인 목록은 테스트 전용이 아니다.
+rp::test_only_files() {
+  local f n=0
+  [ -z "$1" ] && return 1
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    case "$f" in *.md|*.txt|*.rst|screens/*.html|.specops/*) continue ;; esac
+    case "/$f" in */tests/*|*/test/*|*/__tests__/*) n=$((n + 1)); continue ;; esac
+    case "${f##*/}" in test_*.py|*_test.py|*_test.go|test-*.sh|*.test.*|*.spec.*) n=$((n + 1)); continue ;; esac
+    return 1
+  done <<< "$1"
+  [ "$n" -gt 0 ]
+}
+
 rp::detect_strict_signals() {
   local corpus="$1" files="$2" signals="" 
   # keyword / path signals (라인수 무관)
@@ -334,6 +352,21 @@ rp::compute() {
     [ -n "${raw_signals// /}" ] \
       && echo "RISK-PROFILE: 문맥 필터가 strict 신호를 모두 제외함 (원 코퍼스: ${raw_signals}) — 실제 위험이면 --floor strict" >&2
   fi
+  # 테스트 전용 변경이면 `rm -rf` 글자 하나로만 켜진 destructive_fs 를 뺀다 (20261015-risk-test-only-rmrf).
+  #   텍스트 판독기는 건드리지 않는다 — 파일 목록과, `rm -rf` 를 가린 코퍼스의 재탐지만 본다. 다른 파괴 신호
+  #   (irreversible·Delete:·unlink(·fs.rm …)가 하나라도 있으면 재탐지에 남아 그대로다. irreversible 은 아래에서 다시 넣는다.
+  #   가림 sed 는 LC_ALL=C 로 바이트 단위다 — BSD sed 는 UTF-8 로케일에서 깨진 바이트를 만나면 RE 오류(rc 1)로
+  #   그 뒤 줄을 내지 않아 Delete: 등이 재탐지에서 사라진다. 가림이 실패하면(rc≠0) 면제하지 않는다 — 실패는 오탐 쪽으로.
+  local rm_masked
+  case " $strict_signals " in
+    *" destructive_fs "*)
+      if rp::test_only_files "$files" \
+        && rm_masked=$(printf '%s' "$corpus" | LC_ALL=C sed 's/[Rr][Mm] -[Rr][Ff]/rm-rf/g') \
+        && ! rp::detect_strict_signals "$rm_masked" "$files" | grep -qw destructive_fs; then
+        strict_signals=$(printf '%s' "$strict_signals" | tr ' ' '\n' | grep -vx destructive_fs | tr '\n' ' ' | sed 's/[[:space:]]*$//')
+        echo "RISK-PROFILE: 테스트 전용 변경 — rm -rf 인용만의 destructive_fs 를 제외함 (실제 위험이면 --floor strict)" >&2
+      fi ;;
+  esac
   # parallel_batch 는 기록만 한다 — 병렬 가능성은 위험이 아니다(strict 신호 아님)
   if [ -n "$_RP_YAML" ] && command -v dag::find_independent_batch >/dev/null 2>&1; then
     [ -n "$(dag::find_independent_batch "$_RP_YAML" 2>/dev/null || true)" ] && parallel_batch=true

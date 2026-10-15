@@ -893,4 +893,66 @@ e=$(cd "$TD" && bash "$RP" compute "$FID" 2>&1 >/dev/null); rc=$?
   && ok "T60m FID 디렉토리 symlink → 거부 · 밖에 기록 없음" || nope "T60m" "rc=$rc e=$e outside=$(ls "$OUTSIDE" | tr '\n' ' ')"
 rm -rf "$TD" "$OUTSIDE"
 
+# T61: ★ 테스트 전용 변경의 rm -rf 인용 — 파일 목록으로 면제한다 (20261015-risk-test-only-rmrf)
+#   비문서 변경 파일이 1개 이상이고 전부 엄격한 테스트 경로이며 destructive_fs 의 근거가 `rm -rf` 글자뿐이면 그 신호를 뺀다.
+#   실기록: 테스트 1파일만 바꾸는 lite FID 가 tasks.md 산문 한 줄로 LITE-STRICT-GUARD 에 걸렸다.
+_RP61_ERR=$(mktemp)
+_rp_files() {  # $1=fid $2=tasks.md 본문 $3…=스테이지할 경로 → stdout "<rc> <effective> <signals.strict json>" · stderr 는 $_RP61_ERR
+  local td fid=$1 body=$2 p rc; shift 2; td=$(mktemp -d)
+  _setup "$td" "$fid"
+  { printf '**§유형**: trivial\n'; printf '**§lite**: true\n'; } > "$td/.specops/$fid/spec.md"
+  printf '%s\n' "$body" > "$td/.specops/$fid/tasks.md"
+  for p in "$@"; do mkdir -p "$td/$(dirname "$p")"; printf 'x\n' > "$td/$p"; (cd "$td" && git add "$p"); done
+  (cd "$td" && bash "$RP" compute "$fid" >/dev/null 2>"$_RP61_ERR"); rc=$?
+  printf '%s %s %s\n' "$rc" "$(jq -r .effective "$td/.specops/$fid/risk-profile.json" 2>/dev/null)" \
+    "$(jq -c .signals.strict "$td/.specops/$fid/risk-profile.json" 2>/dev/null)"
+  rm -rf "$td"
+}
+_RP61_PROSE='- [ ] EXIT 트랩을 `( sleep 0.5; rm -rf … ) &` 로 바꾼 사본에서 종전 R6.g 실행.'
+r=$(_rp_files 20261015-rp-to-prose "$_RP61_PROSE" scripts/tests/test-reuse-metrics.sh CHANGELOG.md)
+[ "${r%% *}" = "0" ] && ! _has "$r" destructive_fs && grep -q 'rm -rf 인용만의 destructive_fs' "$_RP61_ERR" \
+  && ok "T61a ★ 테스트 전용 변경의 산문 rm -rf → strict 아님 · 가드 없음 · stderr 1줄" || nope "T61a" "$r err=$(cat "$_RP61_ERR")"
+r=$(_rp_files 20261015-rp-to-paths "$_RP61_PROSE" src/__tests__/a.ts pkg/foo_test.go web/a.test.ts app/b.spec.ts tests/test_x.py lib/y_test.py src/test/java/FooIT.java)
+[ "${r%% *}" = "0" ] && ! _has "$r" destructive_fs \
+  && ok "T61b 테스트 경로 관례 7종 → 테스트 전용으로 면제" || nope "T61b" "$r"
+r=$(_rp_files 20261015-rp-to-backtest "$_RP61_PROSE" app/analytics/backtest.py)
+[ "${r%% *}" = "3" ] && _has "$r" destructive_fs \
+  && ok "T61c 이름에 test 가 든 제품 경로(backtest.py) → destructive_fs 유지" || nope "T61c" "$r"
+r=$(_rp_files 20261015-rp-to-near "$_RP61_PROSE" tests/test_backtest.py app/services/backtests.py scripts/_internal/extract-test-commands.sh)
+[ "${r%% *}" = "3" ] && _has "$r" destructive_fs \
+  && ok "T61d 테스트 + 이름이 비슷한 제품 경로 → destructive_fs 유지" || nope "T61d" "$r"
+r=$(_rp_files 20261015-rp-to-empty "$_RP61_PROSE")
+[ "${r%% *}" = "3" ] && _has "$r" destructive_fs \
+  && ok "T61e 변경 파일 없음 → destructive_fs 유지" || nope "T61e" "$r"
+r=$(_rp_files 20261015-rp-to-doconly "$_RP61_PROSE" CHANGELOG.md)
+[ "${r%% *}" = "3" ] && _has "$r" destructive_fs \
+  && ok "T61f 문서만 변경(테스트 0개) → destructive_fs 유지" || nope "T61f" "$r"
+r=$(_rp_files 20261015-rp-to-mixed "$_RP61_PROSE" scripts/tests/test-x.sh scripts/x.sh)
+[ "${r%% *}" = "3" ] && _has "$r" destructive_fs \
+  && ok "T61g 테스트 + 제품 파일 → destructive_fs 유지" || nope "T61g" "$r"
+r=$(_rp_files 20261015-rp-to-irr "$(printf '%s\n' "$_RP61_PROSE" 'tasks:' '  - id: T1' '    irreversible: true' '    depends_on: []')" scripts/tests/test-x.sh)
+[ "${r%% *}" = "3" ] && _has "$r" destructive_fs \
+  && ok "T61h 테스트 전용 + irreversible: true → destructive_fs 유지" || nope "T61h" "$r"
+r=$(_rp_files 20261015-rp-to-delete "$(printf '%s\n' "$_RP61_PROSE" '- Delete: `scripts/tests/old.sh`')" scripts/tests/test-x.sh)
+[ "${r%% *}" = "3" ] && _has "$r" destructive_fs \
+  && ok "T61i 테스트 전용 + Delete: → destructive_fs 유지" || nope "T61i" "$r"
+r=$(_rp_files 20261015-rp-to-unlink "$(printf '%s\n' "$_RP61_PROSE" '정리는 os.unlink(path) 로 한다')" tests/test_x.py)
+[ "${r%% *}" = "3" ] && _has "$r" destructive_fs \
+  && ok "T61j 테스트 전용 + unlink( → destructive_fs 유지" || nope "T61j" "$r"
+r=$(_rp_files 20261015-rp-to-auth "$(printf '%s\n' "$_RP61_PROSE" 'JWT 검증 미들웨어를 추가한다')" scripts/tests/test-x.sh)
+[ "${r%% *}" = "3" ] && _has "$r" auth && ! _has "$r" destructive_fs \
+  && ok "T61k 테스트 전용 + 다른 strict 신호 → 그 신호는 유지 · destructive_fs 만 제외" || nope "T61k" "$r"
+r=$(_rp_files 20261015-rp-to-upper "- [ ] 정리: \`RM -RF \"\$OUT\"\`" scripts/tests/test-x.sh)
+[ "${r%% *}" = "0" ] && ! _has "$r" destructive_fs \
+  && ok "T61l 대문자 RM -RF 도 rm -rf 로 보고 면제" || nope "T61l" "$r"
+#   깨진 UTF-8 바이트 뒤의 다른 파괴 신호 — 가림 sed 가 그 줄에서 멈추면 Delete: 가 사라져 면제로 뒤집혔다(plan 리뷰 I-1)
+r=$(LANG=en_US.UTF-8 _rp_files 20261015-rp-to-badbyte "$(printf '\377 깨진 바이트\n- [ ] rm -rf "$OUT" 정리\n- Delete: scripts/tests/old.sh')" scripts/tests/test-x.sh)
+[ "${r%% *}" = "3" ] && _has "$r" destructive_fs \
+  && ok "T61m 깨진 UTF-8 바이트 뒤의 Delete: → destructive_fs 유지" || nope "T61m" "$r"
+#   같은 깨진 바이트라도 근거가 rm -rf 뿐이면 면제된다 — 가림 sed 가 바이트 단위(LC_ALL=C)로 돌아야 한다(plan 리뷰 2회차 m-1)
+r=$(LANG=en_US.UTF-8 _rp_files 20261015-rp-to-badbyte-ok "$(printf '\377 깨진 바이트\n- [ ] rm -rf "$OUT" 정리')" scripts/tests/test-x.sh)
+[ "${r%% *}" = "0" ] && ! _has "$r" destructive_fs \
+  && ok "T61n 깨진 UTF-8 바이트 + rm -rf 만 → 면제(가림이 바이트 단위)" || nope "T61n" "$r"
+rm -f "$_RP61_ERR"
+
 finish

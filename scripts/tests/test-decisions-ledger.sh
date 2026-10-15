@@ -192,4 +192,9 @@ grep -qF '| DECISION-ID | 주제 | 확정값 | 출처 | 갱신일 | 이유 | 검
   && grep -qF '머리·구분선 끝에' "$TPL" \
   && ok "T15 템플릿 7칸·칸 계약·5칸 확장 규약" || nope "T15" "templates/decisions.md 미갱신"
 
+# T16: 두 판독기가 칸 위치 계약을 주석으로 적는다 (새 칸은 끝에만)
+grep -qF '새 칸은 끝에만' "$PLUGIN/scripts/_internal/check-decisions-ledger.sh" \
+  && grep -qF '새 칸은 끝에만' "$PLUGIN/scripts/_internal/foundation-kind.sh" \
+  && ok "T16 판독기 칸 계약 주석" || nope "T16" "판독기 주석 부재"
+
 finish

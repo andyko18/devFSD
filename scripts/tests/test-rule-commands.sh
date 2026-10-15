@@ -142,4 +142,11 @@ out=$(cd "$D" && bash "$RV" "$VF" 2>"$ROOT/c9.err"); rc=$?
   && grep -q '^RULE-COMMANDS: 해당 없음' "$D/.specops/$VF/evidence.md"; } \
   && ok "C9 규칙 없음 — 판정 그대로 · 경고 없음 · evidence 해당 없음" || nope "C9" "rc=$rc out=$out"
 
+# C10 (AC-7): 헌법 템플릿 — 검증 때 실행 · 허용 형식 · 예시 명령이 허용 형식 · 템플릿이 형식 검사를 통과
+TPL="$PLUGIN/templates/constitution.md"
+{ grep -qF '판정 `명령` 은 검증(verify) 때 실행된다' "$TPL" && grep -qF '테스트 명령과 같은 허용 형식만 실행' "$TPL" \
+  && grep -qF '| 명령 | `bash scripts/tests/test-structure.sh S-2` |' "$TPL" && ! grep -qF 'make check-clock' "$TPL" \
+  && bash "$PLUGIN/scripts/_internal/check-constitution-rules.sh" "$TPL" >/dev/null 2>&1; } \
+  && ok "C10 템플릿 실행 안내 · 예시 허용 형식 · 형식 통과" || nope "C10" "templates/constitution.md 미갱신"
+
 finish

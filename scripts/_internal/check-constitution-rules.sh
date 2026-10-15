@@ -21,7 +21,8 @@
 #   (칸 앞뒤 공백 제거 · 판정 명령이 없으면(`-` 포함) 빈 칸 · 백틱은 적힌 그대로). 그 밖의 줄은 전부 표준 오류로 간다.
 # 한계: 칸 안에 `|` 를 쓸 수 없다(칸 수 위반으로 잡힌다). 규칙 내용의 옳고 그름·경로 실재·명령 실행 가능 여부는 보지 않는다.
 #   UTF-8 이 아닌 헌법은 지원하지 않는다(NUL 바이트가 있으면 판정 불가, 그 밖의 인코딩은 표지·낱말이 맞지 않아 위반이나 절 없음으로 읽힌다).
-#   부르는 곳은 scripts/dag/emit-context.sh 하나다(--list 를 dispatch 컨텍스트 §8 로 싣는다). 표가 틀려도 아무것도 막지 않는다 — 그쪽이 경고만 남긴다.
+#   부르는 곳(모두 --list): scripts/dag/emit-context.sh(dispatch 컨텍스트 §8) · check-rule-commands.sh(verify 가 `명령` 규칙 실행) ·
+#   check-plan-boundary.sh(plan 파일이 닿는 규칙을 plan-reviewer 에 전달). 표가 틀려도 아무것도 막지 않는다 — 부르는 쪽이 경고만 남긴다.
 set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"

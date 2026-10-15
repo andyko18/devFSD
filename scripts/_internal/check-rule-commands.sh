@@ -12,12 +12,13 @@
 #     전체 상한은 없다 — 명령 규칙이 N건이면 최악 N×상한 동안 걸린다(한계).
 #   - 표준 입력은 /dev/null 이다 — 명령이 표준 입력을 읽어도 뒤 규칙 목록을 먹지 못한다(plan-review 실측 결함).
 #
-# 출력: 규칙마다 `RULE <ID>: PASS` · `RULE <ID>: FAIL (rc=N)` · `RULE <ID>: TIMEOUT (N초)` · `RULE <ID>: SKIP — …` 한 줄
-#       (FAIL 은 아래에 명령 출력 앞 10줄을 두 칸 들여 붙인다). 끝에 `RULE-COMMANDS: PASS a · FAIL b · TIMEOUT c · SKIP d`.
+# 출력: 규칙마다 `RULE <ID>: PASS` · `RULE <ID>: FAIL (rc=N)` · `RULE <ID>: 판정 불가 (rc=2)` · `RULE <ID>: TIMEOUT (N초)` · `RULE <ID>: SKIP — …` 한 줄
+#       (FAIL·판정 불가는 아래에 명령 출력 앞 10줄을 두 칸 들여 붙인다). 끝에 `RULE-COMMANDS: PASS a · FAIL b · 판정 불가 e · TIMEOUT c · SKIP d`.
+#       판정 명령의 종료 코드 약속: 0 = 지킴 · 2 = 판정 불가(도구·환경이 없어 확인하지 못함 — 위반과 섞지 않는다) · 그 밖 = 위반.
 #       해당 없음·판정 불가는 `RULE-COMMANDS: 해당 없음 (…)` · `RULE-COMMANDS: 판정 불가 (…)` 한 줄.
 # 종료 코드 — 셋을 섞지 않는다:
 #   0 = 명령 규칙 전부 PASS 또는 해당 없음(헌법 없음 · 절 없음 · 규칙 0건 · 명령 규칙 0건)
-#   1 = FAIL·TIMEOUT·SKIP 1건 이상
+#   1 = FAIL·판정 불가·TIMEOUT·SKIP 1건 이상
 #   2 = 판정 불가(헌법 표 형식 위반·읽기 실패 · 허용 패턴을 읽지 못함 · 도구 없음) — "규칙 없음"으로 답하지 않는다
 set -u
 
@@ -57,7 +58,7 @@ _run() {
   fi
 }
 
-pat=""; ncmd=0; npass=0; nfail=0; ntime=0; nskip=0
+pat=""; ncmd=0; npass=0; nfail=0; ncant=0; ntime=0; nskip=0
 while IFS='|' read -r id _rule _path kind cmd; do
   [ -n "${id:-}" ] || continue
   [ "$kind" = "명령" ] || continue
@@ -79,6 +80,9 @@ while IFS='|' read -r id _rule _path kind cmd; do
     npass=$((npass + 1)); echo "RULE $id: PASS"
   elif [ "$rc" -eq 124 ]; then
     ntime=$((ntime + 1)); echo "RULE $id: TIMEOUT (${TIMEOUT}초)"
+  elif [ "$rc" -eq 2 ]; then
+    ncant=$((ncant + 1)); echo "RULE $id: 판정 불가 (rc=2)"
+    [ -n "$out" ] && printf '%s\n' "$out" | head -n "$MAXLINES" | sed 's/^/  /'
   else
     nfail=$((nfail + 1)); echo "RULE $id: FAIL (rc=$rc)"
     [ -n "$out" ] && printf '%s\n' "$out" | head -n "$MAXLINES" | sed 's/^/  /'
@@ -91,5 +95,5 @@ if [ "$ncmd" -eq 0 ]; then
   echo "RULE-COMMANDS: 해당 없음 (판정 명령 규칙 0건 — ${summary:-헌법 표 없음})"
   exit 0
 fi
-echo "RULE-COMMANDS: PASS $npass · FAIL $nfail · TIMEOUT $ntime · SKIP $nskip"
-[ $((nfail + ntime + nskip)) -eq 0 ]
+echo "RULE-COMMANDS: PASS $npass · FAIL $nfail · 판정 불가 $ncant · TIMEOUT $ntime · SKIP $nskip"
+[ $((nfail + ncant + ntime + nskip)) -eq 0 ]

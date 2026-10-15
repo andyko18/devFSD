@@ -354,7 +354,7 @@ fi
   echo ""
 } >> "$EVIDENCE"
 if [ "$rulecmd_ec" -eq 1 ]; then
-  echo "WARN: 구조 규칙 판정 명령 — 위반·시간 초과·실행 안 함이 있다 (차단 아님 · evidence.md ### structure-rule-commands)" >&2
+  echo "WARN: 구조 규칙 판정 명령 — 위반·판정 불가·시간 초과·실행 안 함이 있다 (차단 아님 · evidence.md ### structure-rule-commands)" >&2
   # 규칙마다 결과 줄과 명령 출력 앞 3줄만 — 전체는 evidence.md 에 있다
   printf '%s\n' "$rulecmd_out" | awk '/^RULE-COMMANDS:/ { print; next } /^RULE / { show = ($0 !~ /: PASS$/); n = 0; if (show) print; next } /^  / { if (show && n < 3) print; n++ }' >&2
 elif [ "$rulecmd_ec" -ne 0 ]; then

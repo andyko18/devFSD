@@ -20,6 +20,7 @@ _repo() {  # $1=dir — 규칙이 부를 스크립트들
   printf '#!/usr/bin/env bash\nsleep 5\n' > "$1/scripts/slow.sh"
   printf '#!/usr/bin/env bash\ntouch MARK\n' > "$1/scripts/mark.sh"
   printf '#!/usr/bin/env bash\ncat >/dev/null\n' > "$1/scripts/eat.sh"
+  printf '#!/usr/bin/env bash\necho "판정 불가 — 도구 없음"\nexit 2\n' > "$1/scripts/cant.sh"
 }
 _rules() {  # $1=dir · stdin = 규칙 행들
   { printf '# 헌법\n\n## 구조 규칙\n\n<!-- structure-rules:start -->\n| ID | 규칙 | 적용 경로 | 판정 | 판정 명령 |\n|---|---|---|---|---|\n'
@@ -37,7 +38,7 @@ _rules "$D" <<'EOF'
 EOF
 out=$(cd "$D" && bash "$CRC" 2>&1); rc=$?
 { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -qx 'RULE S-1: PASS' && printf '%s\n' "$out" | grep -qx 'RULE S-2: FAIL (rc=3)' \
-  && ! printf '%s\n' "$out" | grep -q '^RULE S-3' && printf '%s\n' "$out" | grep -qx 'RULE-COMMANDS: PASS 1 · FAIL 1 · TIMEOUT 0 · SKIP 0'; } \
+  && ! printf '%s\n' "$out" | grep -q '^RULE S-3' && printf '%s\n' "$out" | grep -qx 'RULE-COMMANDS: PASS 1 · FAIL 1 · 판정 불가 0 · TIMEOUT 0 · SKIP 0'; } \
   && ok "C1 규칙마다 PASS/FAIL · 리뷰 규칙 제외 · 요약 · rc 1" || nope "C1" "rc=$rc out=$out"
 
 # C1b (AC-2): 명령이 표준 입력을 읽어도 뒤 규칙이 사라지지 않는다 — 규칙마다 결과가 나온다
@@ -49,7 +50,7 @@ _rules "$D" <<'EOF'
 EOF
 out1b=$(cd "$D" && bash "$CRC" 2>&1); rc=$?
 { [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out1b" | grep -c '^RULE S-[1-3]: ')" -eq 3 ] \
-  && printf '%s\n' "$out1b" | grep -qx 'RULE-COMMANDS: PASS 2 · FAIL 1 · TIMEOUT 0 · SKIP 0'; } \
+  && printf '%s\n' "$out1b" | grep -qx 'RULE-COMMANDS: PASS 2 · FAIL 1 · 판정 불가 0 · TIMEOUT 0 · SKIP 0'; } \
   && ok "C1b 표준 입력을 읽는 명령 뒤 규칙도 실행·집계" || nope "C1b" "rc=$rc out=$out1b"
 
 # C2 (AC-8): 검증을 부른 폴더에서 실행 · FAIL 아래 명령 출력은 10줄까지
@@ -68,7 +69,7 @@ EOF
 out=$(cd "$D" && bash "$CRC" 2>&1); rc=$?
 s=$(printf '%s\n' "$out" | grep -c '^RULE S-[4-7]: SKIP — 허용 목록 밖')
 { [ "$rc" -eq 1 ] && [ "$s" -eq 4 ] && [ ! -e "$D/MARK" ] && printf '%s\n' "$out" | grep -q 'bash scripts/tests/test-structure.sh S-4' \
-  && printf '%s\n' "$out" | grep -qx 'RULE-COMMANDS: PASS 0 · FAIL 0 · TIMEOUT 0 · SKIP 4'; } \
+  && printf '%s\n' "$out" | grep -qx 'RULE-COMMANDS: PASS 0 · FAIL 0 · 판정 불가 0 · TIMEOUT 0 · SKIP 4'; } \
   && ok "C3 목록 밖 4건 SKIP · 실행 안 됨(MARK 없음) · 안내 · rc 1" || nope "C3" "rc=$rc skip=$s mark=$([ -e "$D/MARK" ] && echo y) out=$out"
 
 # C4 (AC-4): 시간 상한을 넘으면 TIMEOUT — 수 초 안에 끝난다
@@ -153,5 +154,26 @@ TPL="$PLUGIN/templates/constitution.md"
 SK="$PLUGIN/skills/verifying-evidence-ko/SKILL.md"
 { grep -qF 'check-rule-commands.sh' "$SK" && grep -qF '### structure-rule-commands' "$SK"; } \
   && ok "C11 검증 스킬 체크리스트 항목" || nope "C11" "verifying-evidence-ko 미갱신"
+
+# C12 (AC-1): 판정 명령 rc 2 → 판정 불가로 따로 표시·집계 (FAIL 아님) · rc 1
+D="$ROOT/c12"; _repo "$D"
+printf '| S-1 | 확인 불가 | `scripts/` | 명령 | `bash scripts/cant.sh` |\n' | _rules "$D"
+out=$(cd "$D" && bash "$CRC" 2>&1); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -qx 'RULE S-1: 판정 불가 (rc=2)' && printf '%s\n' "$out" | grep -qx '  판정 불가 — 도구 없음' \
+  && ! printf '%s\n' "$out" | grep -q 'FAIL (rc=2)' && printf '%s\n' "$out" | grep -qx 'RULE-COMMANDS: PASS 0 · FAIL 0 · 판정 불가 1 · TIMEOUT 0 · SKIP 0'; } \
+  && ok "C12 rc 2 는 판정 불가로 따로 · rc 1" || nope "C12" "rc=$rc out=$out"
+
+# C13 (AC-3): 검증 단계 경고가 판정 불가를 말한다 — VERIFY 판정·rc 그대로
+D="$ROOT/c13"; _vrepo "$D" "$VF"; printf '| S-1 | 확인 불가 | `scripts/` | 명령 | `bash scripts/cant.sh` |\n' | _rules "$D"
+out=$(cd "$D" && bash "$RV" "$VF" 2>"$ROOT/c13.err"); rc=$?; err=$(cat "$ROOT/c13.err")
+{ [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] \
+  && printf '%s\n' "$err" | grep '^WARN: 구조 규칙 판정 명령' | grep -q '판정 불가' && printf '%s\n' "$err" | grep -qx 'RULE S-1: 판정 불가 (rc=2)'; } \
+  && ok "C13 verify 경고에 판정 불가 · 판정 그대로" || nope "C13" "rc=$rc out=$out err=$err"
+
+# C14 (AC-4): 템플릿 종료 코드 약속 · 검증 스킬 보고 대상
+{ grep -qF '판정 명령의 종료 코드는 `0` = 지킴 · `2` = 판정 불가' "$TPL" && grep -qF '그 밖 = 위반' "$TPL" \
+  && bash "$PLUGIN/scripts/_internal/check-constitution-rules.sh" "$TPL" >/dev/null 2>&1 \
+  && grep -qF '`FAIL`·`판정 불가`·`TIMEOUT`·`SKIP` 줄' "$SK" && grep -qF '`판정 불가` 는 도구·환경이 없어 확인하지 못한 것' "$SK"; } \
+  && ok "C14 템플릿 종료 코드 약속 · 스킬 보고 대상" || nope "C14" "templates/constitution.md · verifying-evidence-ko 미갱신"
 
 finish

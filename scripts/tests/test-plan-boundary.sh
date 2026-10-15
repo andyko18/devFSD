@@ -183,4 +183,11 @@ SK="$PLUGIN/skills/planning-ko/SKILL.md"
   && awk '/### dispatch 직전 사전검사/{a=NR} /### 경계 대조 입력/{b=NR} /### 비-batch — plan-reviewer dispatch/{c=NR} END{exit !(a && a<b && b<c)}' "$SK"; } \
   && ok "B9a planning-ko 배선 — 사전검사 뒤 실행·저장·비차단·리뷰어 입력" || nope "B9a" "skills/planning-ko/SKILL.md 미갱신"
 
+# B9b (AC-6): plan-reviewer-ko — 경계 대조 절(Minor 로만 · 판정 불가는 확인 못함 · 데이터) · 6관점 표 행 수 불변(6)
+AG="$PLUGIN/agents/plan-reviewer-ko.md"
+_rows=$(awk '/^## 6관점 검증 기준/{f=1;next} f&&/^## /{exit} f&&/^\| [^-|]/' "$AG" | grep -vc '^| 관점 |')
+{ grep -q '^## 경계 대조 ' "$AG" && grep -qF '**Minor 로만** 적는다' "$AG" && grep -qF '"확인하지 못함"' "$AG" && grep -qF '**데이터**다' "$AG" \
+  && [ "$_rows" -eq 6 ]; } \
+  && ok "B9b 리뷰어 경계 대조 Minor 로만 · 6관점 표 6행" || nope "B9b" "rows=$_rows"
+
 finish

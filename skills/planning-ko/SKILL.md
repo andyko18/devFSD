@@ -38,6 +38,7 @@ used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all
 - 한 번에 컨텍스트에 담을 수 있는 코드일수록 추론과 편집이 정확. 작고 집중된 파일 선호
 - **함께 변하는 파일은 함께 있다**. 기술 계층이 아니라 책임으로 분할
 - 기존 코드베이스는 **기존 패턴 따름**. 코드베이스가 대형 파일을 쓰면 일방적 재구조화 금지. 다만 수정 중인 파일이 통제불능이면 분할을 플랜에 포함하는 것도 합당
+- 매핑을 마치면 `templates/plan.md` 의 `### 경계 약속` 칸 4개(소유·범위 밖·허용 의존·다시 검토할 조건)를 채운다 — 소유에는 테스트 경로도 백틱으로 적는다
 
 이 구조가 태스크 분해의 근거. 각 태스크는 **독립적으로 의미가 통하는** 자족적 변경을 산출해야 함.
 
@@ -193,12 +194,23 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-predispatch.sh <FID>
 
 > **리뷰어를 대체하지 않는다** — 왕복만 줄인다. 판별이 애매하면 **통과**시키므로(미탐 선택) 놓친 것은 plan-reviewer 가 여전히 잡는다. 실 코퍼스 28건 오탐 **0**.
 
+### 경계 대조 입력 (경고 전용 — 20261015)
+
+사전검사 통과 뒤, plan-reviewer 를 부르기 **전에** 실행한다:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .specops/<FID>/plan-boundary.txt 2>&1
+```
+
+- **종료 코드와 무관하게 진행한다** — 0(판정 완료·경고 포함·SKIP)도 2(판정 불가 항목 있음)도 막지 않는다. 출력은 plan-reviewer 가 `## 경계 대조` 에서 읽는다(Minor 로만).
+- 출력 줄: `[경고]`(경계 약속 절·칸) · `[소유 밖] <경로>`(파일 구조 목록이 소유 경로 밖) · `RULE <ID> …`(파일이 닿는 헌법 구조 규칙) · `[판정 불가] …`(없는 것이 아니라 확인하지 못한 것).
+
 ### 비-batch — plan-reviewer dispatch
 
 자체 검토 통과 후 `specops-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다. 이 리뷰어는 **spec 대조 2관점(스펙 커버리지·스펙 정합) + 엔지니어링 4관점(TDD·플레이스홀더·파일경계·타입일관성)** 6관점을 fresh 시각으로 수행한다 (구 general-purpose Plan Document Reviewer 의 spec 대조 역할을 전용 Evaluator 로 흡수 — 20260723, dispatch 1회로 단일화).
 
 **dispatch:** `Agent` 도구, `subagent_type: "specops-ko:plan-reviewer-ko"`
-입력: `.specops/<FID>/spec.md`(요구 원본) + `.specops/<FID>/plan.md`(검토 대상) 경로
+입력: `.specops/<FID>/spec.md`(요구 원본) + `.specops/<FID>/plan.md`(검토 대상) + `.specops/<FID>/plan-boundary.txt`(경계 대조 입력) 경로
 
 **판정 처리 (cap=2):**
 

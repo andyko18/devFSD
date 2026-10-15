@@ -174,4 +174,13 @@ _sec=$(awk '/^## 2\. /{f=1;next} /^## 3\. /{f=0} f' "$TPL")
   && [ "$(bash "$CPB" --plan "$TPL" --constitution "$NOC" 2>/dev/null | grep -c '칸 자리표시자 그대로')" -eq 4 ]; } \
   && ok "B8 템플릿 경계 약속 칸 4개 · 절 번호 불변" || nope "B8" "h2=$_h2"
 
+# B9a (AC-6): planning-ko — 사전검사 뒤 · dispatch 앞에서 실행 · plan-boundary.txt 저장 · 종료 코드와 무관 · dispatch 입력에 경로
+SK="$PLUGIN/skills/planning-ko/SKILL.md"
+{ grep -qF 'check-plan-boundary.sh <FID> > .specops/<FID>/plan-boundary.txt 2>&1' "$SK" \
+  && grep -qF '종료 코드와 무관하게 진행한다' "$SK" \
+  && grep -qF '`.specops/<FID>/plan-boundary.txt`(경계 대조 입력) 경로' "$SK" \
+  && grep -qF '`### 경계 약속` 칸 4개' "$SK" \
+  && awk '/### dispatch 직전 사전검사/{a=NR} /### 경계 대조 입력/{b=NR} /### 비-batch — plan-reviewer dispatch/{c=NR} END{exit !(a && a<b && b<c)}' "$SK"; } \
+  && ok "B9a planning-ko 배선 — 사전검사 뒤 실행·저장·비차단·리뷰어 입력" || nope "B9a" "skills/planning-ko/SKILL.md 미갱신"
+
 finish

@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **헌법 구조 규칙의 판정 명령을 검증 단계가 실행한다 (경고 전용).** 새 `scripts/_internal/check-rule-commands.sh` 가 헌법 「구조 규칙」 중 판정이 `명령` 인 규칙을, 검증을 부른 폴더에서, 테스트 명령과 같은 허용 형식만(run-verification.sh 의 단일 줄 `_WHITELIST_PAT` 를 읽어 쓴다 — 정규식 복제 없음 · `..` 거부), 셸 해석 없이 실행해 규칙마다 `PASS`·`FAIL (rc=N)`·`TIMEOUT`·`SKIP — 허용 목록 밖` 을 낸다(규칙당 상한 60초 — `SPECOPS_RULE_CMD_TIMEOUT`). 종료 코드는 0 = 전부 지킴·해당 없음 · 1 = 위반·시간 초과·실행 안 함 · 2 = 판정 불가(표 형식 위반·허용 패턴을 읽지 못함 — 이때는 하나도 실행하지 않는다). `run-verification.sh` 는 판정 줄을 내기 전에 이 검사를 돌려 evidence.md `### structure-rule-commands` 에 남기고 위반은 표준 오류 경고로 보인다 — `VERIFY:` 판정과 종료 코드는 바뀌지 않는다. 헌법 템플릿에 실행 안내를 적고 예시 판정 명령을 허용 형식(`bash scripts/tests/test-structure.sh S-2`)으로 바꿨다. 새 스위트 `test-rule-commands.sh`.
+
 ### Changed
 
 - **결정 원장에 `이유`·`검토한 대안` 칸을 더하고, 명확화 질문이 추천을 먼저 제시하며 8범주로 빈 곳을 훑는다.** `templates/decisions.md` 결정 표가 7칸이 됐다 — 두 칸은 기록용이고 판독기(`check-decisions-ledger.sh`·`foundation-kind.sh`)는 칸 위치로 읽어 5칸·7칸·혼합 원장에서 판정이 같다(로직 불변 · 회귀 테스트 T12~T14). 기존 5칸 원장은 그대로 동작하고, 새 결정을 적을 때 머리·구분선 끝에 두 칸을 붙인다. `clarifying-ko` 는 질문마다 추천 선택지와 근거 한 줄을 맨 앞에 두고("추천대로"로 답할 수 있고 선택은 사용자), 기능 범위·데이터·화면 흐름·비기능·외부 연동·예외·경계·용어·완료 신호 8범주를 확인됨·부분·빠짐으로 훑어 clarifications.md 에 `**범주 점검**` 한 줄을 남긴다. 원장에 결정을 적는 clarifying·`/init-project` 지시가 이유·검토한 대안도 채우게 했다. 무인(§auto) 명확화는 바뀌지 않는다. 새 스위트 `test-decision-clarify-doc.sh`(197 스위트).

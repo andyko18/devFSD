@@ -12,6 +12,10 @@
 
 - **헌법 판정 명령의 종료 코드 2(판정 불가)를 위반과 가른다.** `check-rule-commands.sh` 는 판정 명령이 rc 2(도구·환경이 없어 확인하지 못함)를 내면 `FAIL (rc=2)` 대신 `RULE <ID>: 판정 불가 (rc=2)` 와 사유 줄을 내고, 요약 줄에 `판정 불가 N` 을 따로 센다(`RULE-COMMANDS: PASS a · FAIL b · 판정 불가 e · TIMEOUT c · SKIP d`). 판정 불가가 있으면 종료 코드는 종전처럼 1 이라 검증 단계 경고는 그대로 뜨고(문구에 "판정 불가" 추가), `VERIFY:` 판정은 바뀌지 않는다. 헌법 템플릿에 판정 명령의 종료 코드 약속(`0` 지킴 · `2` 판정 불가 · 그 밖 위반)을, 검증 스킬 보고 대상에 판정 불가 줄을 적었다. 계기: poetry 환경이 없는 Argus 사본에서 S-5 가 위반으로 보였다(20261015).
 
+### Tests/CI
+
+- **CI 간헐 실패 — pipefail 을 물려받은 스위트의 `printf … | grep -q` 단언.** `test-skip-tracker`·`test-mutation-score` 는 source 한 라이브러리의 `set -uo pipefail` 을 물려받아, grep 이 일치를 찾고 먼저 끝나면 앞단 printf 의 쓰기 오류가 파이프 실패가 되어 출력이 맞아도 단언이 실패했다(20261015 Linux CI 2건 · 재실행 통과). 단언을 `grep -q 패턴 <<<"$출력"` 으로 바꾸고, 같은 꼴이 다시 생기면 스위트가 스스로 FAIL 한다(T23·T45). 라이브러리의 셸 옵션은 그대로다. pipefail 을 직접 켜는 스위트 3개(pretool·git-hooks·exec-evidence)의 같은 꼴 27곳은 실패가 관측되지 않아 남겼다.
+
 ## [2.22.0] — 2026-10-15
 
 ### Added

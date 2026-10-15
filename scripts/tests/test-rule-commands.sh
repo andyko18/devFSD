@@ -118,4 +118,28 @@ D="$ROOT/c7"; _repo "$D"; printf '| S-5 | 상위 경로 | `scripts/` | 명령 | 
 (cd "$D" && bash "$MP/check-rule-commands.sh" >/dev/null 2>&1)
 { ! cmp -s "$CRC" "$MP/check-rule-commands.sh" && [ -e "$D/MARK" ]; } && ok "C7 변이 적발 — 가드 없으면 실행됨" || nope "C7" "변이 sed 실패 또는 가드 무관"
 
+# C8 (AC-6·AC-8): run-verification 에 경고로만 붙는다 — 판정 줄·rc 불변 · evidence 절 · 경고는 규칙당 3줄
+_vrepo() {  # $1=dir $2=fid — 테스트 명령이 통과하는 FID 를 가진 git 저장소
+  _repo "$1"; mkdir -p "$1/.specops/$2" "$1/scripts/tests"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$1/scripts/tests/dummy.sh"; chmod +x "$1/scripts/tests/dummy.sh"
+  printf -- '- [ ] **스텝 4**: 실행: `bash scripts/tests/dummy.sh`\n' > "$1/.specops/$2/tasks.md"
+  ( cd "$1" && git init -q && git add -A && git -c user.email=t@t -c user.name=t commit -qm init )
+}
+VF=20261015-x
+D="$ROOT/c8"; _vrepo "$D" "$VF"; printf '| S-1 | 위반 | `scripts/` | 명령 | `bash scripts/bad.sh` |\n' | _rules "$D"
+out=$(cd "$D" && bash "$RV" "$VF" 2>"$ROOT/c8.err"); rc=$?; err=$(cat "$ROOT/c8.err")
+ev="$D/.specops/$VF/evidence.md"
+nerr=$(printf '%s\n' "$err" | awk '/^RULE S-1:/{f=1;next} /^RULE/{f=0} f&&/^  /{c++} END{print c+0}')
+{ [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] \
+  && grep -qx '### structure-rule-commands' "$ev" && grep -qx 'RULE S-1: FAIL (rc=3)' "$ev" \
+  && printf '%s\n' "$err" | grep -q '^WARN: 구조 규칙 판정 명령' && [ "$nerr" -eq 3 ]; } \
+  && ok "C8 VERIFY: PASS·rc 0 그대로 · evidence 절 · 경고 + 출력 3줄" || nope "C8" "rc=$rc nerr=$nerr out=$out err=$err"
+
+# C9 (AC-R-1): 헌법이 없으면 경고 없이 판정 그대로 — evidence 에 해당 없음 한 줄
+D="$ROOT/c9"; _vrepo "$D" "$VF"; rm -f "$D/.specops/memory/constitution.md"
+out=$(cd "$D" && bash "$RV" "$VF" 2>"$ROOT/c9.err"); rc=$?
+{ [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] && ! grep -q '구조 규칙 판정 명령' "$ROOT/c9.err" \
+  && grep -q '^RULE-COMMANDS: 해당 없음' "$D/.specops/$VF/evidence.md"; } \
+  && ok "C9 규칙 없음 — 판정 그대로 · 경고 없음 · evidence 해당 없음" || nope "C9" "rc=$rc out=$out"
+
 finish

@@ -335,6 +335,32 @@ if [ -f "$FND_SH" ]; then
   fi
 fi
 
+# 헌법 구조 규칙의 판정 명령 (경고 전용 — 20261015-verify-rule-commands).
+#   판정·종료 코드에 넣지 않는다 — all_pass·failed 를 건드리지 않는다. 차단 승급은 오탐 관측 뒤 따로 정한다.
+#   실행 범위는 위 테스트 명령과 같은 허용 형식뿐이다(검사 스크립트가 이 파일의 _WHITELIST_PAT 줄을 읽는다).
+#   테스트 명령 0건(NOT_RUN)처럼 위에서 먼저 끝나는 경로에서는 이 블록에 닿지 않는다 — 판정과 무관한 관측이라 의도한 범위다.
+RULECMD_SH="$PLUGIN/scripts/_internal/check-rule-commands.sh"
+rulecmd_ec=0
+if [ -f "$RULECMD_SH" ]; then
+  rulecmd_out=$(bash "$RULECMD_SH" 2>&1); rulecmd_ec=$?
+else
+  rulecmd_out="검사 스크립트 없음 — check-rule-commands.sh"
+fi
+{
+  echo "### structure-rule-commands"
+  echo '```'
+  echo "$rulecmd_out"
+  echo '```'
+  echo ""
+} >> "$EVIDENCE"
+if [ "$rulecmd_ec" -eq 1 ]; then
+  echo "WARN: 구조 규칙 판정 명령 — 위반·시간 초과·실행 안 함이 있다 (차단 아님 · evidence.md ### structure-rule-commands)" >&2
+  # 규칙마다 결과 줄과 명령 출력 앞 3줄만 — 전체는 evidence.md 에 있다
+  printf '%s\n' "$rulecmd_out" | awk '/^RULE-COMMANDS:/ { print; next } /^RULE / { show = ($0 !~ /: PASS$/); n = 0; if (show) print; next } /^  / { if (show && n < 3) print; n++ }' >&2
+elif [ "$rulecmd_ec" -ne 0 ]; then
+  printf '%s\n' "$rulecmd_out" | grep '^RULE-COMMANDS:' >&2
+fi
+
 if [ "$skipped" -gt 0 ]; then
   _record_result PARTIAL
   echo "VERIFY: PARTIAL — ${skipped}개 명령 whitelist 미통과, 수동 검증 필요 (executed=${executed} skipped=${skipped})"

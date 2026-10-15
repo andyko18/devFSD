@@ -30,7 +30,7 @@ orig_hash=$(md5 -q "$tmp/tgt.sh" 2>/dev/null || md5sum "$tmp/tgt.sh" | cut -d' '
 out=$(mut::run_target "$tmp/tgt.sh" "bash $tmp/tgt.sh 0 | grep -q ok" 2>/dev/null)
 after_hash=$(md5 -q "$tmp/tgt.sh" 2>/dev/null || md5sum "$tmp/tgt.sh" | cut -d' ' -f1)
 ck "T7 복원 무결성 (변형 잔류 0)" "$after_hash" "$orig_hash"
-if printf '%s' "$out" | grep -q "MUTATION .*score="; then echo "PASS T8 리포트 형식"; PASS=$((PASS+1)); else echo "FAIL T8 리포트 ($out)"; FAIL=$((FAIL+1)); fi
+if grep -q "MUTATION .*score=" <<<"$out"; then echo "PASS T8 리포트 형식"; PASS=$((PASS+1)); else echo "FAIL T8 리포트 ($out)"; FAIL=$((FAIL+1)); fi
 
 cat > "$tmp/syn.sh" <<'EOS'
 #!/usr/bin/env bash
@@ -39,13 +39,13 @@ EOS
 mut::catalog() { printf 'foo\ts/foo/(/\n'; }
 out2=$(mut::run_target "$tmp/syn.sh" "true" 2>/dev/null)
 unset -f mut::catalog; source "$PLUGIN/scripts/tests/mutation-score.sh"
-if printf '%s' "$out2" | grep -qE "invalid=[1-9]" && printf '%s' "$out2" | grep -q "killed=0 survived=0"; then
+if grep -qE "invalid=[1-9]" <<<"$out2" && grep -q "killed=0 survived=0" <<<"$out2"; then
   echo "PASS T9 invalid 결정적 집계 (score 분모 제외)"; PASS=$((PASS+1))
 else echo "FAIL T9 invalid ($out2)"; FAIL=$((FAIL+1)); fi
 rm -rf "$tmp"
 
 out3=$(mut::run_target "/nonexistent/tgt.sh" "true" 2>/dev/null)
-if printf '%s' "$out3" | grep -q "SKIP"; then echo "PASS T10 target 부재 SKIP"; PASS=$((PASS+1)); else echo "FAIL T10 SKIP ($out3)"; FAIL=$((FAIL+1)); fi
+if grep -q "SKIP" <<<"$out3"; then echo "PASS T10 target 부재 SKIP"; PASS=$((PASS+1)); else echo "FAIL T10 SKIP ($out3)"; FAIL=$((FAIL+1)); fi
 
 # T11 equivalent 제외 — config 매칭 (target·함수·pattern·원문) 변형은 equivalent 카운트 + 분모 제외
 tmpe=$(mktemp -d)
@@ -59,7 +59,7 @@ if MUT_EQUIV_CONF="$tmpe/eqv.conf" mut::is_equivalent "$tmpe/tgt.sh" 2 "return 0
 if MUT_EQUIV_CONF="$tmpe/eqv.conf" mut::is_equivalent "$tmpe/tgt.sh" 2 "&&"; then echo "FAIL T12 다른 pattern 매칭됨"; FAIL=$((FAIL+1)); else echo "PASS T12 pattern 정밀 미매칭"; PASS=$((PASS+1)); fi
 if MUT_EQUIV_CONF="/nonexistent" mut::is_equivalent "$tmpe/tgt.sh" 2 "return 0"; then echo "FAIL T13 config 부재 매칭됨"; FAIL=$((FAIL+1)); else echo "PASS T13 config 부재 graceful"; PASS=$((PASS+1)); fi
 out=$(MUT_EQUIV_CONF="$tmpe/eqv.conf" mut::run_target "$tmpe/tgt.sh" "true" 2>/dev/null)
-if printf '%s' "$out" | grep -qE "equivalent=[0-9]+"; then echo "PASS T14 리포트 equivalent="; PASS=$((PASS+1)); else echo "FAIL T14 ($out)"; FAIL=$((FAIL+1)); fi
+if grep -qE "equivalent=[0-9]+" <<<"$out"; then echo "PASS T14 리포트 equivalent="; PASS=$((PASS+1)); else echo "FAIL T14 ($out)"; FAIL=$((FAIL+1)); fi
 rm -rf "$tmpe"
 
 # threshold + baseline sanity (20260714-mutation-ci-gate) — cron 게이트 로직 회귀 잠금
@@ -107,7 +107,7 @@ else echo "FAIL T19 집계 $tot (기대 4 — 주석 L4 가 섞였나?)"; FAIL=$
 # T20 인라인 # 코드 줄은 정상 변이 (AC-3) — L5 를 가리키는 equivalent 가 매칭되면 사이트가 살아 있다는 뜻
 row "$tmps/tgt.sh" f1 'return 0' '[ "$2" = "y" ] && return 0  # 인라인 주석 — 이 줄은 코드다' 'inline-comment 코드 줄' > "$tmps/eq-ok.conf"
 out=$(MUT_EQUIV_CONF="$tmps/eq-ok.conf" mut::run_target "$tmps/tgt.sh" "true" 2>/dev/null)
-if printf '%s' "$out" | grep -q 'equivalent=1'; then
+if grep -q 'equivalent=1' <<<"$out"; then
   echo "PASS T20 인라인 # 코드 줄 변이 유지 (AC-3)"; PASS=$((PASS+1))
 else echo "FAIL T20 ($out)"; FAIL=$((FAIL+1)); fi
 
@@ -123,13 +123,13 @@ else echo "FAIL T21 (s1=$s1 s2=$s2 s3=$s3)"; FAIL=$((FAIL+1)); fi
 row "$tmps/tgt.sh" f1 'return 0' '#!/usr/bin/env bash' 'stale — shebang 은 사이트가 아니다' > "$tmps/eq-stale.conf"
 printf '%s\n' "$tmps/tgt.sh|true" > "$tmps/tg.conf"
 err=$(MUT_EQUIV_CONF="$tmps/eq-stale.conf" mut::check_conf "$tmps/tg.conf" 2>&1); rc=$?
-if [ "$rc" != 0 ] && printf '%s' "$err" | grep -q 'STALE'; then
+if [ "$rc" != 0 ] && grep -q 'STALE' <<<"$err"; then
   echo "PASS T22 stale 감지 양성 (AC-4)"; PASS=$((PASS+1))
 else echo "FAIL T22 rc=$rc out=$err"; FAIL=$((FAIL+1)); fi
 
 # T23 stale 음성 — 정상 conf 는 무발화 (AC-5)
 err=$(MUT_EQUIV_CONF="$tmps/eq-ok.conf" mut::check_conf "$tmps/tg.conf" 2>&1); rc=$?
-if [ "$rc" = 0 ] && ! printf '%s' "$err" | grep -q 'STALE'; then
+if [ "$rc" = 0 ] && ! grep -q 'STALE' <<<"$err"; then
   echo "PASS T23 정상 conf 무발화 (AC-5)"; PASS=$((PASS+1))
 else echo "FAIL T23 rc=$rc out=$err"; FAIL=$((FAIL+1)); fi
 
@@ -147,12 +147,12 @@ else echo "FAIL T24 rc1=$rc1 rc2=$rc2"; FAIL=$((FAIL+1)); fi
 # T25 --check-conf 독립 모드 (AC-10) — 실 스크립트 서브프로세스
 _MS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/mutation-score.sh"
 o=$(MUT_EQUIV_CONF="$tmps/eq-ok.conf" bash "$_MS" --check-conf "$tmps/tg.conf" 2>&1); rc=$?
-if [ "$rc" = 0 ] && printf '%s' "$o" | grep -q 'CONF-CHECK'; then
+if [ "$rc" = 0 ] && grep -q 'CONF-CHECK' <<<"$o"; then
   echo "PASS T25 --check-conf 정합 시 rc=0 (AC-10)"; PASS=$((PASS+1))
 else echo "FAIL T25 rc=$rc out=$o"; FAIL=$((FAIL+1)); fi
 
 o=$(MUT_EQUIV_CONF="$tmps/eq-stale.conf" bash "$_MS" --check-conf "$tmps/tg.conf" 2>&1); rc=$?
-if [ "$rc" != 0 ] && printf '%s' "$o" | grep -q 'STALE'; then
+if [ "$rc" != 0 ] && grep -q 'STALE' <<<"$o"; then
   echo "PASS T26 --check-conf stale 시 rc≠0 (AC-10)"; PASS=$((PASS+1))
 else echo "FAIL T26 rc=$rc out=$o"; FAIL=$((FAIL+1)); fi
 
@@ -164,7 +164,7 @@ _el=$(( SECONDS - _t0 ))
 #   통과해 fail-fast 회귀를 놓친다. AC-9 의 4요건(ABORT·채점줄 부재·rc≠0·5초 이내)을 모두 잠근다.
 # ★ 경과시간까지 보는 이유 — "채점 줄 부재" 는 채점이 **끝까지 돌고 마지막에** 막혀도 성립한다.
 #   fail-fast 는 judge **앞에서** 끊는 것이므로 시간이 유일한 직접 증거다.
-if [ "$rc" != 0 ] && [ "$_el" -lt 5 ] && printf '%s' "$o" | grep -q 'ABORT' && ! printf '%s' "$o" | grep -q '^MUTATION '; then
+if [ "$rc" != 0 ] && [ "$_el" -lt 5 ] && grep -q 'ABORT' <<<"$o" && ! grep -q '^MUTATION ' <<<"$o"; then
   echo "PASS T27 fail-fast — ABORT + 채점 미진입 + ${_el}s (AC-9)"; PASS=$((PASS+1))
 else echo "FAIL T27 rc=$rc elapsed=${_el}s out=$o"; FAIL=$((FAIL+1)); fi
 
@@ -172,7 +172,7 @@ else echo "FAIL T27 rc=$rc elapsed=${_el}s out=$o"; FAIL=$((FAIL+1)); fi
 #   "이 대상 것이 아닌 행" 으로 넘기면 건강하다고 오보하므로 stale 로 잡아야 한다.
 row "$tmps/tgt.sh" f1 '' '[ -n "${1:-}" ] && return 0' '빈 pattern' > "$tmps/eq-empty.conf"
 err=$(MUT_EQUIV_CONF="$tmps/eq-empty.conf" mut::check_conf "$tmps/tg.conf" 2>&1); rc=$?
-if [ "$rc" != 0 ] && printf '%s' "$err" | grep -q 'STALE'; then
+if [ "$rc" != 0 ] && grep -q 'STALE' <<<"$err"; then
   echo "PASS T28 빈 pattern 행 stale 판정 (AC-4 잔여 구멍)"; PASS=$((PASS+1))
 else echo "FAIL T28 rc=$rc out=$err"; FAIL=$((FAIL+1)); fi
 
@@ -184,15 +184,15 @@ printf '#!/bin/bash\necho other\n' > "$tmpq/other.sh"
 printf '%s|true\n%s|false\n' "$tmpq/t.sh" "$tmpq/other.sh" > "$tmpq/two.conf"
 ( bash "$_MS" "$tmpq/two.conf" >/dev/null 2>&1 ); ck "T29a --target 없음 → 전 대상 측정(파손 대상 포함 rc=1) — 기본 동작 불변" "$?" "1"
 o=$(bash "$_MS" --target "$tmpq/t.sh" "$tmpq/two.conf" 2>&1); rc=$?
-if [ "$rc" = 0 ] && printf '%s' "$o" | grep -q 't.sh' && ! printf '%s' "$o" | grep -q 'other.sh'; then
+if [ "$rc" = 0 ] && grep -q 't.sh' <<<"$o" && ! grep -q 'other.sh' <<<"$o"; then
   echo "PASS T29b --target 지정 대상만 측정 (다른 대상 미실행)"; PASS=$((PASS+1))
 else echo "FAIL T29b rc=$rc out=$o"; FAIL=$((FAIL+1)); fi
 o=$(bash "$_MS" --target "$tmpq/nope.sh" "$tmpq/two.conf" 2>&1); rc=$?
-if [ "$rc" = 2 ] && printf '%s' "$o" | grep -q 'conf 에 없는 대상'; then
+if [ "$rc" = 2 ] && grep -q 'conf 에 없는 대상' <<<"$o"; then
   echo "PASS T30 conf 에 없는 --target → rc=2 (오타가 초록이 되지 않는다)"; PASS=$((PASS+1))
 else echo "FAIL T30 rc=$rc out=$o"; FAIL=$((FAIL+1)); fi
 o=$(bash "$_MS" --target 2>&1); rc=$?
-if [ "$rc" = 2 ] && printf '%s' "$o" | grep -q -- '--target'; then
+if [ "$rc" = 2 ] && grep -q -- '--target' <<<"$o"; then
   echo "PASS T31 --target 값 누락 → rc=2"; PASS=$((PASS+1))
 else echo "FAIL T31 rc=$rc out=$o"; FAIL=$((FAIL+1)); fi
 
@@ -229,7 +229,7 @@ row "$tmps/swap.sh" f1 'return 0' "$A1" '원래 가드' > "$tmps/swap.conf"
 sed '3s/.*/  [ -z "${9:-}" ] \&\& return 0/' "$tmps/tgt.sh" > "$tmps/swap.sh"
 _eq "$tmps/swap.conf" "$tmps/swap.sh" 3 'return 0' && b1=0 || b1=1
 o=$(_cc "$tmps/swap.conf" "$tmps/swap.sh.tg"); rc=$?
-if [ "$b1" = 1 ] && [ "$rc" != 0 ] && printf '%s' "$o" | grep -q 'STALE.*매칭 사이트 0건'; then
+if [ "$b1" = 1 ] && [ "$rc" != 0 ] && grep -q 'STALE.*매칭 사이트 0건' <<<"$o"; then
   echo "PASS T33 같은 줄번호·같은 패턴의 다른 줄 → 등가 아님 + STALE"; PASS=$((PASS+1))
 else echo "FAIL T33 b1=$b1 rc=$rc out=$o"; FAIL=$((FAIL+1)); fi
 
@@ -245,9 +245,9 @@ _eq "$tmps/twin2.conf" "$tmps/twin.sh" 3 'return 0' && k1=0 || k1=1
 sed "3p;3p" "$tmps/tgt.sh" > "$tmps/twin.sh"                    # 셋으로 늘린다 → #2/2 는 개수 불일치
 o3=$(_cc "$tmps/twin2.conf" "$tmps/twin.sh.tg"); rc3=$?
 _eq "$tmps/twin2.conf" "$tmps/twin.sh" 4 'return 0' && k3=0 || k3=1
-if [ "$rc" != 0 ] && [ "$b1" = 1 ] && printf '%s' "$o" | grep -q 'STALE.*같은 원문 2건' \
+if [ "$rc" != 0 ] && [ "$b1" = 1 ] && grep -q 'STALE.*같은 원문 2건' <<<"$o" \
    && [ "$k2" = 0 ] && [ "$k1" = 1 ] \
-   && [ "$rc3" != 0 ] && [ "$k3" = 1 ] && printf '%s' "$o3" | grep -q 'STALE.*개수 불일치'; then
+   && [ "$rc3" != 0 ] && [ "$k3" = 1 ] && grep -q 'STALE.*개수 불일치' <<<"$o3"; then
   echo "PASS T34 같은 원문 추가 → STALE(여럿) · #k/n 은 k번째만 · n 이 달라지면 STALE(개수 불일치)"; PASS=$((PASS+1))
 else echo "FAIL T34 rc=$rc b1=$b1 k2=$k2 k1=$k1 rc3=$rc3 k3=$k3 o=$o o3=$o3"; FAIL=$((FAIL+1)); fi
 
@@ -255,7 +255,7 @@ else echo "FAIL T34 rc=$rc b1=$b1 k2=$k2 k1=$k1 rc3=$rc3 k3=$k3 o=$o o3=$o3"; FA
 printf '%s\n' "$tmps/tgt.sh|3|return 0|legacy row" > "$tmps/legacy.conf"
 o=$(_cc "$tmps/legacy.conf" "$tmps/tg.conf"); rc=$?
 _eq "$tmps/legacy.conf" "$tmps/tgt.sh" 3 'return 0' && b1=0 || b1=1
-if [ "$rc" != 0 ] && [ "$b1" = 1 ] && printf '%s' "$o" | grep -q 'STALE.*구 형식 — 줄번호 키'; then
+if [ "$rc" != 0 ] && [ "$b1" = 1 ] && grep -q 'STALE.*구 형식 — 줄번호 키' <<<"$o"; then
   echo "PASS T35 구 형식 행 → STALE(구 형식 — 줄번호 키) + 등가 아님"; PASS=$((PASS+1))
 else echo "FAIL T35 rc=$rc b1=$b1 out=$o"; FAIL=$((FAIL+1)); fi
 
@@ -300,8 +300,8 @@ row "$tmps/tgt.sh" f1 'return 0' "$A1" "$(printf 'reason\textra')" > "$tmps/f6.c
 o1=$(_cc "$tmps/f4.conf" "$tmps/tg.conf"); r1=$?
 o2=$(_cc "$tmps/noreason.conf" "$tmps/tg.conf"); r2=$?
 o3=$(_cc "$tmps/f6.conf" "$tmps/tg.conf"); r3=$?
-if [ "$r1" != 0 ] && [ "$r2" != 0 ] && [ "$r3" != 0 ] && printf '%s' "$o1" | grep -q 'STALE.*형식 오류' \
-   && printf '%s' "$o2" | grep -q 'STALE.*reason 비어 있음' && printf '%s' "$o3" | grep -q 'STALE.*형식 오류'; then
+if [ "$r1" != 0 ] && [ "$r2" != 0 ] && [ "$r3" != 0 ] && grep -q 'STALE.*형식 오류' <<<"$o1" \
+   && grep -q 'STALE.*reason 비어 있음' <<<"$o2" && grep -q 'STALE.*형식 오류' <<<"$o3"; then
   echo "PASS T38 형식 오류 행(4칸·6칸·빈 reason) → STALE"; PASS=$((PASS+1))
 else echo "FAIL T38 r1=$r1 r2=$r2 r3=$r3 o1=$o1 o2=$o2 o3=$o3"; FAIL=$((FAIL+1)); fi
 
@@ -340,7 +340,7 @@ p1() {
 FIX
 row "$tmps/pristine.sh" p1 '&&' "$A1" '&& 만 등가' > "$tmps/pristine.conf"
 out=$(MUT_EQUIV_CONF="$tmps/pristine.conf" mut::run_target "$tmps/pristine.sh" "true" 2>/dev/null)
-if printf '%s' "$out" | grep -q 'survived=1 invalid=0 equivalent=1'; then
+if grep -q 'survived=1 invalid=0 equivalent=1' <<<"$out"; then
   echo "PASS T40 run_target — 같은 줄의 다른 패턴 변이 뒤에도 등가 판정 유지"; PASS=$((PASS+1))
 else echo "FAIL T40 ($out)"; FAIL=$((FAIL+1)); fi
 
@@ -349,7 +349,7 @@ row "$tmps/tgt.sh" f1 'return 0' '  [ -n "${1:-}" ]   &&  return 0 ' '공백이 
 row "$tmps/tgt.sh" f1 'return 0' '# 주석: [ -z "$x" ] && return 0 — 변이돼선 안 된다' '주석 줄을 가리킴' > "$tmps/cmt.conf"
 _eq "$tmps/ws.conf" "$tmps/tgt.sh" 3 'return 0' && b1=0 || b1=1
 o=$(_cc "$tmps/cmt.conf" "$tmps/tg.conf"); rc=$?
-if [ "$b1" = 0 ] && [ "$rc" != 0 ] && printf '%s' "$o" | grep -q 'STALE.*매칭 사이트 0건'; then
+if [ "$b1" = 0 ] && [ "$rc" != 0 ] && grep -q 'STALE.*매칭 사이트 0건' <<<"$o"; then
   echo "PASS T41 원문 공백 정규화 · 주석 줄은 사이트가 아니다"; PASS=$((PASS+1))
 else echo "FAIL T41 b1=$b1 rc=$rc out=$o"; FAIL=$((FAIL+1)); fi
 
@@ -362,7 +362,7 @@ o=$(_cc "$tmps/ord.conf" "$tmps/tg.conf"); rc=$?
 _eq "$tmps/ord.conf" "$tmps/tgt.sh" 3 'return 0' && b1=0 || b1=1
 if [ "$rc" != 0 ] && [ "$b1" = 1 ] && [ "$(printf '%s\n' "$o" | grep -c '^STALE ')" = 3 ] \
    && [ "$(printf '%s\n' "$o" | grep -c 'f1#x|.*함수#k/n 꼴')" = 1 ] \
-   && [ "$(printf '%s\n' "$o" | grep -c 'k 는 1 이상 n 이하')" = 2 ] && printf '%s' "$o" | grep -q ' 0/3 매칭'; then
+   && [ "$(printf '%s\n' "$o" | grep -c 'k 는 1 이상 n 이하')" = 2 ] && grep -q ' 0/3 매칭' <<<"$o"; then
   echo "PASS T42 순번 표기 오류 3행(#x · #0/1 · #2/1) → 각각 STALE · 등가 아님"; PASS=$((PASS+1))
 else echo "FAIL T42 rc=$rc b1=$b1 out=$o"; FAIL=$((FAIL+1)); fi
 
@@ -372,8 +372,8 @@ row "$tmps/./tgt.sh" f1 'return 0' "$A1" '같은 파일 · 다른 표기' > "$tm
 row "$tmps/tgt-typo.sh" f1 'return 0' "$A1" '없는 파일' > "$tmps/typo.conf"
 o1=$(_cc "$tmps/spell.conf" "$tmps/tg.conf"); r1=$?
 o2=$(_cc "$tmps/typo.conf" "$tmps/tg.conf"); r2=$?
-if [ "$r1" != 0 ] && printf '%s' "$o1" | grep -q "STALE.*표기가 대상 목록의 '$tmps/tgt.sh' 와 다르다 — 1행" \
-   && [ "$r2" != 0 ] && printf '%s' "$o2" | grep -q 'STALE.*target 파일이 없다 — 1행'; then
+if [ "$r1" != 0 ] && grep -q "STALE.*표기가 대상 목록의 '$tmps/tgt.sh' 와 다르다 — 1행" <<<"$o1" \
+   && [ "$r2" != 0 ] && grep -q 'STALE.*target 파일이 없다 — 1행' <<<"$o2"; then
   echo "PASS T43 target 표기 불일치(./ 경유) · 없는 파일 → STALE"; PASS=$((PASS+1))
 else echo "FAIL T43 r1=$r1 r2=$r2 o1=$o1 o2=$o2"; FAIL=$((FAIL+1)); fi
 
@@ -387,6 +387,12 @@ k2=$(bash "$_MS" --anchor "$PLUGIN/$_rb" "$_sl" "$_spat" 2>/dev/null)
 if [ -n "$_sl" ] && [ "$(printf '%s' "$k0" | cut -f1)" = "$_rb" ] && [ "$k1" = "$k0" ] && [ "$k2" = "$k0" ]; then
   echo "PASS T44 --anchor target 표기 정규화 (./ · 절대경로 → 루트 상대)"; PASS=$((PASS+1))
 else echo "FAIL T44 site='$_site' k0='$k0' k1='$k1' k2='$k2'"; FAIL=$((FAIL+1)); fi
+
+# T45 이 파일의 단언에 `printf … | grep -…q` 파이프가 없다 (20261015-test-pipefail-grep)
+#   source 한 라이브러리가 `set -uo pipefail` 을 켠다 — 그 아래서 grep -q 가 먼저 끝나면 앞단 printf 의 쓰기 오류(SIGPIPE)가
+#   파이프 실패가 되어 출력이 맞아도 단언이 간헐 실패한다(CI 실측 2건). 단언은 `grep -q 패턴 <<<"$출력"` 로 쓴다.
+_np=$(grep -cE "printf '%s'[^|]*[|][[:space:]]*grep( -[A-Za-z-]+)* -[A-Za-z]*q" "${BASH_SOURCE[0]}")
+if [ "$_np" = 0 ]; then echo "PASS T45 단언에 grep -q 파이프 없음 (pipefail 경합 방지)"; PASS=$((PASS+1)); else echo "FAIL T45 grep -q 파이프 ${_np}곳 — grep -q 패턴 <<<\"\$출력\" 로"; FAIL=$((FAIL+1)); fi
 
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

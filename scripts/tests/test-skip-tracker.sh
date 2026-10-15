@@ -24,12 +24,12 @@ ck "T6 verdicts 구조형" "$(skip::verdicts "$tmp/fid-a/evidence.md" integratio
 ck "T7 verdicts 인라인형" "$(skip::verdicts "$tmp/fid-b/evidence.md" integration)" "SKIP"
 
 out=$(SKIP_TRACKER_THRESHOLD=50 skip::report "$tmp" 2>/dev/null)
-if printf '%s' "$out" | grep -qE "integration: total=3 PASS=0 SKIP=2 FAIL=1"; then echo "PASS T8 report 형식"; PASS=$((PASS+1)); else echo "FAIL T8 report ($out)"; FAIL=$((FAIL+1)); fi
-if printf '%s' "$out" | grep -q "⚠️"; then echo "PASS T9 임계 advisory ⚠️"; PASS=$((PASS+1)); else echo "FAIL T9 ⚠️ ($out)"; FAIL=$((FAIL+1)); fi
+if grep -qE "integration: total=3 PASS=0 SKIP=2 FAIL=1" <<<"$out"; then echo "PASS T8 report 형식"; PASS=$((PASS+1)); else echo "FAIL T8 report ($out)"; FAIL=$((FAIL+1)); fi
+if grep -q "⚠️" <<<"$out"; then echo "PASS T9 임계 advisory ⚠️"; PASS=$((PASS+1)); else echo "FAIL T9 ⚠️ ($out)"; FAIL=$((FAIL+1)); fi
 rm -rf "$tmp"
 
 out2=$(skip::report "/nonexistent" 2>/dev/null); rc=$?
-if printf '%s' "$out2" | grep -q "evidence 없음" && [ "$rc" -eq 0 ]; then echo "PASS T10 graceful"; PASS=$((PASS+1)); else echo "FAIL T10 graceful (rc=$rc $out2)"; FAIL=$((FAIL+1)); fi
+if grep -q "evidence 없음" <<<"$out2" && [ "$rc" -eq 0 ]; then echo "PASS T10 graceful"; PASS=$((PASS+1)); else echo "FAIL T10 graceful (rc=$rc $out2)"; FAIL=$((FAIL+1)); fi
 
 # T11 인접 헤더 오연관 차단 — integration 헤더(결과 없음) 직후 performance **결과**: SKIP 가 integration 으로 오집계되면 안 됨
 tmp2=$(mktemp -d)
@@ -49,13 +49,13 @@ ck "T13b cite_status 근거부재 두줄형 BARE" "$(skip::cite_status "$tmpc/fi
 printf '## /integration-test — SKIP (인프라, 표면 없음)\n' > "$tmpc/fid-b/evidence.md"
 ck "T14 verdicts 토큰 불변(CITED 파일도 SKIP)" "$(skip::verdicts "$tmpc/fid-c/evidence.md" integration)" "SKIP"
 outb=$(skip::report "$tmpc" 2>/dev/null)
-if printf '%s' "$outb" | grep -q "근거 없는 SKIP 1건"; then echo "PASS T15 bare 경고 1건"; PASS=$((PASS+1)); else echo "FAIL T15 ($outb)"; FAIL=$((FAIL+1)); fi
+if grep -q "근거 없는 SKIP 1건" <<<"$outb"; then echo "PASS T15 bare 경고 1건"; PASS=$((PASS+1)); else echo "FAIL T15 ($outb)"; FAIL=$((FAIL+1)); fi
 rm -rf "$tmpc"
 # T16: bare=0(전부 CITED) → 경고 없음
 tmpz=$(mktemp -d); mkdir -p "$tmpz/fid-z"
 printf '## /integration-test — 2026-06-15\n**결과**: SKIP\n**근거**: §범위 L12-15\n## /performance-test — 2026-06-15\n**결과**: SKIP\n**근거**: §NFR L45\n' > "$tmpz/fid-z/evidence.md"
 outz=$(skip::report "$tmpz" 2>/dev/null)
-if printf '%s' "$outz" | grep -q "근거 없는 SKIP"; then echo "FAIL T16 cited인데 경고 ($outz)"; FAIL=$((FAIL+1)); else echo "PASS T16 cited→경고0"; PASS=$((PASS+1)); fi
+if grep -q "근거 없는 SKIP" <<<"$outz"; then echo "FAIL T16 cited인데 경고 ($outz)"; FAIL=$((FAIL+1)); else echo "PASS T16 cited→경고0"; PASS=$((PASS+1)); fi
 rm -rf "$tmpz"
 
 # T17~T19: security 게이트 커버 (버그1 fix — security 헤더 '## /security-review' 는 skip-tracker
@@ -67,7 +67,7 @@ ck "T17 security count (SKIP 2건)" "$(skip::count "$tmps" security)" "0 2 0"
 ck "T18 security verdicts 구조형" "$(skip::verdicts "$tmps/fid-s1/evidence.md" security)" "SKIP"
 ck "T19 security cite BARE(근거없음)" "$(skip::cite_status "$tmps/fid-s2/evidence.md" security)" "BARE"
 outs=$(skip::report "$tmps" 2>/dev/null)
-if printf '%s' "$outs" | grep -qE "security: total=2"; then echo "PASS T20 report 에 security 게이트"; PASS=$((PASS+1)); else echo "FAIL T20 ($outs)"; FAIL=$((FAIL+1)); fi
+if grep -qE "security: total=2" <<<"$outs"; then echo "PASS T20 report 에 security 게이트"; PASS=$((PASS+1)); else echo "FAIL T20 ($outs)"; FAIL=$((FAIL+1)); fi
 rm -rf "$tmps"
 
 # T21 AC-5: 인자 없는 기본 root = 호출 위치 git 루트의 .specops (스크립트 옆 .specops 아님)
@@ -75,12 +75,18 @@ rm -rf "$tmps"
 tmpg=$(mktemp -d); git -C "$tmpg" init -q; mkdir -p "$tmpg/sub" "$tmpg/.specops/fid-g"
 printf '## /integration-test — 2026-09-15\n**결과**: PASS\n' > "$tmpg/.specops/fid-g/evidence.md"
 outg=$(cd "$tmpg/sub" && bash "$PLUGIN/scripts/skip-tracker.sh" 2>/dev/null)
-if printf '%s' "$outg" | grep -qE "integration: total=1 PASS=1 SKIP=0 FAIL=0"; then echo "PASS T21 기본 root = git 루트 .specops"; PASS=$((PASS+1)); else echo "FAIL T21 ($outg)"; FAIL=$((FAIL+1)); fi
+if grep -qE "integration: total=1 PASS=1 SKIP=0 FAIL=0" <<<"$outg"; then echo "PASS T21 기본 root = git 루트 .specops"; PASS=$((PASS+1)); else echo "FAIL T21 ($outg)"; FAIL=$((FAIL+1)); fi
 # T22 AC-R-1: 인자 없는 출력 == 같은 root 명시 인자 출력 (명시 인자 경로 불변)
 outn=$(cd "$tmpg" && bash "$PLUGIN/scripts/skip-tracker.sh" 2>/dev/null)
 oute=$(bash "$PLUGIN/scripts/skip-tracker.sh" "$tmpg/.specops" 2>/dev/null)
 ck "T22 무인자 == 명시 인자" "$outn" "$oute"
 rm -rf "$tmpg"
+
+# T23 이 파일의 단언에 `printf … | grep -…q` 파이프가 없다 (20261015-test-pipefail-grep)
+#   source 한 라이브러리가 `set -uo pipefail` 을 켠다 — 그 아래서 grep -q 가 먼저 끝나면 앞단 printf 의 쓰기 오류(SIGPIPE)가
+#   파이프 실패가 되어 출력이 맞아도 단언이 간헐 실패한다(CI 실측 2건). 단언은 `grep -q 패턴 <<<"$출력"` 로 쓴다.
+_np=$(grep -cE "printf '%s'[^|]*[|][[:space:]]*grep( -[A-Za-z-]+)* -[A-Za-z]*q" "${BASH_SOURCE[0]}")
+if [ "$_np" = 0 ]; then echo "PASS T23 단언에 grep -q 파이프 없음 (pipefail 경합 방지)"; PASS=$((PASS+1)); else echo "FAIL T23 grep -q 파이프 ${_np}곳 — grep -q 패턴 <<<\"\$출력\" 로"; FAIL=$((FAIL+1)); fi
 
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

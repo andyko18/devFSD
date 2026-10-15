@@ -86,7 +86,7 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 - `screens/<name>.md` + `screens/<name>.html` — **UI KIND일 때만**. 입력은 `screens-overview.md` fence 안 화면 이름 목록. 상세는 아래 §화면 보강 규약
 - `process-design.md` — 업무 프로세스 설계. `templates/process-design.md` 기반으로 `.specops/memory/process-design.md` 를 **채운다** — 골격은 bash Phase 8i 가 만든다(정본 14종 편입, 20261008). 골격이 없으면(`--enrich` 로 들어온 구 프로젝트) 같은 템플릿으로 새로 만든다. **KIND 무관 항상 산출**(CLI 도 `사용자 → 명령 → 처리 → 출력` 흐름을 갖는다). 프로세스마다 트리거·행위자·화면·API·테이블·결과·예외
   - **하류 이관** (`--enrich` · `--resume` 실행 시): 구 이름 `.specops/memory/intent.md` 가 프로세스 형식(본문에 `트리거`)으로 있고 `process-design.md` 가 없으면 `git mv .specops/memory/intent.md .specops/memory/process-design.md` 를 제안한다 [y/n]. 사용자가 거절하면 그대로 둔다 — **자동 개명·덮어쓰지 않는다**. `§auto` 는 제안만 기록하고 변경하지 않는다
-- `DESIGN.md` — **UI KIND일 때만**. 머리의 `디자인 방향` 선택을 `decisions.md` 결정 표에 행으로 upsert 한다(주제 `디자인 방향` · 출처 `init Phase6`)
+- `DESIGN.md` — **UI KIND일 때만**. 머리의 `디자인 방향` 선택을 `decisions.md` 결정 표에 행으로 upsert 한다(주제 `디자인 방향` · 출처 `init Phase6`) — 그 행의 이유·검토한 대안 칸도 채운다(근거가 없으면 비운다)
 
 **얕게/스킵** (골격·placeholder 유지 허용):
 - `constitution.md` · `test-strategy.md` · `architecture.md` · `CLAUDE.md` · `README.md`
@@ -137,7 +137,7 @@ should (수치·상세 — 근거 없으면 마커 + 사유):
 
 **가정 다이제스트 + 결정 원장** (대화형·무인 공통):
 - 승인(또는 자동수락)된 `가정:` 전건을 **PRD.md 말미 `## §보강 가정 다이제스트`** 에 기록 (PRD 단일 출처 — requirements 등 중복 금지). 재실행(--enrich 포함) 시 기존 섹션 **전건 갱신**(replace) — 중복 섹션 append 금지.
-- **동시**: `.specops/memory/project-context.md` §1~2 채움(머리의 `<!-- specops:project-kind: N -->` 줄은 **지우지 않는다** — 뒤 단계가 읽는 종류 기록이다) + `.specops/memory/decisions.md` 표에 행 upsert (출처=`init Phase0`/`init Phase11.5`). specifying·clarifying이 이 원장을 소비한다.
+- **동시**: `.specops/memory/project-context.md` §1~2 채움(머리의 `<!-- specops:project-kind: N -->` 줄은 **지우지 않는다** — 뒤 단계가 읽는 종류 기록이다) + `.specops/memory/decisions.md` 표에 행 upsert (출처=`init Phase0`/`init Phase11.5`) — 이유·검토한 대안 칸도 채운다(근거가 없으면 비운다 · 5칸 원장이면 머리·구분선 끝에 두 칸을 붙인다). specifying·clarifying이 이 원장을 소비한다.
 
 **단일 커밋** (bash Phase 10 스테이징 + enrich 변경 통합) — **반드시 아래 1줄로 수행한다**:
 

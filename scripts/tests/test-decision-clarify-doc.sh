@@ -49,6 +49,12 @@ grep -qF '이유 한 줄과 검토한 대안' "$CL" && grep -qF '머리·구분�
   && grep -qF 'check-decisions-ledger.sh' "$CL" \
   && ok "C7 clarifying 원장 기록 지시" || nope "C7" "원장 upsert 지시 미갱신"
 
+# C8: init 의 원장 upsert 지시 두 곳(디자인 방향 · Phase 0/11.5) 각각 이유·검토한 대안
+l89=$(grep -E '^- `DESIGN\.md` — \*\*UI KIND일 때만\*\*' "$IP")
+l140=$(grep -E '^- \*\*동시\*\*: .*decisions\.md' "$IP")
+printf '%s' "$l89" | grep -qF '이유·검토한 대안' && printf '%s' "$l140" | grep -qF '이유·검토한 대안' \
+  && ok "C8 init 원장 기록 지시 2곳" || nope "C8" "디자인 방향 줄 또는 동시 줄 미갱신"
+
 # C9: §auto 블록 핵심 문장 보존 (무인 동작 불변)
 grep -qF 'best-guess 자동 응답' "$CL" && grep -qF '`status: ASSUMED` 기재' "$CL" \
   && ok "C9 §auto 블록 보존" || nope "C9" "§auto 문장 변경됨"

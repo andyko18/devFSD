@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.22.0] — 2026-10-15
+
 ### Added
 
 - **헌법 구조 규칙의 판정 명령을 검증 단계가 실행한다 (경고 전용).** 새 `scripts/_internal/check-rule-commands.sh` 가 헌법 「구조 규칙」 중 판정이 `명령` 인 규칙을, 검증을 부른 폴더에서, 테스트 명령과 같은 허용 형식만(run-verification.sh 의 단일 줄 `_WHITELIST_PAT` 를 읽어 쓴다 — 정규식 복제 없음 · `..` 거부), 셸 해석 없이 실행해 규칙마다 `PASS`·`FAIL (rc=N)`·`TIMEOUT`·`SKIP — 허용 목록 밖` 을 낸다(규칙당 상한 60초 — `SPECOPS_RULE_CMD_TIMEOUT`). 종료 코드는 0 = 전부 지킴·해당 없음 · 1 = 위반·시간 초과·실행 안 함 · 2 = 판정 불가(표 형식 위반·허용 패턴을 읽지 못함 — 이때는 하나도 실행하지 않는다). `run-verification.sh` 는 판정 줄을 내기 전에 이 검사를 돌려 evidence.md `### structure-rule-commands` 에 남기고 위반은 표준 오류 경고로 보인다 — `VERIFY:` 판정과 종료 코드는 바뀌지 않는다. 헌법 템플릿에 실행 안내를 적고 예시 판정 명령을 허용 형식(`bash scripts/tests/test-structure.sh S-2`)으로 바꿨다. 새 스위트 `test-rule-commands.sh`.
@@ -3259,7 +3261,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.21.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.22.0...HEAD
+[2.22.0]: https://github.com/andyko18/specops-ko/compare/v2.21.0...v2.22.0
 [2.21.0]: https://github.com/andyko18/specops-ko/compare/v2.20.2...v2.21.0
 [2.20.2]: https://github.com/andyko18/specops-ko/compare/v2.20.1...v2.20.2
 [2.20.1]: https://github.com/andyko18/specops-ko/compare/v2.20.0...v2.20.1

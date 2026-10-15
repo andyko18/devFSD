@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.23.0] — 2026-10-15
+
 ### Added
 
 - **계획(plan.md)에 「경계 약속」 칸이 생기고, plan-reviewer 가 그것을 파일 목록·헌법 구조 규칙과 대조한다 (경고 전용).** `templates/plan.md` 의 `## 2. 파일 구조` 안에 `### 경계 약속`(소유 · 범위 밖 · 허용 의존 · 다시 검토할 조건)이 생겼다 — 절 번호는 그대로다. 새 `scripts/_internal/check-plan-boundary.sh` 가 경계 칸이 채워졌는지, 파일 구조 목록(생성·수정·삭제 — 테스트 경로 포함)이 소유 경로 안에 있는지, 그 파일들이 어떤 헌법 구조 규칙에 닿는지를 알려 주고(`check-constitution-rules.sh --list` 로만 읽는다), 파일 목록이나 규칙 표를 읽지 못하면 "없음"이 아니라 `[판정 불가]` 와 종료 코드 2 로 답한다. `planning-ko` 는 사전검사 뒤 이 검사를 돌려 `plan-boundary.txt` 로 남기고 종료 코드와 무관하게 plan-reviewer 에 넘기며, plan-reviewer 는 새 `## 경계 대조` 절에서 허용 의존의 방향과 범위 밖 항목을 대조해 **Minor 로만** 적는다(6관점 표와 PASS/FAIL 기준은 그대로). 경계 약속 절이 없는 기존 plan 은 경고만 받는다. 새 스위트 `test-plan-boundary.sh`(199 스위트).
@@ -3273,7 +3275,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.22.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.23.0...HEAD
+[2.23.0]: https://github.com/andyko18/specops-ko/compare/v2.22.0...v2.23.0
 [2.22.0]: https://github.com/andyko18/specops-ko/compare/v2.21.0...v2.22.0
 [2.21.0]: https://github.com/andyko18/specops-ko/compare/v2.20.2...v2.21.0
 [2.20.2]: https://github.com/andyko18/specops-ko/compare/v2.20.1...v2.20.2

@@ -4,7 +4,7 @@
 
 # specops-ko
 
-**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v2.22.0)
+**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v2.23.0)
 
 [![release](https://img.shields.io/github/v/release/andyko18/specops-ko?label=release&color=0969da)](https://github.com/andyko18/specops-ko/releases)
 [![tests](https://github.com/andyko18/specops-ko/actions/workflows/test.yml/badge.svg)](https://github.com/andyko18/specops-ko/actions/workflows/test.yml)
@@ -320,4 +320,4 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 
 ---
 
-*초기화: 2026-04-21 · v1.0.0 릴리즈: 2026-04-26 · **최신: v2.22.0 (2026-10-15)** · Claude Code 전용*
+*초기화: 2026-04-21 · v1.0.0 릴리즈: 2026-04-26 · **최신: v2.23.0 (2026-10-15)** · Claude Code 전용*

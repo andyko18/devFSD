@@ -118,4 +118,78 @@ grep -q 'check-decisions-ledger.sh' "$PLUGIN/skills/clarifying-ko/SKILL.md" \
 grep -qE '예시 행은.*삭제' "$PLUGIN/templates/decisions.md" \
   && ok "T11 템플릿 예시 행 삭제 지침 존재" || nope "T11" "템플릿 지침 부재"
 
+# ── 20261015-design-quality-stage1: 이유·검토한 대안 칸 (끝에 붙인 7칸) ──
+_ledger7() {  # $1=dir  (stdin = 표 행들) — 머리 7칸
+  mkdir -p "$1/.specops/memory"
+  { printf '# 결정 원장\n\n| DECISION-ID | 주제 | 확정값 | 출처 | 갱신일 | 이유 | 검토한 대안 |\n|---|---|---|---|---|---|---|\n'
+    printf '<!-- decisions-table:start -->\n'
+    cat
+    printf '<!-- decisions-table:end -->\n'
+  } > "$1/.specops/memory/decisions.md"
+}
+_judge() {  # $1=dir → "--list 결과(쉼표)|백엔드 rc|배포 rc|UI rc"
+  local l r1 r2 r3
+  l=$(cd "$1" && bash "$CHK" --list 2>/dev/null | tr '\n' ',')
+  (cd "$1" && bash "$CHK" '백엔드' >/dev/null 2>&1); r1=$?
+  (cd "$1" && bash "$CHK" '배포' >/dev/null 2>&1); r2=$?
+  (cd "$1" && bash "$CHK" 'UI 유무' >/dev/null 2>&1); r3=$?
+  printf '%s|%s|%s|%s' "$l" "$r1" "$r2" "$r3"
+}
+
+# T12: 같은 결정을 담은 5칸·7칸 원장 — 판정이 같다 (예시·TBD 제외 · 이유 빈칸 확정 행은 확정)
+TD5=$(mktemp -d); TD7=$(mktemp -d)
+_ledger "$TD5" <<'EOF'
+| D-001 | (예시) UI 유무 | 있음 | init Phase11.5 | YYYY-MM-DD |
+| D-002 | 백엔드 스택 | FastAPI 0.115 | clarify x | 2026-10-15 |
+| D-003 | 배포 | TBD | init | 2026-10-15 |
+| D-004 | 저장소 | PostgreSQL 16 | init | 2026-10-15 |
+EOF
+_ledger7 "$TD7" <<'EOF'
+| D-001 | (예시) UI 유무 | 있음 | init Phase11.5 | YYYY-MM-DD | (예시) 이유 | (예시) 대안 |
+| D-002 | 백엔드 스택 | FastAPI 0.115 | clarify x | 2026-10-15 | 팀 경험 | Django — 무거움 |
+| D-003 | 배포 | TBD | init | 2026-10-15 | | |
+| D-004 | 저장소 | PostgreSQL 16 | init | 2026-10-15 | | |
+EOF
+j5=$(_judge "$TD5"); j7=$(_judge "$TD7")
+[ "$j5" = "$j7" ] && [ "$j5" = "백엔드 스택,저장소,|0|1|1" ] \
+  && ok "T12 5칸·7칸 원장 판정 동일 ($j7)" || nope "T12" "5칸=$j5 / 7칸=$j7"
+rm -rf "$TD5" "$TD7"
+
+# T13: 5칸 원장을 머리만 7칸으로 늘린 혼합 원장 — 기존 5칸 행·새 7칸 행 모두 판정
+TD=$(mktemp -d)
+_ledger7 "$TD" <<'EOF'
+| D-001 | 배포 | Fly.io | init | 2026-10-01 |
+| D-002 | 백엔드 스택 | FastAPI 0.115 | clarify x | 2026-10-15 | 팀 경험 | Django — 무거움 |
+EOF
+jm=$(_judge "$TD")
+[ "$jm" = "배포,백엔드 스택,|0|0|1" ] && ok "T13 혼합 원장(5칸 행 + 7칸 행) 판정" || nope "T13" "$jm"
+rm -rf "$TD"
+
+# T14: foundation-kind 판독도 5칸·7칸·혼합에서 같다 (UI 유무 있음=필수 0 · 없음=비필수 1)
+fk_all=""
+for v in 있음 없음; do
+  for shape in 5 7 m; do
+    TD=$(mktemp -d)
+    case "$shape" in
+      5) printf '| D-002 | UI 유무 | %s | init | 2026-10-15 |\n' "$v" | _ledger "$TD" ;;
+      7) printf '| D-002 | UI 유무 | %s | init | 2026-10-15 | 화면 필요 | CLI 전용 — 기각 |\n' "$v" | _ledger7 "$TD" ;;
+      m) printf '| D-001 | 배포 | Fly.io | init | 2026-10-01 |\n| D-002 | UI 유무 | %s | clarify x | 2026-10-15 | 화면 필요 | CLI 전용 — 기각 |\n' "$v" | _ledger7 "$TD" ;;
+    esac
+    ( SPECOPS_ROOT="$TD/.specops"; export SPECOPS_ROOT
+      # shellcheck source=/dev/null
+      source "$PLUGIN/scripts/_internal/foundation-kind.sh"
+      foundation_kind_is_required ); fk_all="$fk_all$v$shape=$?,"
+    rm -rf "$TD"
+  done
+done
+[ "$fk_all" = "있음5=0,있음7=0,있음m=0,없음5=1,없음7=1,없음m=1," ] \
+  && ok "T14 foundation-kind 5칸·7칸·혼합 동일" || nope "T14" "$fk_all"
+
+# T15: 템플릿이 7칸 머리를 갖고 칸 계약·5칸 확장 규약을 적는다
+TPL="$PLUGIN/templates/decisions.md"
+grep -qF '| DECISION-ID | 주제 | 확정값 | 출처 | 갱신일 | 이유 | 검토한 대안 |' "$TPL" \
+  && grep -qF '새 칸은 **끝에만**' "$TPL" \
+  && grep -qF '머리·구분선 끝에' "$TPL" \
+  && ok "T15 템플릿 7칸·칸 계약·5칸 확장 규약" || nope "T15" "templates/decisions.md 미갱신"
+
 finish

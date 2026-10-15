@@ -339,10 +339,18 @@ else
 fi
 # 측정이 끝나든 TERM 으로 끊기든 임시 디렉터리를 남기지 않는다. 끊는 방식은 run-bounded.sh 와 같다(프로세스 그룹째 TERM).
 TD="$ROOT/tmpd"; mkdir -p "$TD"
+# 정리(EXIT 트랩)가 끝났는지는 한 번에 단정하지 않는다 — CI(macOS)에서 TERM 뒤 1개가 남아 `1 1 1` 로 실패한 일이 있었다
+#   (20261015 · 재실행 통과 · 로컬 미재현). 정리가 셀 때까지 끝나지 않은 것으로 추정한다(원인 미확정). 0 이 될 때까지 0.1초 간격 최대 50회(5초) 다시 센다 — 진짜 누수면 상한 뒤에도 남아 FAIL 이다.
+_settled_tmp() {  # $1=디렉터리 → "<개수> <재확인 횟수>"
+  local n j=0
+  n=$(find "$1" -maxdepth 1 -name 'specops-reuse.*' | wc -l | tr -d ' ')
+  while [ "$n" != 0 ] && [ "$j" -lt 50 ]; do sleep 0.1; j=$((j + 1)); n=$(find "$1" -maxdepth 1 -name 'specops-reuse.*' | wc -l | tr -d ' '); done
+  echo "$n $j"
+}
 mk_git_wrap "$ROOT/gslow" ": > '$ROOT/gslow.reached'; sleep 30; exit 1"
 R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
 ( cd "$R" && TMPDIR="$TD" bash "$RM" measure "$FID" ) >/dev/null 2>&1
-left_ok=$(find "$TD" -maxdepth 1 -name 'specops-reuse.*' | wc -l | tr -d ' ')
+left_ok=$(_settled_tmp "$TD"); left_ok=${left_ok%% *}
 gres=$(
   set -m
   ( cd "$R" && TMPDIR="$TD" PATH="$ROOT/gslow:$PATH" exec bash "$RM" measure "$FID" ) >/dev/null 2>&1 &
@@ -351,10 +359,11 @@ gres=$(
   i=0; while [ ! -e "$ROOT/gslow.reached" ] && [ "$i" -lt 100 ]; do sleep 0.2; i=$((i + 1)); done
   mid=$(find "$TD" -maxdepth 1 -name 'specops-reuse.*' | wc -l | tr -d ' ')
   kill -TERM -- "-$gp" 2>/dev/null; kill -TERM "$gp" 2>/dev/null
-  wait "$gp" 2>/dev/null
-  echo "$([ -e "$ROOT/gslow.reached" ] && echo 1 || echo 0) $mid $(find "$TD" -maxdepth 1 -name 'specops-reuse.*' | wc -l | tr -d ' ')"
+  wait "$gp" 2>/dev/null; wrc=$?
+  set -- $(_settled_tmp "$TD")
+  echo "$([ -e "$ROOT/gslow.reached" ] && echo 1 || echo 0) $mid $1 wrc=$wrc 재확인=$2"
 ) 2>/dev/null
-{ [ "$left_ok" = 0 ] && [ "$gres" = "1 1 0" ] && grep -q "^  trap 'exit 143' TERM" "$RM"; } \
+{ [ "$left_ok" = 0 ] && [ "${gres%% wrc=*}" = "1 1 0" ] && grep -q "^  trap 'exit 143' TERM" "$RM"; } \
   && ok "R6.g 임시 디렉터리를 남기지 않는다 — 정상 종료 뒤 0개 · 측정 도중(코퍼스 읽기) TERM 으로 끊겨도 1개→0개" || nope "R6.g" "정상 종료 뒤=${left_ok} 끊김(도달 중간 끝)=${gres}"
 # 재측정은 앞선 기록 파일을 비우고 쓰지 않고 통째로 바꾼다(쓰는 도중 끊겨도 빈·일부 기록이 남지 않게).
 #   앞선 기록에 하드 링크를 걸어 둔다 — 바꿔 끼우면 링크는 옛 내용을 그대로 갖고, 비우고 쓰면 링크 내용도 바뀐다.

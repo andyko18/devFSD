@@ -190,4 +190,14 @@ _rows=$(awk '/^## 6관점 검증 기준/{f=1;next} f&&/^## /{exit} f&&/^\| [^-|]
   && [ "$_rows" -eq 6 ]; } \
   && ok "B9b 리뷰어 경계 대조 Minor 로만 · 6관점 표 6행" || nope "B9b" "rows=$_rows"
 
+# B10 (AC-R-1): 경계 약속 절이 있어도 기존 plan 소비자(predispatch·plan-to-tasks) 결과가 같다
+A="$ROOT/r1a.md"; B="$ROOT/r1b.md"
+{ cat "$TPL"; printf '\n### Task 1: 본체\n\n- [ ] **Step 1: RED**\n\n```bash\ngrep -q '"'"'x'"'"' f\n```\n\n- [ ] **Step 2: FAIL 확인**\n\n실행: `bash t.sh`\n'; } > "$A"
+awk '/^### 경계 약속/{skip=1;next} skip&&/^## /{skip=0} !skip' "$A" > "$B"
+pa=$(bash "$PLUGIN/scripts/_internal/check-plan-predispatch.sh" --plan "$A" 2>&1); pb=$(bash "$PLUGIN/scripts/_internal/check-plan-predispatch.sh" --plan "$B" 2>&1)
+ta=$(bash "$PLUGIN/scripts/dag/plan-to-tasks.sh" --plan "$A" 2>&1); tb=$(bash "$PLUGIN/scripts/dag/plan-to-tasks.sh" --plan "$B" 2>&1)
+{ ! grep -q '^### 경계 약속' "$B" && grep -q '^### 경계 약속' "$A" && [ "$pa" = "$pb" ] && [ "$ta" = "$tb" ] \
+  && [ "$(printf '%s\n' "$ta" | grep -c '^## Task ')" -eq 1 ]; } \
+  && ok "B10 predispatch·plan-to-tasks 결과가 경계 약속 절 유무와 무관" || nope "B10" "pa=$pa pb=$pb"
+
 finish

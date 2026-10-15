@@ -515,7 +515,7 @@ bash scripts/reuse-metrics.sh report          # .specops/*/reuse-metrics.json �
 
 ## check-constitution-rules.sh — 헌법 「구조 규칙」 표 읽기 (읽기 전용 · 비차단)
 
-프로젝트 헌법(`.specops/memory/constitution.md`)의 「구조 규칙」 절에 적은 표를 읽어 형식을 판정하고, 규칙 행을 기계가 쓰기 좋은 줄로 내준다. 부르는 곳은 `scripts/dag/emit-context.sh` 하나다 — `--list` 출력을 태스크별 dispatch 컨텍스트의 `## 8. 구조 규칙` 절로 실어 구현자와 코드 리뷰어에게 전달한다. 표가 없으면 절도 없고, 표가 틀려도 **아무것도 막지 않는다**: 컨텍스트의 그 절과 `emit-context: WARN` 줄에 "싣지 못했다"와 사유가 남는다. `명령` 판정 규칙의 명령은 아직 자동으로 실행되지 않는다.
+프로젝트 헌법(`.specops/memory/constitution.md`)의 「구조 규칙」 절에 적은 표를 읽어 형식을 판정하고, 규칙 행을 기계가 쓰기 좋은 줄로 내준다. 부르는 곳은 `scripts/dag/emit-context.sh`(`--list` 출력을 태스크별 dispatch 컨텍스트의 `## 8. 구조 규칙` 절로 실어 구현자와 코드 리뷰어에게 전달) · `check-rule-commands.sh` · `check-plan-boundary.sh`(아래) 다. 표가 없으면 절도 없고, 표가 틀려도 **아무것도 막지 않는다**: 컨텍스트의 그 절과 `emit-context: WARN` 줄에 "싣지 못했다"와 사유가 남는다. `명령` 판정 규칙의 명령은 검증 때 `check-rule-commands.sh` 가 실행한다(경고 전용).
 
 ```bash
 bash scripts/_internal/check-constitution-rules.sh            # 형식 판정 (기본: .specops/memory/constitution.md)
@@ -541,3 +541,18 @@ bash scripts/_internal/check-constitution-rules.sh <헌법 파일>
 | 2 | 판정 불가 — 사용 오류 · 닿을 수 없거나 읽을 수 없는 파일(들어갈 수 없는 상위 디렉터리 · 끊어진 심볼릭 링크 · 샌드박스 같은 정책으로 접근이 거부된 파일 포함) · NUL 바이트가 든 파일 · 내부 도구 실패. "헌법 없음"·"규칙 0건"으로 답하지 않는다 |
 
 한계: 칸 안에 세로줄 문자를 쓸 수 없다(칸 수 위반으로 잡힌다 — 명령에 파이프가 필요하면 스크립트 파일로 감싼다). 규칙 내용의 옳고 그름, 적용 경로가 실제로 있는지, 판정 명령이 실행되는지는 보지 않는다. `--list` 는 칸을 적힌 그대로(백틱 포함) 낸다. UTF-8 이 아닌 헌법은 지원하지 않는다.
+
+## check-plan-boundary.sh — plan 의 「경계 약속」 대조 (읽기 전용 · 경고 전용)
+
+plan.md 의 `### 경계 약속`(소유 · 범위 밖 · 허용 의존 · 다시 검토할 조건)을 파일 구조 목록과 헌법 구조 규칙에 대 본다. `planning-ko` 가 사전검사 뒤 실행해 `.specops/<FID>/plan-boundary.txt` 로 남기고 plan-reviewer 에 넘긴다 — 리뷰어는 `## 경계 대조` 에서 Minor 로만 적고, **아무것도 막지 않는다**.
+
+```bash
+bash scripts/_internal/check-plan-boundary.sh <FID>                         # .specops/<FID>/plan.md
+bash scripts/_internal/check-plan-boundary.sh --plan <경로> [--constitution <경로>]
+```
+
+출력 첫 줄은 `PLAN-BOUNDARY: OK|WARN|SKIP`(plan.md 없음 = SKIP), 그 아래 `[경고]`(절 없음·칸 비었음·자리표시자) · `[소유 밖] <경로>`(테스트·삭제 경로도 예외 없음) · `RULE <ID> (<적용 경로>) — <규칙> — 닿는 파일: …` · `[판정 불가] …`. 종료 코드: 0 = 판정 완료(경고 포함)·SKIP · 1 = 사용 오류 · 2 = 판정 불가 항목 있음(파일 목록을 찾지 못함 · 규칙 표를 읽지 못함 — "없음"으로 쓰지 않는다).
+
+경로는 파일 구조 절(제목에 `파일` 이 든 `##` 절)의 목록 항목 줄(`-`·`*`·`1.` — 바로 백틱이거나 `생성:`·`T1:` 같은 짧은 이름표 뒤, 그 줄의 경로꼴 백틱 전부)과 표 첫 칸의 백틱에서만 뽑는다 — 산문·코드 블록·표 둘째 칸·코드 조각 백틱은 보지 않는다. 굵은 이름표(`**Create:**`) 뒤의 경로는 뽑지 않는다(조용히 빠진다). 구조 규칙 표는 `check-constitution-rules.sh --list` 로만 읽는다.
+
+한계: import 방향은 보지 않는다(헌법 판정 명령·리뷰어 몫). 경로 비교는 폴더 경계 기준 접두 비교다(소유 `src` 는 `src/a.sh` 를 포함하고 `src2/` 는 포함하지 않는다). 실측(20261015): 하류 plan 57건 중 55건에서 경로를 뽑았고 2건(파일 구조 절 없음)은 판정 불가.

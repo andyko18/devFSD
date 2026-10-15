@@ -10,7 +10,7 @@
 #   [경고] …        경계 약속 절 없음 · 칸이 비었거나 자리표시자 · 소유 칸에 백틱 경로 없음
 #   [소유 밖] <경로>  파일 구조 목록(생성·수정·삭제)의 경로가 소유 경로 밖이다 — 테스트 경로도 예외 없음
 #   RULE <ID> (<적용 경로>) — <규칙> — 닿는 파일: …   헌법 구조 규칙 중 이 plan 의 파일에 닿는 것(정보 — 경고 아님)
-#   [판정 불가] …    파일 목록을 찾지 못함 · 구조 규칙 표를 읽지 못함 — "없음"으로 쓰지 않는다
+#   [판정 불가] …    plan 을 확인할 수 없음(끊어진 링크·들어갈 수 없는 디렉터리) · 파일 목록을 찾지 못함 · 구조 규칙 표를 읽지 못함 — "없음"으로 쓰지 않는다
 # Exit: 0 = 판정 완료(경고 포함)·SKIP · 1 = 사용 오류 · 2 = 판정 불가 항목 있음
 #
 # 막지 않는다: planning-ko 는 종료 코드와 무관하게 진행하고, 이 출력을 plan-reviewer 에 넘긴다(리뷰어는 Minor 로만 적는다).
@@ -36,14 +36,28 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$PLAN" ] || usage
 
-if [ ! -e "$PLAN" ]; then
-  echo "PLAN-BOUNDARY: SKIP (plan.md 부재 — lite·trivial 정상 경로)"; exit 0
-fi
-
 WARN=0; CANT=0; LINES=""
 add()  { LINES="${LINES}  $1"$'\n'; }
 warn() { add "[경고] $1"; WARN=1; }
 cant() { add "[판정 불가] $1"; CANT=1; }
+
+# "없음"과 "확인할 수 없음"을 가른다 — 끊어진 링크·들어갈 수 없는 상위 디렉터리는 부재가 아니다(check-constitution-rules.sh 와 같은 구분).
+if [ ! -e "$PLAN" ]; then
+  _why=""
+  if [ -L "$PLAN" ]; then
+    _why="따라갈 수 없는 심볼릭 링크"
+  else
+    _d=$(dirname "$PLAN")
+    while [ ! -e "$_d" ] && [ ! -L "$_d" ] && [ "$_d" != "/" ] && [ "$_d" != "." ]; do _d=$(dirname "$_d"); done
+    if [ -L "$_d" ] && [ ! -e "$_d" ]; then _why="따라갈 수 없는 심볼릭 링크(상위 경로 $_d)"
+    elif [ ! -d "$_d" ] || [ ! -x "$_d" ]; then _why="들어갈 수 없는 상위 경로 $_d"; fi
+  fi
+  if [ -n "$_why" ]; then
+    cant "plan — 확인할 수 없음($_why): $PLAN"
+    printf 'PLAN-BOUNDARY: WARN\n%s' "$LINES"; exit 2
+  fi
+  echo "PLAN-BOUNDARY: SKIP (plan.md 부재 — lite·trivial 정상 경로)"; exit 0
+fi
 
 if [ ! -f "$PLAN" ] || [ ! -r "$PLAN" ]; then
   cant "plan — 읽을 수 없음: $PLAN"
@@ -95,7 +109,9 @@ parsed=$(awk '
       s = substr(s, t + 1); e = index(s, "`"); if (e == 0) return
       p = substr(s, 1, e - 1); s = substr(s, e + 1)
       sub(/:[0-9][0-9,-]*$/, "", p); sub(/^\.\//, "", p)
-      if (p ~ /^[A-Za-z0-9_.~\/-]+$/ && (index(p, "/") > 0 || index(p, ".") > 0)) print "F\t" p
+      # 경로꼴 = 공백 없음 · `/` 나 `.` 포함(spec FR-4). 셸·코드 조각 글자(< > | * ? $ ")와 `-`·`=` 로 시작하는 옵션꼴은 뺀다.
+      #   문자 집합을 좁히지 않는다 — 한글·`[id]`·`(group)`·`@`·`+` 경로가 조용히 빠지면 소유 밖 파일이 있어도 OK 가 난다.
+      if (p !~ /[ \t<>|*?$"]/ && p !~ /^[-=]/ && (index(p, "/") > 0 || index(p, ".") > 0)) print "F\t" p
     }
   }
   END { print "Z\tend" }

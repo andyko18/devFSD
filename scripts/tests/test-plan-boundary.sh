@@ -74,7 +74,7 @@ EOF
 out=$(bash "$CPB" --plan "$P" --constitution "$C" 2>&1); rc=$?
 { [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -q '^  RULE S-1 .*닿는 파일: src/lib/b.sh$' && ! printf '%s\n' "$out" | grep -q 'RULE S-2' \
   && printf '%s\n' "$out" | grep -q '^  RULE S-3 .*닿는 파일: src/c.sh$'; } \
-  && ok "B4a 닿는 규칙만 RULE 줄 · 줄번호 꼬리(`:10-20`·`:2,62`) 제거" || nope "B4a" "rc=$rc out=$out"
+  && ok "B4a 닿는 규칙만 RULE 줄 · 줄번호 꼬리(:10-20 · :2,62) 제거" || nope "B4a" "rc=$rc out=$out"
 CB="$ROOT/c4b.md"; printf '# 헌법\n\n<!-- structure-rules:start -->\n| ID | 규칙 |\n<!-- structure-rules:end -->\n' > "$CB"
 out=$(bash "$CPB" --plan "$P" --constitution "$CB" 2>&1); rc=$?
 { [ "$rc" -eq 2 ] && printf '%s\n' "$out" | grep -q '\[판정 불가\] 구조 규칙' && ! printf '%s\n' "$out" | grep -q 'RULE '; } \
@@ -138,7 +138,7 @@ cat > "$P" <<'EOF'
 
 | 파일 | 책임 |
 |---|---|
-| `lib/t.sh` | `docs/설명.md` 는 둘째 칸이라 아니다 |
+| `lib/t.sh` | see `docs/readme.md` — 둘째 칸이라 경로가 아니다 |
 
 - T1: `src/u.sh` (755) · `tests/test-u.sh` — 판정 블록(`if [ "$x" -gt 0 ]; then`)
 3. `lib/n.sh` — 번호 목록
@@ -199,5 +199,41 @@ ta=$(bash "$PLUGIN/scripts/dag/plan-to-tasks.sh" --plan "$A" 2>&1); tb=$(bash "$
 { ! grep -q '^### 경계 약속' "$B" && grep -q '^### 경계 약속' "$A" && [ "$pa" = "$pb" ] && [ "$ta" = "$tb" ] \
   && [ "$(printf '%s\n' "$ta" | grep -c '^## Task ')" -eq 1 ]; } \
   && ok "B10 predispatch·plan-to-tasks 결과가 경계 약속 절 유무와 무관" || nope "B10" "pa=$pa pb=$pb"
+
+# B11 (AC-3 · FR-4): 경로꼴은 "공백 없음 · / 나 . 포함" 이다 — 한글·[id]·@·+·(group) 경로도 뽑혀 소유 밖으로 드러난다(조용히 빠지지 않는다)
+P="$ROOT/b11.md"
+cat > "$P" <<'EOF'
+# 플랜
+
+## 2. 파일 구조
+
+- `src/a.sh` — 본체
+- `app/[id]/page.tsx` — 동적 라우트
+- `lib/@types/x.d.ts`
+- `docs/설명서.md`
+- `pkg/c++/x.cc`
+- `app/(group)/page.tsx`
+
+### 경계 약속
+- **소유**: `src/`
+- **범위 밖**: 없음
+- **허용 의존**: 없음
+- **다시 검토할 조건**: 없음
+EOF
+out=$(bash "$CPB" --plan "$P" --constitution "$NOC" 2>&1); rc=$?
+{ [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | grep -c '소유 밖')" -eq 5 ] \
+  && printf '%s\n' "$out" | grep -qxF '  [소유 밖] app/[id]/page.tsx' && printf '%s\n' "$out" | grep -qxF '  [소유 밖] docs/설명서.md' \
+  && printf '%s\n' "$out" | grep -qxF '  [소유 밖] app/(group)/page.tsx'; } \
+  && ok "B11 한글·대괄호·@·+·괄호 경로도 소유 밖으로 드러난다" || nope "B11" "rc=$rc out=$out"
+
+# B12 (AC-2 · FR-6): 확인할 수 없는 plan 은 "부재 SKIP" 이 아니라 판정 불가 rc 2 — 끊어진 링크 · 들어갈 수 없는 디렉터리
+ln -s "$ROOT/no-such-dir/plan.md" "$ROOT/dangling.md"
+out1=$(bash "$CPB" --plan "$ROOT/dangling.md" --constitution "$NOC" 2>&1); rc1=$?
+mkdir -p "$ROOT/locked" && cp "$ROOT/b1.md" "$ROOT/locked/plan.md" && chmod 000 "$ROOT/locked"
+out2=$(bash "$CPB" --plan "$ROOT/locked/plan.md" --constitution "$NOC" 2>&1); rc2=$?
+chmod 755 "$ROOT/locked"
+{ [ "$rc1" -eq 2 ] && printf '%s\n' "$out1" | grep -q '\[판정 불가\] plan' && ! printf '%s\n' "$out1" | grep -q 'SKIP' \
+  && { [ "$(id -u)" = 0 ] || { [ "$rc2" -eq 2 ] && printf '%s\n' "$out2" | grep -q '\[판정 불가\] plan'; }; }; } \
+  && ok "B12 끊어진 링크·들어갈 수 없는 디렉터리는 판정 불가 rc 2" || nope "B12" "rc=$rc1/$rc2 out1=$out1 out2=$out2"
 
 finish

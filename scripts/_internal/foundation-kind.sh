@@ -4,6 +4,7 @@
 #
 # SoT: check-foundation-present / check-foundation-merged 가 공유.
 # SPECOPS_ROOT 또는 cwd 의 .specops/memory 를 본다.
+# 원장 칸 계약: check-decisions-ledger.sh 와 같다 — $3=주제 · $4=확정값, 새 칸은 끝에만(20261015).
 # shellcheck shell=bash
 
 _fk_uninformative() {

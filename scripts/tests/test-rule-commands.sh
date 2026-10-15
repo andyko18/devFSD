@@ -149,4 +149,9 @@ TPL="$PLUGIN/templates/constitution.md"
   && bash "$PLUGIN/scripts/_internal/check-constitution-rules.sh" "$TPL" >/dev/null 2>&1; } \
   && ok "C10 템플릿 실행 안내 · 예시 허용 형식 · 형식 통과" || nope "C10" "templates/constitution.md 미갱신"
 
+# C11 (AC-7): 검증 스킬 체크리스트가 판정 명령 결과를 보고하게 한다
+SK="$PLUGIN/skills/verifying-evidence-ko/SKILL.md"
+{ grep -qF 'check-rule-commands.sh' "$SK" && grep -qF '### structure-rule-commands' "$SK"; } \
+  && ok "C11 검증 스킬 체크리스트 항목" || nope "C11" "verifying-evidence-ko 미갱신"
+
 finish

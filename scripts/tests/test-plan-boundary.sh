@@ -164,4 +164,14 @@ out=$(bash "$CPB" --plan "$P" --constitution "$NOC" 2>&1); rc=$?
 bash "$CPB" >/dev/null 2>&1; rc1=$?; bash "$CPB" --bogus >/dev/null 2>&1; rc2=$?
 { [ "$rc1" -eq 1 ] && [ "$rc2" -eq 1 ]; } && ok "B7 사용 오류 rc 1" || nope "B7" "rc=$rc1/$rc2"
 
+# B8 (AC-5): 템플릿 — ## 2 와 ## 3 사이에 경계 약속 칸 4개 · ## 1.~## 9. 제목 불변 · 템플릿 칸은 자리표시자로 보고된다
+TPL="$PLUGIN/templates/plan.md"
+_h2=$(grep -E '^## ' "$TPL" | tr '\n' '|')
+_sec=$(awk '/^## 2\. /{f=1;next} /^## 3\. /{f=0} f' "$TPL")
+{ [ "$_h2" = "## 1. 가정 (5원칙 5번)|## 2. 파일 구조|## 3. 데이터 모델 (선택)|## 4. 계약 (선택)|## 5. 태스크 개요|## 6. 위험과 완화|## 7. 자체 검토 (5원칙 체크리스트)|## 8. Advisor 협의 기록|## 9. 다음 단계|" ] \
+  && printf '%s\n' "$_sec" | grep -qx '### 경계 약속' \
+  && [ "$(printf '%s\n' "$_sec" | grep -cE '^- \*\*(소유|범위 밖|허용 의존|다시 검토할 조건)\*\*: ')" -eq 4 ] \
+  && [ "$(bash "$CPB" --plan "$TPL" --constitution "$NOC" 2>/dev/null | grep -c '칸 자리표시자 그대로')" -eq 4 ]; } \
+  && ok "B8 템플릿 경계 약속 칸 4개 · 절 번호 불변" || nope "B8" "h2=$_h2"
+
 finish

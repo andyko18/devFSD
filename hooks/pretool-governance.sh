@@ -57,7 +57,8 @@ trigger_re=$(jq -rs '[.[]|select(.id=="R-1" or .id=="R-2")|.trigger_pattern|sele
 [ -n "$trigger_re" ] || safe_exit "trigger_pattern 로드 실패"
 # 트리거 판정은 잇기 전 원문도 함께 본다(_trigger_scan_text) — 아래 범위 판정들은 이은 문자열(tool_cmd_scan)을 쓴다.
 grep -Eq "$trigger_re" <<< "$(_trigger_scan_text "$(_strip_heredoc_bodies "$tool_cmd")")" || allow
-_gov_cmd_moves_git "$tool_cmd_scan" || _gov_apply_git_target "$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)"   # 셸이 같은 저장소의 다른 worktree 면 git 조회를 그쪽으로 — 명령이 스스로 옮기면 종전 (20261016-hook-worktree-target)
+_GOV_INPUT_CWD=$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)   # 셸 위치 — 판정 대상(아래)과 이동 위치 해석(_gov_cmd_moves_elsewhere)이 쓴다 (20261016)
+_gov_cmd_moves_git "$tool_cmd_scan" || _gov_apply_git_target "$_GOV_INPUT_CWD"   # 셸이 같은 저장소의 다른 worktree 면 git 조회를 그쪽으로 — 명령이 스스로 옮기면 종전 (20261016-hook-worktree-target)
 
 # 세션-env 우회 = 사용자 주권(막지 않음). 단 무기록 우회는 감사 공백(상한 3호) → 기록 후 allow.
 #   .specops 有일 때만 기록 — 부재(비-specops repo)면 log_friction 이 .specops 를 생성해 월권(M2 관할 가드 철학).
@@ -505,7 +506,7 @@ $_receipt_hint
 이 FID 는 명세 없이 태스크 문서만 있는 quick 경로입니다 — 검증 러너(run-verification.sh) 통과로는 열리지 않습니다.
 우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>${_compound_hint}" ;;
   esac
-  jq -nc --arg r "$reason$(_gov_target_note "$plugin_root" "${fid:-}")" \
+  jq -nc --arg r "$reason$(_gov_target_note "$plugin_root" "${fid:-}")$(_gov_moved_note "$tool_cmd_scan")" \
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
   exit 0
 fi

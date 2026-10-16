@@ -648,6 +648,8 @@ is_docs_only_change() {
   #   출현해 AC-3 이 세운 "구조적 불가" 이상신호 축을 자기오염시킨다. 판정·종료코드와는 무관한
   #   계측 전용 결함이지만, 계측이 사실을 말하지 않으면 존재 이유가 없다(5원칙 1).
   _SPECOPS_SCOPE_FILES=""
+  # 명령이 다른 작업 트리로 옮겨 커밋하면 면제하지 않는다 (20261016-docs-exempt-moved-target — 함수 머리 참조)
+  _gov_cmd_moves_elsewhere "${1:-}" && return 1
   local files
   # PR 생성은 **이미 커밋된 base...HEAD** 가 판정 대상이다 — 작업트리는 PR 에 실리지 않는다.
   #   종전엔 아래 작업트리 분기를 타서, 추적 중인 .specops/session-progress.md 하나만 dirty 여도 all-docs 로
@@ -1972,7 +1974,7 @@ _gov_git_target() {
 #   종전 판정(프로젝트 폴더)이다. `make -C` 같은 무관한 -C 도 걸리지만 종전 판정으로 떨어질 뿐이다(안전 쪽).
 #   $1 = 인용·heredoc 을 벗긴 명령. rc 0 = 옮긴다.
 _gov_cmd_moves_git() {
-  grep -Eq '(^|[;&|({`[:space:]])(cd|pushd|popd)([[:space:]]|$)|(^|[[:space:]])(-C|--git-dir|--work-tree)([[:space:]=]|$)|(^|[;&|({`[:space:]])GIT_(DIR|WORK_TREE)=' <<< "${1:-}"
+  grep -Eq '(^|[;&|({`[:space:]])(cd|pushd|popd)([[:space:];&|)]|$)|(^|[[:space:]])(-C|--git-dir|--work-tree)([[:space:]=]|$)|(^|[;&|({`[:space:]])GIT_(DIR|WORK_TREE)=' <<< "${1:-}"
 }
 
 # 호출자 셸에서 직접 부른다(서브셸이면 export 가 사라진다). $1 = 훅 입력의 cwd.
@@ -1999,4 +2001,57 @@ _gov_target_note() {
   if [ -d "$_GOV_TARGET_WT/.specops" ] && ! [ "$_GOV_TARGET_WT/.specops" -ef "$PWD/.specops" ]; then
     printf '\n⚠️ worktree 에 .specops 사본이 있습니다 — 기록 스크립트가 사본에 쓰면 이 판정과 갈라집니다. 사본을 지우면 기록 스크립트도 메인 기록을 씁니다.'
   fi
+}
+
+# ── 이동한 커밋의 문서 면제 (20261016-docs-exempt-moved-target) ──────────────────
+# 명령이 git 위치를 옮겼는데 그곳이 프로젝트(현재 폴더)와 같은 작업 트리라고 확인되지 않으면 rc 0.
+#   문서 전용 면제는 현재 폴더의 변경을 본다 — 명령이 다른 worktree 로 옮겨 커밋하면 그 커밋은 면제 판정이 보지
+#   않은 범위다(메인이 문서만 바뀐 상태면 다른 worktree 의 코드가 검증 없이 면제됐다 — 재현 4형태).
+#   같은 작업 트리(cd 프로젝트 자신·하위 폴더)는 종전 면제를 유지한다(실측 면제 6건이 이 꼴).
+#   확인하지 못하는 위치는 옮긴 것으로 본다 — 인용으로 감싼 경로(호출부가 본문을 지워 빈 따옴표만 남는다)·
+#   $변수·`·~·cd -·popd·인자 없는 cd·없는 폴더. _is_safe_prelude_line 은 바꾸지 않는다(문자열 판정 — 20260910):
+#   이 함수는 면제를 거두는 쪽으로만 쓰인다.
+#   상대 경로는 **셸 위치**(훅이 입력 cwd 로 채우는 _GOV_INPUT_CWD — 없으면 현재 폴더) 기준으로 푼다: 셸이
+#   worktree 면 `cd src` 는 그 worktree 의 src 다(plan-reviewer 1회차 실측 — 프로젝트 기준으로 풀면 면제가 남았다).
+#   --work-tree·GIT_WORK_TREE 만 주고 git 디렉터리를 주지 않으면 git 은 셸 위치의 저장소(index)로 커밋하므로 그것도 본다.
+#   이동이 둘 이상인데 그중 상대 경로가 있으면 확인 불가로 본다 — 홉을 이어 풀지 않기 때문이다(외부 critic 지적:
+#   `cd .worktrees && cd x` 를 홉마다 따로 풀면 "같은 트리" 로 잘못 답할 수 있다).
+#   $1 = 명령. 인용·heredoc 본문은 여기서 벗긴다 — 호출부마다 전처리가 달라도(scope-explain 은 원문을 넘긴다) 커밋
+#   메시지 속 `cd x` 가 이동으로 읽히지 않고, 인용으로 감싼 경로는 빈 따옴표가 되어 확인 불가로 떨어진다.
+_gov_cmd_moves_elsewhere() {
+  local c base="${_GOV_INPUT_CWD:-$PWD}" top gd kind tok list wtx=0 gdt=0 n=0 rel=0
+  c=$(_strip_quoted_strings "$(_strip_heredoc_bodies "${1:-}")")
+  _gov_cmd_moves_git "$c" || return 1
+  top=$(git rev-parse --show-toplevel 2>/dev/null) || return 0
+  gd=$(git rev-parse --absolute-git-dir 2>/dev/null) || return 0
+  grep -Eq '(^|[;&|({`[:space:]])popd([[:space:];&|)]|$)|(^|[;&|({`[:space:]])(cd|pushd)[[:space:]]*($|[;&|)])' <<< "$c" && return 0
+  list=$(grep -oE '(^|[;&|({`[:space:]])(cd|pushd)[[:space:]]+[^;&|[:space:]]*|(^|[[:space:]])-C[[:space:]]+[^;&|[:space:]]*|--work-tree(=|[[:space:]]+)[^;&|[:space:]]*|--git-dir(=|[[:space:]]+)[^;&|[:space:]]*|GIT_WORK_TREE=[^;&|[:space:]]*|GIT_DIR=[^;&|[:space:]]*' <<< "$c" \
+    | sed -E 's/^[;&|({`[:space:]]+//; s/^(cd|pushd|-C)[[:space:]]+/wt /; s/^--work-tree(=|[[:space:]]+)/wx /; s/^GIT_WORK_TREE=/wx /; s/^--git-dir(=|[[:space:]]+)/gd /; s/^GIT_DIR=/gd /')
+  [ -n "$list" ] || return 0
+  n=$(printf '%s\n' "$list" | grep -c .)
+  rel=$(printf '%s\n' "$list" | awk '$2 !~ /^\// { r = 1 } END { print r + 0 }')
+  [ "$n" -gt 1 ] && [ "$rel" = 1 ] && return 0
+  while read -r kind tok; do
+    [ -n "$kind" ] || continue
+    case "$tok" in ''|-|*'$'*|*'`'*|'~'*|*\"*|*\'*) return 0 ;; esac
+    case "$tok" in /*) ;; *) [ -d "$base" ] || return 0; tok="$base/$tok" ;; esac
+    if [ "$kind" = gd ]; then
+      gdt=1
+      [ "$(git --git-dir="$tok" rev-parse --absolute-git-dir 2>/dev/null)" = "$gd" ] || return 0
+    else
+      [ "$kind" = wx ] && wtx=1
+      [ -d "$tok" ] || return 0
+      [ "$(git -C "$tok" rev-parse --show-toplevel 2>/dev/null)" = "$top" ] || return 0
+    fi
+  done <<< "$list"
+  if [ "$wtx" = 1 ] && [ "$gdt" = 0 ]; then
+    [ -d "$base" ] && [ "$(git -C "$base" rev-parse --absolute-git-dir 2>/dev/null)" = "$gd" ] || return 0
+  fi
+  return 1
+}
+
+# deny 사유에 붙인다 — 면제를 거둔 이유를 모르면 우회로 간다. 옮기지 않았거나 같은 작업 트리면 빈 값.
+_gov_moved_note() {
+  _gov_cmd_moves_elsewhere "${1:-}" || return 0
+  printf '\n\n※ 명령이 다른 작업 트리로 옮겨 문서 면제를 적용하지 않았습니다 — 옮긴 곳의 변경은 이 판정이 보지 않으므로 문서만 바꾼 커밋이어도 면제하지 않습니다. 그 폴더로 셸을 옮긴 뒤 맨 `git commit` 을 쓰면 그곳 기준으로 판정됩니다.'
 }

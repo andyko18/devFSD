@@ -245,4 +245,16 @@ printf '%s' "$out" | grep -q 'VERIFY: PASS' && [ "$st" = PASS ] && [ "$crc" = 0 
   && ok "SR-15 ★ 추적 .specops worktree 에서 검증 러너 → 메인 판정 상태 PASS · check-task-receipt rc 0 · worktree .specops 불변" \
   || nope "SR-15" "st=$st crc=$crc out=$(printf '%s' "$out" | tail -1) status=[$(git -C "$TNW" status --porcelain -- .specops | tr '\n' ' ')]"
 
+# SR-16 판정 스크립트 — release-ready 가 메인 기록으로 판정 · review-skip-pass 가 메인에 쓴다 · worktree .specops 불변
+mkdir -p "$TN/.specops/$TFID/reviews"
+printf 'ok\n' > "$TN/.specops/$TFID/reviews/T1-B-report.md"; cp "$TN/.specops/$TFID/reviews/T1-B-report.md" "$TN/.specops/$TFID/reviews/T1-C-report.md"
+printf 'review_mode: end-loaded\n' >> "$TN/.specops/$TFID/tasks.md"
+rr=$(cd "$TNW" && bash "$PLUGIN/scripts/_internal/release-ready.sh" "$TFID" 2>&1)
+rs=$(cd "$TNW" && bash "$PLUGIN/scripts/_internal/review-skip-pass.sh" "$TFID" 2>&1); rsrc=$?
+printf '%s' "$rr" | grep -q '^RELEASE_READY: ' && ! printf '%s' "$rr" | grep -qE 'fid-dir-missing|legacy-no-verify-artifact' \
+  && [ "$rsrc" = 0 ] && [ "$rs" = "review-skip-pass: OK $TFID" ] && [ -f "$TN/.specops/$TFID/review-skip.md" ] \
+  && [ -z "$(git -C "$TNW" status --porcelain -- .specops)" ] \
+  && ok "SR-16 ★ 추적 .specops worktree 에서 release-ready·review-skip-pass → 메인 기록으로 판정·기록 · worktree .specops 불변" \
+  || nope "SR-16" "rr=[$(printf '%s' "$rr" | head -2 | tr '\n' ' ')] rs=${rsrc}[$rs] status=[$(git -C "$TNW" status --porcelain -- .specops | tr '\n' ' ')]"
+
 finish

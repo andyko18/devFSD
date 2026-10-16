@@ -142,4 +142,30 @@ h=$(_hookstate bash "$RR" "$FID" 2>&1); hrc=$?
   && ok "SR-9 ★ worktree 에서 release-ready → 훅 상태와 출력·rc 동일 (상대경로 호출 포함)" \
   || nope "SR-9" "rc w=$wrc rel=$wrrc hook=$hrc · w=[$(printf '%s' "$w" | head -2 | tr '\n' ' ')] h=[$(printf '%s' "$h" | head -2 | tr '\n' ' ')]"
 
+# SR-10 review-skip-pass — 메인 기록에 쓴다 (상대경로로 부른다 — 이동 전에 HERE 를 잡는지)
+printf 'review_mode: end-loaded\n' >> "$C/.specops/$FID/tasks.md"
+out=$(cd "$CW" && bash "$(_rel "$RSP")" "$FID" 2>&1); rc=$?
+[ "$rc" = 0 ] && [ "$out" = "review-skip-pass: OK $FID" ] && [ -f "$C/.specops/$FID/review-skip.md" ] \
+  && grep -q '/request-review' "$C/.specops/session-progress.md" && grep -q '/receive-review' "$C/.specops/session-progress.md" && [ ! -e "$CW/.specops" ] \
+  && ok "SR-10 ★ worktree 에서 review-skip-pass → 메인 review-skip.md · 진행 기록 두 줄 · worktree 에 .specops 안 생김" \
+  || nope "SR-10" "rc=$rc out=[$out]"
+
+# SR-11 이동하지 않아야 하는 호출 — (a) 자기 .specops 가 있는 linked worktree (b) SPECOPS_ROOT 지정
+printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$L/.specops/$FID/evidence.md"
+printf '# spec\n' > "$L/.specops/$FID/spec.md"; printf 'review_mode: end-loaded\n' >> "$L/.specops/$FID/tasks.md"
+mkdir -p "$L/.specops/$FID/reviews"; printf 'ok\n' > "$L/.specops/$FID/reviews/T1-B-report.md"; cp "$L/.specops/$FID/reviews/T1-B-report.md" "$L/.specops/$FID/reviews/T1-C-report.md"
+(cd "$L" && git add src/foo.sh)
+sum_before=$(git hash-object "$R/.specops/session-progress.md")
+a1=$(cd "$L" && bash "$CTR" "$FID" T1 2>&1); a1rc=$?
+a2=$(cd "$L" && bash "$RR" "$FID" 2>&1)
+a3=$(cd "$L" && bash "$RSP" "$FID" 2>&1); a3rc=$?
+(cd "$L" && git reset -q)
+mkdir -p "$TD/empty"
+b=$(cd "$CW" && SPECOPS_ROOT="$TD/empty" bash "$RR" "$FID" 2>&1); brc=$?
+[ "$a1rc" = 0 ] && ! printf '%s' "$a2" | grep -q 'legacy-no-verify-artifact' && [ "$a3rc" = 0 ] && [ -f "$L/.specops/$FID/review-skip.md" ] \
+  && [ ! -e "$R/.specops/$FID/review-skip.md" ] && [ "$(git hash-object "$R/.specops/session-progress.md")" = "$sum_before" ] \
+  && [ "$brc" = 2 ] && printf '%s' "$b" | grep -q 'reason=fid-dir-missing' \
+  && ok "SR-11 자기 .specops 가 있는 linked worktree 는 자기 기록으로 판정·메인 worktree 기록 불변 · SPECOPS_ROOT 지정은 이동하지 않음" \
+  || nope "SR-11" "a1=$a1rc[$a1] a2=[$(printf '%s' "$a2" | head -2 | tr '\n' ' ')] a3=$a3rc[$a3] b=$brc[$b]"
+
 finish

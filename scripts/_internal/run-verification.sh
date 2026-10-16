@@ -13,6 +13,13 @@
 set -u
 
 FID="${1:?usage: $0 <FID>}"
+# worktree 에서 불려도 메인 worktree 의 .specops 를 쓴다 — 테스트·구조 규칙 명령은 원래 폴더로 (20261016-hook-worktree-target)
+#   자기 경로는 이동 전에 절대경로로 잡는다 — 아래 PLUGIN 이 이것을 쓴다.
+_RV_SELF=$(cd "$(dirname "$0")" && pwd)
+# shellcheck source=/dev/null
+. "$_RV_SELF/specops-root.sh" 2>/dev/null || true
+command -v _sr_leave >/dev/null 2>&1 || _sr_leave() { :; }
+specops_root_enter 2>/dev/null || true
 TASKS=".specops/$FID/tasks.md"
 EVIDENCE=".specops/$FID/evidence.md"
 START_SECONDS=$(date +%s)
@@ -22,7 +29,7 @@ if [ ! -f "$TASKS" ]; then
   exit 1
 fi
 
-PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
+PLUGIN=$(cd "$_RV_SELF/../.." && pwd)
 EXTRACT="$PLUGIN/scripts/_internal/extract-test-commands.sh"
 AUDIT_SH="$PLUGIN/scripts/_internal/check-review-audit.sh"
 FND_SH="$PLUGIN/scripts/_internal/check-foundation-manifest.sh"
@@ -137,7 +144,7 @@ if [ -z "$commands" ]; then
   # foundation manifest 도 동일 이유로 여기서 검사한다 — review-audit 이 봉합한 것과 같은
   #   "NO COMMANDS 우회" 구멍. 테스트 명령 0건인 foundation FID 가 게이트를 통째로 비껴간다.
   if [ -f "$FND_SH" ]; then
-    fnd_out=$(bash "$FND_SH" "$FID" 2>&1) || {
+    fnd_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bash "$FND_SH" "$FID"; } 2>&1 ) || {
       failed=$((failed + 1))
       _mat_reason foundation-manifest "$fnd_out"
       _record_result FAIL
@@ -214,11 +221,11 @@ while IFS= read -r cmd; do
     _sub_dir="${BASH_REMATCH[1]}"; read -r -a _sub_parts <<< "${BASH_REMATCH[2]}"
     # 그룹 `{ … }` 전체 stderr 캡처 — `2>&1` 를 러너에만 결속하면 cd 실패 진단이
     #   스크립트 stderr 로 유출되어 evidence 출력블록이 빈 채 exit 만 기록됨(L12 투명성 위반, Imp1).
-    out=$( { cd "$_sub_dir" && "${_sub_parts[@]}"; } 2>&1 )
+    out=$( { _sr_leave && cd "$_sub_dir" && "${_sub_parts[@]}"; } 2>&1 )
   elif [ "${_parts[0]}" = "bash" ]; then
-    out=$(bash "${_parts[@]:1}" 2>&1)
+    out=$( { _sr_leave && bash "${_parts[@]:1}"; } 2>&1 )
   else
-    out=$("${_parts[@]}" 2>&1)
+    out=$( { _sr_leave && "${_parts[@]}"; } 2>&1 )
   fi
   # ⚠️ 위 if/fi 블록과 이 줄 사이에 어떤 명령도 삽입 금지 (주석은 무해).
   #    명령을 넣으면 ec 가 그 명령의 status(0)를 캡처해 **실패한 테스트가 VERIFY: PASS 로 샌다**.
@@ -314,7 +321,7 @@ fi
 #   커밋·PR 면제로 인정하므로, 이 축의 위반도 같은 관문을 통과해야 실효가 있다.
 #   종전엔 verifying-evidence-ko 산문뿐이라 모델이 건너뛰면 무발동이었다(20260806 실측).
 if [ -f "$FND_SH" ]; then
-  fnd_out=$(bash "$FND_SH" "$FID" 2>&1)
+  fnd_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bash "$FND_SH" "$FID"; } 2>&1 )
   fnd_ec=$?
   {
     echo "### foundation-manifest"
@@ -342,7 +349,7 @@ fi
 RULECMD_SH="$PLUGIN/scripts/_internal/check-rule-commands.sh"
 rulecmd_ec=0
 if [ -f "$RULECMD_SH" ]; then
-  rulecmd_out=$(bash "$RULECMD_SH" 2>&1); rulecmd_ec=$?
+  rulecmd_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bash "$RULECMD_SH"; } 2>&1 ); rulecmd_ec=$?
 else
   rulecmd_out="검사 스크립트 없음 — check-rule-commands.sh"
 fi

@@ -31,6 +31,12 @@ EOF
   exit 2
 fi
 
+# worktree 에서 불려도 메인 worktree 의 .specops 에 쓴다 (20261016-hook-worktree-target — specops-root.sh 머리 참조)
+#   자기 경로는 이동 전에 절대경로로 잡는다(상대경로 호출이면 이동 뒤 뜻이 바뀐다).
+_SPA_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=/dev/null
+. "$_SPA_DIR/_internal/specops-root.sh" 2>/dev/null && specops_root_enter || true
+
 # .specops 가 symlink 면 거부 — 악성 repo clone 시 외부 dir write-through(path-escape) 차단
 if [ -L ".specops" ]; then
   echo "ERROR: .specops 가 symlink — 쓰기 거부(path-escape 차단)" >&2
@@ -105,7 +111,7 @@ _upsert_active_fid() {
 
 # 파일 부재 시 ensure-session-progress.sh 호출하여 생성
 if [ ! -f "$TARGET" ]; then
-  script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  script_dir=$_SPA_DIR
   plugin_root=$(dirname "$script_dir")
   # 진행 기록 쓰기는 lifecycle 의 명시적 행위라 관할을 여는 쪽이다 — 디렉토리는 여기서 만든다.
   #   (ensure-session-progress 는 Stop 훅으로도 돌아 `.specops/` 부재 시 아무것도 만들지 않는다.)

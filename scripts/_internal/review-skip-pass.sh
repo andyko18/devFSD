@@ -2,7 +2,7 @@
 # review-skip-pass.sh — end-loaded 로 Phase B/C 를 끝낸 FID 의 requesting·receiving-code-review 기계적 통과
 #   FID 20261005-skill-progressive-disclosure
 #
-# Usage: review-skip-pass.sh <FID>        (cwd = 대상 repo 루트)
+# Usage: review-skip-pass.sh <FID>        (cwd = 대상 repo 루트 또는 그 linked worktree — 자기 .specops 가 없는 worktree 면 메인 worktree 기록으로 판정)
 # Exit:  0 통과 — review-skip.md 와 session-progress 두 줄을 남겼다 (stdout 1줄)
 #        1 조건 불충족·판정 불가 — 검사 단계에서는 **아무것도 쓰지 않는다**, 사유 1줄을 stderr 로 낸다(종전 skill 경로가 이어받는다).
 #          쓰기 단계의 부분 실패(두 번째 append 실패)만 review-skip.md 가 남을 수 있다 — skill 이 덮어쓰는 정상 경로다
@@ -14,8 +14,13 @@
 #   여기에 §batch(batch 는 종전 skill 경로)·review-request.md/review-skip.md 기존재(이어받기)를 더해 **애매하면 rc 1** 이다.
 set -u
 
-SPECOPS="${SPECOPS_ROOT:-.specops}"
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) || exit 1
+# worktree 에서 불려도 메인 worktree 의 .specops 로 판정한다 — git 조회는 export 된 GIT_DIR·GIT_WORK_TREE 로 그 worktree (20261016-judge-scripts-worktree-root)
+#   훅은 .specops 가 있는 프로젝트 폴더에서 부르므로 이동하지 않는다(셸이 다른 worktree 면 git env 도 이미 export 돼 있다). SPECOPS_ROOT 를 준 호출도 그대로다.
+#   이동하면 상대경로 $0 의 뜻이 바뀐다 — 자기 경로는 그 전에 잡는다. 테스트 명령을 실행하지 않으므로 _sr_leave 는 부르지 않는다.
+# shellcheck source=/dev/null
+. "$HERE/specops-root.sh" 2>/dev/null && specops_root_enter 2>/dev/null || true
+SPECOPS="${SPECOPS_ROOT:-.specops}"
 APPEND="$HERE/../session-progress-append.sh"
 FID="${1:-}"
 

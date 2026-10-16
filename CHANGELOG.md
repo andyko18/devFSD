@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **worktree 에서 부른 판정 스크립트가 메인 트리 기록을 못 찾던 문제.** `check-task-receipt.sh`·`release-ready.sh`·`review-skip-pass.sh` 를 자기 `.specops` 가 없는 `.worktrees/<FID>` 에서 부르면 `.specops` 를 찾지 못해 같은 FID 에 다른 답을 냈다(receipt 없음 · `fid-dir-missing` · review-skip 거부). 이제 기록 스크립트 3종과 같은 규칙으로 메인 worktree 의 `.specops` 를 읽고 git 은 그 worktree 를 본다 — 훅이 부를 때와 같은 상태라 출력·rc 가 같다. 훅 판정 · 자기 `.specops` 가 있는 worktree · `SPECOPS_ROOT` 지정 호출 · 일반 저장소는 그대로다. 계기: Argus 가 "`SPECOPS_ROOT` 수동 지정 · 메인 트리 루트에서 실행" 요령으로 피하고 있었다.
+
 ## [2.24.1] — 2026-10-16
 
 ### Fixed

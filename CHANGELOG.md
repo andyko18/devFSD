@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.24.0] — 2026-10-16
+
 ### Fixed
 
 - **worktree 에서 한 커밋·PR 이 메인 트리 기준으로 판정되던 문제.** 커밋·PR 훅은 판정 전에 프로젝트 폴더로 이동해 그 git 상태를 봤다 — 셸이 `.worktrees/<FID>` 에 있으면 유효한 receipt 가 "무효" 로 막히고(메인 트리 staged 가 비어 있다) 감사 기록의 범위도 메인 트리로 남았다(Argus 실기록: 우회 시도 51건 · 기록된 우회 20건이 전부 `docs-only` 로 분류). 이제 훅 입력의 `cwd` 가 같은 저장소의 다른 작업 트리면 git 조회만 그 worktree 로 돌리고 `.specops`·관할은 프로젝트 폴더 것을 그대로 읽는다 — worktree 에 `.specops` 가 없어도 관할 밖이 되지 않는다. `session-progress-append`·`record-task-receipt`·`run-verification` 은 worktree 에서 불려도 메인 worktree 의 `.specops` 에 쓰고, 테스트는 worktree 에서 돈다. deny 사유에 판정 기준 worktree · 같은 값을 보는 조회법 · `.specops` 사본 경고를 붙인다. 남은 것: 명령 안 `cd <wt> && git commit` 형태와 메인 트리 문서 staged 때의 false-allow(후속).
@@ -3289,7 +3291,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.23.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.24.0...HEAD
+[2.24.0]: https://github.com/andyko18/specops-ko/compare/v2.23.0...v2.24.0
 [2.23.0]: https://github.com/andyko18/specops-ko/compare/v2.22.0...v2.23.0
 [2.22.0]: https://github.com/andyko18/specops-ko/compare/v2.21.0...v2.22.0
 [2.21.0]: https://github.com/andyko18/specops-ko/compare/v2.20.2...v2.21.0

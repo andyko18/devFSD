@@ -1941,3 +1941,62 @@ _vs_stale_blocks() {
   [ "$(SPECOPS_ROOT=".specops" bash "$_VERIFICATION_STATE_SH" stale-scope "$fid" 2>/dev/null)" = "untracked-only" ] && return 1
   return 0
 }
+
+# ── 판정 git 대상 (20261016-hook-worktree-target) ─────────────────────────────
+# 훅은 프로젝트 폴더(CLAUDE_PROJECT_DIR)로 이동해 .specops·관할·FID 를 읽는다. 그런데 세션 셸이 같은 저장소의
+#   다른 작업 트리(.worktrees/<FID>)에 있으면 커밋·PR 의 대상은 그 worktree 다 — 메인 트리의 staged·지문으로
+#   판정하면 유효 receipt 가 "무효" 로 막힌다(Argus 실기록: 우회 51건).
+# 왜 cd 가 아니라 env 인가: worktree 에는 .specops 가 없을 수 있다(gitignore). 판정 위치를 옮기면 관할 밖 allow 가
+#   된다(실측). 그래서 .specops 는 프로젝트 폴더에 두고 git 조회만 GIT_DIR·GIT_WORK_TREE 로 돌린다 — export 는
+#   훅 프로세스와 그 자식 판정 스크립트 안에서만 산다.
+# stdout: 대상이 바뀔 때만 2줄(작업 트리 최상위 · 절대 git 디렉터리). 판정 불가는 무출력(종전 판정).
+_gov_git_target() {
+  local cwd="${1:-}" proj="${2:-$PWD}" ctop ptop ccd pcd gd
+  [ -z "${GIT_DIR:-}${GIT_WORK_TREE:-}" ] || return 0
+  [ -n "$cwd" ] && [ -d "$cwd" ] || return 0
+  [ "$cwd" = "$proj" ] && return 0
+  ctop=$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null) || return 0
+  ptop=$(git -C "$proj" rev-parse --show-toplevel 2>/dev/null) || return 0
+  [ -n "$ctop" ] && [ -n "$ptop" ] && [ "$ctop" != "$ptop" ] || return 0
+  ccd=$(cd "$ctop" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P) || return 0
+  pcd=$(cd "$ptop" 2>/dev/null && cd "$(git rev-parse --git-common-dir 2>/dev/null)" 2>/dev/null && pwd -P) || return 0
+  [ -n "$ccd" ] && [ "$ccd" = "$pcd" ] || return 0
+  gd=$(git -C "$ctop" rev-parse --absolute-git-dir 2>/dev/null) || return 0
+  [ -n "$gd" ] || return 0
+  printf '%s\n%s\n' "$ctop" "$gd"
+}
+
+# 명령이 스스로 git 대상을 옮기면(cd·pushd·popd·-C·--git-dir·--work-tree·GIT_DIR=·GIT_WORK_TREE=) 셸 위치로
+#   판정 대상을 바꾸지 않는다 — 셸이 worktree 인데 `cd <메인> && git commit` 이면 실제 커밋은 메인에서 일어난다.
+#   worktree 기준으로 보면 검증 안 된 메인 커밋이 열린다(외부 critic 지적 — 이 변경이 새로 만들 구멍). 그 경우는
+#   종전 판정(프로젝트 폴더)이다. `make -C` 같은 무관한 -C 도 걸리지만 종전 판정으로 떨어질 뿐이다(안전 쪽).
+#   $1 = 인용·heredoc 을 벗긴 명령. rc 0 = 옮긴다.
+_gov_cmd_moves_git() {
+  grep -Eq '(^|[;&|({`[:space:]])(cd|pushd|popd)([[:space:]]|$)|(^|[[:space:]])(-C|--git-dir|--work-tree)([[:space:]=]|$)|(^|[;&|({`[:space:]])GIT_(DIR|WORK_TREE)=' <<< "${1:-}"
+}
+
+# 호출자 셸에서 직접 부른다(서브셸이면 export 가 사라진다). $1 = 훅 입력의 cwd.
+_gov_apply_git_target() {
+  local t
+  t=$(_gov_git_target "${1:-}" "$PWD")
+  [ -n "$t" ] || return 0
+  _GOV_TARGET_WT=${t%%$'\n'*}
+  GIT_WORK_TREE=$_GOV_TARGET_WT
+  GIT_DIR=${t#*$'\n'}
+  export GIT_DIR GIT_WORK_TREE
+}
+
+# deny 사유 끝에 붙인다 — 막혔을 때 어디를 봤는지 알아야 우회로 가지 않는다. 대상이 그대로면 빈 값.
+#   $1 = 플러그인 루트 · $2 = FID(빈 값 가능).
+_gov_target_note() {
+  local root="${1:-}" fid="${2:-}"
+  [ -n "${_GOV_TARGET_WT:-}" ] || return 0
+  printf '\n\n판정 기준 worktree: %s (기록·관할은 %s/.specops)' "$_GOV_TARGET_WT" "$PWD"
+  # 위 안내의 조회 명령(verification-state.sh current 등)을 worktree 셸에서 그대로 돌리면 이 판정과 다른 값을 본다
+  #   (plan-reviewer 1회차 실측: worktree 에서 NOT_RUN · 메인에서 STALE · 훅은 PASS). 같은 값을 보는 형태를 적는다.
+  printf '\n   이 판정과 같은 값으로 조회하려면: cd %q && GIT_DIR=%q GIT_WORK_TREE=%q bash %q current %s' \
+    "$PWD" "${GIT_DIR:-}" "$_GOV_TARGET_WT" "$root/scripts/_internal/verification-state.sh" "${fid:-<FID>}"
+  if [ -d "$_GOV_TARGET_WT/.specops" ] && ! [ "$_GOV_TARGET_WT/.specops" -ef "$PWD/.specops" ]; then
+    printf '\n⚠️ worktree 에 .specops 사본이 있습니다 — 기록 스크립트가 사본에 쓰면 이 판정과 갈라집니다. 사본을 지우면 기록 스크립트도 메인 기록을 씁니다.'
+  fi
+}

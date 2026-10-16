@@ -85,6 +85,14 @@ grep '/verify PASS' "$L/.specops/session-progress.md" | grep -q 'sr-4' && [ -f "
   && [ "$(cat "$R/.specops/session-progress.md" | git hash-object --stdin)" = "$sum_before" ] && [ ! -e "$R/.specops/$FID/receipts" ] \
   && ok "SR-4 ★ 자기 .specops 가 있는 linked worktree → 자기 기록 · 메인 worktree 기록 불변" || nope "SR-4" "-"
 
+# SR-7 같은 형태의 하위 폴더에서 불러도 자기 기록 — 메인 worktree 기록에 쓰지 않는다
+mkdir -p "$L/src"
+sum_before=$(git hash-object "$R/.specops/session-progress.md")
+(cd "$L/src" && bash "$APPEND" "$FID" /verify PASS "sr-7") >/dev/null 2>&1
+[ "$(git hash-object "$R/.specops/session-progress.md")" = "$sum_before" ] && ! grep -rqs 'sr-7' "$R/.specops" \
+  && ok "SR-7 ★ 자기 .specops 가 있는 linked worktree 의 하위 폴더 → 메인 worktree 기록 불변 (하위 폴더 ./.specops 생성은 이번 FID 이전부터의 동작 — 별건)" \
+  || nope "SR-7" "메인 worktree 기록에 sr-7 이 쓰였다 main=$(grep -c 'sr-7' "$R/.specops/session-progress.md") (하위 폴더 ./.specops 생성은 별건)"
+
 # SR-5 이동하지 않는 경우 — 일반 저장소 · GIT_DIR 이 이미 있을 때
 P="$TD/plain"; git init -q "$P"
 (cd "$P" && bash "$APPEND" 20261016-plain /specify 완료 x) >/dev/null 2>&1

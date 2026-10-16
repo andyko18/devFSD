@@ -17,13 +17,14 @@ specops_root_enter() {
   [ -z "${SPECOPS_ROOT:-}" ] || return 1                                # 부르는 쪽이 위치를 정했다
   [ ! -e .specops ] && [ ! -L .specops ] || return 1
   [ -z "${GIT_DIR:-}${GIT_WORK_TREE:-}" ] || return 1
+  wt=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  [ ! -e "$wt/.specops" ] && [ ! -L "$wt/.specops" ] || return 1   # 하위 폴더에서 불러도 worktree 자기 .specops 가 있으면 이동하지 않는다
   gd=$(git rev-parse --absolute-git-dir 2>/dev/null) || return 1
   cd=$(git rev-parse --git-common-dir 2>/dev/null) || return 1
   cd=$(cd "$cd" 2>/dev/null && pwd -P) || return 1
   [ "$(cd "$gd" 2>/dev/null && pwd -P)" != "$cd" ] || return 1          # 메인 worktree 자신
   main=$(git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')
   [ -n "$main" ] && [ -d "$main/.specops" ] && [ ! -L "$main/.specops" ] || return 1
-  wt=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
   _SR_CWD=$PWD
   cd "$main" 2>/dev/null || { unset _SR_CWD; return 1; }
   GIT_DIR=$gd

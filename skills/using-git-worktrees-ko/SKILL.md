@@ -88,6 +88,8 @@ git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/d
 
 .gitignore 검증 불필요 — 프로젝트 외부.
 
+> **`.specops` 를 worktree 로 복사하지 않는다** (20261016) — 훅과 기록 스크립트가 메인 쪽 `.specops` 를 쓴다. 사본은 판정과 갈라지고 worktree 와 함께 사라진다. 그 밖의 스크립트는 `SPECOPS_ROOT` 로 위치를 준다.
+
 ## 생성 동의 게이트 (PRI-974 — 모드별 분기)
 
 worktree 생성은 **동의 없이는 금지** (upstream #991). 모드별 동의 주체:

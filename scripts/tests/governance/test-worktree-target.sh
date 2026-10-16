@@ -164,7 +164,10 @@ a=$(_dec "$(_pre "cd $M && git commit -m 'docs: a'" "$M" "$TR")"); b=$(_dec "$(_
 [ "$a" = "allow" ] && [ "$b" = "allow" ] \
   && ok "WT-13 같은 작업 트리로 옮긴 문서 커밋(자기 폴더·하위 폴더) → 종전 면제" || nope "WT-13" "$a $b"
 n0=0; n1=0
-for c in 'cd "" && git commit' 'cd $X && git commit' 'cd ~/x && git commit' 'cd - && git commit' 'popd; git commit' 'cd && git commit' "cd $M/nope && git commit" "GIT_DIR=$W/.git git commit" "git -C $W commit" "pushd $W && git commit" "git --git-dir $W/.git commit" 'cd .worktrees && cd x && git commit' 'cd "/tmp" && git commit'; do
+#   이어진 상대 이동은 메인에 같은 이름 폴더($M/$FID)를 둔다 — 홉마다 따로 풀면 두 번째 홉이 메인 안 폴더로 풀려
+#   "같은 트리" 로 오답한다. 종전 `cd .worktrees && cd x` 는 $M/x 가 없어 "없는 폴더" 로 rc 0 이 나 보호 줄을 잠그지 못했다.
+mkdir -p "$M/$FID"
+for c in 'cd "" && git commit' 'cd $X && git commit' 'cd ~/x && git commit' 'cd - && git commit' 'popd; git commit' 'cd && git commit' "cd $M/nope && git commit" "GIT_DIR=$W/.git git commit" "git -C $W commit" "pushd $W && git commit" "git --git-dir $W/.git commit" "cd .worktrees && cd $FID && git commit" 'cd "/tmp" && git commit'; do
   (cd "$M" && _gov_cmd_moves_elsewhere "$c") && n0=$((n0 + 1))
 done
 for c in 'git commit -m x' "cd $M && git commit" "git -C $M commit" 'cd src && git commit' "GIT_DIR=$M/.git git commit" 'git commit -m "cd .worktrees/x"' 'git commit -m "fix -C HEAD"'; do

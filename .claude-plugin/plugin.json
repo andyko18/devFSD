@@ -1,6 +1,6 @@
 {
   "name": "specops-ko",
-  "version": "2.24.1",
+  "version": "2.24.2",
   "description": "한국어 자율 Lifecycle 플러그인 (Claude Code 전용) — 슬래시 1회 또는 자연어 진입 후 메타 skill이 단계·skill을 자동 chain",
   "author": {
     "name": "andyko18",

@@ -166,6 +166,6 @@ b=$(cd "$CW" && SPECOPS_ROOT="$TD/empty" bash "$RR" "$FID" 2>&1); brc=$?
   && [ ! -e "$R/.specops/$FID/review-skip.md" ] && [ "$(git hash-object "$R/.specops/session-progress.md")" = "$sum_before" ] \
   && [ "$brc" = 2 ] && printf '%s' "$b" | grep -q 'reason=fid-dir-missing' \
   && ok "SR-11 자기 .specops 가 있는 linked worktree 는 자기 기록으로 판정·메인 worktree 기록 불변 · SPECOPS_ROOT 지정은 이동하지 않음" \
-  || nope "SR-11" "a1=$a1rc[$a1] a2=[$(printf '%s' "$a2" | head -2 | tr '\n' ' ')] a3=$a3rc[$a3] b=$brc[$b]"
+  || nope "SR-11" "a1=${a1rc}[$a1] a2=[$(printf '%s' "$a2" | head -2 | tr '\n' ' ')] a3=${a3rc}[$a3] b=${brc}[$b]"
 
 finish

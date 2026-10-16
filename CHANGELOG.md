@@ -6,6 +6,8 @@
 
 ### Fixed
 
+- **worktree 에서 한 커밋·PR 이 메인 트리 기준으로 판정되던 문제.** 커밋·PR 훅은 판정 전에 프로젝트 폴더로 이동해 그 git 상태를 봤다 — 셸이 `.worktrees/<FID>` 에 있으면 유효한 receipt 가 "무효" 로 막히고(메인 트리 staged 가 비어 있다) 감사 기록의 범위도 메인 트리로 남았다(Argus 실기록: 우회 시도 51건 · 기록된 우회 20건이 전부 `docs-only` 로 분류). 이제 훅 입력의 `cwd` 가 같은 저장소의 다른 작업 트리면 git 조회만 그 worktree 로 돌리고 `.specops`·관할은 프로젝트 폴더 것을 그대로 읽는다 — worktree 에 `.specops` 가 없어도 관할 밖이 되지 않는다. `session-progress-append`·`record-task-receipt`·`run-verification` 은 worktree 에서 불려도 메인 worktree 의 `.specops` 에 쓰고, 테스트는 worktree 에서 돈다. deny 사유에 판정 기준 worktree · 같은 값을 보는 조회법 · `.specops` 사본 경고를 붙인다. 남은 것: 명령 안 `cd <wt> && git commit` 형태와 메인 트리 문서 staged 때의 false-allow(후속).
+
 - **테스트만 바꾸는 FID 가 `rm -rf` 인용 하나로 strict 판정되지 않는다.** `risk-profile.sh` 는 변경 파일에서 문서를 뺀 파일이 1개 이상이고 전부 테스트 경로(`tests/`·`test/`·`__tests__/` · `test_*.py`·`*_test.py`·`*_test.go`·`test-*.sh`·`*.test.*`·`*.spec.*`)일 때, `destructive_fs` 의 근거가 `rm -rf` 글자뿐이면 그 신호를 빼고 stderr 에 1줄을 남긴다. 이름에 test 가 든 제품 파일(`backtest.py`)·빈 변경 목록·문서뿐인 변경·다른 파괴 신호(`irreversible: true`·`Delete:`·`unlink(`) 동반은 종전대로 strict 다. 텍스트 판독기는 바꾸지 않았다. 계기: 테스트 1파일만 바꾸는 lite FID 가 tasks.md 의 설명 한 줄 `( sleep 0.5; rm -rf … ) &` 로 LITE-STRICT-GUARD 에 걸렸다(20261015). 저장소 8곳 FID 문서 358건 재판정에서 바뀐 것은 테스트 전용 5건뿐이다(strict → standard) — 구현 파일을 함께 바꾸는 FID 의 같은 오탐 27건은 남는다.
 
 ### Docs

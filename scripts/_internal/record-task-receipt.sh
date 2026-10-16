@@ -10,8 +10,14 @@ TASK="${2:?usage: $0 <FID> <task-id>}"
 printf '%s' "$FID" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || { echo "record-task-receipt: invalid FID" >&2; exit 1; }
 printf '%s' "$TASK" | grep -qE '^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$' || { echo "record-task-receipt: invalid task" >&2; exit 1; }
 
-SPECOPS="${SPECOPS_ROOT:-.specops}"
 PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
+# worktree 에서 불려도 메인 worktree 의 .specops 에 쓴다 — 테스트는 아래에서 원래 폴더로 (20261016-hook-worktree-target)
+#   SPECOPS_ROOT 를 준 호출은 위치를 이미 정했으므로 이동하지 않는다(_sr_leave 는 그때 아무것도 안 한다).
+# shellcheck source=/dev/null
+. "$PLUGIN/scripts/_internal/specops-root.sh" 2>/dev/null || true
+command -v _sr_leave >/dev/null 2>&1 || _sr_leave() { :; }
+specops_root_enter 2>/dev/null || true   # SPECOPS_ROOT 가 있으면 함수가 스스로 건너뛴다
+SPECOPS="${SPECOPS_ROOT:-.specops}"
 # shellcheck source=/dev/null
 source "$PLUGIN/scripts/dag/parse-dag.sh"
 # shellcheck source=/dev/null
@@ -39,14 +45,17 @@ if [[ ! "$test_cmd" =~ $_WHITELIST_PAT ]] || [[ "$test_cmd" == *..* ]]; then
 fi
 
 read -r -a _parts <<< "$test_cmd"
-if [[ "$test_cmd" =~ ^cd[[:blank:]]+([^[:blank:]]+)[[:blank:]]+\&\&[[:blank:]]+(.*)$ ]]; then
-  _sub_dir="${BASH_REMATCH[1]}"; read -r -a _sub_parts <<< "${BASH_REMATCH[2]}"
-  ( cd "$_sub_dir" && "${_sub_parts[@]}" ) >/dev/null 2>&1
-elif [ "${_parts[0]}" = "bash" ]; then
-  bash "${_parts[@]:1}" >/dev/null 2>&1
-else
-  "${_parts[@]}" >/dev/null 2>&1
-fi
+(
+  _sr_leave || exit 1
+  if [[ "$test_cmd" =~ ^cd[[:blank:]]+([^[:blank:]]+)[[:blank:]]+\&\&[[:blank:]]+(.*)$ ]]; then
+    _sub_dir="${BASH_REMATCH[1]}"; read -r -a _sub_parts <<< "${BASH_REMATCH[2]}"
+    ( cd "$_sub_dir" && "${_sub_parts[@]}" ) >/dev/null 2>&1
+  elif [ "${_parts[0]}" = "bash" ]; then
+    bash "${_parts[@]:1}" >/dev/null 2>&1
+  else
+    "${_parts[@]}" >/dev/null 2>&1
+  fi
+)
 ec=$?
 if [ "$ec" -ne 0 ]; then
   echo "record-task-receipt: test FAIL (exit=$ec): $test_cmd" >&2

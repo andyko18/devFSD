@@ -64,6 +64,8 @@ if [ "$tool_name" = "Bash" ]; then
     [ "$?" -eq 1 ] && { echo '{"continue":true}'; exit 0; }   # 1=불일치만. 2(정규식 오류)는 통과
   fi
 fi
+_gov_cmd_moves_git "$(_strip_quoted_strings "$(_strip_heredoc_bodies "$tool_cmd")")" \
+  || _gov_apply_git_target "$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)"   # 감사 범위도 셸이 있는 worktree 기준 (20261016-hook-worktree-target)
 
 fid=$(detect_fid)
 

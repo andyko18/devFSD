@@ -266,6 +266,23 @@ bash scripts/_internal/verification-state.sh record <FID> PASS --executed 3 --fa
 
 `run-verification.sh`가 자동 기록합니다. 명령 0건은 `NOT_RUN`과 non-zero로 종료하며 PASS로 취급하지 않습니다. `WAIVED` 기록에는 `--waiver-reason`, `--waiver-approved-by`, `--waiver-expires-at`이 모두 필요합니다. 비교할 지문(`nondoc_hash`·`tree_hash`)이 하나도 없는 PASS 기록은 조회 시 `STALE`로 계산됩니다(러너가 쓴 기록에는 항상 지문이 있습니다 — 손으로 쓴 기록은 지금 코드와 같은지 확인할 수 없습니다. `NO_GIT`으로 적힌 기록은 종전대로입니다). 만료된 `WAIVED`는 저장값을 덮지 않고 조회 시 `NOT_RUN`으로 계산됩니다. STALE 판정은 HEAD 문자열이 아니라 임시 인덱스 `write-tree` 내용 지문을 쓰므로, 검증된 내용의 순수 커밋만으로는 STALE이 되지 않습니다.
 
+## specops-root.sh — worktree 에서 부른 기록 스크립트의 `.specops` 위치
+
+```bash
+source scripts/_internal/specops-root.sh   # library-only
+specops_root_enter && ...                  # 이동했으면 rc 0
+```
+
+FID 를 `.worktrees/<FID>` 에서 구현할 때 기록 스크립트가 worktree 안에 `.specops` 를 새로 만들거나 못 찾는 문제를 막습니다. 훅은 프로젝트 폴더의 `.specops` 를 읽으므로 기록도 거기에 가야 합니다. `specops_root_enter` 는 **네 조건이 모두 맞을 때만** 메인 worktree 로 이동합니다: ① 현재 폴더에 `.specops` 가 없고(심볼릭 링크 포함) ② `GIT_DIR`·`GIT_WORK_TREE` 가 비었고 ③ 현재 폴더가 linked worktree 이며 ④ 메인 worktree 에 `.specops` 디렉터리(링크 아님)가 있을 때. 하나라도 어긋나면 rc 1 로 아무것도 바꾸지 않습니다(현재 폴더 `.specops` 를 먼저 보는 이유: linked worktree 자체가 프로젝트인 repo 에서 남의 기록에 쓰지 않기 위해서). 이동하면 이 worktree 를 보도록 `GIT_DIR`·`GIT_WORK_TREE` 를 export 하고 원래 폴더를 `_SR_CWD` 에 둡니다. 이동 뒤 `$0` 상대경로의 뜻이 바뀌므로 자기 경로는 부르기 전에 절대경로로 잡습니다.
+
+`_sr_leave` 는 원래 폴더로 돌아오고 `GIT_DIR`·`GIT_WORK_TREE` 를 지웁니다 — 테스트 명령을 원래 폴더·git env 없이 돌릴 때 **서브셸 안에서** 부릅니다. 적용 스크립트는 3종입니다: `session-progress-append.sh` · `record-task-receipt.sh` · `run-verification.sh`. 그 밖의 스크립트는 자동으로 옮기지 않으니 `SPECOPS_ROOT=<메인>/.specops` 로 위치를 줍니다(`SPECOPS_ROOT` 가 있으면 `specops_root_enter` 는 건드리지 않습니다).
+
+훅 쪽은 `hooks/governance-lib.sh` 끝의 `_gov_git_target`·`_gov_cmd_moves_git`·`_gov_apply_git_target`·`_gov_target_note` 가 맡습니다: 입력 `cwd` 가 같은 저장소의 다른 작업 트리면 `.specops`·관할은 프로젝트 폴더, git 조회만 그 worktree 로 돌립니다(명령이 `cd`·`-C`·`GIT_DIR=` 등으로 스스로 대상을 옮기면 추정하지 않고 종전 판정). 조회 스크립트(`verification-state.sh current` 등)를 훅과 **같은 값**으로 보려면 메인 폴더에서 `GIT_DIR`·`GIT_WORK_TREE` 를 붙입니다 — deny 사유가 그 형태를 적어 줍니다.
+
+```bash
+cd <메인> && GIT_DIR=<worktree 의 git 디렉터리> GIT_WORK_TREE=<worktree> bash scripts/_internal/verification-state.sh current <FID>
+```
+
 ## risk-profile.sh — 위험 프로파일 limited-live 분류 (P1)
 
 ```bash

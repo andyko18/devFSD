@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **`.specops` 를 git 추적하는 repo 의 worktree 에서 기록·판정 스크립트가 메인 기록을 못 찾던 문제.** `/init-project` 로 만든 repo 는 `.specops/memory`·`session-progress.md`(새 템플릿은 `<FID>/intent.md` 도)를 커밋하므로 worktree 에도 `.specops` 가 생긴다. 그래서 v2.24.0·v2.24.2 의 자동 이동("worktree 에 `.specops` 가 없을 때만")이 하류 repo 에서 한 번도 작동하지 않았다 — 기록·판정 스크립트 6개가 `tasks.md not found`·`fid-dir-missing` 으로 실패하거나, 진행 기록을 worktree 의 git 추적 사본에 썼다(Argus 실측). 이제 넘긴 FID 의 기록이 그 worktree 에 없고(추적하지 않는 파일 0건) 메인 worktree 에 있으면 메인으로 간다. 자기 기록이 있는 worktree · FID 없는 호출 · `SPECOPS_ROOT` 지정 · 메인에 없는 새 FID · 훅은 그대로다. 하류에서 쓰던 `SPECOPS_ROOT` 수동 지정과 FID 폴더 rsync 사본은 더 필요 없다 — 남은 사본은 자기 기록으로 보여 이동을 막으니 지운다.
+
 ## [2.24.2] — 2026-10-16
 
 ### Fixed

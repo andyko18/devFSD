@@ -16,7 +16,7 @@ PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 # shellcheck source=/dev/null
 . "$PLUGIN/scripts/_internal/specops-root.sh" 2>/dev/null || true
 command -v _sr_leave >/dev/null 2>&1 || _sr_leave() { :; }
-specops_root_enter 2>/dev/null || true   # SPECOPS_ROOT 가 있으면 함수가 스스로 건너뛴다
+specops_root_enter "$FID" 2>/dev/null || true   # SPECOPS_ROOT 가 있으면 함수가 스스로 건너뛴다
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 # shellcheck source=/dev/null
 source "$PLUGIN/scripts/dag/parse-dag.sh"

@@ -11,12 +11,17 @@ FID="${1:-}"; TASK="${2:-}"
 printf '%s' "$FID" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || exit 2
 printf '%s' "$TASK" | grep -qE '^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$' || exit 2
 
+PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
+# worktree 에서 불려도 메인 worktree 의 .specops 로 판정한다 — git 조회는 export 된 GIT_DIR·GIT_WORK_TREE 로 그 worktree (20261016-judge-scripts-worktree-root)
+#   훅은 .specops 가 있는 프로젝트 폴더에서 부르므로 이동하지 않는다(셸이 다른 worktree 면 git env 도 이미 export 돼 있다). SPECOPS_ROOT 를 준 호출도 그대로다.
+#   이동하면 상대경로 $0 의 뜻이 바뀐다 — 자기 경로는 그 전에 잡는다. 테스트 명령을 실행하지 않으므로 _sr_leave 는 부르지 않는다.
+# shellcheck source=/dev/null
+. "$PLUGIN/scripts/_internal/specops-root.sh" 2>/dev/null && specops_root_enter 2>/dev/null || true
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 receipt="$SPECOPS/$FID/receipts/$TASK.json"
 [ -f "$receipt" ] || exit 2
 [ -L "$receipt" ] && { echo "check-task-receipt: receipt symlink 거부" >&2; exit 1; }
 
-PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 # shellcheck source=/dev/null
 source "$PLUGIN/scripts/dag/parse-dag.sh"
 # shellcheck source=/dev/null

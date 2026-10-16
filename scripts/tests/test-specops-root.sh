@@ -101,4 +101,45 @@ b=$( cd "$W" && SPECOPS_ROOT="$TD/x" bash -c "source '$SR'; specops_root_enter; 
 [ -f "$P/.specops/session-progress.md" ] && [ "$a" = "rc=1 pwd=$WP" ] && [ "$b" = "rc=1 pwd=$WP" ] \
   && ok "SR-5 일반 저장소는 종전대로 ./.specops · GIT_DIR·SPECOPS_ROOT 가 있으면 이동하지 않음" || nope "SR-5" "a=$a b=$b"
 
+# ── 판정 스크립트 3종 (20261016-judge-scripts-worktree-root) — worktree 에서 불러도 훅 상태와 같은 답 ──
+#   훅 상태 = 프로젝트 폴더 + 그 worktree 의 GIT_DIR·GIT_WORK_TREE (_gov_apply_git_target 가 만드는 상태).
+CTR="$PLUGIN/scripts/_internal/check-task-receipt.sh"
+RR="$PLUGIN/scripts/_internal/release-ready.sh"
+RSP="$PLUGIN/scripts/_internal/review-skip-pass.sh"
+C="$TD/c"; MK3="$TD/c.marker"; _mk "$C" "$MK3"; CW="$C/.worktrees/$FID"; CWP=$(cd "$CW" && pwd -P)
+CGD=$(git -C "$CW" rev-parse --absolute-git-dir)
+_hookstate() { (cd "$C" && GIT_DIR="$CGD" GIT_WORK_TREE="$CW" "$@"); }
+_rel() { perl -MFile::Spec -e 'print File::Spec->abs2rel($ARGV[0], $ARGV[1])' "$1" "$CWP"; }   # 상대경로 호출 — 이동 전에 자기 위치를 잡는지
+printf '# spec\n' > "$C/.specops/$FID/spec.md"
+printf 'y\n' > "$CW/src/foo.sh"
+(cd "$CW" && bash "$REC" "$FID" T1) >/dev/null 2>&1
+(cd "$CW" && git add src/foo.sh)
+
+# SR-8 check-task-receipt — 유효 receipt 는 둘 다 0 · outputs 밖 staged 는 둘 다 1 + 같은 사유
+w=$(cd "$CW" && bash "$CTR" "$FID" T1 2>&1); wrc=$?
+wr=$(cd "$CW" && bash "$(_rel "$CTR")" "$FID" T1 2>&1); wrrc=$?
+h=$(_hookstate bash "$CTR" "$FID" T1 2>&1); hrc=$?
+printf 'z\n' > "$CW/extra.txt"; (cd "$CW" && git add extra.txt)
+w2=$(cd "$CW" && bash "$CTR" "$FID" T1 2>&1); wrc2=$?
+h2=$(_hookstate bash "$CTR" "$FID" T1 2>&1); hrc2=$?
+(cd "$CW" && git rm -q --cached extra.txt); rm -f "$CW/extra.txt"
+[ "$wrc" = 0 ] && [ "$wrrc" = 0 ] && [ "$hrc" = 0 ] && [ "$wrc2" = 1 ] && [ "$hrc2" = 1 ] && [ -n "$w2" ] && [ "$w2" = "$h2" ] && [ ! -e "$CW/.specops" ] \
+  && ok "SR-8 ★ worktree 에서 check-task-receipt → 훅 상태와 같은 rc·사유 (상대경로 호출 포함 · worktree 에 .specops 안 생김)" \
+  || nope "SR-8" "rc w=$wrc rel=$wrrc hook=$hrc · outside w=$wrc2 hook=$hrc2 [$w2] vs [$h2] · rel=[$wr]"
+
+# SR-9 release-ready — 출력 전체·rc 가 같다
+mkdir -p "$C/.specops/$FID/reviews"
+printf 'ok\n' > "$C/.specops/$FID/reviews/T1-B-report.md"; cp "$C/.specops/$FID/reviews/T1-B-report.md" "$C/.specops/$FID/reviews/T1-C-report.md"
+# 판정 상태는 worktree 의 git 지문으로 남긴다 — 이동 뒤 git env 를 잃으면 메인 트리 지문으로 STALE 이 되어 출력이 갈라진다
+mv "$C/.specops/$FID/spec.md" "$TD/c.spec"   # 검증 러너가 AC 계약 검사를 하지 않게 (SR-3 과 같은 이유)
+(cd "$CW" && bash "$RUNV" "$FID") >/dev/null 2>&1
+mv "$TD/c.spec" "$C/.specops/$FID/spec.md"
+w=$(cd "$CW" && bash "$RR" "$FID" 2>&1); wrc=$?
+wr=$(cd "$CW" && bash "$(_rel "$RR")" "$FID" 2>&1); wrrc=$?
+h=$(_hookstate bash "$RR" "$FID" 2>&1); hrc=$?
+[ "$w" = "$h" ] && [ "$wr" = "$h" ] && [ "$wrc" = "$hrc" ] && [ "$wrrc" = "$hrc" ] && printf '%s' "$h" | grep -qx '  verify=PASS' \
+  && ! printf '%s' "$w" | grep -q 'fid-dir-missing' && [ ! -e "$CW/.specops" ] \
+  && ok "SR-9 ★ worktree 에서 release-ready → 훅 상태와 출력·rc 동일 (상대경로 호출 포함)" \
+  || nope "SR-9" "rc w=$wrc rel=$wrrc hook=$hrc · w=[$(printf '%s' "$w" | head -2 | tr '\n' ' ')] h=[$(printf '%s' "$h" | head -2 | tr '\n' ' ')]"
+
 finish

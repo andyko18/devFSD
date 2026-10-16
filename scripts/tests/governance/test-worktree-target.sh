@@ -71,6 +71,14 @@ r=$(_pre "$C1" "$W/sub" "$TR")
 r=$(_pre "cd $M && git commit -m 'feat: main (Task: T1)'" "$W" "$TR")
 [ "$(_dec "$r")" = "deny" ] && ! _why "$r" | grep -qF '판정 기준 worktree' \
   && ok "WT-9 ★ cwd=worktree + 명령 안 cd 메인 → 종전 판정(deny) · 안내 없음" || nope "WT-9" "dec=$(_dec "$r")"
+# WT-9x 이동 표기 4형태 — _gov_cmd_moves_git 의 -C·--work-tree · GIT_DIR= · pushd 분기를 각각 잠근다(변이 M4·M4b·M4c)
+for mv in "git -C $M commit -m 'feat: m1 (Task: T1)'" \
+          "pushd $M >/dev/null && git commit -m 'feat: m2 (Task: T1)'" \
+          "GIT_DIR=$M/.git git commit -m 'feat: m3 (Task: T1)'" \
+          "git --work-tree=$M commit -m 'feat: m4 (Task: T1)'"; do
+  r=$(_pre "$mv" "$W" "$TR")
+  [ "$(_dec "$r")" = "deny" ] && ok "WT-9x cwd=worktree + $mv → deny" || nope "WT-9x" "$mv dec=$(_dec "$r")"
+done
 
 # WT-10 receipt 뒤 worktree 에 추적 안 하는 파일이 생기면 지문이 바뀐다 — worktree 지문을 실제로 본다
 printf 'n\n' > "$W/new-untracked.sh"

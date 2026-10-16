@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.24.3] — 2026-10-17
+
 ### Fixed
 
 - **`.specops` 를 git 추적하는 repo 의 worktree 에서 기록·판정 스크립트가 메인 기록을 못 찾던 문제.** `/init-project` 로 만든 repo 는 `.specops/memory`·`session-progress.md`(새 템플릿은 `<FID>/intent.md` 도)를 커밋하므로 worktree 에도 `.specops` 가 생긴다. 그래서 v2.24.0·v2.24.2 의 자동 이동("worktree 에 `.specops` 가 없을 때만")이 하류 repo 에서 한 번도 작동하지 않았다 — 기록·판정 스크립트 6개가 `tasks.md not found`·`fid-dir-missing` 으로 실패하거나, 진행 기록을 worktree 의 git 추적 사본에 썼다(Argus 실측). 이제 넘긴 FID 의 기록이 그 worktree 에 없고(추적하지 않는 파일 0건) 메인 worktree 에 있으면 메인으로 간다. 자기 기록이 있는 worktree · FID 없는 호출 · `SPECOPS_ROOT` 지정 · 메인에 없는 새 FID · 훅은 그대로다. 하류에서 쓰던 `SPECOPS_ROOT` 수동 지정과 FID 폴더 rsync 사본은 더 필요 없다 — 남은 사본은 자기 기록으로 보여 이동을 막으니 지운다.
@@ -3307,7 +3309,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.24.2...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.24.3...HEAD
+[2.24.3]: https://github.com/andyko18/specops-ko/compare/v2.24.2...v2.24.3
 [2.24.2]: https://github.com/andyko18/specops-ko/compare/v2.24.1...v2.24.2
 [2.24.1]: https://github.com/andyko18/specops-ko/compare/v2.24.0...v2.24.1
 [2.24.0]: https://github.com/andyko18/specops-ko/compare/v2.23.0...v2.24.0

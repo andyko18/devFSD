@@ -144,4 +144,49 @@ new=$(tail -n +"$((before + 1))" "$M/.specops/$FID/friction-log.jsonl" 2>/dev/nu
 sc=$(printf '%s\n' "$new" | tail -1 | jq -r '.scope_class // "-"' 2>/dev/null)
 [ -n "$new" ] && [ "$sc" = "code" ] && ok "WT-8 posttool 감사 기록이 남고 scope_class = worktree HEAD~1..HEAD (code)" || nope "WT-8" "rec=$(printf '%s' "$new" | grep -c .) sc=$sc"
 
+# ── 이동한 커밋의 문서 면제 (20261016-docs-exempt-moved-target) ──────────────
+#   메인 트리에 문서만 staged 일 때 다른 worktree 로 옮겨 하는 코드 커밋이 "문서 전용" 으로 면제되던 구멍.
+printf '# readme\n' > "$M/README.md"; (cd "$M" && git add README.md)
+printf 'w2\n' > "$W/src/foo.sh"; (cd "$W" && git add src/foo.sh)
+n=0; nn=0
+for w in "$M" "$W"; do
+  for c in "cd $W && git commit -m 'feat: moved'" "git -C $W commit -m 'feat: moved'"; do
+    r=$(_pre "$c" "$w" "$TR")
+    [ "$(_dec "$r")" = "deny" ] && n=$((n + 1))
+    _why "$r" | grep -qF '다른 작업 트리로 옮겨 문서 면제를 적용하지 않았습니다' && nn=$((nn + 1))
+  done
+done
+[ "$n" -eq 4 ] && ok "WT-11 ★ 메인 문서 staged + 다른 worktree 로 옮긴 코드 커밋 4형태 → deny" || nope "WT-11" "deny=$n/4"
+r=$(_pre "git commit -m 'feat: plain (Task: T1)'" "$W" "$TR")
+[ "$nn" -eq 4 ] && [ "$(_dec "$r")" = "deny" ] && ! _why "$r" | grep -qF '다른 작업 트리로 옮겨' \
+  && ok "WT-12 면제를 거둔 deny 에 이유 안내 4/4 · 이동 없는 deny 에는 없음" || nope "WT-12" "note=$nn/4 plain=$(_dec "$r")"
+a=$(_dec "$(_pre "cd $M && git commit -m 'docs: a'" "$M" "$TR")"); b=$(_dec "$(_pre "cd $M/src && git commit -m 'docs: b'" "$W" "$TR")")
+[ "$a" = "allow" ] && [ "$b" = "allow" ] \
+  && ok "WT-13 같은 작업 트리로 옮긴 문서 커밋(자기 폴더·하위 폴더) → 종전 면제" || nope "WT-13" "$a $b"
+n0=0; n1=0
+#   이어진 상대 이동은 메인에 같은 이름 폴더($M/$FID)를 둔다 — 홉마다 따로 풀면 두 번째 홉이 메인 안 폴더로 풀려
+#   "같은 트리" 로 오답한다. 종전 `cd .worktrees && cd x` 는 $M/x 가 없어 "없는 폴더" 로 rc 0 이 나 보호 줄을 잠그지 못했다.
+mkdir -p "$M/$FID"
+for c in 'cd "" && git commit' 'cd $X && git commit' 'cd ~/x && git commit' 'cd - && git commit' 'popd; git commit' 'cd && git commit' "cd $M/nope && git commit" "GIT_DIR=$W/.git git commit" "git -C $W commit" "pushd $W && git commit" "git --git-dir $W/.git commit" "cd .worktrees && cd $FID && git commit" 'cd "/tmp" && git commit'; do
+  (cd "$M" && _gov_cmd_moves_elsewhere "$c") && n0=$((n0 + 1))
+done
+for c in 'git commit -m x' "cd $M && git commit" "git -C $M commit" 'cd src && git commit' "GIT_DIR=$M/.git git commit" 'git commit -m "cd .worktrees/x"' 'git commit -m "fix -C HEAD"'; do
+  (cd "$M" && _gov_cmd_moves_elsewhere "$c"); [ $? -eq 1 ] && n1=$((n1 + 1))   # rc 1 을 명시 — 미정의(127)를 통과로 세지 않는다
+done
+[ "$n0" -eq 13 ] && [ "$n1" -eq 7 ] \
+  && ok "WT-14 이동 위치 확인: 확인 불가·다른 트리·이어진 상대 이동 13종 rc 0 · 옮기지 않음·같은 트리·메시지 속 cd/-C 7종 rc 1" || nope "WT-14" "rc0=$n0/13 rc1=$n1/7"
+e1=$(cd "$M" && bash "$PLUGIN/scripts/_internal/scope-explain.sh" "cd $W && git commit -m code" 2>/dev/null)
+e2=$(cd "$M" && bash "$PLUGIN/scripts/_internal/scope-explain.sh" "cd $M && git commit -m docs" 2>/dev/null)
+printf '%s' "$e1" | grep -q 'EXEMPT=no' && printf '%s' "$e2" | grep -q 'EXEMPT=yes' \
+  && ok "WT-15 면제 조회가 실제 판정과 같다(이동 → EXEMPT=no · 같은 트리 → yes)" || nope "WT-15" "$e1 / $e2"
+# WT-16 ★ 셸이 worktree 일 때 상대 경로·--work-tree 만 준 이동 — 셸 위치 기준으로 풀어야 한다(plan-reviewer 1회차 실측: 프로젝트 기준이면 6건 allow)
+mkdir -p "$W/src"
+n=0
+for c in "cd src && git commit -m 'feat: r1'" "cd . && git commit -m 'feat: r2'" "git -C . commit -m 'feat: r3'" "git -C src commit -m 'feat: r4'" "git --work-tree=$M commit -m 'feat: r5'" "GIT_WORK_TREE=$M git commit -m 'feat: r6'"; do
+  [ "$(_dec "$(_pre "$c" "$W" "$TR")")" = "deny" ] && n=$((n + 1))
+done
+a=$(_dec "$(_pre "cd src && git commit -m 'docs: r7'" "$M" "$TR")")
+[ "$n" -eq 6 ] && [ "$a" = "allow" ] \
+  && ok "WT-16 ★ 셸=worktree 상대 경로·--work-tree 만 6형태 → deny · 셸=프로젝트 상대 경로 문서 커밋 → allow" || nope "WT-16" "deny=$n/6 rel=$a"
+
 finish

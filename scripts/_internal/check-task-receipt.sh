@@ -16,7 +16,7 @@ PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 #   훅은 .specops 가 있는 프로젝트 폴더에서 부르므로 이동하지 않는다(셸이 다른 worktree 면 git env 도 이미 export 돼 있다). SPECOPS_ROOT 를 준 호출도 그대로다.
 #   이동하면 상대경로 $0 의 뜻이 바뀐다 — 자기 경로는 그 전에 잡는다. 테스트 명령을 실행하지 않으므로 _sr_leave 는 부르지 않는다.
 # shellcheck source=/dev/null
-. "$PLUGIN/scripts/_internal/specops-root.sh" 2>/dev/null && specops_root_enter 2>/dev/null || true
+. "$PLUGIN/scripts/_internal/specops-root.sh" 2>/dev/null && specops_root_enter "$FID" 2>/dev/null || true
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 receipt="$SPECOPS/$FID/receipts/$TASK.json"
 [ -f "$receipt" ] || exit 2

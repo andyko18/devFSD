@@ -19,7 +19,7 @@ _RV_SELF=$(cd "$(dirname "$0")" && pwd)
 # shellcheck source=/dev/null
 . "$_RV_SELF/specops-root.sh" 2>/dev/null || true
 command -v _sr_leave >/dev/null 2>&1 || _sr_leave() { :; }
-specops_root_enter 2>/dev/null || true
+specops_root_enter "$FID" 2>/dev/null || true
 TASKS=".specops/$FID/tasks.md"
 EVIDENCE=".specops/$FID/evidence.md"
 START_SECONDS=$(date +%s)

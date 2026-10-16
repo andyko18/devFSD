@@ -234,4 +234,15 @@ grep -q 'sr-14' "$TN/.specops/session-progress.md" && ! grep -q 'sr-14' "$TNW/.s
   && ok "SR-14 ★ 추적 .specops worktree 에서 진행 기록·receipt → 메인 · 테스트는 worktree(memory 상대경로) · worktree .specops 불변" \
   || nope "SR-14" "main=$(grep -c sr-14 "$TN/.specops/session-progress.md") wt=$(grep -c sr-14 "$TNW/.specops/session-progress.md") marker=$(head -1 "$TD/tn.marker") status=[$(git -C "$TNW" status --porcelain -- .specops | tr '\n' ' ')]"
 
+# SR-15 검증 러너·receipt 판정 — 메인 판정 상태 PASS · receipt rc 0 · worktree .specops 불변
+out=$(cd "$TNW" && bash "$RUNV" "$TFID" 2>&1)
+st=$(jq -r '.verdict // "-"' "$TN/.specops/$TFID/verification-state.json" 2>/dev/null)
+printf '# spec\n' > "$TN/.specops/$TFID/spec.md"
+(cd "$TNW" && git add src/foo.sh)
+(cd "$TNW" && bash "$PLUGIN/scripts/_internal/check-task-receipt.sh" "$TFID" T1) >/dev/null 2>&1; crc=$?
+(cd "$TNW" && git reset -q)
+printf '%s' "$out" | grep -q 'VERIFY: PASS' && [ "$st" = PASS ] && [ "$crc" = 0 ] && [ -z "$(git -C "$TNW" status --porcelain -- .specops)" ] \
+  && ok "SR-15 ★ 추적 .specops worktree 에서 검증 러너 → 메인 판정 상태 PASS · check-task-receipt rc 0 · worktree .specops 불변" \
+  || nope "SR-15" "st=$st crc=$crc out=$(printf '%s' "$out" | tail -1) status=[$(git -C "$TNW" status --porcelain -- .specops | tr '\n' ' ')]"
+
 finish

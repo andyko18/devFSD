@@ -168,4 +168,58 @@ b=$(cd "$CW" && SPECOPS_ROOT="$TD/empty" bash "$RR" "$FID" 2>&1); brc=$?
   && ok "SR-11 자기 .specops 가 있는 linked worktree 는 자기 기록으로 판정·메인 worktree 기록 불변 · SPECOPS_ROOT 지정은 이동하지 않음" \
   || nope "SR-11" "a1=${a1rc}[$a1] a2=[$(printf '%s' "$a2" | head -2 | tr '\n' ' ')] a3=${a3rc}[$a3] b=${brc}[$b]"
 
+# ── 하류 기본 구조 (20261016-specops-root-tracked-dir) — .specops/memory·session-progress.md 를 git 추적하는 repo ──
+#   /init-project 로 만든 repo 는 worktree 에도 .specops 가 체크아웃된다. 그 FID 의 기록이 worktree 에 없으면 메인으로 간다.
+#   .specops/.gitignore 는 init 템플릿 그대로(new — <FID>/intent.md 도 추적)와 구 템플릿(old — FID 폴더 통째 ignore) 둘 다 본다.
+TFID=20261016-trk
+_mk_tracked() {  # $1=메인 폴더 $2=new|old $3=마커 파일
+  local m=$1 kind=$2 mk=$3
+  git init -q "$m" && git -C "$m" symbolic-ref HEAD refs/heads/main
+  mkdir -p "$m/scripts/tests" "$m/src" "$m/.specops/memory"
+  printf '.worktrees/\n' > "$m/.gitignore"
+  if [ "$kind" = new ]; then
+    bash -c 'source "$1" && _specops_gitignore_template' _ "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh" > "$m/.specops/.gitignore"
+    mkdir -p "$m/.specops/$TFID" && printf '# intent\n' > "$m/.specops/$TFID/intent.md"
+  else
+    printf '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]-*/\nsession-progress.md.bak\n' > "$m/.specops/.gitignore"
+  fi
+  printf '# constitution\n' > "$m/.specops/memory/constitution.md"
+  printf '<!-- active-fid: %s -->\n## %s\n' "$TFID" "$TFID" > "$m/.specops/session-progress.md"
+  # 테스트 명령은 자기가 돈 폴더·GIT_DIR 을 마커에 남기고, worktree 의 .specops/memory 를 상대경로로 읽는다(하류 테스트가 그렇게 읽는다)
+  printf '#!/usr/bin/env bash\n[ -f .specops/memory/constitution.md ] || exit 1\nprintf "%%s|%%s\\n" "$(pwd -P)" "${GIT_DIR:-none}" >> "%s"\nexit 0\n' "$mk" > "$m/scripts/tests/test-foo.sh"
+  chmod +x "$m/scripts/tests/test-foo.sh"
+  printf 'x\n' > "$m/src/foo.sh"
+  (cd "$m" && git add -A && _g commit -qm init)
+  mkdir -p "$m/.specops/$TFID"
+  { printf '# tasks\n\n## %s\n\n%syaml\n' '의존 그래프' '```'
+    printf 'tasks:\n  - id: T1\n    test_command: "bash scripts/tests/test-foo.sh"\n    depends_on: []\n    inputs: []\n    outputs: [src/foo.sh, scripts/tests/test-foo.sh]\n    ac: [AC-1]\n%s\n' '```'; } > "$m/.specops/$TFID/tasks.md"
+  git -C "$m" worktree add -q "$m/.worktrees/$TFID" -b "feat/$TFID" 2>/dev/null
+}
+_enter_at() {  # $1=부를 폴더 $2=FID — rc·cwd·GIT_WORK_TREE 를 한 줄로
+  ( cd "$1" && unset GIT_DIR GIT_WORK_TREE SPECOPS_ROOT && source "$SR" && specops_root_enter "$2"; echo "rc=$? pwd=$(pwd -P) wt=${GIT_WORK_TREE:-none}" )
+}
+TN="$TD/tn"; _mk_tracked "$TN" new "$TD/tn.marker"; TNW="$TN/.worktrees/$TFID"; TNP=$(cd "$TN" && pwd -P)
+TO="$TD/to"; _mk_tracked "$TO" old "$TD/to.marker"; TOW="$TO/.worktrees/$TFID"; TOP=$(cd "$TO" && pwd -P)
+TNWP=$(cd "$TNW" && pwd -P); TOWP=$(cd "$TOW" && pwd -P)   # git 이 내는 worktree 경로는 실경로다
+
+# SR-12 하류 기본 구조(새·구 템플릿)의 worktree 최상위·하위 폴더 → 메인으로 이동 (macOS .DS_Store 는 기록으로 치지 않는다)
+printf 'x' > "$TNW/.specops/$TFID/.DS_Store"
+a=$(_enter_at "$TNW" "$TFID"); b=$(_enter_at "$TNW/src" "$TFID"); c=$(_enter_at "$TOW" "$TFID"); d=$(_enter_at "$TOW/src" "$TFID")
+rm -f "$TNW/.specops/$TFID/.DS_Store"
+[ -d "$TNW/.specops/$TFID" ] && [ ! -e "$TOW/.specops/$TFID" ] \
+  && [ "$a" = "rc=0 pwd=$TNP wt=$TNWP" ] && [ "$b" = "rc=0 pwd=$TNP wt=$TNWP" ] && [ "$c" = "rc=0 pwd=$TOP wt=$TOWP" ] && [ "$d" = "rc=0 pwd=$TOP wt=$TOWP" ] \
+  && ok "SR-12 ★ .specops 를 git 추적하는 worktree(새 템플릿 — intent.md 추적 · 구 템플릿) 최상위·하위 폴더 → 메인으로 이동" \
+  || nope "SR-12" "new=[$a] [$b] old=[$c] [$d]"
+
+# SR-13 이동하지 않아야 할 때 — FID 없음·형식 틀림·메인에 없는 FID·worktree 에 그 FID 의 기록(추적 안 하는 파일)이 있음
+e1=$(_enter_at "$TNW" ""); e2=$(_enter_at "$TNW" "memory"); e3=$(_enter_at "$TNW" "20261016-none")   # memory 는 메인에 실재하는 비-FID 이름 — 형식 검사가 지킨다
+printf 'local\n' > "$TNW/.specops/$TFID/tasks.md"
+e4=$(_enter_at "$TNW" "$TFID"); rm -f "$TNW/.specops/$TFID/tasks.md"
+mkdir -p "$TD/lnk-target" && ln -s "$TD/lnk-target" "$TN/.specops/20261016-lnk"   # 메인의 FID 폴더가 링크
+e5=$(_enter_at "$TNW" "20261016-lnk")
+x="rc=1 pwd=$TNWP wt=none"
+[ "$e1" = "$x" ] && [ "$e2" = "$x" ] && [ "$e3" = "$x" ] && [ "$e4" = "$x" ] && [ "$e5" = "$x" ] \
+  && ok "SR-13 FID 없음·형식 틀림·메인에 없는 FID·worktree 에 자기 기록·메인 FID 폴더가 링크면 이동하지 않음" \
+  || nope "SR-13" "[$e1] [$e2] [$e3] [$e4] [$e5]"
+
 finish

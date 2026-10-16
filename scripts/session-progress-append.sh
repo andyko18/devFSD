@@ -35,7 +35,7 @@ fi
 #   자기 경로는 이동 전에 절대경로로 잡는다(상대경로 호출이면 이동 뒤 뜻이 바뀐다).
 _SPA_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=/dev/null
-. "$_SPA_DIR/_internal/specops-root.sh" 2>/dev/null && specops_root_enter || true
+. "$_SPA_DIR/_internal/specops-root.sh" 2>/dev/null && specops_root_enter "${1:-}" || true
 
 # .specops 가 symlink 면 거부 — 악성 repo clone 시 외부 dir write-through(path-escape) 차단
 if [ -L ".specops" ]; then

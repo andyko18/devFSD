@@ -222,4 +222,16 @@ x="rc=1 pwd=$TNWP wt=none"
   && ok "SR-13 FID 없음·형식 틀림·메인에 없는 FID·worktree 에 자기 기록·메인 FID 폴더가 링크면 이동하지 않음" \
   || nope "SR-13" "[$e1] [$e2] [$e3] [$e4] [$e5]"
 
+# SR-14 기록 스크립트 — 진행 기록·receipt 가 메인에 남고 worktree 의 추적 .specops 는 그대로 (새 템플릿)
+: > "$TD/tn.marker"
+(cd "$TNW" && bash "$APPEND" "$TFID" /implement DONE "sr-14") >/dev/null 2>&1
+printf 'y\n' > "$TNW/src/foo.sh"
+(cd "$TNW" && bash "$REC" "$TFID" T1) >/dev/null 2>&1
+TNWM=$(cd "$TNW" && pwd -P)
+grep -q 'sr-14' "$TN/.specops/session-progress.md" && ! grep -q 'sr-14' "$TNW/.specops/session-progress.md" \
+  && [ -f "$TN/.specops/$TFID/receipts/T1.json" ] && [ "$(head -1 "$TD/tn.marker")" = "$TNWM|none" ] \
+  && [ -z "$(git -C "$TNW" status --porcelain -- .specops)" ] \
+  && ok "SR-14 ★ 추적 .specops worktree 에서 진행 기록·receipt → 메인 · 테스트는 worktree(memory 상대경로) · worktree .specops 불변" \
+  || nope "SR-14" "main=$(grep -c sr-14 "$TN/.specops/session-progress.md") wt=$(grep -c sr-14 "$TNW/.specops/session-progress.md") marker=$(head -1 "$TD/tn.marker") status=[$(git -C "$TNW" status --porcelain -- .specops | tr '\n' ' ')]"
+
 finish

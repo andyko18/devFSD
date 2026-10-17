@@ -473,7 +473,7 @@ rm -f "$R/src/m.py"; printf 'wip = 1\n' > "$R/src/wip.py"; ( cd "$R" && git add 
 out=$( cd "$R" && bash "$RM" measure "$FID" --range "$BASE0..$HEAD0" 2>&1 ); rc=$?
 { [ "$rc" = 0 ] && [ "$(J "$R" '.size.status')" = measured ] && [ "$(J "$R" '.base_source')" = range ] && [ "$(J "$R" '.base')" = "$BASE0" ] && [ "$(J "$R" '.head')" = "$HEAD0" ] \
   && [ "$(J "$R" '[.size.impl.added,.size.test.added]|join(",")')" = "18,1" ] && [ "$(J "$R" '[.dup.new_lines,.dup.dup_within_new]|join(",")')" = "19,16" ] \
-  && [ "$(J "$R" '.jscpd.status')" = not_applicable ]; } \
+  && [ "$(J "$R" '.jscpd.status')" = not_applicable ] && J "$R" '.jscpd.reason' | grep -q '범위'; } \
   && ok "R10.b --range: 기록된 base..head 로 잰다(구현 +18 · 테스트 +1 · 새끼리 복제 16) — 미커밋 삭제·스테이징 파일은 수치에 들어가지 않는다 · base_source=range · jscpd 해당없음" \
   || nope "R10.b" "rc=$rc out=$out $(cat "$R/.specops/$FID/reuse-metrics.json" 2>/dev/null)"
 cp "$R/.specops/$FID/reuse-metrics.json" "$ROOT/rec.before"

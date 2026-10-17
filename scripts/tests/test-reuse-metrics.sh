@@ -160,6 +160,28 @@ mk_grep_fail "$ROOT/grepoe" -oE
 { [ "$(J "$R" '.reuse.status')" = not_measured ] && [ "$(J "$R" '.reuse.declared')" = null ] && [ "$(J "$R" '.reuse.fulfilled')" = null ] && [ -n "$(J "$R" '.reuse.reason')" ]; } \
   && ok "R3.g 선언의 근거 토큰을 뽑지 못하면(grep rc 2) 토큰 없음으로 읽어 0/3 으로 쓰지 않는다 — not_measured·null·사유" || nope "R3.g" "$(J "$R" '.reuse')"
 
+# ── R3.h·R3.i: 백틱 없는 선언 · 파이썬 import (FID 20261017-reuse-metrics-accuracy) ──
+#   하류(Argus) 실구조: manifest 모듈 칸이 백틱으로 감싼 경로이고, tasks.md 선언은 백틱 없이 경로만 적는다.
+mk_py_manifest() {
+  mkdir -p "$1/.specops/memory"
+  printf '# Foundation Manifest\n\n| 모듈 | 역할 | 재사용 방법 |\n|---|---|---|\n| `app/services/krx.py` | 시세 | `KrxProvider` |\n| `app/core/db.py` | DB | `session_scope` |\n| `app/core/clock.py` | 시각 | `clock.now()` |\n| `app/models/base.py` | ORM | `upsert` |\n| `app/jobs/pipeline.py` | 파이프라인 | `run_confirm_pipeline` |\n' > "$1/.specops/memory/foundation-manifest.md"
+}
+R=$(mk_repo); mk_py_manifest "$R"; mkdir -p "$R/app/jobs"
+printf '**§유형**: 신규\n' > "$R/.specops/$FID/spec.md"
+printf '# tasks\n\n## Task 1: a\n\n**재사용 foundation**: app/services/krx.py\n\n## Task 2: b\n\n**재사용 foundation**: app/jobs/base.py · app/core/db.py\n' > "$R/.specops/$FID/tasks.md"
+printf 'from app.services.krx import KrxProvider\nfrom app.core import db\n\ndef sync():\n    return KrxProvider(), db\n' > "$R/app/jobs/sync_index.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = measured ] && [ "$(J "$R" '[.reuse.fulfilled,.reuse.declared]|join("/")')" = "2/2" ]; } \
+  && ok "R3.h 백틱 없는 선언 경로 · 점 표기(app.services.krx) · from 부모 import 잎(from app.core import db — 3자 미만 이름) → 2/2" || nope "R3.h" "$(J "$R" '.reuse')"
+R=$(mk_repo); mk_py_manifest "$R"; mkdir -p "$R/app" "$R/tests"
+printf '**§유형**: 신규\n' > "$R/.specops/$FID/spec.md"
+printf '# tasks\n\n## Task 1: a\n\n**재사용 foundation**: app/core/clock.py\n\n## Task 2: b\n\n**재사용 foundation**: app/models/base.py\n\n## Task 3: c\n\n**재사용 foundation**: app/jobs/pipeline.py\n' > "$R/.specops/$FID/tasks.md"
+printf 'from app.core import clockwork\nfrom app.models.base_x import y\n' > "$R/app/x.py"
+printf 'from app.jobs.pipeline import run\n' > "$R/tests/test_x.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = measured ] && [ "$(J "$R" '[.reuse.fulfilled,.reuse.declared]|join("/")')" = "0/3" ]; } \
+  && ok "R3.i 거짓 이행 없음: clockwork·base_x 는 식별자 경계로 · 테스트 파일에만 있는 import 는 구현 재사용이 아니다 → 0/3" || nope "R3.i" "$(J "$R" '.reuse')"
+
 # ── R4: 재지 못한 것을 0 으로 쓰지 않는다 (AC-4) ──
 NG="$ROOT/nogit"; mkdir -p "$NG/.specops/$FID"
 out=$( cd "$NG" && bash "$RM" measure "$FID" 2>&1 ); rc=$?

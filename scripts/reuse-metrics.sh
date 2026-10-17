@@ -10,7 +10,8 @@
 #           (a) 추가분 안에서 반복된 줄 수 (b) 분기점 시점의 저장소에 이미 있던 줄 수. (b) 는 같은 diff 에서 **삭제된 줄과 일치하는 창을 뺀다**
 #           — 파일 이름 변경·블록 이동·들여쓰기 변경은 복제가 아니다(모듈 추출을 복제로 세면 신호가 거꾸로 나온다).
 #   jscpd — jscpd 가 PATH 에 있을 때만 그 수치를 추가로 기록한다(파일 전체·토큰 기반 — dup 과 서로 비교하지 않는다).
-#   reuse — check-foundation-reuse.sh --declarations 의 `재사용 foundation` 선언에 적힌 경로·심볼이 추가된 코드에 나오는 건수 / 선언 건수.
+#   reuse — check-foundation-reuse.sh --declarations 의 `재사용 foundation` 선언에 적힌 경로·심볼(백틱 없는 선언은 본문의 슬래시 경로, 파이썬 점 표기·from 부모 import 잎 포함)이
+#           구현(비테스트) 추가 줄에 나오는 건수 / 선언 건수.
 # 분기점: .specops/<FID>/review-base.sha 가 있으면 그것(/start-all batch 는 한 브랜치에 FR 여럿 — FR 의 시작점), 없으면 기본 브랜치와의 merge-base.
 # 한계: 자체 방식은 이름만 바꾼 복제를 못 잡는다. reuse 는 "선언한 이름이 코드에 나오는가" 라 근사치다(간접 사용은 못 본다).
 #       추적하지 않는 새 파일은 대상이 아니다. 임계값 판정은 하지 않는다.
@@ -81,7 +82,7 @@ cmd_measure() {
   # ── size ── numstat -z: 경로를 인용하지 않는다. 삭제된 파일의 줄도 센다(코드 경로 목록에는 지금 있는 파일만 넣는다).
   local size_status=not_measured size_reason="$base_reason" ia="" id_="" ta="" td="" da="" dd="" nfiles="" ngen=""
   local ncode=0      # 코드 경로 목록의 줄 수 — 목록에 쓸 때 함께 센다(파일을 다시 세는 외부 명령이 실패하면 "코드 변경 0" 으로 읽힌다)
-  : > "$tmp/code.paths"
+  : > "$tmp/code.paths"; : > "$tmp/test.paths"
   if [ -n "$base" ]; then
     local plugin_rc=1
     if [ -f "$FC_SH" ]; then
@@ -102,7 +103,7 @@ cmd_measure() {
       case "$d" in ''|*[!0-9]*) d=0 ;; esac
       if command -v fc::is_doc >/dev/null 2>&1 && fc::is_doc "$p" "$plugin_rc"; then da=$((da + a)); dd=$((dd + d)); continue; fi
       if _is_test_path "$p"; then ta=$((ta + a)); td=$((td + d)); else ia=$((ia + a)); id_=$((id_ + d)); fi
-      [ -f "$top/$p" ] && { printf '%s\n' "$p" >> "$tmp/code.paths"; expa=$((expa + a)); ncode=$((ncode + 1)); }
+      [ -f "$top/$p" ] && { printf '%s\n' "$p" >> "$tmp/code.paths"; _is_test_path "$p" && printf '%s\n' "$p" >> "$tmp/test.paths"; expa=$((expa + a)); ncode=$((ncode + 1)); }
     done < "$tmp/numstat.z"
     size_status=measured; size_reason=""
     # 빈 범위 — 분기점과 HEAD 가 같고 작업 트리 변경도 없으면 "변경 0" 이 아니라 볼 범위가 없는 것이다(기본 브랜치 위·이미 합쳐진 뒤). 0 으로 쓰지 않는다.
@@ -114,11 +115,11 @@ cmd_measure() {
     if [ "$nrc" -ne 0 ]; then
       size_status=not_measured; size_reason="변경 범위를 읽을 수 없음(git diff --numstat rc=${nrc})"
       base_reason="$size_reason"; base_out="${base_out:-$base}"; base=""; ia=""; id_=""; ta=""; td=""; da=""; dd=""; nfiles=""; ngen=""
-      expa=0; ncode=0; : > "$tmp/code.paths"
+      expa=0; ncode=0; : > "$tmp/code.paths"; : > "$tmp/test.paths"
     fi
   fi
 
-  # ── 추가·삭제된 줄 뽑기 (dup·reuse 공용) ── F=파일 시작 · R=연속 구간 시작 · L<TAB>줄. 추가분은 코드 경로만, 삭제분은 전부.
+  # ── 추가·삭제된 줄 뽑기 (dup·reuse 공용) ── F=파일 시작(추가분은 F<TAB>I·T — 구현·테스트) · R=연속 구간 시작 · L<TAB>줄. 추가분은 코드 경로만, 삭제분은 전부.
   local added_ok=0 added_reason="$base_reason"
   : > "$tmp/added.txt"; : > "$tmp/removed.txt"
   if [ -n "$base" ]; then
@@ -128,10 +129,10 @@ cmd_measure() {
       # diff 는 파일로 받고 git·awk 의 종료 코드를 각각 받는다(파이프면 git 의 실패가 "줄 없음"으로 읽힌다). awk 는 바이트 기준(LC_ALL=C).
       local drc=0 xrc=0
       _git diff --no-ext-diff --no-textconv -U0 --no-color --no-renames --src-prefix=a/ --dst-prefix=b/ "$base" > "$tmp/diff.txt" 2>/dev/null || drc=$?
-      LC_ALL=C awk -v OUTA="$tmp/added.txt" -v OUTD="$tmp/removed.txt" -v LIST="$tmp/code.paths" '
-        BEGIN { while ((getline q < LIST) > 0) want[q] = 1 }
+      LC_ALL=C awk -v OUTA="$tmp/added.txt" -v OUTD="$tmp/removed.txt" -v LIST="$tmp/code.paths" -v TLIST="$tmp/test.paths" '
+        BEGIN { while ((getline q < LIST) > 0) want[q] = 1; while ((getline q < TLIST) > 0) tst[q] = 1 }
         /^diff --git /  { on = 0; hdr = 1; next }
-        hdr && /^\+\+\+ / { f = substr($0, 5); sub(/^b\//, "", f); sub(/\t$/, "", f); on = (f in want); if (on) print "F" > OUTA; print "F" > OUTD; hdr = 0; next }
+        hdr && /^\+\+\+ / { f = substr($0, 5); sub(/^b\//, "", f); sub(/\t$/, "", f); on = (f in want); if (on) print "F\t" ((f in tst) ? "T" : "I") > OUTA; print "F" > OUTD; hdr = 0; next }
         hdr             { next }
         /^@@/           { if (on) print "R" > OUTA; print "R" > OUTD; next }
         /^\+/           { if (on) print "L\t" substr($0, 2) > OUTA; next }
@@ -225,7 +226,7 @@ cmd_measure() {
       function windows(file, set,   line, s, n, buf, k, j) {      # file 의 모든 N줄 창을 set 에 넣는다
         n = 0
         while ((getline line < file) > 0) {
-          if (line == "F" || line == "R") { n = 0; continue }
+          if (line ~ /^[FR]/) { n = 0; continue }
           s = norm(substr(line, 3)); if (length(s) < 3) continue
           buf[++n] = s
           if (n >= N) { k = buf[n - N + 1]; for (j = n - N + 2; j <= n; j++) k = k "\n" buf[j]; set[k] = 1 }
@@ -234,7 +235,7 @@ cmd_measure() {
       }
       BEGIN { windows(FC, corpus); windows(FR, removed) }
       {
-        if ($0 == "F" || $0 == "R") { run++; next }
+        if ($0 ~ /^[FR]/) { run++; next }
         s = norm(substr($0, 3)); if (length(s) < 3) next
         nl[++n] = s; rid[n] = run
       }
@@ -301,8 +302,9 @@ cmd_measure() {
     else
       declared=0; fulfilled=0
       # 오류(rc≥2)를 "미이행"(rc 1)으로 세지 않는다 — r_err 에 모아 아래에서 미측정으로 돌린다. 줄 내용을 다루는 도구는 바이트 기준(LC_ALL=C).
-      local line val tok hit arc r_err=""
-      LC_ALL=C sed -n $'s/^L\t//p' "$tmp/added.txt" > "$tmp/added.plain" 2>/dev/null || r_err="추가된 줄 변환 sed rc=$?"
+      local line val tok hit arc g2 r_err=""
+      # 대조 대상은 구현(비테스트) 추가 줄만 — 테스트가 모듈을 import 하는 것은 재사용이 아니다.
+      LC_ALL=C awk '/^F/ { t = ($0 == "F\tT"); next } /^L\t/ && !t { print substr($0, 3) }' "$tmp/added.txt" > "$tmp/added.plain" 2>/dev/null || r_err="추가된 줄 변환 awk rc=$?"
       # 백틱 표기 뽑기 — $1 파일 → $tmp/tok. grep 은 rc 1(백틱 없음)이 정상 흐름이고 rc≥2 만 오류다(파이프로 이으면 둘이 구분되지 않는다).
       _toks() {
         local g=0
@@ -313,14 +315,20 @@ cmd_measure() {
       while IFS= read -r line; do
         case "$line" in *"|재사용 foundation|"*) ;; *) continue ;; esac
         declared=$((declared + 1)); val=${line#*|재사용 foundation|}; hit=0
-        # 근거 토큰: 선언의 백틱 표기 → 없으면 manifest 표에서 선언에 모듈 이름이 나온 행의 백틱 표기
+        # 근거 토큰: 선언의 백틱 표기 → 없으면 선언 본문의 슬래시 경로 → 그래도 없으면 manifest 표에서 선언에 모듈 이름이 나온 행의 백틱 표기
         printf '%s\n' "$val" > "$tmp/val"; _toks "$tmp/val"
+        if [ ! -s "$tmp/tok" ]; then
+          g2=0
+          LC_ALL=C grep -oE '[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)+' "$tmp/val" > "$tmp/tok" 2>/dev/null || g2=$?
+          [ "$g2" -le 1 ] || r_err="경로 추출 grep rc=${g2}"
+        fi
         if [ ! -s "$tmp/tok" ]; then
           LC_ALL=C awk -F'|' -v V="$val" 'NF >= 3 { m = $2; gsub(/^[ \t]+|[ \t]+$/, "", m); if (m != "" && m !~ /^-+$/ && index(V, m) > 0) print }' "$manifest" \
             > "$tmp/mrows" 2>/dev/null || r_err="manifest 행 조회 awk rc=$?"
           _toks "$tmp/mrows"
         fi
-        # 바늘: 토큰 그대로 · 확장자를 뗀 경로(import 는 확장자를 안 쓴다) · 파일 이름(4자 이상).
+        # 바늘: 토큰 그대로 · 확장자를 뗀 경로(import 는 확장자를 안 쓴다) · 파일 이름(4자 이상) · 모듈 점 표기(app/x/y → app.x.y)
+        #   · `from 부모 import … 잎` (from app.core import clock — 잎은 짧아도 된다: from·import 사이가 부모 경로와 정확히 같을 때만).
         #   **식별자 경계**에서만 맞춘다 — `index` 가 `indexOf` 에, `dates` 가 `updates` 에 맞으면 안 된다.
         while IFS= read -r tok; do
           [ "${#tok}" -ge 3 ] || continue
@@ -340,8 +348,19 @@ cmd_measure() {
                 n = 0; nd[++n] = T
                 p = T; sub(/\.[A-Za-z0-9]+$/, "", p); if (p != T && length(p) >= 3) nd[++n] = p
                 b = p; sub(/.*\//, "", b); if (b != p && length(b) >= 4) nd[++n] = b
+                d = p; sub(/^(\.\.?\/)+/, "", d)
+                if (index(d, "/") > 0) {
+                  gsub(/\//, ".", d); nd[++n] = d
+                  FP = d; sub(/\.[^.]*$/, "", FP); FL = substr(d, length(FP) + 2); FF = "from " FP " import "
+                }
               }
-              { for (k = 1; k <= n; k++) if (has($0, nd[k])) { found = 1; exit } }
+              {
+                for (k = 1; k <= n; k++) if (has($0, nd[k])) { found = 1; exit }
+                if (FP != "") {
+                  s = $0; gsub(/[ \t]+/, " ", s); i = index(s, FF)
+                  if (i > 0 && (i == 1 || !isw(substr(s, i - 1, 1))) && has(substr(s, i + length(FF)), FL)) { found = 1; exit }
+                }
+              }
               END { exit(found ? 0 : 1) }' "$tmp/added.plain" 2>/dev/null || arc=$?
           if [ "$arc" -eq 0 ]; then hit=1; break; fi
           [ "$arc" -eq 1 ] || r_err="이행 판정 awk rc=${arc}"

@@ -101,6 +101,21 @@ R=$(mk_repo)
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.dup.existing.status')" = measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = 8 ] && [ "$(J "$R" '.dup.existing.corpus_files')" = 2 ]; } \
   && ok "R2.j 분기점에 비UTF-8(latin-1) 파일이 있어도 측정한다 — 기존 8줄 블록 복사 → 8줄 · 코퍼스 2개" || nope "R2.j" "$(J "$R" '.dup')"
+# ── R2.k·R2.l: import 줄 제외 · 구현/테스트 분리 (FID 20261017-reuse-metrics-accuracy) ──
+imps() { printf 'import os\nimport sys\nimport json\nimport time\nfrom app.core import clock\nfrom app.models.base import upsert\nfrom app.services.krx import (\n    KrxProvider,\n    KrxContractError,\n)\n'; }
+R=$(mk_repo); { imps; echo "def base_body():"; blk b0; } > "$R/src/base_imports.py"; commit_all "$R"
+( cd "$R" && git branch -qf main HEAD ) >/dev/null 2>&1                     # 분기점에 같은 import 블록이 있게
+{ imps; echo "def f1():"; blk n1; } > "$R/src/n1.py"; { imps; echo "def f2():"; blk n2; } > "$R/src/n2.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.dup.dup_within_new')" = 0 ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = 0 ] \
+  && [ "$(J "$R" '.dup.import_lines_excluded')" = 20 ] && [ "$(J "$R" '.dup.new_lines')" = 18 ]; } \
+  && ok "R2.k import 줄(한 줄 6 + 괄호 여러 줄 1)은 복제가 아니다 — 새 코드끼리 0 · 기존 0 · 제외 20줄 · 새 코드 18줄" || nope "R2.k" "$(J "$R" '.dup')"
+R=$(mk_repo); { echo "def a():"; blk ia; echo "def b():"; blk ia; } > "$R/src/impl2.py"; { echo "def t1():"; blk ta; echo "def t2():"; blk ta; } > "$R/tests/test_two.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.schema_version')" = 2 ] && [ "$(J "$R" '.dup.impl.dup_within_new')" = 16 ] && [ "$(J "$R" '.dup.test.dup_within_new')" = 16 ] && [ "$(J "$R" '.dup.dup_within_new')" = 32 ] \
+  && [ "$(J "$R" '.dup.impl.new_lines + .dup.test.new_lines == .dup.new_lines')" = true ] && [ "$(J "$R" '.dup.impl.dup_of_existing')" = 0 ] && [ "$(J "$R" '.dup.test.dup_of_existing')" = 0 ]; } \
+  && ok "R2.l 복제를 구현/테스트로 나눈다 — 구현 16 · 테스트 16 · 총 32 · 줄 수 합 일치 · schema 2" || nope "R2.l" "$(J "$R" '{schema_version,dup}')"
+RL="$R"   # R5.c 가 이 기록을 쓴다
 
 # ── R3: 재사용 이행률 (AC-3) ──
 mk_manifest() {
@@ -313,6 +328,15 @@ rep=$(bash "$RM" report "$T" 2>&1); rrc=$?
 E="$ROOT/empty"; mkdir -p "$E/20260101-zzz"
 rep=$(bash "$RM" report "$E" 2>&1); rrc=$?
 { [ "$rrc" = 0 ] && printf '%s\n' "$rep" | grep -q '기록 없음'; } && ok "R5.b 기록이 하나도 없으면 그 사실을 한 줄로 · rc 0" || nope "R5.b" "rc=$rrc rep=$rep"
+V="$ROOT/vmix"; mkdir -p "$V/20260105-newrec" "$V/20260106-oldrec"
+jq '.fid = "20260105-newrec"' "$RL/.specops/$FID/reuse-metrics.json" > "$V/20260105-newrec/reuse-metrics.json"   # report 는 .fid 를 표에 쓴다 — 줄을 구분하려 폴더 이름과 맞춘다
+jq '.fid = "20260106-oldrec" | .schema_version = 1 | del(.dup.impl, .dup.test, .dup.import_lines_excluded)' "$RL/.specops/$FID/reuse-metrics.json" > "$V/20260106-oldrec/reuse-metrics.json"
+rep=$(bash "$RM" report "$V" 2>&1); rrc=$?
+{ [ "$rrc" = 0 ] && [ "$(printf '%s\n' "$rep" | grep -c '^2026')" = 2 ] \
+  && printf '%s\n' "$rep" | grep '^20260105-newrec' | grep -q '32 \[builtin\] (구현 16 · 테스트 16)' \
+  && printf '%s\n' "$rep" | grep '^20260105-newrec' | grep -q '36 (구현 18 · 테스트 18)' \
+  && printf '%s\n' "$rep" | grep '^20260106-oldrec' | grep -q '32 \[builtin\] (v1)'; } \
+  && ok "R5.c report: schema 2 는 구현/테스트를 나눠 · schema 1 은 총계와 (v1) 표시 · rc 0" || nope "R5.c" "rc=$rrc rep=$rep"
 
 # ── R6: verify 판정이 바뀌지 않는다 (AC-6) ──
 mk_verify() {   # $1=저장소 $2=pass|fail

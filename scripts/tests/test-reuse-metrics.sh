@@ -430,4 +430,55 @@ printf 'tls_enabled = True\nmydb = 1\n' > "$R/src/use.py"; commit_all "$R"
 [ "$(RJ "$R")" = "measured/0/2" ] \
   && ok "R8.f 식별자 경계: tls_enabled 는 tls 에, mydb 는 app.db 에 맞지 않는다 → 0/2" || nope "R8.f" "$(RJ "$R")"
 
+# ── R9: 복제를 구현/테스트로 나누고 import 줄은 뺀다 (FID 20261017-reuse-meter-fix · AC-3·AC-4) ──
+R=$(mk_repo)
+{ echo "def a():"; blk old; echo "def x():"; blk bb; echo "def y():"; blk bb; echo "def z():"; blk bb; } > "$R/src/new.py"   # 기존 블록 복사 8 · 새 코드끼리 반복 24(bb 3회)
+{ echo "import os"; echo "def t1():"; blk cc; echo "def t2():"; blk cc; echo "def t3():"; blk old | sed -n '1,6p'; } > "$R/tests/test_new.py"   # import 1 · 테스트 안 반복 16 · 기존 블록 6줄 복사
+
+commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+cp "$R/.specops/$FID/reuse-metrics.json" "$ROOT/v2.json"      # R11 의 v2 표본
+{ [ "$(J "$R" '.schema_version')" = 2 ] \
+  && [ "$(J "$R" '[.dup.impl.new_lines,.dup.impl.dup_within_new,.dup.impl.existing.dup_of_existing,.dup.impl.import_excluded]|map(tostring)|join(",")')" = "36,24,8,0" ] \
+  && [ "$(J "$R" '[.dup.test.new_lines,.dup.test.dup_within_new,.dup.test.existing.dup_of_existing,.dup.test.import_excluded]|map(tostring)|join(",")')" = "25,16,6,1" ] \
+  && [ "$(J "$R" '[.dup.new_lines,.dup.dup_within_new,.dup.existing.dup_of_existing,.dup.import_excluded]|map(tostring)|join(",")')" = "61,40,14,1" ]; } \
+  && ok "R9.a 복제 분리: 구현 36줄(새끼리 24·기존 8·import 0) · 테스트 25줄(새끼리 16·기존 6·import 1) · 합계 61/40/14/1(합 = 구현 + 테스트) · schema_version 2" || nope "R9.a" "$(J "$R" '.schema_version') $(J "$R" '.dup')"
+imps() { printf 'import os\nimport sys\nfrom pkg.sub import thing\nfrom collections import (\n    OrderedDict,\n    defaultdict,\n    namedtuple,\n)\n'; }
+jsimps() { printf "import a1 from './a1'\nimport { x } from './y'\nimport {\n  alpha,\n  beta,\n} from './z'\nimport b2 from './b2'\n"; }
+R=$(mk_repo)
+( cd "$R" && git checkout -q main ) >/dev/null 2>&1
+{ imps; echo "def existing_mod():"; blk old; } > "$R/src/mod.py"; { jsimps; echo "export const base_js = 1"; } > "$R/lib/mod.js"
+( cd "$R" && git add -A && git commit -qm mods && git checkout -q -B "feat/$FID" ) >/dev/null 2>&1
+{ imps; echo "def c():"; blk old; echo "important = 1"; } > "$R/src/copy.py"; { jsimps; echo "const keep_me = 1"; } > "$R/lib/copy.js"
+commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '[.dup.new_lines,.dup.dup_within_new,.dup.existing.dup_of_existing,.dup.import_excluded,.dup.impl.import_excluded]|map(tostring)|join(",")')" = "11,0,8,14,14" ]; } \
+  && ok "R9.b import 줄(파이썬 단일·괄호 여러 줄 · JS 단일·여러 줄)은 새 코드 줄·복제에서 빠지고 14줄로 기록된다 · 비-import 블록 복사는 8줄 · 'important = 1' 은 제외되지 않는다" || nope "R9.b" "$(J "$R" '.dup')"
+R=$(mk_repo)
+loc() { printf 'def loc():\n    stmt_alpha = prepare(1)\n    stmt_beta = prepare(2)\n    stmt_gamma = prepare(3)\n    import json\n    stmt_delta = prepare(4)\n    stmt_epsilon = prepare(5)\n    stmt_zeta = prepare(6)\n'; }
+( cd "$R" && git checkout -q main ) >/dev/null 2>&1; loc > "$R/src/loc.py"
+( cd "$R" && git add -A && git commit -qm loc && git checkout -q -B "feat/$FID" ) >/dev/null 2>&1
+loc > "$R/src/loc2.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+[ "$(J "$R" '[.dup.new_lines,.dup.dup_within_new,.dup.existing.dup_of_existing,.dup.import_excluded]|map(tostring)|join(",")')" = "7,0,7,1" ] \
+  && ok "R9.c 코드 사이에 낀 지역 import 도 코퍼스·추가분에 같은 판정을 걸어 창이 맞는다 → 새 코드 7 · 기존 복제 7 · import 1" || nope "R9.c" "$(J "$R" '.dup')"
+R=$(mk_repo)      # 삭제분 쪽 판정 — import 가 낀 블록을 파일 이름만 바꿔 옮기면(같은 diff 에서 지운 줄과 같은 창) 기존 코드 복제가 아니다
+( cd "$R" && git checkout -q main ) >/dev/null 2>&1; loc > "$R/src/loc.py"
+( cd "$R" && git add -A && git commit -qm loc && git checkout -q -B "feat/$FID" && git mv src/loc.py src/moved.py ) >/dev/null 2>&1
+commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+[ "$(J "$R" '[.dup.new_lines,.dup.existing.dup_of_existing,.dup.import_excluded]|map(tostring)|join(",")')" = "7,0,1" ] \
+  && ok "R9.e import 가 낀 블록을 파일 이름만 바꿔 옮긴 것은 기존 코드 복제가 아니다(삭제분에도 같은 import 판정) → 새 코드 7 · 기존 복제 0 · import 1" || nope "R9.e" "$(J "$R" '.dup')"
+R=$(mk_repo)
+printf 'package main\nimport (\n\t"fmt"\n\t"os"\n)\nfunc main() {}\n' > "$R/src/main.go"
+printf 'use std::io;\nuse a::{\n    item_one,\n};\nfn f() {}\n' > "$R/src/lib.rs"
+printf '#include <stdio.h>\n#include "x.h"\nint g;\n' > "$R/src/inc.c"
+printf 'source ./lib.sh\necho hi\n' > "$R/src/run.sh"
+printf 'import java.util.List;\nclass A {}\n' > "$R/src/A.java"
+printf "const fs = require('fs')\nfs.x()\n" > "$R/src/r.js"
+commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+[ "$(J "$R" '[.dup.new_lines,.dup.import_excluded]|map(tostring)|join(",")')" = "7,11" ] \
+  && ok "R9.d Go 블록 · Rust use · C #include · 셸 source · Java import · JS require 도 import 로 빠진다 → 새 코드 7 · import 11" || nope "R9.d" "$(J "$R" '.dup')"
+
 finish

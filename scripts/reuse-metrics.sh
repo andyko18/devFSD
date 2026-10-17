@@ -9,6 +9,7 @@
 #   dup   — 자체 방식(항상 같은 방식이라 FID 간 비교가 된다): 추가된 코드에서 연속 N줄(앞뒤 공백 제거 후 완전 일치)이
 #           (a) 추가분 안에서 반복된 줄 수 (b) 분기점 시점의 저장소에 이미 있던 줄 수. (b) 는 같은 diff 에서 **삭제된 줄과 일치하는 창을 뺀다**
 #           — 파일 이름 변경·블록 이동·들여쓰기 변경은 복제가 아니다(모듈 추출을 복제로 세면 신호가 거꾸로 나온다).
+#           구현·테스트를 따로 세고(교차 복제는 세지 않는다) import 줄은 세 줄 묶음에서 뺀다(합계는 둘의 합).
 #   jscpd — jscpd 가 PATH 에 있을 때만 그 수치를 추가로 기록한다(파일 전체·토큰 기반 — dup 과 서로 비교하지 않는다).
 #   reuse — check-foundation-reuse.sh --declarations 의 `재사용 foundation` 선언에 적힌 경로·심볼이 추가된 코드에 나오는 건수 / 선언 건수.
 # 분기점: .specops/<FID>/review-base.sha 가 있으면 그것(/start-all batch 는 한 브랜치에 FR 여럿 — FR 의 시작점), 없으면 기본 브랜치와의 merge-base.
@@ -81,7 +82,7 @@ cmd_measure() {
   # ── size ── numstat -z: 경로를 인용하지 않는다. 삭제된 파일의 줄도 센다(코드 경로 목록에는 지금 있는 파일만 넣는다).
   local size_status=not_measured size_reason="$base_reason" ia="" id_="" ta="" td="" da="" dd="" nfiles="" ngen=""
   local ncode=0      # 코드 경로 목록의 줄 수 — 목록에 쓸 때 함께 센다(파일을 다시 세는 외부 명령이 실패하면 "코드 변경 0" 으로 읽힌다)
-  : > "$tmp/code.paths"
+  : > "$tmp/code.paths"; : > "$tmp/test.paths"
   if [ -n "$base" ]; then
     local plugin_rc=1
     if [ -f "$FC_SH" ]; then
@@ -102,7 +103,10 @@ cmd_measure() {
       case "$d" in ''|*[!0-9]*) d=0 ;; esac
       if command -v fc::is_doc >/dev/null 2>&1 && fc::is_doc "$p" "$plugin_rc"; then da=$((da + a)); dd=$((dd + d)); continue; fi
       if _is_test_path "$p"; then ta=$((ta + a)); td=$((td + d)); else ia=$((ia + a)); id_=$((id_ + d)); fi
-      [ -f "$top/$p" ] && { printf '%s\n' "$p" >> "$tmp/code.paths"; expa=$((expa + a)); ncode=$((ncode + 1)); }
+      if [ -f "$top/$p" ]; then
+        printf '%s\n' "$p" >> "$tmp/code.paths"; expa=$((expa + a)); ncode=$((ncode + 1))
+        if _is_test_path "$p"; then printf '%s\n' "$p" >> "$tmp/test.paths"; fi
+      fi
     done < "$tmp/numstat.z"
     size_status=measured; size_reason=""
     # 빈 범위 — 분기점과 HEAD 가 같고 작업 트리 변경도 없으면 "변경 0" 이 아니라 볼 범위가 없는 것이다(기본 브랜치 위·이미 합쳐진 뒤). 0 으로 쓰지 않는다.
@@ -128,10 +132,10 @@ cmd_measure() {
       # diff 는 파일로 받고 git·awk 의 종료 코드를 각각 받는다(파이프면 git 의 실패가 "줄 없음"으로 읽힌다). awk 는 바이트 기준(LC_ALL=C).
       local drc=0 xrc=0
       _git diff --no-ext-diff --no-textconv -U0 --no-color --no-renames --src-prefix=a/ --dst-prefix=b/ "$base" > "$tmp/diff.txt" 2>/dev/null || drc=$?
-      LC_ALL=C awk -v OUTA="$tmp/added.txt" -v OUTD="$tmp/removed.txt" -v LIST="$tmp/code.paths" '
-        BEGIN { while ((getline q < LIST) > 0) want[q] = 1 }
+      LC_ALL=C awk -v OUTA="$tmp/added.txt" -v OUTD="$tmp/removed.txt" -v LIST="$tmp/code.paths" -v TLIST="$tmp/test.paths" '
+        BEGIN { while ((getline q < LIST) > 0) want[q] = 1; while ((getline q < TLIST) > 0) tst[q] = 1 }
         /^diff --git /  { on = 0; hdr = 1; next }
-        hdr && /^\+\+\+ / { f = substr($0, 5); sub(/^b\//, "", f); sub(/\t$/, "", f); on = (f in want); if (on) print "F" > OUTA; print "F" > OUTD; hdr = 0; next }
+        hdr && /^\+\+\+ / { f = substr($0, 5); sub(/^b\//, "", f); sub(/\t$/, "", f); on = (f in want); if (on) print ((f in tst) ? "F\tt" : "F\ti") > OUTA; print "F" > OUTD; hdr = 0; next }
         hdr             { next }
         /^@@/           { if (on) print "R" > OUTA; print "R" > OUTD; next }
         /^\+/           { if (on) print "L\t" substr($0, 2) > OUTA; next }
@@ -153,7 +157,7 @@ cmd_measure() {
   fi
 
   # ── dup (자체 방식) ──
-  local dup_status=not_measured dup_reason="$added_reason" new_lines="" dup_new="" dup_exist="" exist_status=not_measured exist_reason="$added_reason" corpus_files=""
+  local dup_status=not_measured dup_reason="$added_reason" new_lines="" dup_new="" dup_exist="" exist_status=not_measured exist_reason="$added_reason" corpus_files="" i_n="" i_a="" i_b="" i_x="" t_n="" t_a="" t_b="" t_x="" imp_x=""
   if [ "$added_ok" = 1 ]; then
     : > "$tmp/corpus.txt"; corpus_files=0
     if [ "$ncode" -eq 0 ]; then
@@ -217,48 +221,82 @@ cmd_measure() {
         fi
       fi
     fi
-    # 정규화: 앞뒤 공백 제거, 빈 줄과 2바이트 이하 줄(괄호·fi 등)은 버린다. 창은 같은 파일·같은 연속 구간 안에서만 만든다.
+    # 정규화: 앞뒤 공백 제거, import 줄은 뺀다(같은 판정을 코퍼스·삭제분·추가분에 건다 — 창 정렬이 어긋나지 않게), 빈 줄과 2바이트 이하 줄은 버린다.
+    #   창은 같은 파일·같은 연속 구간 안에서, 구현/테스트는 따로 센다(교차 복제는 세지 않는다). 출력: "구현 n a b x 테스트 n a b x".
     #   LC_ALL=C — 길이·비교를 바이트로 통일한다(시스템 awk 는 비UTF-8 바이트에서 죽고, awk 구현마다 length 가 글자·바이트로 갈린다).
     local res
     res=$(LC_ALL=C awk -v N="$WINDOW" -v USE_CORPUS="$([ "$exist_status" = measured ] && echo 1 || echo 0)" -v FC="$tmp/corpus.txt" -v FR="$tmp/removed.txt" '
       function norm(s) { sub(/^[ \t\r]+/, "", s); sub(/[ \t\r]+$/, "", s); return s }
+      function reset_imp() { ml = "" }
+      # import 줄 판정(줄 모양 근사). ml 은 여러 줄 import 의 닫는 글자(")"·"}")나 줄 이음("\\")이다. F·R 에서 비운다.
+      function is_imp(s) {
+        if (ml == "\\") { if (substr(s, length(s)) != "\\") ml = ""; return 1 }
+        if (ml != "")   { if (index(s, ml) > 0) ml = ""; return 1 }
+        if (s ~ /^import[ \t]+/ || s ~ /^from[ \t]+[^ \t]+[ \t]+import([ \t(]|$)/ || s ~ /^#[ \t]*include/ || s ~ /^source[ \t]+/ \
+            || s ~ /^export[ \t].*[ \t]from[ \t]*["\047]/ || s ~ /^(const|let|var)[ \t]+[^=]+=[ \t]*require\(/ \
+            || s ~ /^(pub[ \t]+)?use[ \t]+[A-Za-z0-9_:{}*, ]+;[ \t]*$/) {
+          if (substr(s, length(s)) == "\\") ml = "\\"
+          else if (s ~ /\(/ && s !~ /\)/) ml = ")"
+          else if (s ~ /\{/ && s !~ /\}/) ml = "}"
+          return 1
+        }
+        if (s ~ /^(pub[ \t]+)?use[ \t]+[A-Za-z0-9_:, ]*\{[ \t]*$/) { ml = "}"; return 1 }
+        if (s ~ /^\}[ \t]*from[ \t]*["\047]/) return 1
+        return 0
+      }
       function windows(file, set,   line, s, n, buf, k, j) {      # file 의 모든 N줄 창을 set 에 넣는다
-        n = 0
+        n = 0; reset_imp()
         while ((getline line < file) > 0) {
-          if (line == "F" || line == "R") { n = 0; continue }
-          s = norm(substr(line, 3)); if (length(s) < 3) continue
+          if (line == "F" || line == "R") { n = 0; reset_imp(); continue }
+          s = norm(substr(line, 3))
+          if (is_imp(s)) continue
+          if (length(s) < 3) continue
           buf[++n] = s
           if (n >= N) { k = buf[n - N + 1]; for (j = n - N + 2; j <= n; j++) k = k "\n" buf[j]; set[k] = 1 }
         }
         close(file)
       }
-      BEGIN { windows(FC, corpus); windows(FR, removed) }
+      BEGIN { windows(FC, corpus); windows(FR, removed); reset_imp() }
       {
-        if ($0 == "F" || $0 == "R") { run++; next }
-        s = norm(substr($0, 3)); if (length(s) < 3) next
-        nl[++n] = s; rid[n] = run
+        if ($0 ~ /^F/) { cls = (substr($0, 3, 1) == "t") ? "t" : "i"; run++; reset_imp(); next }
+        if ($0 == "R") { run++; reset_imp(); next }
+        s = norm(substr($0, 3))
+        if (is_imp(s)) { if (length(s) >= 3) xc[cls]++; next }
+        if (length(s) < 3) next
+        n[cls]++; nl[cls, n[cls]] = s; rid[cls, n[cls]] = run
       }
       END {
-        for (i = 1; i + N - 1 <= n; i++) {
-          if (rid[i] != rid[i + N - 1]) continue
-          k = nl[i]; for (j = 1; j < N; j++) k = k "\n" nl[i + j]
-          wk[i] = k; cnt[k]++
+        out = ""; split("i t", cl, " ")
+        for (ci = 1; ci <= 2; ci++) {
+          c = cl[ci]; m = n[c] + 0; a = 0; b = 0
+          for (i = 1; i + N - 1 <= m; i++) {
+            if (rid[c, i] != rid[c, i + N - 1]) continue
+            k = nl[c, i]; for (j = 1; j < N; j++) k = k "\n" nl[c, i + j]
+            wk[c, i] = k; cnt[c, k]++
+          }
+          for (i = 1; i + N - 1 <= m; i++) {
+            if (!((c, i) in wk)) continue
+            if (cnt[c, wk[c, i]] >= 2) for (j = 0; j < N; j++) mw[c, i + j] = 1
+            # 기존 코드 복제 — 단, 같은 diff 에서 지운 줄과 같은 창은 이동·이름 변경·들여쓰기 변경이라 뺀다
+            if (USE_CORPUS == 1 && (wk[c, i] in corpus) && !(wk[c, i] in removed)) for (j = 0; j < N; j++) me[c, i + j] = 1
+          }
+          for (i = 1; i <= m; i++) { if ((c, i) in mw) a++; if ((c, i) in me) b++ }
+          out = out sprintf("%d %d %d %d ", m, a, b, xc[c] + 0)
         }
-        for (i = 1; i + N - 1 <= n; i++) {
-          if (!(i in wk)) continue
-          if (cnt[wk[i]] >= 2) for (j = 0; j < N; j++) mw[i + j] = 1
-          # 기존 코드 복제 — 단, 같은 diff 에서 지운 줄과 같은 창은 이동·이름 변경·들여쓰기 변경이라 뺀다
-          if (USE_CORPUS == 1 && (wk[i] in corpus) && !(wk[i] in removed)) for (j = 0; j < N; j++) me[i + j] = 1
-        }
-        a = 0; b = 0; for (i = 1; i <= n; i++) { if (i in mw) a++; if (i in me) b++ }
-        printf "%d %d %d\n", n, a, b
+        print out
       }' "$tmp/added.txt" 2>/dev/null) || res=""
-    if [ -n "$res" ]; then
-      new_lines=${res%% *}; res=${res#* }; dup_new=${res%% *}; dup_exist=${res#* }
+    local bad=0 v
+    read -r i_n i_a i_b i_x t_n t_a t_b t_x <<EOF_RES
+$res
+EOF_RES
+    for v in "$i_n" "$i_a" "$i_b" "$i_x" "$t_n" "$t_a" "$t_b" "$t_x"; do case "$v" in ''|*[!0-9]*) bad=1 ;; esac; done
+    if [ -n "$res" ] && [ "$bad" = 0 ]; then
+      new_lines=$((i_n + t_n)); dup_new=$((i_a + t_a)); imp_x=$((i_x + t_x)); dup_exist=$((i_b + t_b))
       dup_status=measured; dup_reason=""
-      [ "$exist_status" = measured ] || dup_exist=""
+      [ "$exist_status" = measured ] || { dup_exist=""; i_b=""; t_b=""; }
     else
       dup_reason="복제 계산 실패(awk)"; exist_status=not_measured; exist_reason="$dup_reason"
+      i_n=""; i_a=""; i_b=""; i_x=""; t_n=""; t_a=""; t_b=""; t_x=""
     fi
   fi
 
@@ -374,13 +412,18 @@ EOF_DECL
   # ── 기록 ──
   [ "$exist_status" = measured ] || corpus_files=""      # 재지 못했으면 부가 칸도 숫자로 내지 않는다
   {
-    printf '{"schema_version":1,"fid":"%s","ts":"%s","base":%s,"base_source":"%s","head":%s,\n' "$fid" "$ts" \
+    printf '{"schema_version":2,"fid":"%s","ts":"%s","base":%s,"base_source":"%s","head":%s,\n' "$fid" "$ts" \
       "$([ -n "${base_out:-$base}" ] && printf '"%s"' "${base_out:-$base}" || printf null)" "$(_js "$base_src")" "$([ -n "$head" ] && printf '"%s"' "$head" || printf null)"
     printf ' "size":{"status":"%s","reason":"%s","files":%s,"generated_skipped":%s,"impl":{"added":%s,"deleted":%s},"test":{"added":%s,"deleted":%s},"doc":{"added":%s,"deleted":%s}},\n' \
       "$size_status" "$(_js "$size_reason")" "$(_num_or_null "$nfiles")" "$(_num_or_null "$ngen")" "$(_num_or_null "$ia")" "$(_num_or_null "$id_")" \
       "$(_num_or_null "$ta")" "$(_num_or_null "$td")" "$(_num_or_null "$da")" "$(_num_or_null "$dd")"
-    printf ' "dup":{"status":"%s","reason":"%s","method":"builtin","window":%s,"new_lines":%s,"dup_within_new":%s,"existing":{"status":"%s","reason":"%s","dup_of_existing":%s,"corpus_files":%s}},\n' \
-      "$dup_status" "$(_js "$dup_reason")" "$WINDOW" "$(_num_or_null "$new_lines")" "$(_num_or_null "$dup_new")" \
+    printf ' "dup":{"status":"%s","reason":"%s","method":"builtin","window":%s,"new_lines":%s,"dup_within_new":%s,"import_excluded":%s,\n' \
+      "$dup_status" "$(_js "$dup_reason")" "$WINDOW" "$(_num_or_null "$new_lines")" "$(_num_or_null "$dup_new")" "$(_num_or_null "$imp_x")"
+    printf '  "impl":{"new_lines":%s,"dup_within_new":%s,"import_excluded":%s,"existing":{"dup_of_existing":%s}},\n' \
+      "$(_num_or_null "$i_n")" "$(_num_or_null "$i_a")" "$(_num_or_null "$i_x")" "$(_num_or_null "$i_b")"
+    printf '  "test":{"new_lines":%s,"dup_within_new":%s,"import_excluded":%s,"existing":{"dup_of_existing":%s}},\n' \
+      "$(_num_or_null "$t_n")" "$(_num_or_null "$t_a")" "$(_num_or_null "$t_x")" "$(_num_or_null "$t_b")"
+    printf '  "existing":{"status":"%s","reason":"%s","dup_of_existing":%s,"corpus_files":%s}},\n' \
       "$exist_status" "$(_js "$exist_reason")" "$(_num_or_null "$dup_exist")" "$(_num_or_null "$corpus_files")"
     printf ' "jscpd":{"status":"%s","reason":"%s","lines":%s,"duplicated_lines":%s},\n' "$j_status" "$(_js "$j_reason")" "$(_num_or_null "$j_lines")" "$(_num_or_null "$j_dup")"
     printf ' "reuse":{"status":"%s","reason":"%s","declared":%s,"fulfilled":%s}}\n' "$r_status" "$(_js "$r_reason")" "$(_num_or_null "$declared")" "$(_num_or_null "$fulfilled")"

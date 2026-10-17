@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- reuse-metrics: 재사용 이행이 백틱 없는 선언·파이썬 import(점 표기·from 부모 import 잎)를 읽고 구현 줄만 대조한다(분기점에 있던 선언 모듈 파일을 고친 변경도 이행 — 새로 만든 파일은 아님) · 복제는 import 줄을 빼고 구현/테스트로 나눠 센다(schema 2 · 옛 기록은 report 에 (v1)). 계기: Argus 12 FID 첫 판독에서 재사용 0/N 4건이 측정기 결함
+
 ## [2.24.3] — 2026-10-17
 
 ### Fixed

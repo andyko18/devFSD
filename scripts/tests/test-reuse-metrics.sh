@@ -101,6 +101,27 @@ R=$(mk_repo)
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.dup.existing.status')" = measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = 8 ] && [ "$(J "$R" '.dup.existing.corpus_files')" = 2 ]; } \
   && ok "R2.j 분기점에 비UTF-8(latin-1) 파일이 있어도 측정한다 — 기존 8줄 블록 복사 → 8줄 · 코퍼스 2개" || nope "R2.j" "$(J "$R" '.dup')"
+# ── R2.k·R2.l: import 줄 제외 · 구현/테스트 분리 (FID 20261017-reuse-metrics-accuracy) ──
+imps() { printf 'import os\nimport sys\nimport json\nimport time\nfrom app.core import clock\nfrom app.models.base import upsert\nfrom app.services.krx import (\n    KrxProvider,\n    KrxContractError,\n)\n'; }
+R=$(mk_repo); { imps; echo "def base_body():"; blk b0; } > "$R/src/base_imports.py"; commit_all "$R"
+( cd "$R" && git branch -qf main HEAD ) >/dev/null 2>&1                     # 분기점에 같은 import 블록이 있게
+{ imps; echo "def f1():"; blk n1; } > "$R/src/n1.py"; { imps; echo "def f2():"; blk n2; } > "$R/src/n2.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.dup.dup_within_new')" = 0 ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = 0 ] \
+  && [ "$(J "$R" '.dup.import_lines_excluded')" = 20 ] && [ "$(J "$R" '.dup.new_lines')" = 18 ]; } \
+  && ok "R2.k import 줄(한 줄 6 + 괄호 여러 줄 1)은 복제가 아니다 — 새 코드끼리 0 · 기존 0 · 제외 20줄 · 새 코드 18줄" || nope "R2.k" "$(J "$R" '.dup')"
+# 여는 줄·안쪽 줄의 줄 끝 주석(괄호 포함)이 여러 줄 import 판정을 흔들지 않는다 — 여는 줄 1 + 이름 7 + 닫는 줄 1 = 9줄 × 2파일
+cimp() { printf 'from app.lib import (  # noqa: F401\n    alpha_name,  # see f()\n    beta_name,\n    gamma_name,\n    delta_name,\n    epsilon_name,\n    zeta_name,\n    eta_name,\n)\n'; }
+R=$(mk_repo); { cimp; echo "def g1():"; blk c1; } > "$R/src/c1.py"; { cimp; echo "def g2():"; blk c2; } > "$R/src/c2.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.dup.dup_within_new')" = 0 ] && [ "$(J "$R" '.dup.import_lines_excluded')" = 18 ]; } \
+  && ok "R2.m 줄 끝 주석이 붙은 괄호 여러 줄 import(여는 줄 '# noqa' · 안쪽 '# see f()')도 제외 — 새 코드끼리 0 · 제외 18줄" || nope "R2.m" "$(J "$R" '.dup')"
+R=$(mk_repo); { echo "def a():"; blk ia; echo "def b():"; blk ia; } > "$R/src/impl2.py"; { echo "def t1():"; blk ta; echo "def t2():"; blk ta; } > "$R/tests/test_two.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.schema_version')" = 2 ] && [ "$(J "$R" '.dup.impl.dup_within_new')" = 16 ] && [ "$(J "$R" '.dup.test.dup_within_new')" = 16 ] && [ "$(J "$R" '.dup.dup_within_new')" = 32 ] \
+  && [ "$(J "$R" '.dup.impl.new_lines + .dup.test.new_lines == .dup.new_lines')" = true ] && [ "$(J "$R" '.dup.impl.dup_of_existing')" = 0 ] && [ "$(J "$R" '.dup.test.dup_of_existing')" = 0 ]; } \
+  && ok "R2.l 복제를 구현/테스트로 나눈다 — 구현 16 · 테스트 16 · 총 32 · 줄 수 합 일치 · schema 2" || nope "R2.l" "$(J "$R" '{schema_version,dup}')"
+RL="$R"   # R5.c 가 이 기록을 쓴다
 
 # ── R3: 재사용 이행률 (AC-3) ──
 mk_manifest() {
@@ -160,6 +181,49 @@ mk_grep_fail "$ROOT/grepoe" -oE
 { [ "$(J "$R" '.reuse.status')" = not_measured ] && [ "$(J "$R" '.reuse.declared')" = null ] && [ "$(J "$R" '.reuse.fulfilled')" = null ] && [ -n "$(J "$R" '.reuse.reason')" ]; } \
   && ok "R3.g 선언의 근거 토큰을 뽑지 못하면(grep rc 2) 토큰 없음으로 읽어 0/3 으로 쓰지 않는다 — not_measured·null·사유" || nope "R3.g" "$(J "$R" '.reuse')"
 
+# ── R3.h·R3.i: 백틱 없는 선언 · 파이썬 import (FID 20261017-reuse-metrics-accuracy) ──
+#   하류(Argus) 실구조: manifest 모듈 칸이 백틱으로 감싼 경로이고, tasks.md 선언은 백틱 없이 경로만 적는다.
+mk_py_manifest() {
+  mkdir -p "$1/.specops/memory"
+  printf '# Foundation Manifest\n\n| 모듈 | 역할 | 재사용 방법 |\n|---|---|---|\n| `app/services/krx.py` | 시세 | `KrxProvider` |\n| `app/core/db.py` | DB | `session_scope` |\n| `app/core/clock.py` | 시각 | `clock.now()` |\n| `app/models/base.py` | ORM | `upsert` |\n| `app/jobs/pipeline.py` | 파이프라인 | `run_confirm_pipeline` |\n' > "$1/.specops/memory/foundation-manifest.md"
+}
+R=$(mk_repo); mk_py_manifest "$R"; mkdir -p "$R/app/jobs"
+printf '**§유형**: 신규\n' > "$R/.specops/$FID/spec.md"
+printf '# tasks\n\n## Task 1: a\n\n**재사용 foundation**: app/services/krx.py\n\n## Task 2: b\n\n**재사용 foundation**: app/jobs/base.py · app/core/db.py\n' > "$R/.specops/$FID/tasks.md"
+printf 'from app.services.krx import KrxProvider\nfrom app.core import db\n\ndef sync():\n    return KrxProvider(), db\n' > "$R/app/jobs/sync_index.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = measured ] && [ "$(J "$R" '[.reuse.fulfilled,.reuse.declared]|join("/")')" = "2/2" ]; } \
+  && ok "R3.h 백틱 없는 선언 경로 · 점 표기(app.services.krx) · from 부모 import 잎(from app.core import db — 3자 미만 이름) → 2/2" || nope "R3.h" "$(J "$R" '.reuse')"
+R=$(mk_repo); mk_py_manifest "$R"; mkdir -p "$R/app" "$R/tests"
+printf '**§유형**: 신규\n' > "$R/.specops/$FID/spec.md"
+printf '# tasks\n\n## Task 1: a\n\n**재사용 foundation**: app/core/clock.py\n\n## Task 2: b\n\n**재사용 foundation**: app/models/base.py\n\n## Task 3: c\n\n**재사용 foundation**: app/jobs/pipeline.py\n' > "$R/.specops/$FID/tasks.md"
+printf 'from app.core import clockwork\nfrom app.models.base_x import y\n' > "$R/app/x.py"
+printf 'from app.jobs.pipeline import run\n' > "$R/tests/test_x.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = measured ] && [ "$(J "$R" '[.reuse.fulfilled,.reuse.declared]|join("/")')" = "0/3" ]; } \
+  && ok "R3.i 거짓 이행 없음: clockwork·base_x 는 식별자 경계로 · 테스트 파일에만 있는 import 는 구현 재사용이 아니다 → 0/3" || nope "R3.i" "$(J "$R" '.reuse')"
+# 선언한 모듈 파일 자체를 이번 변경이 고쳤으면 이행(공통 모듈 확장) — 추가 줄에 자기 이름이 없어도. 테스트 파일은 고쳐도 재사용이 아니다.
+R=$(mk_repo); mk_py_manifest "$R"; mkdir -p "$R/frontend/components" "$R/app/core" "$R/tests"
+printf 'export const PAGE = 10\n' > "$R/frontend/components/StockSearch.tsx"
+printf 'def now():\n    return 0\n' > "$R/app/core/clock.py"
+printf 'def make():\n    return 1\n' > "$R/tests/factories.py"; commit_all "$R"
+( cd "$R" && git branch -qf main HEAD ) >/dev/null 2>&1                     # 분기점에 세 파일이 있게
+printf '**§유형**: 신규\n' > "$R/.specops/$FID/spec.md"
+printf '# tasks\n\n## Task 1: a\n\n**재사용 foundation**: `frontend/components/StockSearch.tsx`\n\n## Task 2: b\n\n**재사용 foundation**: app/core/clock.py\n\n## Task 3: c\n\n**재사용 foundation**: `tests/factories.py`\n' > "$R/.specops/$FID/tasks.md"
+printf 'export const PAGE = 20\n' > "$R/frontend/components/StockSearch.tsx"
+printf 'def make():\n    return 2\n' > "$R/tests/factories.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = measured ] && [ "$(J "$R" '[.reuse.fulfilled,.reuse.declared]|join("/")')" = "1/3" ]; } \
+  && ok "R3.j 선언한 모듈 파일을 고친 것은 이행(StockSearch.tsx) · 안 고치고 안 쓴 것(clock.py)·고친 테스트 파일(tests/factories.py)은 아니다 → 1/3" || nope "R3.j" "$(J "$R" '.reuse')"
+# 선언 경로를 이번 변경이 새로 만들었으면(분기점에 없음) 기존 모듈의 재사용이 아니다 — 고친 것만 이행이다.
+R=$(mk_repo); mk_py_manifest "$R"; mkdir -p "$R/app/core"
+printf '**§유형**: 신규\n' > "$R/.specops/$FID/spec.md"
+printf '# tasks\n\n## Task 1: a\n\n**재사용 foundation**: `app/core/newmod.py`\n' > "$R/.specops/$FID/tasks.md"
+printf 'def brand_new():\n    return 42\n' > "$R/app/core/newmod.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = measured ] && [ "$(J "$R" '[.reuse.fulfilled,.reuse.declared]|join("/")')" = "0/1" ]; } \
+  && ok "R3.k 선언 경로를 이번 변경이 새로 만든 것(분기점에 없는 app/core/newmod.py)은 이행이 아니다 → 0/1" || nope "R3.k" "$(J "$R" '.reuse')"
+
 # ── R4: 재지 못한 것을 0 으로 쓰지 않는다 (AC-4) ──
 NG="$ROOT/nogit"; mkdir -p "$NG/.specops/$FID"
 out=$( cd "$NG" && bash "$RM" measure "$FID" 2>&1 ); rc=$?
@@ -191,8 +255,9 @@ echo "z = 1" > "$R/src/ok.py"; commit_all "$R"      # 읽히는 파일이 섞여
   && ok "R4.g 따옴표 든 경로 + 읽히는 파일 혼합: 전부 읽었으면 10, 아니면 not_measured·null — 일부(1줄)만 읽고 measured 로 내지 않는다($(J "$R" '.dup.status'))" || nope "R4.g" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
 R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
 ( cd "$R" && SPECOPS_REUSE_MAX_TREE_BYTES=10 bash "$RM" measure "$FID" ) >/dev/null 2>&1
-{ [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.existing.corpus_files')" = null ] && J "$R" '.dup.existing.reason' | grep -q '바이트' && [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 9 ]; } \
-  && ok "R4.h 분기점 트리 바이트 상한 초과: 코퍼스를 읽지 않고 기존 코드 복제만 not_measured(null)·사유 · 새 코드끼리·size 는 계속 측정" || nope "R4.h" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
+{ [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.existing.corpus_files')" = null ] && J "$R" '.dup.existing.reason' | grep -q '바이트' && [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 9 ] \
+  && [ "$(J "$R" '.dup.impl.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.test.dup_of_existing')" = null ]; } \
+  && ok "R4.h 분기점 트리 바이트 상한 초과: 코퍼스를 읽지 않고 기존 코드 복제만 not_measured(null)·사유(구현·테스트 칸도 null) · 새 코드끼리·size 는 계속 측정" || nope "R4.h" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
 R=$(mk_repo)      # 분기 직후 — 변경 없음
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.size.status')" = not_measured ] && [ "$(J "$R" '.size.impl.added')" = null ] && [ "$(J "$R" '.dup.status')" = not_measured ] && [ "$(J "$R" '.dup.new_lines')" = null ] \
@@ -291,6 +356,15 @@ rep=$(bash "$RM" report "$T" 2>&1); rrc=$?
 E="$ROOT/empty"; mkdir -p "$E/20260101-zzz"
 rep=$(bash "$RM" report "$E" 2>&1); rrc=$?
 { [ "$rrc" = 0 ] && printf '%s\n' "$rep" | grep -q '기록 없음'; } && ok "R5.b 기록이 하나도 없으면 그 사실을 한 줄로 · rc 0" || nope "R5.b" "rc=$rrc rep=$rep"
+V="$ROOT/vmix"; mkdir -p "$V/20260105-newrec" "$V/20260106-oldrec"
+jq '.fid = "20260105-newrec"' "$RL/.specops/$FID/reuse-metrics.json" > "$V/20260105-newrec/reuse-metrics.json"   # report 는 .fid 를 표에 쓴다 — 줄을 구분하려 폴더 이름과 맞춘다
+jq '.fid = "20260106-oldrec" | .schema_version = 1 | del(.dup.impl, .dup.test, .dup.import_lines_excluded)' "$RL/.specops/$FID/reuse-metrics.json" > "$V/20260106-oldrec/reuse-metrics.json"
+rep=$(bash "$RM" report "$V" 2>&1); rrc=$?
+{ [ "$rrc" = 0 ] && [ "$(printf '%s\n' "$rep" | grep -c '^2026')" = 2 ] \
+  && printf '%s\n' "$rep" | grep '^20260105-newrec' | grep -q '32 \[builtin\] (구현 16 · 테스트 16)' \
+  && printf '%s\n' "$rep" | grep '^20260105-newrec' | grep -q '36 (구현 18 · 테스트 18)' \
+  && printf '%s\n' "$rep" | grep '^20260106-oldrec' | grep -q '32 \[builtin\] (v1)'; } \
+  && ok "R5.c report: schema 2 는 구현/테스트를 나눠 · schema 1 은 총계와 (v1) 표시 · rc 0" || nope "R5.c" "rc=$rrc rep=$rep"
 
 # ── R6: verify 판정이 바뀌지 않는다 (AC-6) ──
 mk_verify() {   # $1=저장소 $2=pass|fail

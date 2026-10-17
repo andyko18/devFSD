@@ -119,7 +119,7 @@ D="$ROOT/c7"; _repo "$D"; printf '| S-5 | 상위 경로 | `scripts/` | 명령 | 
 (cd "$D" && bash "$MP/check-rule-commands.sh" >/dev/null 2>&1)
 { ! cmp -s "$CRC" "$MP/check-rule-commands.sh" && [ -e "$D/MARK" ]; } && ok "C7 변이 적발 — 가드 없으면 실행됨" || nope "C7" "변이 sed 실패 또는 가드 무관"
 
-# C8 (AC-6·AC-8): run-verification 에 경고로만 붙는다 — 판정 줄·rc 불변 · evidence 절 · 경고는 규칙당 3줄
+# C8 (AC-1): 위반(FAIL)은 verify 를 실패시킨다 — rc 1 · 판정 FAIL · evidence 절 · 출력은 규칙당 3줄
 _vrepo() {  # $1=dir $2=fid — 테스트 명령이 통과하는 FID 를 가진 git 저장소
   _repo "$1"; mkdir -p "$1/.specops/$2" "$1/scripts/tests"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$1/scripts/tests/dummy.sh"; chmod +x "$1/scripts/tests/dummy.sh"
@@ -131,10 +131,11 @@ D="$ROOT/c8"; _vrepo "$D" "$VF"; printf '| S-1 | 위반 | `scripts/` | 명령 | 
 out=$(cd "$D" && bash "$RV" "$VF" 2>"$ROOT/c8.err"); rc=$?; err=$(cat "$ROOT/c8.err")
 ev="$D/.specops/$VF/evidence.md"
 nerr=$(printf '%s\n' "$err" | awk '/^RULE S-1:/{f=1;next} /^RULE/{f=0} f&&/^  /{c++} END{print c+0}')
-{ [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] \
-  && grep -qx '### structure-rule-commands' "$ev" && grep -qx 'RULE S-1: FAIL (rc=3)' "$ev" \
-  && printf '%s\n' "$err" | grep -q '^WARN: 구조 규칙 판정 명령' && [ "$nerr" -eq 3 ]; } \
-  && ok "C8 VERIFY: PASS·rc 0 그대로 · evidence 절 · 경고 + 출력 3줄" || nope "C8" "rc=$rc nerr=$nerr out=$out err=$err"
+st=$(jq -r '.verdict // empty' "$D/.specops/$VF/verification-state.json" 2>/dev/null)
+{ [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | tail -1)" != "VERIFY: PASS" ] \
+  && printf '%s\n' "$err" | grep -q '^VERIFY: FAIL structure-rule-commands (위반 1건 ' && printf '%s\n' "$err" | grep -qx 'RULE S-1: FAIL (rc=3)' \
+  && grep -qx '### structure-rule-commands' "$ev" && grep -qx 'RULE S-1: FAIL (rc=3)' "$ev" && [ "$st" = FAIL ] && [ "$nerr" -eq 3 ]; } \
+  && ok "C8 판정 명령 위반 → VERIFY FAIL·rc 1 · 판정 상태 FAIL · evidence 절 · 위반 규칙과 출력 3줄" || nope "C8" "rc=$rc st=$st nerr=$nerr out=$out err=$err"
 
 # C9 (AC-R-1): 헌법이 없으면 경고 없이 판정 그대로 — evidence 에 해당 없음 한 줄
 D="$ROOT/c9"; _vrepo "$D" "$VF"; rm -f "$D/.specops/memory/constitution.md"
@@ -146,13 +147,14 @@ out=$(cd "$D" && bash "$RV" "$VF" 2>"$ROOT/c9.err"); rc=$?
 # C10 (AC-7): 헌법 템플릿 — 검증 때 실행 · 허용 형식 · 예시 명령이 허용 형식 · 템플릿이 형식 검사를 통과
 TPL="$PLUGIN/templates/constitution.md"
 { grep -qF '판정 `명령` 은 검증(verify) 때 실행된다' "$TPL" && grep -qF '테스트 명령과 같은 허용 형식만 실행' "$TPL" \
+  && grep -qF '위반이면 검증이 실패한다' "$TPL" && grep -qF '판정을 `리뷰` 로 바꾼다' "$TPL" \
   && grep -qF '| 명령 | `bash scripts/tests/test-structure.sh S-2` |' "$TPL" && ! grep -qF 'make check-clock' "$TPL" \
   && bash "$PLUGIN/scripts/_internal/check-constitution-rules.sh" "$TPL" >/dev/null 2>&1; } \
   && ok "C10 템플릿 실행 안내 · 예시 허용 형식 · 형식 통과" || nope "C10" "templates/constitution.md 미갱신"
 
 # C11 (AC-7): 검증 스킬 체크리스트가 판정 명령 결과를 보고하게 한다
 SK="$PLUGIN/skills/verifying-evidence-ko/SKILL.md"
-{ grep -qF 'check-rule-commands.sh' "$SK" && grep -qF '### structure-rule-commands' "$SK"; } \
+{ grep -qF 'check-rule-commands.sh' "$SK" && grep -qF '### structure-rule-commands' "$SK" && grep -qF '위반(`FAIL`)은 `VERIFY: FAIL structure-rule-commands`' "$SK"; } \
   && ok "C11 검증 스킬 체크리스트 항목" || nope "C11" "verifying-evidence-ko 미갱신"
 
 # C12 (AC-1): 판정 명령 rc 2 → 판정 불가로 따로 표시·집계 (FAIL 아님) · rc 1
@@ -173,7 +175,14 @@ out=$(cd "$D" && bash "$RV" "$VF" 2>"$ROOT/c13.err"); rc=$?; err=$(cat "$ROOT/c1
 # C14 (AC-4): 템플릿 종료 코드 약속 · 검증 스킬 보고 대상
 { grep -qF '판정 명령의 종료 코드는 `0` = 지킴 · `2` = 판정 불가' "$TPL" && grep -qF '그 밖 = 위반' "$TPL" \
   && bash "$PLUGIN/scripts/_internal/check-constitution-rules.sh" "$TPL" >/dev/null 2>&1 \
-  && grep -qF '`FAIL`·`판정 불가`·`TIMEOUT`·`SKIP` 줄' "$SK" && grep -qF '`판정 불가` 는 도구·환경이 없어 확인하지 못한 것' "$SK"; } \
+  && grep -qF '`판정 불가`·`TIMEOUT`·`SKIP` 은 경고' "$SK" && grep -qF '`판정 불가` 는 도구·환경이 없어 확인하지 못한 것' "$SK"; } \
   && ok "C14 템플릿 종료 코드 약속 · 스킬 보고 대상" || nope "C14" "templates/constitution.md · verifying-evidence-ko 미갱신"
+
+# C15 (AC-2): 허용 형식 밖(SKIP)만 있으면 막지 않는다 — 경고만 · 판정 그대로
+D="$ROOT/c15"; _vrepo "$D" "$VF"; printf '| S-1 | 목록 밖 | `scripts/` | 명령 | `! grep -rq x scripts` |\n' | _rules "$D"
+out=$(cd "$D" && bash "$RV" "$VF" 2>"$ROOT/c15.err"); rc=$?; err=$(cat "$ROOT/c15.err")
+{ [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] \
+  && printf '%s\n' "$err" | grep -q '^WARN: 구조 규칙 판정 명령' && ! printf '%s\n' "$err" | grep -q 'VERIFY: FAIL structure-rule'; } \
+  && ok "C15 SKIP 만 있으면 경고만 · 판정 그대로" || nope "C15" "rc=$rc out=$out err=$err"
 
 finish

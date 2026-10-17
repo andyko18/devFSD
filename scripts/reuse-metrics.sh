@@ -230,9 +230,10 @@ cmd_measure() {
         return s ~ /^import([ \t(]|$)/ || s ~ /^from[ \t]+[A-Za-z0-9_.]+[ \t]+import([ \t(]|$)/ \
           || s ~ /^(const|let|var)[ \t].*=[ \t]*require\(/ || s ~ /^#include[ \t]*[<"]/ || s ~ /^export[ \t].*[ \t]from[ \t]/
       }
-      function kind(s) {            # 0 = 버림(짧은 줄) · 1 = import · 2 = 코드. IM = 여러 줄 import 안(전역)
-        if (IM) { if (s ~ /[)}]/) IM = 0; return 1 }
-        if (isimp(s)) { if (s ~ /[({][ \t]*$/) IM = 1; return 1 }
+      function kind(s,   t) {       # 0 = 버림(짧은 줄) · 1 = import · 2 = 코드. IM = 여러 줄 import 안(전역)
+        t = s; sub(/[ \t]+(#|\/\/).*$/, "", t)   # 괄호 판정은 줄 끝 주석(# · //)을 뗀 문자열로(근사 — 문자열 안 # 은 고려하지 않는다)
+        if (IM) { if (t ~ /[)}]/) IM = 0; return 1 }
+        if (isimp(s)) { if (t ~ /[({][ \t]*$/) IM = 1; return 1 }
         return (length(s) < 3) ? 0 : 2
       }
       function windows(file, set,   line, s, n, buf, k, j) {      # file 의 모든 N줄 창을 set 에 넣는다

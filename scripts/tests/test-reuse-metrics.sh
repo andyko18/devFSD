@@ -110,6 +110,12 @@ R=$(mk_repo); { imps; echo "def base_body():"; blk b0; } > "$R/src/base_imports.
 { [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.dup.dup_within_new')" = 0 ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = 0 ] \
   && [ "$(J "$R" '.dup.import_lines_excluded')" = 20 ] && [ "$(J "$R" '.dup.new_lines')" = 18 ]; } \
   && ok "R2.k import 줄(한 줄 6 + 괄호 여러 줄 1)은 복제가 아니다 — 새 코드끼리 0 · 기존 0 · 제외 20줄 · 새 코드 18줄" || nope "R2.k" "$(J "$R" '.dup')"
+# 여는 줄·안쪽 줄의 줄 끝 주석(괄호 포함)이 여러 줄 import 판정을 흔들지 않는다 — 여는 줄 1 + 이름 7 + 닫는 줄 1 = 9줄 × 2파일
+cimp() { printf 'from app.lib import (  # noqa: F401\n    alpha_name,  # see f()\n    beta_name,\n    gamma_name,\n    delta_name,\n    epsilon_name,\n    zeta_name,\n    eta_name,\n)\n'; }
+R=$(mk_repo); { cimp; echo "def g1():"; blk c1; } > "$R/src/c1.py"; { cimp; echo "def g2():"; blk c2; } > "$R/src/c2.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.dup.dup_within_new')" = 0 ] && [ "$(J "$R" '.dup.import_lines_excluded')" = 18 ]; } \
+  && ok "R2.m 줄 끝 주석이 붙은 괄호 여러 줄 import(여는 줄 '# noqa' · 안쪽 '# see f()')도 제외 — 새 코드끼리 0 · 제외 18줄" || nope "R2.m" "$(J "$R" '.dup')"
 R=$(mk_repo); { echo "def a():"; blk ia; echo "def b():"; blk ia; } > "$R/src/impl2.py"; { echo "def t1():"; blk ta; echo "def t2():"; blk ta; } > "$R/tests/test_two.py"; commit_all "$R"
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.schema_version')" = 2 ] && [ "$(J "$R" '.dup.impl.dup_within_new')" = 16 ] && [ "$(J "$R" '.dup.test.dup_within_new')" = 16 ] && [ "$(J "$R" '.dup.dup_within_new')" = 32 ] \
@@ -228,8 +234,9 @@ echo "z = 1" > "$R/src/ok.py"; commit_all "$R"      # 읽히는 파일이 섞여
   && ok "R4.g 따옴표 든 경로 + 읽히는 파일 혼합: 전부 읽었으면 10, 아니면 not_measured·null — 일부(1줄)만 읽고 measured 로 내지 않는다($(J "$R" '.dup.status'))" || nope "R4.g" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
 R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
 ( cd "$R" && SPECOPS_REUSE_MAX_TREE_BYTES=10 bash "$RM" measure "$FID" ) >/dev/null 2>&1
-{ [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.existing.corpus_files')" = null ] && J "$R" '.dup.existing.reason' | grep -q '바이트' && [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 9 ]; } \
-  && ok "R4.h 분기점 트리 바이트 상한 초과: 코퍼스를 읽지 않고 기존 코드 복제만 not_measured(null)·사유 · 새 코드끼리·size 는 계속 측정" || nope "R4.h" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
+{ [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.existing.corpus_files')" = null ] && J "$R" '.dup.existing.reason' | grep -q '바이트' && [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 9 ] \
+  && [ "$(J "$R" '.dup.impl.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.test.dup_of_existing')" = null ]; } \
+  && ok "R4.h 분기점 트리 바이트 상한 초과: 코퍼스를 읽지 않고 기존 코드 복제만 not_measured(null)·사유(구현·테스트 칸도 null) · 새 코드끼리·size 는 계속 측정" || nope "R4.h" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
 R=$(mk_repo)      # 분기 직후 — 변경 없음
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.size.status')" = not_measured ] && [ "$(J "$R" '.size.impl.added')" = null ] && [ "$(J "$R" '.dup.status')" = not_measured ] && [ "$(J "$R" '.dup.new_lines')" = null ] \

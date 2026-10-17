@@ -67,7 +67,7 @@ cmd_measure() {
   local fid="${1:-}" rng="" range_head=""; [ "$#" -gt 0 ] && shift
   while [ "$#" -gt 0 ]; do
     case "$1" in
-      --range) [ "$#" -ge 2 ] || { echo "reuse-metrics: --range 에 값이 없다 (<base>..<head>)" >&2; return 2; }; rng="$2"; shift 2 ;;
+      --range) { [ "$#" -ge 2 ] && [ -n "$2" ]; } || { echo "reuse-metrics: --range 에 값이 없다 (<base>..<head>)" >&2; return 2; }; rng="$2"; shift 2 ;;
       *) echo "reuse-metrics: 알 수 없는 인자: '$1'" >&2; return 2 ;;
     esac
   done
@@ -260,7 +260,7 @@ cmd_measure() {
       function is_imp(s) {
         if (ml == "\\") { if (substr(s, length(s)) != "\\") ml = ""; return 1 }
         if (ml != "")   { if (index(s, ml) > 0) ml = ""; return 1 }
-        if (s ~ /^import[ \t]+/ || s ~ /^from[ \t]+[^ \t]+[ \t]+import([ \t(]|$)/ || s ~ /^#[ \t]*include/ || s ~ /^source[ \t]+/ \
+        if (s ~ /^import[ \t]+/ || s ~ /^from[ \t]+[^ \t]+[ \t]+import([ \t(]|$)/ || s ~ /^#[ \t]*include[ \t]*[<"]/ || s ~ /^source[ \t]+[^= \t]/ \
             || s ~ /^export[ \t].*[ \t]from[ \t]*["\047]/ || s ~ /^(const|let|var)[ \t]+[^=]+=[ \t]*require\(/ \
             || s ~ /^(pub[ \t]+)?use[ \t]+[A-Za-z0-9_:{}*, ]+;[ \t]*$/) {
           if (substr(s, length(s)) == "\\") ml = "\\"

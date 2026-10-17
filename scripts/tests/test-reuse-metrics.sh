@@ -191,7 +191,8 @@ echo "z = 1" > "$R/src/ok.py"; commit_all "$R"      # 읽히는 파일이 섞여
   && ok "R4.g 따옴표 든 경로 + 읽히는 파일 혼합: 전부 읽었으면 10, 아니면 not_measured·null — 일부(1줄)만 읽고 measured 로 내지 않는다($(J "$R" '.dup.status'))" || nope "R4.g" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
 R=$(mk_repo); { echo "def c():"; blk old; } > "$R/src/copy.py"; commit_all "$R"
 ( cd "$R" && SPECOPS_REUSE_MAX_TREE_BYTES=10 bash "$RM" measure "$FID" ) >/dev/null 2>&1
-{ [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.existing.corpus_files')" = null ] && J "$R" '.dup.existing.reason' | grep -q '바이트' && [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 9 ]; } \
+{ [ "$(J "$R" '.dup.existing.status')" = not_measured ] && [ "$(J "$R" '.dup.existing.dup_of_existing')" = null ] && [ "$(J "$R" '.dup.existing.corpus_files')" = null ] && J "$R" '.dup.existing.reason' | grep -q '바이트' && [ "$(J "$R" '.dup.status')" = measured ] && [ "$(J "$R" '.size.impl.added')" = 9 ] \
+  && [ "$(J "$R" '[.dup.impl.existing.dup_of_existing,.dup.test.existing.dup_of_existing]|map(tostring)|join(",")')" = "null,null" ]; } \
   && ok "R4.h 분기점 트리 바이트 상한 초과: 코퍼스를 읽지 않고 기존 코드 복제만 not_measured(null)·사유 · 새 코드끼리·size 는 계속 측정" || nope "R4.h" "$(cat "$R/.specops/$FID/reuse-metrics.json")"
 R=$(mk_repo)      # 분기 직후 — 변경 없음
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
@@ -480,6 +481,12 @@ commit_all "$R"
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
 [ "$(J "$R" '[.dup.new_lines,.dup.import_excluded]|map(tostring)|join(",")')" = "7,11" ] \
   && ok "R9.d Go 블록 · Rust use · C #include · 셸 source · Java import · JS require 도 import 로 빠진다 → 새 코드 7 · import 11" || nope "R9.d" "$(J "$R" '.dup')"
+R=$(mk_repo)      # 음성 사례 — import 와 비슷한 모양(변수 source = …, '# includes …' 주석)은 제외하지 않는다
+printf 'source = load_source(\n    path_alpha,\n    mode_beta,\n)\nresult_value = 1\n# includes the retry wrapper\nretry_value = 3\n' > "$R/src/srcvar.py"
+commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+[ "$(J "$R" '[.dup.new_lines,.dup.import_excluded]|map(tostring)|join(",")')" = "6,0" ] \
+  && ok "R9.f 변수 'source = …(' 여러 줄과 '# includes …' 주석은 import 가 아니다 → 새 코드 6 · import 0" || nope "R9.f" "$(J "$R" '.dup')"
 
 # ── R10: 합쳐진 FID 를 기록된 분기점·머리로 다시 잰다 (FID 20261017-reuse-meter-fix · AC-5) ──
 R=$(mk_repo); BASE0=$(cd "$R" && git rev-parse HEAD)
@@ -498,11 +505,12 @@ out=$( cd "$R" && bash "$RM" measure "$FID" --range "$BASE0..$HEAD0" 2>&1 ); rc=
   || nope "R10.b" "rc=$rc out=$out $(cat "$R/.specops/$FID/reuse-metrics.json" 2>/dev/null)"
 cp "$R/.specops/$FID/reuse-metrics.json" "$ROOT/rec.before"
 bad=""
-for spec in "notarange" "1111111..2222222" "$HEAD0..$BASE0" "$BASE0..$HEAD0..$HEAD0" "-x..$HEAD0"; do
+for spec in "notarange" "1111111..2222222" "$HEAD0..$BASE0" "$BASE0..$HEAD0..$HEAD0" "-x..$HEAD0" ""; do
   ( cd "$R" && bash "$RM" measure "$FID" --range "$spec" ) >/dev/null 2>"$ROOT/rng.err"; r=$?
   { [ "$r" = 2 ] && [ -s "$ROOT/rng.err" ] && cmp -s "$R/.specops/$FID/reuse-metrics.json" "$ROOT/rec.before"; } || bad="$bad [$spec rc=$r]"
 done
 ( cd "$R" && bash "$RM" measure "$FID" --range ) >/dev/null 2>&1; r=$?; [ "$r" = 2 ] || bad="$bad [값 없음 rc=$r]"
+( cd "$R" && bash "$RM" measure "$FID" --range "-x..$HEAD0" ) >/dev/null 2>"$ROOT/rng.err"; grep -q '형식 오류' "$ROOT/rng.err" || bad="$bad [-x.. 형식 오류 문구 없음]"
 [ -z "$bad" ] \
   && ok "R10.c 잘못된 범위(형식 오류·없는 SHA·base 가 head 의 조상이 아님·'..' 중복·'-' 로 시작·값 없음)는 rc 2·사유 출력이고 기존 기록은 바이트 그대로다" || nope "R10.c" "$bad"
 

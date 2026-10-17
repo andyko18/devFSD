@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # reuse-metrics.sh — FID 별 변경 규모·복제·재사용 선언 이행을 재서 기록한다 (관측 전용 — 차단·경고 없음)
-# Usage: reuse-metrics.sh measure <FID>     # .specops/<FID>/reuse-metrics.json 을 쓴다(재측정 시 덮어씀)
+# Usage: reuse-metrics.sh measure <FID> [--range <base>..<head>]   # .specops/<FID>/reuse-metrics.json 을 쓴다(재측정 시 덮어씀)
 #        reuse-metrics.sh report [경로]      # <경로>/*/reuse-metrics.json 을 FID 별 표로 (기본 .specops)
 # rc: 0 = 실행됨(재지 못한 항목은 status 로 말한다 — 0 으로 위장하지 않는다) · 2 = 사용 오류
 #
@@ -47,10 +47,33 @@ _is_generated() {
   return 1
 }
 
+# --range <base>..<head> 검증 — 두 쪽이 이 저장소의 커밋이고 base 가 head 의 조상이면 RNG_BASE·RNG_HEAD 에 전체 SHA 를 낸다. 틀리면 사유를 stderr 로 내고 1.
+_range_validate() {
+  local spec="$1" b h rtop
+  case "$spec" in *..*) ;; *) echo "reuse-metrics: --range 형식 오류: '$spec' (<base>..<head> 로 준다)" >&2; return 1 ;; esac
+  b=${spec%%..*}; h=${spec#*..}
+  if [ -z "$b" ] || [ -z "$h" ]; then echo "reuse-metrics: --range 형식 오류: '$spec' (양쪽 모두 필요)" >&2; return 1; fi
+  case "$b$h" in -*|*[[:space:]]*) echo "reuse-metrics: --range 형식 오류: '$spec' (공백·'-' 시작 불가)" >&2; return 1 ;; esac
+  case "$b" in -*) echo "reuse-metrics: --range 형식 오류: '$spec' ('-' 시작 불가)" >&2; return 1 ;; esac
+  case "$h" in -*|*..*) echo "reuse-metrics: --range 형식 오류: '$spec' (head 에 '-' 시작·'..' 불가)" >&2; return 1 ;; esac
+  rtop=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "reuse-metrics: --range 는 git 저장소 안에서만 쓸 수 있다" >&2; return 1; }
+  RNG_BASE=$(git -C "$rtop" rev-parse --verify --quiet "${b}^{commit}" 2>/dev/null) || { echo "reuse-metrics: --range 의 base '$b' 는 이 저장소의 커밋이 아니다" >&2; return 1; }
+  RNG_HEAD=$(git -C "$rtop" rev-parse --verify --quiet "${h}^{commit}" 2>/dev/null) || { echo "reuse-metrics: --range 의 head '$h' 는 이 저장소의 커밋이 아니다" >&2; return 1; }
+  git -C "$rtop" merge-base --is-ancestor "$RNG_BASE" "$RNG_HEAD" 2>/dev/null || { echo "reuse-metrics: --range 의 base 가 head 의 조상이 아니다" >&2; return 1; }
+  return 0
+}
+
 cmd_measure() {
-  local fid="${1:-}"
+  local fid="${1:-}" rng="" range_head=""; [ "$#" -gt 0 ] && shift
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --range) [ "$#" -ge 2 ] || { echo "reuse-metrics: --range 에 값이 없다 (<base>..<head>)" >&2; return 2; }; rng="$2"; shift 2 ;;
+      *) echo "reuse-metrics: 알 수 없는 인자: '$1'" >&2; return 2 ;;
+    esac
+  done
   printf '%s' "$fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || { echo "reuse-metrics: FID 형식 오류: '$fid'" >&2; return 2; }
   [ -d "$SPECOPS/$fid" ] || { echo "reuse-metrics: FID 디렉터리 없음: $SPECOPS/$fid" >&2; return 2; }
+  if [ -n "$rng" ]; then _range_validate "$rng" || return 2; fi
   local out="$SPECOPS/$fid/reuse-metrics.json" tmp otmp
   otmp="$out.tmp.$$"      # 기록은 같은 디렉터리의 이 파일에 쓴 뒤 mv 로 바꾼다(아래 「기록」)
   tmp=$(mktemp -d "${TMPDIR:-/tmp}/specops-reuse.XXXXXX") || { echo "reuse-metrics: 임시 디렉터리 생성 실패" >&2; return 0; }
@@ -63,16 +86,21 @@ cmd_measure() {
   ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   top=$(git rev-parse --show-toplevel 2>/dev/null || true)
   _git() { git -C "$top" -c core.quotePath=false "$@"; }
+  _code_exists() { if [ -n "$range_head" ]; then _git cat-file -e "$range_head:$1" 2>/dev/null; else [ -f "$top/$1" ]; fi; }   # 범위 모드는 작업 트리가 아니라 head 커밋 기준
   if [ -n "$top" ]; then
     head=$(_git rev-parse HEAD 2>/dev/null || true)
-    local rb="$SPECOPS/$fid/review-base.sha" cand=""
-    if [ -s "$rb" ]; then cand=$(tr -d ' \n\r' < "$rb"); _git cat-file -e "${cand}^{commit}" 2>/dev/null && { base="$cand"; base_src="review-base.sha"; }; fi
-    if [ -z "$base" ]; then
-      local b
-      b=$(_git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)
-      [ -n "$b" ] || { _git show-ref -q --verify refs/heads/main && b=main; }
-      [ -n "$b" ] || { _git show-ref -q --verify refs/heads/master && b=master; }
-      if [ -n "$b" ]; then base=$(_git merge-base HEAD "$b" 2>/dev/null || true); [ -n "$base" ] && base_src="merge-base($b)"; fi
+    if [ -n "$rng" ]; then
+      base="$RNG_BASE"; head="$RNG_HEAD"; range_head="$RNG_HEAD"; base_src="range"
+    else
+      local rb="$SPECOPS/$fid/review-base.sha" cand=""
+      if [ -s "$rb" ]; then cand=$(tr -d ' \n\r' < "$rb"); _git cat-file -e "${cand}^{commit}" 2>/dev/null && { base="$cand"; base_src="review-base.sha"; }; fi
+      if [ -z "$base" ]; then
+        local b
+        b=$(_git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)
+        [ -n "$b" ] || { _git show-ref -q --verify refs/heads/main && b=main; }
+        [ -n "$b" ] || { _git show-ref -q --verify refs/heads/master && b=master; }
+        if [ -n "$b" ]; then base=$(_git merge-base HEAD "$b" 2>/dev/null || true); [ -n "$base" ] && base_src="merge-base($b)"; fi
+      fi
     fi
     [ -n "$base" ] || base_reason="분기점을 구할 수 없음(review-base.sha·기본 브랜치 origin/HEAD·main·master 부재 또는 공통 조상 없음)"
   else
@@ -94,7 +122,7 @@ cmd_measure() {
     local a d p expa=0     # expa = 코드 경로 목록에 넣은 파일들의 추가 줄 합(아래 자기 점검의 기대값)
     # 파일로 받고 종료 코드를 따로 받는다 — 프로세스 치환·파이프는 git 의 실패를 "변경 없음"으로 읽게 만든다.
     local nrc=0
-    _git diff --no-ext-diff --no-textconv --numstat -z --no-renames "$base" > "$tmp/numstat.z" 2>/dev/null || nrc=$?
+    _git diff --no-ext-diff --no-textconv --numstat -z --no-renames "$base" ${range_head:+"$range_head"} > "$tmp/numstat.z" 2>/dev/null || nrc=$?
     while IFS=$'\t' read -r -d '' a d p; do
       [ -n "$p" ] || continue
       if _is_generated "$p"; then ngen=$((ngen + 1)); continue; fi
@@ -103,7 +131,7 @@ cmd_measure() {
       case "$d" in ''|*[!0-9]*) d=0 ;; esac
       if command -v fc::is_doc >/dev/null 2>&1 && fc::is_doc "$p" "$plugin_rc"; then da=$((da + a)); dd=$((dd + d)); continue; fi
       if _is_test_path "$p"; then ta=$((ta + a)); td=$((td + d)); else ia=$((ia + a)); id_=$((id_ + d)); fi
-      if [ -f "$top/$p" ]; then
+      if _code_exists "$p"; then
         printf '%s\n' "$p" >> "$tmp/code.paths"; expa=$((expa + a)); ncode=$((ncode + 1))
         if _is_test_path "$p"; then printf '%s\n' "$p" >> "$tmp/test.paths"; fi
       fi
@@ -131,7 +159,7 @@ cmd_measure() {
     else
       # diff 는 파일로 받고 git·awk 의 종료 코드를 각각 받는다(파이프면 git 의 실패가 "줄 없음"으로 읽힌다). awk 는 바이트 기준(LC_ALL=C).
       local drc=0 xrc=0
-      _git diff --no-ext-diff --no-textconv -U0 --no-color --no-renames --src-prefix=a/ --dst-prefix=b/ "$base" > "$tmp/diff.txt" 2>/dev/null || drc=$?
+      _git diff --no-ext-diff --no-textconv -U0 --no-color --no-renames --src-prefix=a/ --dst-prefix=b/ "$base" ${range_head:+"$range_head"} > "$tmp/diff.txt" 2>/dev/null || drc=$?
       LC_ALL=C awk -v OUTA="$tmp/added.txt" -v OUTD="$tmp/removed.txt" -v LIST="$tmp/code.paths" -v TLIST="$tmp/test.paths" '
         BEGIN { while ((getline q < LIST) > 0) want[q] = 1; while ((getline q < TLIST) > 0) tst[q] = 1 }
         /^diff --git /  { on = 0; hdr = 1; next }
@@ -302,7 +330,8 @@ EOF_RES
 
   # ── jscpd (있을 때만, 추가 기록) ──
   local j_status=not_applicable j_reason="jscpd 미설치" j_lines="" j_dup=""
-  if command -v jscpd >/dev/null 2>&1; then
+  if [ -n "$range_head" ]; then j_reason="범위 재측정(--range) — 작업 트리가 그 커밋이 아니라 파일 단위 도구를 쓸 수 없음"
+  elif command -v jscpd >/dev/null 2>&1; then
     j_status=not_measured
     if [ "$added_ok" != 1 ]; then j_reason="$added_reason"
     elif [ "$ncode" -eq 0 ]; then j_status=measured; j_reason=""; j_lines=0; j_dup=0
@@ -468,5 +497,5 @@ cmd_report() {
 case "${1:-}" in
   measure) shift; cmd_measure "$@"; exit $? ;;
   report)  shift; cmd_report "$@"; exit $? ;;
-  *) echo "usage: reuse-metrics.sh measure <FID> | report [.specops 경로]" >&2; exit 2 ;;
+  *) echo "usage: reuse-metrics.sh measure <FID> [--range <base>..<head>] | report [.specops 경로]" >&2; exit 2 ;;
 esac

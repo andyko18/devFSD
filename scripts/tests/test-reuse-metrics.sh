@@ -481,4 +481,29 @@ commit_all "$R"
 [ "$(J "$R" '[.dup.new_lines,.dup.import_excluded]|map(tostring)|join(",")')" = "7,11" ] \
   && ok "R9.d Go 블록 · Rust use · C #include · 셸 source · Java import · JS require 도 import 로 빠진다 → 새 코드 7 · import 11" || nope "R9.d" "$(J "$R" '.dup')"
 
+# ── R10: 합쳐진 FID 를 기록된 분기점·머리로 다시 잰다 (FID 20261017-reuse-meter-fix · AC-5) ──
+R=$(mk_repo); BASE0=$(cd "$R" && git rev-parse HEAD)
+{ echo "def a():"; blk new; echo "def b():"; blk new; } > "$R/src/m.py"; printf 'x = 1\n' > "$R/tests/test_m.py"; commit_all "$R"
+HEAD0=$(cd "$R" && git rev-parse HEAD)
+( cd "$R" && git checkout -q main && git merge -q --no-ff "feat/$FID" -m merge ) >/dev/null 2>&1
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.size.status')" = not_measured ] && J "$R" '.size.reason' | grep -q '변경 범위가 비었음'; } \
+  && ok "R10.a 합쳐진 뒤 인자 없는 measure 는 종전대로 not_measured(변경 범위가 비었음)" || nope "R10.a" "$(J "$R" '.size')"
+rm -f "$R/src/m.py"; printf 'wip = 1\n' > "$R/src/wip.py"; ( cd "$R" && git add src/wip.py ) >/dev/null 2>&1      # 미커밋 오염 — 추적 파일 삭제 + 스테이징된 새 파일
+out=$( cd "$R" && bash "$RM" measure "$FID" --range "$BASE0..$HEAD0" 2>&1 ); rc=$?
+{ [ "$rc" = 0 ] && [ "$(J "$R" '.size.status')" = measured ] && [ "$(J "$R" '.base_source')" = range ] && [ "$(J "$R" '.base')" = "$BASE0" ] && [ "$(J "$R" '.head')" = "$HEAD0" ] \
+  && [ "$(J "$R" '[.size.impl.added,.size.test.added]|join(",")')" = "18,1" ] && [ "$(J "$R" '[.dup.new_lines,.dup.dup_within_new]|join(",")')" = "19,16" ] \
+  && [ "$(J "$R" '.jscpd.status')" = not_applicable ]; } \
+  && ok "R10.b --range: 기록된 base..head 로 잰다(구현 +18 · 테스트 +1 · 새끼리 복제 16) — 미커밋 삭제·스테이징 파일은 수치에 들어가지 않는다 · base_source=range · jscpd 해당없음" \
+  || nope "R10.b" "rc=$rc out=$out $(cat "$R/.specops/$FID/reuse-metrics.json" 2>/dev/null)"
+cp "$R/.specops/$FID/reuse-metrics.json" "$ROOT/rec.before"
+bad=""
+for spec in "notarange" "1111111..2222222" "$HEAD0..$BASE0" "$BASE0..$HEAD0..$HEAD0" "-x..$HEAD0"; do
+  ( cd "$R" && bash "$RM" measure "$FID" --range "$spec" ) >/dev/null 2>"$ROOT/rng.err"; r=$?
+  { [ "$r" = 2 ] && [ -s "$ROOT/rng.err" ] && cmp -s "$R/.specops/$FID/reuse-metrics.json" "$ROOT/rec.before"; } || bad="$bad [$spec rc=$r]"
+done
+( cd "$R" && bash "$RM" measure "$FID" --range ) >/dev/null 2>&1; r=$?; [ "$r" = 2 ] || bad="$bad [값 없음 rc=$r]"
+[ -z "$bad" ] \
+  && ok "R10.c 잘못된 범위(형식 오류·없는 SHA·base 가 head 의 조상이 아님·'..' 중복·'-' 로 시작·값 없음)는 rc 2·사유 출력이고 기존 기록은 바이트 그대로다" || nope "R10.c" "$bad"
+
 finish

@@ -474,18 +474,19 @@ cmd_report() {
     if [ -f "$d/reuse-metrics.json" ]; then n=$((n + 1)); else miss=$((miss + 1)); fi
   done
   if [ "$n" -eq 0 ]; then echo "reuse-metrics: 기록 없음 (reuse-metrics.json 0건 · 기록 없는 FID ${miss}개)"; return 0; fi
-  printf '%s\n' "FID | 구현 +/- | 테스트 +/- | 새 코드 줄 | 복제(새 코드끼리) | 복제(기존 코드) | jscpd | 재사용 이행"
+  printf '%s\n' "FID | 구현 +/- | 테스트 +/- | 새 코드 줄(구현/테스트) | 복제(새 코드끼리)(구현/테스트) | 복제(기존 코드)(구현/테스트) | jscpd | 재사용 이행"
   printf '%s\n' "--- | --- | --- | --- | --- | --- | --- | ---"
   for f in "$root"/*/reuse-metrics.json; do
     [ -f "$f" ] || continue
     jq -r '
       def st(s; v): if s.status == "measured" then v elif s.status == "not_applicable" then "해당없음" else "미측정(" + (s.reason // "") + ")" end;
+      def v2: ((.schema_version // 1) >= 2);
       [ .fid,
         st(.size; "+\(.size.impl.added)/-\(.size.impl.deleted)"),
         st(.size; "+\(.size.test.added)/-\(.size.test.deleted)"),
-        st(.dup; "\(.dup.new_lines)"),
-        st(.dup; "\(.dup.dup_within_new) [builtin]"),
-        st(.dup.existing; "\(.dup.existing.dup_of_existing) [builtin]"),
+        st(.dup; if v2 then "\(.dup.impl.new_lines)/\(.dup.test.new_lines)" else "\(.dup.new_lines) [v1 합산]" end),
+        st(.dup; if v2 then "\(.dup.impl.dup_within_new)/\(.dup.test.dup_within_new) [builtin]" else "\(.dup.dup_within_new) [v1 합산]" end),
+        st(.dup.existing; if v2 then "\(.dup.impl.existing.dup_of_existing)/\(.dup.test.existing.dup_of_existing) [builtin]" else "\(.dup.existing.dup_of_existing) [v1 합산]" end),
         st(.jscpd; "\(.jscpd.duplicated_lines)/\(.jscpd.lines) [jscpd]"),
         st(.reuse; "\(.reuse.fulfilled)/\(.reuse.declared)")
       ] | join(" | ")' "$f" 2>/dev/null || echo "$(basename "$(dirname "$f")") | (읽을 수 없는 기록)"

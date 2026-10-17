@@ -286,7 +286,7 @@ R3=$(mk_repo); { echo "def a():"; blk new; echo "def b():"; blk new; } > "$R3/sr
 cp "$R3/.specops/$FID/reuse-metrics.json" "$T/20260103-ccc/reuse-metrics.json"
 rep=$(bash "$RM" report "$T" 2>&1); rrc=$?
 { [ "$rrc" = 0 ] && [ "$(printf '%s\n' "$rep" | grep -c '^2026')" = 3 ] && printf '%s\n' "$rep" | grep -q '미측정(' && printf '%s\n' "$rep" | grep -q '해당없음' \
-  && printf '%s\n' "$rep" | grep -q '16 \[builtin\]' && printf '%s\n' "$rep" | grep -q '기록 없는 FID 1개' && ! printf '%s\n' "$rep" | grep -q 'norecord |'; } \
+  && printf '%s\n' "$rep" | grep -q '16/0 \[builtin\]' && printf '%s\n' "$rep" | grep -q '기록 없는 FID 1개' && ! printf '%s\n' "$rep" | grep -q 'norecord |'; } \
   && ok "R5.a report: 기록 있는 3개가 한 줄씩 · 미측정·해당없음이 숫자와 구별 · 방식 표기 · 기록 없는 FID 는 건수만" || nope "R5.a" "rc=$rrc rep=$rep"
 E="$ROOT/empty"; mkdir -p "$E/20260101-zzz"
 rep=$(bash "$RM" report "$E" 2>&1); rrc=$?
@@ -505,5 +505,22 @@ done
 ( cd "$R" && bash "$RM" measure "$FID" --range ) >/dev/null 2>&1; r=$?; [ "$r" = 2 ] || bad="$bad [값 없음 rc=$r]"
 [ -z "$bad" ] \
   && ok "R10.c 잘못된 범위(형식 오류·없는 SHA·base 가 head 의 조상이 아님·'..' 중복·'-' 로 시작·값 없음)는 rc 2·사유 출력이고 기존 기록은 바이트 그대로다" || nope "R10.c" "$bad"
+
+# ── R11: report 가 v2 분리 열과 v1 합산을 함께 보인다 (FID 20261017-reuse-meter-fix · AC-6) ──
+T3d="$ROOT/tree3"; mkdir -p "$T3d/20260201-v2" "$T3d/20260202-v1" "$T3d/20260203-bad"
+jq '.fid="20260201-v2"' "$ROOT/v2.json" > "$T3d/20260201-v2/reuse-metrics.json"      # report 의 첫 열은 디렉터리 이름이 아니라 기록 안의 .fid 다
+printf '{"schema_version":1,"fid":"20260202-v1","ts":"2026-10-01T00:00:00Z","base":"abc","base_source":"merge-base(main)","head":"def",\n "size":{"status":"measured","reason":"","files":2,"generated_skipped":0,"impl":{"added":10,"deleted":1},"test":{"added":5,"deleted":0},"doc":{"added":0,"deleted":0}},\n "dup":{"status":"measured","reason":"","method":"builtin","window":6,"new_lines":15,"dup_within_new":6,"existing":{"status":"measured","reason":"","dup_of_existing":3,"corpus_files":2}},\n "jscpd":{"status":"not_applicable","reason":"jscpd 미설치","lines":null,"duplicated_lines":null},\n "reuse":{"status":"measured","reason":"","declared":2,"fulfilled":1}}\n' > "$T3d/20260202-v1/reuse-metrics.json"
+echo '{not json' > "$T3d/20260203-bad/reuse-metrics.json"
+rep=$(bash "$RM" report "$T3d" 2>&1); rrc=$?
+v2row=$(printf '%s\n' "$rep" | grep '^20260201-v2'); v1row=$(printf '%s\n' "$rep" | grep '^20260202-v1')
+{ [ "$rrc" = 0 ] && printf '%s' "$v2row" | grep -q '36/25' && printf '%s' "$v2row" | grep -q '24/16 \[builtin\]' && printf '%s' "$v2row" | grep -q '8/6 \[builtin\]' \
+  && ! printf '%s' "$v2row" | grep -q 'v1 합산'; } \
+  && ok "R11.a v2 기록: 새 코드 줄 36/25 · 복제(새 코드끼리) 24/16 · 복제(기존 코드) 8/6 — 구현/테스트로 나눠 보인다" || nope "R11.a" "rc=$rrc row=$v2row"
+{ printf '%s' "$v1row" | grep -q '15 \[v1 합산\]' && printf '%s' "$v1row" | grep -q '6 \[v1 합산\]' && printf '%s' "$v1row" | grep -q '3 \[v1 합산\]' \
+  && ! printf '%s' "$v1row" | grep -q 'null'; } \
+  && ok "R11.b v1 기록: 합산 값 뒤에 [v1 합산] 표지 — null/null 로 읽지 않는다" || nope "R11.b" "row=$v1row"
+cols=$(printf '%s\n' "$rep" | grep -E '^20260(201|202)' | awk -F' [|] ' '{print NF}' | sort -u | tr '\n' ' ')
+{ printf '%s\n' "$rep" | grep -q '20260203-bad.*읽을 수 없는 기록' && [ "$cols" = "8 " ]; } \
+  && ok "R11.c 읽을 수 없는 기록은 종전 문구 · v1·v2 행의 열 수는 머리와 같다(8)" || nope "R11.c" "cols=$cols rep=$rep"
 
 finish

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.24.4] — 2026-10-17
+
 ### Fixed
 
 - reuse-metrics: 재사용 이행이 백틱 없는 선언·파이썬 import(점 표기·from 부모 import 잎)를 읽고 구현 줄만 대조한다(분기점에 있던 선언 모듈 파일을 고친 변경도 이행 — 새로 만든 파일은 아님) · 복제는 import 줄을 빼고 구현/테스트로 나눠 센다(schema 2 · 옛 기록은 report 에 (v1)). 계기: Argus 12 FID 첫 판독에서 재사용 0/N 4건이 측정기 결함
@@ -3313,7 +3315,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.24.3...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.24.4...HEAD
+[2.24.4]: https://github.com/andyko18/specops-ko/compare/v2.24.3...v2.24.4
 [2.24.3]: https://github.com/andyko18/specops-ko/compare/v2.24.2...v2.24.3
 [2.24.2]: https://github.com/andyko18/specops-ko/compare/v2.24.1...v2.24.2
 [2.24.1]: https://github.com/andyko18/specops-ko/compare/v2.24.0...v2.24.1

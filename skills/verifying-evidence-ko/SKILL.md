@@ -211,7 +211,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - **판정 SoT = `scripts/_internal/check-foundation-manifest.sh`** (20260806 기계화). `run-verification.sh` 가 자동 호출하므로 **본 체크리스트는 결과 확인용**이다 — 모델이 이 절을 건너뛰어도 게이트는 발화한다. 종전엔 산문뿐이라(구현 0곳) **침묵 무발동을 막으려는 게이트 자체가 침묵 무발동**이었다.
   - **FAIL 조건**: 파일 부재 **또는** 템플릿 placeholder 잔존(미채움) → `VERIFY: FAIL foundation-manifest 미산출` (stderr) + 완료 주장 차단. 채움 판정은 placeholder SoT(`scan-enrich-placeholders.sh`)를 재사용한다 — 구 판정 `grep -q '<경로>'` 는 **단일 토큰**이라 경로만 채우고 `<설명>`·`<import 예시>`·`<확정된 프레임워크>` 가 전부 남아도 통과했다.
   - **근거**: 소비측 재사용 게이트(`decomposing-ko`)는 이 파일 **존재를 전제**로만 발동한다. 생산은 `planning-ko` 산문 지시뿐(강제 evaluator 부재)이라, verify 가 실제 산출물을 확인하지 않으면 manifest 누락 시 후속 `/start` 재사용 게이트가 **침묵 무발동(no-op)** 한다. 본 게이트가 **Mode1(manifest 태스크 누락)·Mode2(태스크 존재하나 파일 미작성)** 를 모두 차단 → implementing **후** 실제 파일을 검사하는 유일 지점이므로 소비 게이트를 무접촉으로 transitively 건전화한다.
-- [ ] **구조 규칙 판정 명령 (경고 — 헌법에 판정 `명령` 규칙이 있을 때)**: `run-verification.sh` 가 `check-rule-commands.sh` 로 실행하고 결과를 evidence.md `### structure-rule-commands` 에 남긴다. `FAIL`·`판정 불가`·`TIMEOUT`·`SKIP` 줄이 있으면 사용자에게 그대로 보고한다 — 차단하지 않는다(판정은 테스트 결과만). `SKIP` 은 허용 형식 밖이라 실행하지 않은 것이지 지킨 것이 아니고, `판정 불가` 는 도구·환경이 없어 확인하지 못한 것이지 위반이 아니다.
+- [ ] **구조 규칙 판정 명령 (헌법에 판정 `명령` 규칙이 있을 때)**: `run-verification.sh` 가 `check-rule-commands.sh` 로 실행하고 결과를 evidence.md `### structure-rule-commands` 에 남긴다. 위반(`FAIL`)은 `VERIFY: FAIL structure-rule-commands` 로 검증을 막는다 — 코드를 고치거나, 규칙이 틀렸으면 사용자에게 알린다(헌법을 스스로 고치지 않는다). `판정 불가`·`TIMEOUT`·`SKIP` 은 경고로 보고한다(`판정 불가` 는 도구·환경이 없어 확인하지 못한 것 — 위반 아님).
 - [ ] `.specops/<FID>/evidence.md`에 출력 캡처 (`run-verification.sh` 가 자동 append)
 
 ## 5원칙 주입 (specops-ko 고유)

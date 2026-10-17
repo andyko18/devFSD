@@ -342,12 +342,13 @@ if [ -f "$FND_SH" ]; then
   fi
 fi
 
-# 헌법 구조 규칙의 판정 명령 (경고 전용 — 20261015-verify-rule-commands).
-#   판정·종료 코드에 넣지 않는다 — all_pass·failed 를 건드리지 않는다. 차단 승급은 오탐 관측 뒤 따로 정한다.
+# 헌법 구조 규칙의 판정 명령 (20261015-verify-rule-commands · 위반 차단 20261017-rule-commands-block).
+#   위반(FAIL)만 판정에 넣는다 — 판정 불가·TIMEOUT·SKIP·검사기 판정 불가(rc 2)·요약 해석 실패는 경고로만 둔다(환경 문제로 정상 작업을 멈추지 않는다).
 #   실행 범위는 위 테스트 명령과 같은 허용 형식뿐이다(검사 스크립트가 이 파일의 _WHITELIST_PAT 줄을 읽는다).
 #   테스트 명령 0건(NOT_RUN)처럼 위에서 먼저 끝나는 경로에서는 이 블록에 닿지 않는다 — 판정과 무관한 관측이라 의도한 범위다.
 RULECMD_SH="$PLUGIN/scripts/_internal/check-rule-commands.sh"
 rulecmd_ec=0
+rulecmd_fail=0
 if [ -f "$RULECMD_SH" ]; then
   rulecmd_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bash "$RULECMD_SH"; } 2>&1 ); rulecmd_ec=$?
 else
@@ -361,7 +362,17 @@ fi
   echo ""
 } >> "$EVIDENCE"
 if [ "$rulecmd_ec" -eq 1 ]; then
-  echo "WARN: 구조 규칙 판정 명령 — 위반·판정 불가·시간 초과·실행 안 함이 있다 (차단 아님 · evidence.md ### structure-rule-commands)" >&2
+  # 요약 줄의 위반 수 — 못 읽으면 위반으로 몰지 않는다(빈 값 → 경고만)
+  rulecmd_fail=$(printf '%s\n' "$rulecmd_out" | sed -n 's/^RULE-COMMANDS: PASS [0-9][0-9]* · FAIL \([0-9][0-9]*\) · .*/\1/p' | head -1)
+  case "$rulecmd_fail" in ''|*[!0-9]*) rulecmd_fail=0 ;; esac
+  if [ "$rulecmd_fail" -gt 0 ]; then
+    all_pass=0
+    failed=$((failed + 1))
+    _mat_reason structure-rule-commands "$rulecmd_out"
+    echo "VERIFY: FAIL structure-rule-commands (위반 ${rulecmd_fail}건 — 헌법 구조 규칙 · evidence.md ### structure-rule-commands)" >&2
+  else
+    echo "WARN: 구조 규칙 판정 명령 — 판정 불가·시간 초과·실행 안 함이 있다 (위반 0건 — 차단 아님 · evidence.md ### structure-rule-commands)" >&2
+  fi
   # 규칙마다 결과 줄과 명령 출력 앞 3줄만 — 전체는 evidence.md 에 있다
   printf '%s\n' "$rulecmd_out" | awk '/^RULE-COMMANDS:/ { print; next } /^RULE / { show = ($0 !~ /: PASS$/); n = 0; if (show) print; next } /^  / { if (show && n < 3) print; n++ }' >&2
 elif [ "$rulecmd_ec" -ne 0 ]; then

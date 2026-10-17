@@ -310,17 +310,32 @@ cmd_measure() {
         [ "$g" -le 1 ] || r_err="토큰 추출 grep rc=${g}"
         tr -d '`' < "$tmp/tok.raw" > "$tmp/tok" 2>/dev/null
       }
+      # 평문 선언 — 백틱이 없을 때 값에서 경로·점 표기 모양의 ASCII 토큰만 뽑는다($1 파일 → $tmp/tok). 비ASCII 바이트(한글·'·'·'—')와 공백·괄호·쉼표·세미콜론은 구분자다.
+      #   토큰 조건: 영문자를 가지고 '/' 가 있거나, 양쪽이 2자 이상인 점 표기(clock.KST). 앞의 './'·점·하이픈과 끝의 점·하이픈·슬래시는 뗀다.
+      _plain_toks() {
+        local g=0
+        LC_ALL=C awk '
+          {
+            n = split($0, part, "[^A-Za-z0-9_./-]+")
+            for (i = 1; i <= n; i++) {
+              t = part[i]; sub("^[.]/", "", t); sub("^[.-]+", "", t); sub("[./-]+$", "", t)
+              if (t ~ "[A-Za-z]" && (index(t, "/") > 0 || t ~ "^[A-Za-z_][A-Za-z0-9_]+[.][A-Za-z0-9_][A-Za-z0-9_]+$")) print t
+            }
+          }' "$1" > "$tmp/tok" 2>/dev/null || g=$?
+        [ "$g" -eq 0 ] || r_err="평문 토큰 추출 awk rc=${g}"
+      }
       while IFS= read -r line; do
         case "$line" in *"|재사용 foundation|"*) ;; *) continue ;; esac
         declared=$((declared + 1)); val=${line#*|재사용 foundation|}; hit=0
         # 근거 토큰: 선언의 백틱 표기 → 없으면 manifest 표에서 선언에 모듈 이름이 나온 행의 백틱 표기
         printf '%s\n' "$val" > "$tmp/val"; _toks "$tmp/val"
+        [ -s "$tmp/tok" ] || _plain_toks "$tmp/val"
         if [ ! -s "$tmp/tok" ]; then
-          LC_ALL=C awk -F'|' -v V="$val" 'NF >= 3 { m = $2; gsub(/^[ \t]+|[ \t]+$/, "", m); if (m != "" && m !~ /^-+$/ && index(V, m) > 0) print }' "$manifest" \
+          LC_ALL=C awk -F'|' -v V="$val" 'NF >= 3 { m = $2; gsub(/`/, "", m); gsub(/^[ \t]+|[ \t]+$/, "", m); if (m != "" && m !~ /^-+$/ && index(V, m) > 0) print }' "$manifest" \
             > "$tmp/mrows" 2>/dev/null || r_err="manifest 행 조회 awk rc=$?"
           _toks "$tmp/mrows"
         fi
-        # 바늘: 토큰 그대로 · 확장자를 뗀 경로(import 는 확장자를 안 쓴다) · 파일 이름(4자 이상).
+        # 바늘: 토큰 그대로 · 확장자를 뗀 경로(import 는 확장자를 안 쓴다) · `/` 를 `.` 로 바꾼 점 표기 · 파일 이름(3자 이상).
         #   **식별자 경계**에서만 맞춘다 — `index` 가 `indexOf` 에, `dates` 가 `updates` 에 맞으면 안 된다.
         while IFS= read -r tok; do
           [ "${#tok}" -ge 3 ] || continue
@@ -339,7 +354,8 @@ cmd_measure() {
               BEGIN {
                 n = 0; nd[++n] = T
                 p = T; sub(/\.[A-Za-z0-9]+$/, "", p); if (p != T && length(p) >= 3) nd[++n] = p
-                b = p; sub(/.*\//, "", b); if (b != p && length(b) >= 4) nd[++n] = b
+                if (index(p, "/") > 0) { d = p; gsub(/\//, ".", d); if (length(d) >= 3) nd[++n] = d }
+                b = p; sub(/.*\//, "", b); if (b != p && length(b) >= 3) nd[++n] = b
               }
               { for (k = 1; k <= n; k++) if (has($0, nd[k])) { found = 1; exit } }
               END { exit(found ? 0 : 1) }' "$tmp/added.plain" 2>/dev/null || arc=$?

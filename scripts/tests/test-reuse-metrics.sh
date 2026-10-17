@@ -387,4 +387,47 @@ q_tmp=$(find "$QTD" -maxdepth 1 -name 'specops-reuse.*' | wc -l | tr -d ' ')
   && ok "R6.i 작은따옴표·공백이 든 절대 SPECOPS_ROOT 에서도 정리가 제 경로만 지운다 — rc 0 · 기록 생성 · 임시 0개 · 형제·cwd 표지 그대로" \
   || nope "R6.i" "rc=$rc 임시 디렉터리=${q_tmp} 기록 디렉터리=$(ls -A "$QSP/$FID" 2>/dev/null | tr '\n' ' ') 형제 표지=$([ -e "$Q/sp/keep" ] && echo 있음 || echo 지워짐) cwd 표지=$([ -e "$R/victim/keep" ] && echo 있음 || echo 지워짐)"
 
+# ── R8: 평문 선언·점 표기·짧은 파일명 (FID 20261017-reuse-meter-fix · AC-1·AC-2) ──
+mk_manifest_py() {   # Argus 와 같은 꼴 — 모듈 칸이 백틱으로 감싼 경로다
+  mkdir -p "$1/.specops/memory"
+  printf '# Foundation Manifest\n\n## 제공 모듈\n\n| 모듈 | 역할 | 재사용 방법 |\n|---|---|---|\n| `app/jobs/runner.py` | 잡 | `run_job` |\n| `app/models/entity.py` | 모델 | `upsert` |\n| `app/jobs/recorder.py` | 기록 | `record` |\n| `app/core/config.py` | 설정 | `settings` |\n| `Runner` | 러너 | `app/jobs/runner.py` |\n' > "$1/.specops/memory/foundation-manifest.md"
+}
+mk_tasks() {   # $1=저장소, 나머지=선언 값(그대로 적는다)
+  local r="$1" i=0 v; shift
+  printf '**§유형**: 신규\n' > "$r/.specops/$FID/spec.md"
+  { printf '# tasks\n'; for v in "$@"; do i=$((i + 1)); printf '\n## Task %d: t\n\n**재사용 foundation**: %s\n' "$i" "$v"; done; } > "$r/.specops/$FID/tasks.md"
+}
+RJ() { J "$1" '.reuse|[.status,.fulfilled,.declared]|map(tostring)|join("/")'; }
+R=$(mk_repo); mk_manifest_py "$R"
+mk_tasks "$R" 'app/jobs/loader.py' 'app/models/thing.py · app/jobs/sink.py' 'app/core/cfg.py (Settings) — 설정 키를 더한다'      # manifest 에 없는 경로 — 평문 분리가 유일한 길이다
+printf 'from app.jobs.loader import run_job\nfrom app.jobs.sink import record\nfrom app.core.cfg import settings\n' > "$R/src/use.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+[ "$(RJ "$R")" = "measured/3/3" ] \
+  && ok "R8.a 백틱 없는 선언 3건(평문 한 건 · '·' 로 이은 목록 · 뒤에 한글 설명) → 3/3" || nope "R8.a" "$(RJ "$R") $(J "$R" '.reuse.reason')"
+R=$(mk_repo); mk_manifest_py "$R"; mk_tasks "$R" 'app/jobs/ghost.py — 설정'
+printf '# 설정 키\nx = 1\n' > "$R/src/use.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+[ "$(RJ "$R")" = "measured/0/1" ] \
+  && ok "R8.b 선언한 모듈이 코드에 없으면 0/1 — 한글 단어('설정')는 근거가 아니다" || nope "R8.b" "$(RJ "$R")"
+R=$(mk_repo); mk_manifest_py "$R"; mk_tasks "$R" 'Runner 를 쓴다'
+printf 'from app.jobs.runner import x\n' > "$R/src/use.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+[ "$(RJ "$R")" = "measured/1/1" ] \
+  && ok "R8.c 평문 선언에 경로가 없으면 manifest 모듈 칸(백틱 제거 비교)의 행에서 근거를 얻는다 → 1/1" || nope "R8.c" "$(RJ "$R")"
+R=$(mk_repo); mk_manifest_py "$R"; mk_tasks "$R" '`app/jobs/runner.py`'
+printf 'from app.jobs.runner import x\n' > "$R/src/use.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+[ "$(RJ "$R")" = "measured/1/1" ] \
+  && ok "R8.d 같은 선언을 백틱으로 적은 종전 사례도 1/1 (점 표기 바늘이 더해져도 결과 동일)" || nope "R8.d" "$(RJ "$R")"
+R=$(mk_repo); mk_manifest_py "$R"; mk_tasks "$R" 'app/db.py' 'app/core/tls.py' 'app/jobs/base.py' 'clock.KST'
+printf 'from app.db import session\nfrom app.core import tls\ndatabase_base = 1\nnow = clock.KST\n' > "$R/src/use.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+[ "$(RJ "$R")" = "measured/3/4" ] \
+  && ok "R8.e 점 표기(app.db) · 3자 파일명(tls) · 점 표기 토큰(clock.KST)은 맞고, database_base 는 app/jobs/base.py 에 맞지 않는다 → 3/4" || nope "R8.e" "$(RJ "$R")"
+R=$(mk_repo); mk_manifest_py "$R"; mk_tasks "$R" 'app/db.py' 'app/core/tls.py'
+printf 'tls_enabled = True\nmydb = 1\n' > "$R/src/use.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+[ "$(RJ "$R")" = "measured/0/2" ] \
+  && ok "R8.f 식별자 경계: tls_enabled 는 tls 에, mydb 는 app.db 에 맞지 않는다 → 0/2" || nope "R8.f" "$(RJ "$R")"
+
 finish

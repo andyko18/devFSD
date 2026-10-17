@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.24.5] — 2026-10-17
+
 ### Added
 
 - reuse-metrics: `measure <FID> --range <base>..<head>` — 머지된 FID 를 기록된 분기점·머리 커밋으로 다시 잰다(작업 트리 무관 · 잘못된 범위는 rc 2·기록 무변경). 출처: 닫힌 PR #206
@@ -3319,7 +3321,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.24.4...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.24.5...HEAD
+[2.24.5]: https://github.com/andyko18/specops-ko/compare/v2.24.4...v2.24.5
 [2.24.4]: https://github.com/andyko18/specops-ko/compare/v2.24.3...v2.24.4
 [2.24.3]: https://github.com/andyko18/specops-ko/compare/v2.24.2...v2.24.3
 [2.24.2]: https://github.com/andyko18/specops-ko/compare/v2.24.1...v2.24.2

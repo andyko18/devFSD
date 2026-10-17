@@ -202,6 +202,27 @@ printf 'from app.jobs.pipeline import run\n' > "$R/tests/test_x.py"; commit_all 
 ( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
 { [ "$(J "$R" '.reuse.status')" = measured ] && [ "$(J "$R" '[.reuse.fulfilled,.reuse.declared]|join("/")')" = "0/3" ]; } \
   && ok "R3.i 거짓 이행 없음: clockwork·base_x 는 식별자 경계로 · 테스트 파일에만 있는 import 는 구현 재사용이 아니다 → 0/3" || nope "R3.i" "$(J "$R" '.reuse')"
+# 선언한 모듈 파일 자체를 이번 변경이 고쳤으면 이행(공통 모듈 확장) — 추가 줄에 자기 이름이 없어도. 테스트 파일은 고쳐도 재사용이 아니다.
+R=$(mk_repo); mk_py_manifest "$R"; mkdir -p "$R/frontend/components" "$R/app/core" "$R/tests"
+printf 'export const PAGE = 10\n' > "$R/frontend/components/StockSearch.tsx"
+printf 'def now():\n    return 0\n' > "$R/app/core/clock.py"
+printf 'def make():\n    return 1\n' > "$R/tests/factories.py"; commit_all "$R"
+( cd "$R" && git branch -qf main HEAD ) >/dev/null 2>&1                     # 분기점에 세 파일이 있게
+printf '**§유형**: 신규\n' > "$R/.specops/$FID/spec.md"
+printf '# tasks\n\n## Task 1: a\n\n**재사용 foundation**: `frontend/components/StockSearch.tsx`\n\n## Task 2: b\n\n**재사용 foundation**: app/core/clock.py\n\n## Task 3: c\n\n**재사용 foundation**: `tests/factories.py`\n' > "$R/.specops/$FID/tasks.md"
+printf 'export const PAGE = 20\n' > "$R/frontend/components/StockSearch.tsx"
+printf 'def make():\n    return 2\n' > "$R/tests/factories.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = measured ] && [ "$(J "$R" '[.reuse.fulfilled,.reuse.declared]|join("/")')" = "1/3" ]; } \
+  && ok "R3.j 선언한 모듈 파일을 고친 것은 이행(StockSearch.tsx) · 안 고치고 안 쓴 것(clock.py)·고친 테스트 파일(tests/factories.py)은 아니다 → 1/3" || nope "R3.j" "$(J "$R" '.reuse')"
+# 선언 경로를 이번 변경이 새로 만들었으면(분기점에 없음) 기존 모듈의 재사용이 아니다 — 고친 것만 이행이다.
+R=$(mk_repo); mk_py_manifest "$R"; mkdir -p "$R/app/core"
+printf '**§유형**: 신규\n' > "$R/.specops/$FID/spec.md"
+printf '# tasks\n\n## Task 1: a\n\n**재사용 foundation**: `app/core/newmod.py`\n' > "$R/.specops/$FID/tasks.md"
+printf 'def brand_new():\n    return 42\n' > "$R/app/core/newmod.py"; commit_all "$R"
+( cd "$R" && bash "$RM" measure "$FID" ) >/dev/null 2>&1
+{ [ "$(J "$R" '.reuse.status')" = measured ] && [ "$(J "$R" '[.reuse.fulfilled,.reuse.declared]|join("/")')" = "0/1" ]; } \
+  && ok "R3.k 선언 경로를 이번 변경이 새로 만든 것(분기점에 없는 app/core/newmod.py)은 이행이 아니다 → 0/1" || nope "R3.k" "$(J "$R" '.reuse')"
 
 # ── R4: 재지 못한 것을 0 으로 쓰지 않는다 (AC-4) ──
 NG="$ROOT/nogit"; mkdir -p "$NG/.specops/$FID"

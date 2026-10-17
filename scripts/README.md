@@ -525,7 +525,7 @@ bash scripts/reuse-metrics.sh report          # .specops/*/reuse-metrics.json �
 | `reuse` | `재사용 foundation` 선언에 적힌 경로·심볼이 추가된 코드에 나오는 건수 / 선언 건수. 식별자 경계에서만 맞춘다(`index` 는 `indexOf` 에 맞지 않는다) |
 
 - 복제는 import 줄(한 줄·괄호/중괄호 여러 줄)을 빼고, 구현·테스트를 나눠 센다 — `dup.impl`·`dup.test`·`dup.import_lines_excluded`(schema 2).
-- 재사용 이행은 구현(비테스트) 추가 줄만 본다. 백틱 없는 선언은 본문의 슬래시 경로로, 파이썬 점 표기와 `from 부모 import 잎` 도 이행으로 센다.
+- 재사용 이행은 구현(비테스트) 추가 줄만 본다. 백틱 없는 선언은 본문의 슬래시 경로로, 파이썬 점 표기와 `from 부모 import 잎` 도 이행으로 센다. 분기점에 이미 있던 선언 모듈 파일 자체를 이번 변경이 고쳤으면 이행이다(테스트 파일·이번에 새로 만든 파일 제외).
 - schema 1 기록은 `report` 에 `(v1)` 로 나온다 — 수치 정의가 달라 새 기록과 비교하지 않는다(필요하면 재측정).
 
 각 항목은 `status` 를 갖는다: `measured` · `not_measured`(사유) · `not_applicable`(사유). 값은 `measured` 일 때만 숫자이고 나머지는 `null` 이다 — 재지 못한 것을 0 으로 쓰지 않는다. `report` 는 이를 `미측정(사유)`·`해당없음` 으로 보인다.

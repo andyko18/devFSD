@@ -12,9 +12,9 @@
 #           import 줄(한 줄·괄호/중괄호 여러 줄)은 창에서 뺀다(같은 모듈을 쓰면 같은 줄이 된다 — 건수는 import_lines_excluded). 구현·테스트를 나눠 센다(dup.impl·dup.test).
 #   jscpd — jscpd 가 PATH 에 있을 때만 그 수치를 추가로 기록한다(파일 전체·토큰 기반 — dup 과 서로 비교하지 않는다).
 #   reuse — check-foundation-reuse.sh --declarations 의 `재사용 foundation` 선언에 적힌 경로·심볼(백틱 없는 선언은 본문의 슬래시 경로, 파이썬 점 표기·from 부모 import 잎 포함)이
-#           구현(비테스트) 추가 줄에 나오는 건수 / 선언 건수.
+#           구현(비테스트) 추가 줄에 나오는 건수 / 선언 건수. 분기점에 있던 선언 모듈 파일 자체를 이번 변경이 고쳤으면 이행(테스트 파일·새로 만든 파일 제외).
 # 분기점: .specops/<FID>/review-base.sha 가 있으면 그것(/start-all batch 는 한 브랜치에 FR 여럿 — FR 의 시작점), 없으면 기본 브랜치와의 merge-base.
-# 한계: 자체 방식은 이름만 바꾼 복제를 못 잡는다. reuse 는 "선언한 이름이 코드에 나오는가" 라 근사치다(간접 사용은 못 본다).
+# 한계: 자체 방식은 이름만 바꾼 복제를 못 잡는다. reuse 는 "선언한 이름이 코드에 나오는가 · 또는 선언한 기존 파일을 고쳤는가" 라 근사치다(간접 사용은 못 본다).
 #       추적하지 않는 새 파일은 대상이 아니다. 임계값 판정은 하지 않는다.
 set -u
 
@@ -322,6 +322,16 @@ cmd_measure() {
       local line val tok hit arc g2 r_err=""
       # 대조 대상은 구현(비테스트) 추가 줄만 — 테스트가 모듈을 import 하는 것은 재사용이 아니다.
       LC_ALL=C awk '/^F/ { t = ($0 == "F\tT"); next } /^L\t/ && !t { print substr($0, 3) }' "$tmp/added.txt" > "$tmp/added.plain" 2>/dev/null || r_err="추가된 줄 변환 awk rc=$?"
+      # 이번 변경의 비테스트 코드 파일 — 선언한 모듈 파일 자체를 고쳤으면(공통 모듈 확장) 이행이다. 테스트 파일은 고쳐도 재사용이 아니다.
+      #   분기점에 이미 있던 파일을 고친 것만(--diff-filter=M) — 이번 변경이 새로 만든·옮겨 온 파일은 기존 모듈의 재사용이 아니다.
+      local ig=0 prc ptok mrc=0
+      _git diff --no-ext-diff --name-only -z --no-renames --diff-filter=M "$base" > "$tmp/mod.z" 2>/dev/null || mrc=$?
+      [ "$mrc" -eq 0 ] || r_err="수정 파일 목록 git diff rc=${mrc}"
+      tr '\0' '\n' < "$tmp/mod.z" > "$tmp/mod.paths"
+      LC_ALL=C grep -vxF -f "$tmp/test.paths" "$tmp/code.paths" > "$tmp/impl.cand" 2>/dev/null || ig=$?
+      [ "$ig" -le 1 ] || r_err="변경 파일 목록 grep rc=${ig}"
+      ig=0; LC_ALL=C grep -xF -f "$tmp/mod.paths" "$tmp/impl.cand" > "$tmp/impl.paths" 2>/dev/null || ig=$?
+      [ "$ig" -le 1 ] || r_err="수정 파일 대조 grep rc=${ig}"
       # 백틱 표기 뽑기 — $1 파일 → $tmp/tok. grep 은 rc 1(백틱 없음)이 정상 흐름이고 rc≥2 만 오류다(파이프로 이으면 둘이 구분되지 않는다).
       _toks() {
         local g=0
@@ -349,6 +359,10 @@ cmd_measure() {
         #   **식별자 경계**에서만 맞춘다 — `index` 가 `indexOf` 에, `dates` 가 `updates` 에 맞으면 안 된다.
         while IFS= read -r tok; do
           [ "${#tok}" -ge 3 ] || continue
+          ptok=${tok#./}; prc=0
+          LC_ALL=C grep -qxF -- "$ptok" "$tmp/impl.paths" 2>/dev/null || prc=$?
+          if [ "$prc" -eq 0 ]; then hit=1; break; fi
+          [ "$prc" -eq 1 ] || r_err="변경 파일 조회 grep rc=${prc}"
           arc=0
           LC_ALL=C awk -v T="$tok" '
               function isw(c) { return c ~ /[A-Za-z0-9_]/ }

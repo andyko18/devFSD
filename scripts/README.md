@@ -511,8 +511,9 @@ bash scripts/guard-map.sh --repo /path/to/repo  # 다른 repo 에 겨눈다
 FID 하나의 변경 규모·복제·재사용 선언 이행을 재서 `.specops/<FID>/reuse-metrics.json` 에 남긴다. 차단하거나 경고하지 않는다 — 재사용을 강화하는 작업이 효과가 있었는지 볼 기준선이다.
 
 ```bash
-bash scripts/reuse-metrics.sh measure <FID>   # 한 FID 측정(재측정 시 덮어씀)
-bash scripts/reuse-metrics.sh report          # .specops/*/reuse-metrics.json 을 FID 별 표로
+bash scripts/reuse-metrics.sh measure <FID>                              # 한 FID 측정(재측정 시 덮어씀)
+bash scripts/reuse-metrics.sh measure <FID> --range <base>..<head>       # 이미 합쳐진 FID 를 기록된 분기점·머리로 다시 잰다
+bash scripts/reuse-metrics.sh report                                     # .specops/*/reuse-metrics.json 을 FID 별 표로
 ```
 
 `run-verification.sh` 가 `VERIFY: PASS` 를 낸 뒤 `measure` 를 한 번 부른다. 측정이 실패하거나 스크립트가 없어도 verify 의 판정 줄과 종료 코드는 그대로다.
@@ -520,17 +521,21 @@ bash scripts/reuse-metrics.sh report          # .specops/*/reuse-metrics.json �
 | 항목 | 무엇을 재나 |
 |---|---|
 | `size` | 분기점부터 작업 트리까지 추가·삭제 줄 수 — 구현·테스트·문서로 나눈다(문서 분류는 `file-class.sh`). 삭제된 파일의 줄도 센다. lockfile·`*.min.js` 같은 생성물은 빼고 건수만 남긴다 |
-| `dup` | 추가된 코드에서 연속 6줄(앞뒤 공백 제거 후 완전 일치)이 ① 추가분 안에서 반복된 줄 수 ② 분기점 시점의 저장소에 이미 있던 줄 수. ② 는 같은 변경에서 지운 줄과 같은 창을 뺀다 — 파일 이름 변경·블록 이동·들여쓰기 변경은 복제로 세지 않는다 |
+| `dup` | 추가된 코드에서 연속 6줄(앞뒤 공백 제거 후 완전 일치)이 ① 추가분 안에서 반복된 줄 수 ② 분기점 시점의 저장소에 이미 있던 줄 수. **구현(`dup.impl`)과 테스트(`dup.test`)를 따로 센다** — 분류는 `size` 와 같다. 합계 필드(`dup.new_lines` 등)는 둘의 합이다. **import 줄(파이썬·JS/TS·Go·Java/Kotlin·Rust `use`·C `#include`·셸 `source`)은 추가분·삭제분·분기점 코퍼스에서 같은 판정으로 빼고** 뺀 줄 수를 `import_excluded` 로 남긴다. ② 는 같은 변경에서 지운 줄과 같은 창을 뺀다 — 파일 이름 변경·블록 이동·들여쓰기 변경은 복제로 세지 않는다 |
 | `jscpd` | `jscpd` 가 PATH 에 있을 때만 그 수치를 **추가로** 기록한다(파일 전체·토큰 기반이라 `dup` 과 서로 비교하지 않는다) |
-| `reuse` | `재사용 foundation` 선언에 적힌 경로·심볼이 추가된 코드에 나오는 건수 / 선언 건수. 식별자 경계에서만 맞춘다(`index` 는 `indexOf` 에 맞지 않는다) |
+| `reuse` | `재사용 foundation` 선언에 적힌 경로·심볼이 추가된 코드에 나오는 건수 / 선언 건수. **백틱이 없는 평문 선언도 읽는다**(공백·`·`·쉼표·괄호·`—` 로 나눠 ASCII 경로·점 표기 토큰만 근거로 쓰고 한글 단어는 쓰지 않는다). 바늘은 경로 그대로 · 확장자를 뗀 경로 · **점 표기(`app/jobs/base.py` → `app.jobs.base`)** · 파일 이름(**3자 이상**)이고 식별자 경계에서만 맞춘다(`index` 는 `indexOf` 에 맞지 않는다) |
 
 각 항목은 `status` 를 갖는다: `measured` · `not_measured`(사유) · `not_applicable`(사유). 값은 `measured` 일 때만 숫자이고 나머지는 `null` 이다 — 재지 못한 것을 0 으로 쓰지 않는다. `report` 는 이를 `미측정(사유)`·`해당없음` 으로 보인다.
 
 분기점은 `.specops/<FID>/review-base.sha` 가 있으면 그 커밋(`/start-all` batch 는 한 브랜치에 FR 을 여럿 쌓는다), 없으면 기본 브랜치와의 merge-base 다.
 
+`--range` 는 두 쪽이 이 저장소의 커밋이고 base 가 head 의 조상일 때만 받는다(틀리면 rc 2·기존 기록 그대로). 작업 트리와 미커밋 변경은 보지 않고(`git diff <base> <head>`) `base_source` 는 `range`, `jscpd` 는 `not_applicable` 이다. squash 로 사라진 head 는 쓸 수 없다.
+
+`report` 는 v2 기록을 구현/테스트 열로, v1 기록을 합산 값 뒤에 `[v1 합산]` 표지로 보인다.
+
 환경변수: `SPECOPS_REUSE_DUP_WINDOW`(연속 줄 수) · `SPECOPS_REUSE_MAX_FILES`(변경된 비문서 파일 수 상한 — 넘으면 `dup`·`jscpd`·`reuse` 미측정) · `SPECOPS_REUSE_MAX_TREE_FILES`·`SPECOPS_REUSE_MAX_TREE_BYTES`(분기점 트리 파일 수·바이트 합 상한, 기본 1만 개·200MB — 넘으면 분기점 코드를 읽지 않고 ② 만 미측정) · `SPECOPS_REUSE_MAX_CORPUS_LINES`(대조 코퍼스 줄 수 상한 — 넘으면 ② 만 미측정).
 
-한계: 자체 방식은 이름만 바꾼 복제를 못 잡는다. `reuse` 는 선언한 이름이 코드에 나오는지만 보는 근사치다(간접 사용은 못 본다). 추적하지 않는 새 파일은 대상이 아니다(`git add` 한 것부터 센다). 분기점과 HEAD 가 같고 작업 트리 변경도 없으면(기본 브랜치 위·합친 뒤) 0 이 아니라 `not_measured` 다 — 그때 다시 재면 앞선 기록을 덮어쓴다. 라이선스 머리말·import 묶음 같은 상투 블록도 6줄 이상 같으면 복제로 센다. verify 가 부를 때는 측정을 30초에서 끊는다 — 끊기면 기록을 남기지 않고 판정 줄·종료 코드에는 영향이 없다(직접 `measure` 를 부르면 시간 상한 없이 위 상한들이 일의 양을 묶는다). 따옴표가 든 경로처럼 추가된 줄을 다 읽지 못하면(읽은 줄 수가 변경 규모와 다르면) `dup`·`reuse` 를 `not_measured` 로 남긴다 — 깨진 심볼릭 링크는 영향이 없다(코드 경로로 세지 않는다). 문서에서 지운 줄과 같은 블록을 코드에 복사하면 이동으로 보아 기존 코드 복제에서 빠진다. 임계값 판정은 하지 않는다. `jscpd` 연동은 리포트 형식(`statistics.total.lines`·`duplicatedLines`)을 스텁으로만 검증했다 — 실 도구로는 미검증.
+한계: 자체 방식은 이름만 바꾼 복제를 못 잡는다. `reuse` 는 선언한 이름이 코드에 나오는지만 보는 근사치다(간접 사용은 못 본다). 추적하지 않는 새 파일은 대상이 아니다(`git add` 한 것부터 센다). 분기점과 HEAD 가 같고 작업 트리 변경도 없으면(기본 브랜치 위·합친 뒤) 0 이 아니라 `not_measured` 다 — 그때 다시 재면 앞선 기록을 덮어쓴다. 라이선스 머리말 같은 상투 블록은 6줄 이상 같으면 복제로 센다(import 줄은 뺀다 — 단 줄 모양으로 판정하는 근사라 문자열·주석 안의 `import` 로 시작하는 줄이나 특이하게 줄바꿈한 import 는 틀릴 수 있다). 구현/테스트 사이의 교차 복제는 세지 않는다. `base`·`utils` 같이 흔한 이름의 모듈은 파일 이름 바늘이 다른 모듈의 import 에도 맞고, 3자 파일명은 흔한 단어와 겹칠 수 있다(2자 이하는 점 표기로만 맞춘다). verify 가 부를 때는 측정을 30초에서 끊는다 — 끊기면 기록을 남기지 않고 판정 줄·종료 코드에는 영향이 없다(직접 `measure` 를 부르면 시간 상한 없이 위 상한들이 일의 양을 묶는다). 따옴표가 든 경로처럼 추가된 줄을 다 읽지 못하면(읽은 줄 수가 변경 규모와 다르면) `dup`·`reuse` 를 `not_measured` 로 남긴다 — 깨진 심볼릭 링크는 영향이 없다(코드 경로로 세지 않는다). 문서에서 지운 줄과 같은 블록을 코드에 복사하면 이동으로 보아 기존 코드 복제에서 빠진다. 임계값 판정은 하지 않는다. `jscpd` 연동은 리포트 형식(`statistics.total.lines`·`duplicatedLines`)을 스텁으로만 검증했다 — 실 도구로는 미검증.
 
 ## check-constitution-rules.sh — 헌법 「구조 규칙」 표 읽기 (읽기 전용 · 비차단)
 

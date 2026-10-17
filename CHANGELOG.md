@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.25.0] — 2026-10-18
+
 ### Changed
 
 - verify: 헌법 구조 규칙 판정 명령의 위반(FAIL)이 검증을 실패시킨다(커밋·PR 차단). 판정 불가·시간 초과·SKIP 은 경고 그대로. 끄려면 헌법에서 그 규칙의 판정을 `리뷰` 로. 근거: Argus 12 FID · 판정 60회 오탐 0.
@@ -3325,7 +3327,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.24.5...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.25.0...HEAD
+[2.25.0]: https://github.com/andyko18/specops-ko/compare/v2.24.5...v2.25.0
 [2.24.5]: https://github.com/andyko18/specops-ko/compare/v2.24.4...v2.24.5
 [2.24.4]: https://github.com/andyko18/specops-ko/compare/v2.24.3...v2.24.4
 [2.24.3]: https://github.com/andyko18/specops-ko/compare/v2.24.2...v2.24.3

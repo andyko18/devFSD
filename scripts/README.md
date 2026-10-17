@@ -512,6 +512,7 @@ FID 하나의 변경 규모·복제·재사용 선언 이행을 재서 `.specops
 
 ```bash
 bash scripts/reuse-metrics.sh measure <FID>   # 한 FID 측정(재측정 시 덮어씀)
+bash scripts/reuse-metrics.sh measure <FID> --range <base>..<head>   # 머지된 FID 를 기록된 분기점·머리로 다시 잰다(작업 트리 무관 · jscpd 제외)
 bash scripts/reuse-metrics.sh report          # .specops/*/reuse-metrics.json 을 FID 별 표로
 ```
 
@@ -529,6 +530,8 @@ bash scripts/reuse-metrics.sh report          # .specops/*/reuse-metrics.json �
 - schema 1 기록은 `report` 에 `(v1)` 로 나온다 — 수치 정의가 달라 새 기록과 비교하지 않는다(필요하면 재측정).
 
 각 항목은 `status` 를 갖는다: `measured` · `not_measured`(사유) · `not_applicable`(사유). 값은 `measured` 일 때만 숫자이고 나머지는 `null` 이다 — 재지 못한 것을 0 으로 쓰지 않는다. `report` 는 이를 `미측정(사유)`·`해당없음` 으로 보인다.
+
+- 인자 없이 머지된 FID 를 재면 범위가 비어 `not_measured` 로 덮는다 — 그때는 `--range`. 잘못된 범위·인자는 rc 2 이고 기록은 그대로다.
 
 분기점은 `.specops/<FID>/review-base.sha` 가 있으면 그 커밋(`/start-all` batch 는 한 브랜치에 FR 을 여럿 쌓는다), 없으면 기본 브랜치와의 merge-base 다.
 

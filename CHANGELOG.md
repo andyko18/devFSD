@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- reuse-metrics: `measure <FID> --range <base>..<head>` — 머지된 FID 를 기록된 분기점·머리 커밋으로 다시 잰다(작업 트리 무관 · 잘못된 범위는 rc 2·기록 무변경). 출처: 닫힌 PR #206
+
 ## [2.24.4] — 2026-10-17
 
 ### Fixed

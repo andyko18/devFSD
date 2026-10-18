@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 경계 약속 검사(`check-plan-boundary.sh`): plan 파일 목록의 `.specops/` 아래 파일(FID 측정 도구·memory 문서 등 — 제품 코드가 아님)을 `[소유 밖]` 으로 잡던 오탐을 없앴다. 근거: Argus 12 FID 중 WARN 1건(20261018-status-date-index)이 이 오탐이었다.
+
 ## [2.25.0] — 2026-10-18
 
 ### Changed

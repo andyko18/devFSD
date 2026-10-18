@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.25.1] — 2026-10-19
+
 ### Fixed
 
 - 경계 약속 검사(`check-plan-boundary.sh`): plan 파일 목록의 `.specops/` 아래 파일(FID 측정 도구·memory 문서 등 — 제품 코드가 아님)을 `[소유 밖]` 으로 잡던 오탐을 없앴다. 근거: Argus 12 FID 중 WARN 1건(20261018-status-date-index)이 이 오탐이었다.
@@ -3331,7 +3333,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.25.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.25.1...HEAD
+[2.25.1]: https://github.com/andyko18/specops-ko/compare/v2.25.0...v2.25.1
 [2.25.0]: https://github.com/andyko18/specops-ko/compare/v2.24.5...v2.25.0
 [2.24.5]: https://github.com/andyko18/specops-ko/compare/v2.24.4...v2.24.5
 [2.24.4]: https://github.com/andyko18/specops-ko/compare/v2.24.3...v2.24.4

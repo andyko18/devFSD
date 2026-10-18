@@ -8,7 +8,7 @@
 #
 # 출력 첫 줄: PLAN-BOUNDARY: OK | WARN | SKIP — 그 아래 줄은 두 칸 들여쓰기
 #   [경고] …        경계 약속 절 없음 · 칸이 비었거나 자리표시자 · 소유 칸에 백틱 경로 없음
-#   [소유 밖] <경로>  파일 구조 목록(생성·수정·삭제)의 경로가 소유 경로 밖이다 — 테스트 경로도 예외 없음
+#   [소유 밖] <경로>  파일 구조 목록(생성·수정·삭제)의 경로가 소유 경로 밖이다 — 테스트 경로도 예외 없음(`.specops/` 아래 파일만 뺀다 — FID 작업 파일·memory 문서는 제품 코드가 아니다)
 #   RULE <ID> (<적용 경로>) — <규칙> — 닿는 파일: …   헌법 구조 규칙 중 이 plan 의 파일에 닿는 것(정보 — 경고 아님)
 #   [판정 불가] …    plan 을 확인할 수 없음(끊어진 링크·들어갈 수 없는 디렉터리) · 파일 목록을 찾지 못함 · 구조 규칙 표를 읽지 못함 — "없음"으로 쓰지 않는다
 # Exit: 0 = 판정 완료(경고 포함)·SKIP · 1 = 사용 오류 · 2 = 판정 불가 항목 있음
@@ -159,6 +159,7 @@ else
   if [ -n "$owned" ]; then
     while IFS= read -r f; do
       [ -n "$f" ] || continue
+      case "$f" in .specops/*|*/.specops/*) continue ;; esac   # `.specops/` 아래(FID 작업 파일·memory 문서)는 제품 코드가 아니다
       hit=0
       while IFS= read -r o; do [ -n "$o" ] && _under "$f" "$o" && { hit=1; break; }; done <<EOF_O
 $owned

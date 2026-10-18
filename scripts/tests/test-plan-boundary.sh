@@ -236,4 +236,13 @@ chmod 755 "$ROOT/locked"
   && { [ "$(id -u)" = 0 ] || { [ "$rc2" -eq 2 ] && printf '%s\n' "$out2" | grep -q '\[판정 불가\] plan'; }; }; } \
   && ok "B12 끊어진 링크·들어갈 수 없는 디렉터리는 판정 불가 rc 2" || nope "B12" "rc=$rc1/$rc2 out1=$out1 out2=$out2"
 
+# B13: `.specops/` 아래 FID 작업 파일(상대·절대)은 제품 코드가 아니라 소유 밖으로 대조하지 않는다 — 이름만 비슷한 `.specopsx/` 는 그대로 잡는다
+#   (Argus 20261018-status-date-index: 측정 도구 `.specops/<FID>/tools/` 가 [소유 밖] 으로 WARN 된 오탐)
+P="$ROOT/b13.md"
+printf '# 플랜\n\n## 2. 파일 구조\n\n- `src/a.sh` — 본체\n- `.specops/20261018-x/tools/m.py` — 측정 도구\n- `/repo/.specops/20261018-x/tools/` — 같은 폴더(절대)\n- `.specopsx/y.sh` — 비슷한 이름\n\n### 경계 약속\n\n- **소유**: `src/`\n- **범위 밖**: 배포\n- **허용 의존**: 없음\n- **다시 검토할 조건**: 입력 형식이 늘 때\n' > "$P"
+out=$(bash "$CPB" --plan "$P" --constitution "$NOC" 2>&1); rc=$?
+{ [ "$rc" -eq 0 ] && ! printf '%s\n' "$out" | grep -q '소유 밖\] .*\.specops/' \
+  && [ "$(printf '%s\n' "$out" | grep -c '소유 밖')" -eq 1 ] && printf '%s\n' "$out" | grep -qx '  \[소유 밖\] .specopsx/y.sh'; } \
+  && ok "B13 .specops/ 아래 작업 파일은 소유 밖 대조에서 뺀다 · .specopsx/ 는 잡는다" || nope "B13" "rc=$rc out=$out"
+
 finish

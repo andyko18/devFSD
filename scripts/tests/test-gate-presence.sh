@@ -467,4 +467,15 @@ else
   nope "T-diet" "CLAUDE.md ${_cm_bytes}B (상한 29000) · governance-history 절 ${_gh_secs}/7 — 이력·근거는 docs 로"
 fi
 
+# 단일 대화형 plan 리뷰 한도 초과: Critical 0 이고 Important 를 모두 반영하면 묻지 않고 진행 · 아니면 정지 (20261019-plan-review-cap-autopass)
+SKP=skills/planning-ko/SKILL.md
+if has "$SKP" 'cap 초과 — 단일 대화형' 'Important 를 \*\*모두\*\* plan\.md 에 반영' 'dev-decision\.sh add <FID> skip' \
+     'FAIL→진행\(Critical 0' 'HARD-GATE: plan-reviewer cap 초과 — 사용자 결정 필요' '사용자가 골라야 하는 Important' \
+   && has "$SKP" '\[§auto 모드\] 와 같은 grep 으로 Critical=0' \
+   && ! grep -qE '\(재dispatch 후 재검토\) \| `HARD-GATE: plan-reviewer cap 초과' "$SKP"; then
+  ok "단일 plan 리뷰 한도 초과 — Critical 0·Important 반영이면 진행 · 기계 판정 재사용 · 아니면 정지"
+else
+  nope "단일 plan 리뷰 한도 초과" "단일 대화형 절·기계 판정·기록·정지 조건 중 빠진 것이 있다"
+fi
+
 finish

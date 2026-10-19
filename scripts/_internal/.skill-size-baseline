@@ -15,7 +15,7 @@
 {"skill":"integration-test-ko","bytes":10353,"lines":230}
 {"skill":"karpathy-ko","bytes":4444,"lines":112}
 {"skill":"performance-test-ko","bytes":14425,"lines":355}
-{"skill":"planning-ko","bytes":22001,"lines":336}
+{"skill":"planning-ko","bytes":22812,"lines":340}
 {"skill":"receiving-code-review-ko","bytes":9078,"lines":246}
 {"skill":"release-ko","bytes":3908,"lines":80}
 {"skill":"requesting-code-review-ko","bytes":8965,"lines":189}
@@ -27,5 +27,5 @@
 {"skill":"tdd-ko","bytes":13961,"lines":382}
 {"skill":"using-git-worktrees-ko","bytes":10417,"lines":294}
 {"skill":"using-specops-ko","bytes":11388,"lines":174}
-{"skill":"verifying-evidence-ko","bytes":29672,"lines":349}
-{"chain_bytes":264778,"chain_lines":3847}
+{"skill":"verifying-evidence-ko","bytes":29668,"lines":349}
+{"chain_bytes":265585,"chain_lines":3851}

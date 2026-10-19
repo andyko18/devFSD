@@ -223,7 +223,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .s
 | `PLAN-REVIEW-RESULT: FAIL` (재dispatch 후 재검토) | 아래 「cap 초과 — 단일 대화형」(`§auto` 면 [§auto 모드]) |
 
 **cap 초과 — 단일 대화형** (`§auto`·`§batch` 아님): 반환 전문을 `.specops/<FID>/plan-review.md` 에 저장하고 [§auto 모드] 와 같은 grep 으로 Critical=0 을 판정한다(눈으로 세지 않는다).
-- Critical=0 이고 남은 Important 를 **모두** plan.md 에 반영할 수 있으면 반영 후 3회차 리뷰 없이 진행 — 기록: `dev-decision.sh add <FID> skip "plan-reviewer 3회차 생략 — Important <N>건 반영" "<요지>"`(PR 직전 보고에 보인다) · dispatch-log 판정 칸 `FAIL→진행(Critical 0 · Important <N> 반영)`.
+- Critical=0 이고 남은 Important 를 **모두** plan.md 에 반영할 수 있으면 반영 후 3회차 리뷰 없이 진행 — 기록: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <FID> skip "plan-reviewer 3회차 생략 — Important <N>건 반영" "<요지>"`(PR 직전 보고에 보인다) · dispatch-log 판정 칸 `FAIL→진행(Critical 0 · Important <N> 반영)` · 비고 칸 `Critical: 0건 · Important: <N>건 반영`. 외부 critic 은 반영 **후** 1회.
 - 아니면 `HARD-GATE: plan-reviewer cap 초과 — 사용자 결정 필요` 로 중단 — Critical≥1 · `Critical:` 줄 없음 · spec·AC 변경이나 사용자가 골라야 하는 Important · 애매함.
 
 **Evaluator 모델 불가 fallback (P1 — 20260718)**: `plan-reviewer-ko`(opus 고정)도 모델 불가(한도·접근) 시 dispatch 가 실패한다. 이때 **부모 self-review 로 후퇴 금지** — 같은 `plan-reviewer-ko` 를 **독립 서브에이전트로 가용 모델 override 재dispatch**(Agent `model` 인자)해 Generator↔Evaluator 분리를 보존한다. dispatch-log 에 `plan-reviewer-ko (모델 fallback: <지정 모델> 불가 → <모델>)` 기록. 상세 규약은 `skills/implementing-ko/SKILL.md` "Evaluator 모델 불가 fallback" 참조(동일 원칙).

@@ -470,7 +470,7 @@ fi
 # 단일 대화형 plan 리뷰 한도 초과: Critical 0 이고 Important 를 모두 반영하면 묻지 않고 진행 · 아니면 정지 (20261019-plan-review-cap-autopass)
 SKP=skills/planning-ko/SKILL.md
 if has "$SKP" 'cap 초과 — 단일 대화형' 'Important 를 \*\*모두\*\* plan\.md 에 반영' 'dev-decision\.sh add <FID> skip' \
-     'FAIL→진행\(Critical 0' 'HARD-GATE: plan-reviewer cap 초과 — 사용자 결정 필요' '사용자가 골라야 하는 Important' \
+     'FAIL→진행\(Critical 0' 'HARD-GATE: plan-reviewer cap 초과 — 사용자 결정 필요' 'spec·AC 변경이나 사용자가 골라야 하는 Important · 애매함' \
    && has "$SKP" '\[§auto 모드\] 와 같은 grep 으로 Critical=0' 'Critical=0 이고 남은 Important' 'Critical≥1 · `Critical:` 줄 없음' 'CLAUDE_PLUGIN_ROOT\}"/scripts/dev-decision\.sh add <FID> skip' \
    && ! grep -qE '\(재dispatch 후 재검토\) \| `HARD-GATE: plan-reviewer cap 초과' "$SKP"; then
   ok "단일 plan 리뷰 한도 초과 — Critical 0·Important 반영이면 진행 · 기계 판정 재사용 · 아니면 정지"

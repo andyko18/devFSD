@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.26.0] — 2026-10-19
+
 ### Changed
 
 - planning: 단일 대화형에서 plan-reviewer 2회차가 Critical 0 이고 남은 Important 를 모두 반영하면 묻지 않고 진행한다(반영 내용은 PR 직전 보고의 `skip` 줄 · dispatch-log). Critical 이 남거나 판독 불가 · 사양 변경이나 사용자 선택이 필요한 지적이면 종전처럼 정지. 근거: Argus 14 FID 중 cap 정지 4건, 그중 3건이 이 상태.
@@ -3337,7 +3339,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.25.1...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.26.0...HEAD
+[2.26.0]: https://github.com/andyko18/specops-ko/compare/v2.25.1...v2.26.0
 [2.25.1]: https://github.com/andyko18/specops-ko/compare/v2.25.0...v2.25.1
 [2.25.0]: https://github.com/andyko18/specops-ko/compare/v2.24.5...v2.25.0
 [2.24.5]: https://github.com/andyko18/specops-ko/compare/v2.24.4...v2.24.5

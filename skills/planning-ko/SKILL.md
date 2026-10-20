@@ -205,6 +205,15 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .s
 - **종료 코드와 무관하게 진행한다** — 0(판정 완료·경고 포함·SKIP)도 2(판정 불가 항목 있음)도 막지 않는다. 출력은 plan-reviewer 가 `## 경계 대조` 에서 읽는다(Minor 로만).
 - 출력 줄: `[경고]`(경계 약속 절·칸) · `[소유 밖] <경로>`(파일 구조 목록이 소유 경로 밖) · `RULE <ID> …`(파일이 닿는 헌법 구조 규칙) · `[판정 불가] …`(없는 것이 아니라 확인하지 못한 것).
 
+### DB 전문가 패스 (DB 를 건드릴 때만 — 20261020)
+
+경계 대조 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조나 태스크가 **DB 산출물**(마이그레이션·SQL·스키마·ORM 모델·`data-model.md`·upsert·대량 적재 코드·테스트 DB fixture)을 만들거나 바꾸면 발동한다. 단어가 언급되기만 하고 그런 파일·태스크가 없으면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다(긴 plan 에서 DB 결함은 plan-reviewer 를 통과했다: Argus 실제 계획서 2개 0/2). `§batch` 는 제외(Phase 2 batch plan-review 몫) · `§auto` 는 그대로 부른다.
+
+- **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:db-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/data-model.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/db-expert/engines/`.
+- **반영**: 에이전트가 쓴 `.specops/<FID>/experts/db.md` 의 지적마다 plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. plan.md 가 바뀌었으면 위 `### dispatch 직전 사전검사` 와 `### 경계 대조 입력` 의 두 스크립트를 다시 실행한 뒤 plan-reviewer 를 부른다(입력은 그대로 — 전문가 파일을 넘기지 않는다).
+- **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(plan-reviewer 의 모델 불가 fallback 과 같은 원칙 — 부모가 대신 검토하지 않는다). `experts/db.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | db-expert | db-designer-ko | 산출 없음 | - |` 를 남기고 plan-reviewer 로 진행한다.
+- **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기 `reconcile-check.sh` 가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | db-expert | db-designer-ko | 반영 | experts/db.md (지적 N · 반영 N · 기각 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | db-expert | - | SKIP | DB 표면 없음 |` 1행.
+
 ### 비-batch — plan-reviewer dispatch
 
 자체 검토 통과 후 `specops-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다. 이 리뷰어는 **spec 대조 2관점(스펙 커버리지·스펙 정합) + 엔지니어링 4관점(TDD·플레이스홀더·파일경계·타입일관성)** 6관점을 fresh 시각으로 수행한다 (구 general-purpose Plan Document Reviewer 의 spec 대조 역할을 전용 Evaluator 로 흡수 — 20260723, dispatch 1회로 단일화).

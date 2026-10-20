@@ -512,7 +512,8 @@ _l_bd=$(grep -n '^### 경계 대조 입력' "$_PL" | head -1 | cut -d: -f1)
 _l_pr=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
 if [ -n "$_l_db" ] && [ -n "$_l_bd" ] && [ -n "$_l_pr" ] && [ "$_l_bd" -lt "$_l_db" ] && [ "$_l_db" -lt "$_l_pr" ] \
    && has "$_PL" 'subagent_type: "specops-ko:db-designer-ko"' 'experts/db\.md' '\| db-expert \| db-designer-ko \| 반영 \|' 'DB 산출물' 'upsert' '대량 적재' 'data-model\.md' '테스트 DB fixture' '언급되기만 하고' '## 반영' '두 스크립트를 다시 실행' '\| db-expert \| - \| SKIP \|' '가용 모델' '산출 없음' \
-   && sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -q '§batch' && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -q '| db-expert | db-designer-ko | DONE'; then
+   && sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -q '§batch' && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| db-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -oE '`\| <N> \| <ISO-8601> \| db-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
   ok "planning-ko DB 전문가 패스 — 경계 대조 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 · 기록 · batch 제외"
 else
   nope "planning-ko DB 전문가 패스" "위치(db=$_l_db bd=$_l_bd pr=$_l_pr) 또는 필수 문구 누락"

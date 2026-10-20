@@ -490,4 +490,16 @@ else
   nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
 fi
 
+# DB 전문가 엔진 지식 파일 6개 — 출처·라이선스 머리 주석 · 미대조 없음 · 규칙 5줄 이상 (20261020-db-designer-agent)
+_dbe_bad=""
+for _e in postgres mysql oracle mssql mongodb redis; do
+  _f="skills/planning-ko/db-expert/engines/$_e.md"
+  if [ ! -f "$_f" ]; then _dbe_bad="$_dbe_bad $_e(없음)"; continue; fi
+  head -1 "$_f" | grep -q 'reference_upstream:' || _dbe_bad="$_dbe_bad $_e(출처 주석)"
+  head -1 "$_f" | grep -qE 'MIT|Apache-2\.0|공식 문서' || _dbe_bad="$_dbe_bad $_e(라이선스)"
+  grep -q '미대조' "$_f" && _dbe_bad="$_dbe_bad $_e(미대조 잔존)"
+  [ "$(grep -cE '^- ' "$_f")" -ge 5 ] || _dbe_bad="$_dbe_bad $_e(규칙 5줄 미만)"
+done
+[ -z "$_dbe_bad" ] && ok "DB 전문가 엔진 파일 6개 — 출처·라이선스 · 미대조 없음 · 규칙 ≥5" || nope "DB 전문가 엔진 파일" "$_dbe_bad"
+
 finish

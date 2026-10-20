@@ -86,6 +86,7 @@ tools: Read, Grep, Glob, Bash, Write
 ## 하지 말 것
 
 - plan.md·data-model.md·spec.md 는 직접 수정하지 않는다(반영은 메인 planning 이 한다).
+- **Bash 행동계약**: Bash 는 읽기·검증(grep·ls·cat·git log·git diff)에만 쓴다. DB 에 접속하는 명령(psql·mysql·sqlcmd·mongosh·redis-cli·supabase db·마이그레이션·ORM CLI)과 파일·git 상태를 바꾸는 명령은 실행하지 않는다. Write 는 `experts/db.md` 에만 쓴다.
 - `PLAN-REVIEW-RESULT`·`Critical: <N>건` 같은 판정 줄을 쓰지 않는다(판정은 plan-reviewer 몫).
 - DB 와 무관한 지적(문서 형식·테스트 일반론)은 쓰지 않는다.
 - 근거 없는 추측 지적 금지 — 확인하지 못했으면 "확인 필요"로 적는다.

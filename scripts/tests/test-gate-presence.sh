@@ -483,7 +483,7 @@ _DBA=agents/db-designer-ko.md
 if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/db\.md` 하나뿐이다' 'db-expert/engines/' '§1 유형' '^## 받는 컨텍스트' 'data-model\.md' \
      '\*\*바인드 파라미터 상한\*\*' '\*\*created_at 보존\*\*' '\*\*키 불균일 금지\*\*' '\*\*롤백 파일 위치\*\*' '\*\*적용 태스크\*\*' '\*\*ORM 과 DDL 제약 일치\*\*' \
      '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
-     'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' \
+     'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'psql' '청크' 'migrations/' \
    && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 9건' README.md && grep -q '^| db-designer-ko' README.md; then
   ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 엔진 선택 · README 9건·모델 표"
 else

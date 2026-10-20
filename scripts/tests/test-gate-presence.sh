@@ -478,4 +478,16 @@ else
   nope "단일 plan 리뷰 한도 초과" "단일 대화형 절·기계 판정·기록·정지 조건 중 빠진 것이 있다"
 fi
 
+# DB 설계 전문가 에이전트 — opus·high · Generator(evaluator 아님) · 산출 계약(파일 하나) · 사고 11규칙(굵은 이름 앵커) · 엔진 선택 (20261020-db-designer-agent)
+_DBA=agents/db-designer-ko.md
+if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/db\.md` 하나뿐이다' 'db-expert/engines/' '§1 유형' '^## 받는 컨텍스트' 'data-model\.md' \
+     '\*\*바인드 파라미터 상한\*\*' '\*\*created_at 보존\*\*' '\*\*키 불균일 금지\*\*' '\*\*롤백 파일 위치\*\*' '\*\*적용 태스크\*\*' '\*\*ORM 과 DDL 제약 일치\*\*' \
+     '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
+     'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' \
+   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 9건' README.md && grep -q '^| db-designer-ko' README.md; then
+  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 엔진 선택 · README 9건·모델 표"
+else
+  nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
+fi
+
 finish

@@ -500,6 +500,9 @@ for _e in postgres mysql oracle mssql mongodb redis; do
   grep -q '미대조' "$_f" && _dbe_bad="$_dbe_bad $_e(미대조 잔존)"
   [ "$(grep -cE '^- ' "$_f")" -ge 5 ] || _dbe_bad="$_dbe_bad $_e(규칙 5줄 미만)"
 done
+grep -q '32767' skills/planning-ko/db-expert/engines/postgres.md || _dbe_bad="$_dbe_bad postgres(드라이버 상한 32767 누락)"
+grep -q 'btree_gist' skills/planning-ko/db-expert/engines/postgres.md || _dbe_bad="$_dbe_bad postgres(btree_gist 누락)"
+grep -qE 'NOT NULL[^.]*휘발성|휘발성 기본값\(`now' skills/planning-ko/db-expert/engines/postgres.md && _dbe_bad="$_dbe_bad postgres(now 휘발성 오기)"
 [ -z "$_dbe_bad" ] && ok "DB 전문가 엔진 파일 6개 — 출처·라이선스 · 미대조 없음 · 규칙 ≥5" || nope "DB 전문가 엔진 파일" "$_dbe_bad"
 
 # planning-ko DB 전문가 패스 — 경계 대조 뒤·plan-reviewer 전 · 비batch · 발동 조건 · dispatch · 반영 · 재검사 · 기록(DONE 금지) (20261020-db-designer-agent)

@@ -553,7 +553,8 @@ if [ -f "$_APA" ] && has "$_APA" '^model: opus$' '^effort: high$' '쓰는 파일
      'CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-api-contract\.sh <FID>' '판정기가 낸 위반.*다시 지적하지 않는다' \
      'api-expert/patterns/graphql\.md' '\.graphql' '리졸버' 'api-spec\.md 가 없으면' \
      '^## 받는 컨텍스트' '^## 핵심 규칙' '^## 공통 원칙' '^## 빈 출력 규칙' '^## 확인 필요' '^## 하지 말 것' \
-     '\*\*엇갈리는 규약\*\*' 'RFC 9457' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' 'plan\.md.*직접 수정하지 않는다' '멱등 키 선점의 원자성\(유일 제약\)은 \*\*DB 전문가\*\*' '민감정보 노출은 \*\*보안\*\*' \
+     '\*\*엇갈리는 규약\*\*' 'RFC 9457' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' 'plan\.md.*직접 수정하지 않는다' '멱등 키 선점의 원자성\(유일 제약\)은 \*\*DB 전문가\*\*' '인증·인가는 \*\*보안\*\* 분야.*단 오류 응답의 입력값 반사는.*원칙 9' \
+     'api-spec\.md 가 없으면.*판정기는 SKIP' '정하지 않았으면 `## 확인 필요`' \
    && ! grep -q '^role: evaluator' "$_APA" && grep -q 'agents/ .*← 10건' README.md && grep -q '^| api-designer-ko' README.md \
    && _apa_body_ok; then
   ok "API 계약 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 공통 원칙 13(이름·본문·출처) · 엇갈리는 규약 · README 10건·모델 표"

@@ -258,4 +258,8 @@ ev="$D/.specops/$VF/evidence.md"
   && _has "$err" 'WARN: 보안 설계 칸·결함 — 경고만(차단 아님) · evidence.md ### security-design'; } \
   && ok "S6a run-verification — evidence ### security-design · 경고 · VERIFY PASS·rc 0 불변" || nope "S6a" "rc=$rc out=$out err=$err"
 
+SP="$PLUGIN/skills/specifying-ko/SKILL.md"
+grep -qE 'scripts/_internal/check-security-design\.sh <FID>` 를 한 번 실행한다.*막지 않는다' "$SP" \
+  && ok "S6b specifying Step 5.6 — 보안 칸 판정기 호출(비차단)" || nope "S6b" "specifying 문구 누락"
+
 finish

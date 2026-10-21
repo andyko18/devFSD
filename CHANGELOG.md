@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.27.0] — 2026-10-21
+
 ### Added
 
 - clarify: 범주표 "용어" 행이 한 말이 둘을 가리킬 때 정할 이름 하나를 추천하고 쓰지 않을 말을 함께 정한다(clarifications.md 에 `**용어**` 줄) · "예외·경계" 행이 동작 경계에 더해 개념의 경계를 시나리오 하나로 시험한다 · 대화 규칙에 "설명은 코드와 대조" — 기존 동작 설명은 묻기 전에 코드에서 확인하고 다르면 나란히 묻는다. 어긋남이 핵심 동작이면 BLOCKING(경량→풀) · §auto 는 ASSUMED 에 코드 동작과 설명을 둘 다 남긴다. 근거: 명확화가 용어는 "정의됐는가"까지만, 경계는 동작만 보고 있었고 기존 동작 설명을 코드로 확인하는 단계가 없었다. 출처: mattpocock/skills domain-modeling (MIT, 한국어 재작성). 전문가 로드맵 2번 분야(구조·도메인) FID-C.
@@ -3355,7 +3357,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.26.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.27.0...HEAD
+[2.27.0]: https://github.com/andyko18/specops-ko/compare/v2.26.0...v2.27.0
 [2.26.0]: https://github.com/andyko18/specops-ko/compare/v2.25.1...v2.26.0
 [2.25.1]: https://github.com/andyko18/specops-ko/compare/v2.25.0...v2.25.1
 [2.25.0]: https://github.com/andyko18/specops-ko/compare/v2.24.5...v2.25.0

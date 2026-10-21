@@ -239,7 +239,11 @@ _CHECK_TASK_RECEIPT_SH=$_old_cts; rm -f "$_stub"; rm -rf "$_sbt"
 _sbd=$(mktemp -d); _b_setup "$_sbd" no
 _tcase "T4.d1 (AC-6) tasks.md 가 YAML 아님(id 줄 0건) → open-missing" open-missing "$(_tid_cause "$_sbd" $'git commit -m "x\n\nTask: T1"')"
 _tid_setup "$_sbd" T1; chmod 000 "$_sbd/.specops/$_bfid/tasks.md"
-_tcase "T4.d2 (AC-6) tasks.md 읽기 불가 → open-missing" open-missing "$(_tid_cause "$_sbd" $'git commit -m "x\n\nTask: T9"')"
+if [ -r "$_sbd/.specops/$_bfid/tasks.md" ]; then   # root·ACL 은 chmod 000 이 읽기를 막지 못한다 — 읽기 불가 상태를 만들 수 없다
+  echo "SKIP T4.d2 tasks.md 읽기 불가 — chmod 000 이 파일을 막지 못한다(root·ACL 등)"
+else
+  _tcase "T4.d2 (AC-6) tasks.md 읽기 불가 → open-missing" open-missing "$(_tid_cause "$_sbd" $'git commit -m "x\n\nTask: T9"')"
+fi
 chmod 644 "$_sbd/.specops/$_bfid/tasks.md"; rm -rf "$_sbd"
 # T4.e 따옴표·주석 변형은 있는 id 로 인정 (AC-9)
 _sbe=$(mktemp -d); _tid_setup "$_sbe" T1 '"T2"' "'T3'" 'T4 # 비고'

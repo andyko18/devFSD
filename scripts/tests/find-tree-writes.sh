@@ -4,7 +4,7 @@
 #   스위트 경로 생략 시 scripts/tests 아래 test-*.sh 전부(fixtures 제외) + scripts/_internal/validate-structure.sh.
 # 출력: 확정 `WRITE-ATTEMPT <스위트>: <메시지>` · 검토 `REVIEW <스위트>: <메시지>`(상대경로 — 사람이 판정)
 #       끝에 `TREE-WRITES: 확정 <n>건 · 검토 <m>건 · 스위트 <k>/<검사수>`
-# rc: 0=확정·검토 모두 0 · 1=하나라도 있음 · 2=사용법 오류/사본 실패
+# rc: 0=확정·검토 모두 0 · 1=하나라도 있음 · 2=사용법 오류/사본 실패/쓰기 금지 무력(root 등)
 #
 # 왜 (FID 20260911-run-all-parallel): #39 가 "실 트리에 쓰는 스위트 0" 을 선언했으나 병렬 실행에서
 #   2건(skill-size-ratchet T4 · run-all-glob-completeness T3)이 드러났다. 수기 grep 은 **범주**를 놓친다 —
@@ -46,6 +46,12 @@ else
   printf '%s\0' "${LIST[@]}" > "$W/list"
 fi
 chmod -R a-w "$C"
+# 쓰기 금지가 쓰기를 막지 못하면(root·ACL 등) 모든 스위트가 "0건" 으로 나온다 — 0건으로 위장하지 않고 판정 불가로 끝낸다
+if ( : > "$C/.ftw-probe" ) 2>/dev/null; then
+  rm -f "$C/.ftw-probe"
+  echo "판정 불가: 쓰기 금지 사본이 쓰기를 막지 못한다(root·ACL 등) — 이 환경에서는 실 트리 쓰기를 탐지할 수 없다" >&2
+  exit 2
+fi
 
 read -r -d '' _FTW_ONE <<'ONE'
 c=$1; w=$2; s=$3

@@ -15,6 +15,11 @@
 - db-designer-ko: 전제를 확인하지 못한 지적(있는지 모르는 테이블·설정, plan 에 없는 구현 방식을 가정한 것)은 Critical·Important 로 올리지 않고 `experts/db.md` 의 `## 확인 필요` 절에 질문으로 적는다 · planning 은 그 질문도 전제를 확인한 뒤 `## 반영` 절에 반영·기각을 적는다. 근거: DB 4단계 측정(routed · 주입 · 3회) — 적발은 기준선 `plan-reviewer-ko` 1/6 → DB 전문가 5/5(시간 초과 1회 제외)로 늘었으나, 결함 없는 대조군(e-13)에서 "확인 필요" 단서를 단 지적이 3회 모두 Important 로 올라왔다. 대조군 e-13 은 롤백 왕복 시험·운영 적용 분리가 빠져 있어 실제로는 결함이 있었으므로 그 둘과 FK·RLS 방침·안정 정렬·보유 상한 잠금·FK 위반 변환을 채워 결함 없는 계획으로 고쳤다(첫 보강안의 보유 상한 경합·LIMIT 불일치·FK 위반 500 은 전문가가 3회 중 2회 이상 짚었다). 보강 후 e-13 2/3 통과.
 - db-expert(postgres): 대량 INSERT 행 수 권고를 고정 `≈1000행` 에서 `상한 ÷ 컬럼 수 이하` 로 바꾸고 asyncpg 상한(32767) 출처를 단다 — 컬럼이 33개를 넘으면 고정 행 수가 상한을 넘는다(Argus 20260729-backend-common-core 와 같은 형태). 테스트 단언 보강: 규칙 본문 앵커 11개 · `now()` 를 휘발성 목록에 두는 오기 · 구체 값을 쓴 `DONE`/`IMPL` 기록 행 · test-plan-boundary B9a 의 절 제목 줄 앞 고정(PR #212 후속).
 
+### Fixed
+
+- mawk(Ubuntu 24.04 기본 awk) 에서 AC 형식 검사(`check-ac-format.sh`)가 모든 AC 를 "헤더형 0건" 으로, plan→tasks 변환(`plan-to-tasks.sh`)이 태스크 헤더를 못 찾던 것을 고쳤다 — mawk 1.3.4 는 awk 정규식의 구간 반복(`#{2,3}`)을 지원하지 않는다. 대안 표기(`(##|###)` · `\.\.+` · `length()`)로 바꿨고, `governance/test-hooks` T8.q 가 제품 스크립트의 awk 정규식에 구간 반복이 다시 들어오는 것을 막는다(CI 리눅스 러너는 gawk 라 이 회귀가 CI 에서 보이지 않는다).
+- 테스트: root 로 도는 환경(클라우드 컨테이너 등)에서 권한 거부를 전제로 한 케이스가 FAIL 하던 것을 SKIP 으로 보고한다 — `governance/test-rules` T4.d2(`chmod 000` 이 읽기를 막지 못함) · `test-find-tree-writes` 탐지 케이스. 수동 도구 `find-tree-writes.sh` 는 쓰기 금지 사본이 쓰기를 막지 못하면 `0건` 대신 판정 불가(rc 2)로 끝난다 — 종전에는 root 에서 모든 스위트를 `확정 0건` 으로 보고했다. 비-root 에서는 판정이 그대로 돈다.
+
 ## [2.26.0] — 2026-10-19
 
 ### Changed

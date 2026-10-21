@@ -35,6 +35,16 @@ FX=$(_fx writer) || { nope "T1 fixture" "생성 실패"; finish; exit 1; }
 CL=$(_fx clean) || { nope "T2 fixture" "생성 실패"; finish; exit 1; }
 trap 'rm -rf "$FX" "$CL"' EXIT
 
+# 쓰기 금지가 무력한 환경(root·ACL 등)에서는 탐지가 성립하지 않는다 — 탐지기가 rc 2 로 알리는지만 보고 탐지 케이스는 SKIP
+_ro_inert() { local d; d=$(mktemp -d) || return 1; chmod a-w "$d"; if ( : > "$d/p" ) 2>/dev/null; then chmod u+w "$d"; rm -rf "$d"; return 0; fi; chmod u+w "$d"; rm -rf "$d"; return 1; }
+INERT=0; _ro_inert && INERT=1
+if [ "$INERT" = 1 ]; then
+  out=$(bash "$FTW" --root "$FX" -j 2 2>&1); rc=$?
+  { [ "$rc" -eq 2 ] && printf '%s\n' "$out" | grep -q '^판정 불가: 쓰기 금지 사본이 쓰기를 막지 못한다' && ! printf '%s\n' "$out" | grep -q '^TREE-WRITES'; } \
+    && ok "T0.a 쓰기 금지 무력 환경 → rc=2 판정 불가 (0건으로 위장하지 않음)" || nope "T0.a 무력 환경" "rc=$rc out=[$out]"
+  skip "T1·T2.a·T5.a·T5.e·T5.f 탐지 — 쓰기 금지가 쓰기를 막지 못한다(root·ACL 등)"
+else
+
 _st0=$(cd "$FX" && git status --porcelain)
 out=$(bash "$FTW" --root "$FX" -j 2 2>&1); rc=$?
 { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT scripts/tests/test-writer.sh: .*written.txt: Permission denied'; } \
@@ -53,6 +63,7 @@ printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 1건 · 검토 1건 · 스�
 out=$(bash "$FTW" --root "$CL" 2>&1); rc=$?
 { [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 0건 · 검토 0건 · 스위트 0/2'; } \
   && ok "T2.a 쓰기 없는 repo → rc=0 · 0건" || nope "T2.a clean" "rc=$rc out=[$out]"
+fi
 
 bash "$FTW" --root "$CL" -j abc >/dev/null 2>&1; rc=$?
 [ "$rc" -eq 2 ] && ok "T3.a 잘못된 -j → rc=2" || nope "T3.a 사용법 오류" "rc=$rc"
@@ -66,12 +77,14 @@ for n in "sp ace" "q'uote"; do
     > "$OD/scripts/tests/test-$n.sh"
 done
 ( cd "$OD" && git add -A ) >/dev/null 2>&1
+if [ "$INERT" = 0 ]; then   # 무력 환경은 위 T0.a 가 다룬다
 out=$(bash "$FTW" --root "$OD" -j 2 2>&1); rc=$?
 { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q "^WRITE-ATTEMPT scripts/tests/test-sp ace.sh: " \
   && printf '%s\n' "$out" | grep -q "^WRITE-ATTEMPT scripts/tests/test-q'uote.sh: " \
   && printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 2건 · 검토 0건 · 스위트 2/4' \
   && ! printf '%s\n' "$out" | grep -q '^xargs:'; } \
   && ok "T5.a 공백·따옴표 이름 스위트도 검사 (확정 2 · 스위트 2/4)" || nope "T5.a 특수 이름" "rc=$rc out=[$out]"
+fi
 out=$(bash "$FTW" --root "$CL" scripts/tests/test-none.sh 2>&1); rc=$?
 { [ "$rc" -eq 2 ] && ! printf '%s\n' "$out" | grep -q '^TREE-WRITES'; } \
   && ok "T5.b 없는 스위트 경로 → rc=2 (0건으로 위장하지 않음)" || nope "T5.b 없는 경로" "rc=$rc out=[$out]"
@@ -83,16 +96,20 @@ out=$(bash "$FTW" --root "$CL" scripts/tests/test-untracked.sh 2>&1); rc=$?
 { [ "$rc" -eq 2 ] && ! printf '%s\n' "$out" | grep -q '^TREE-WRITES'; } \
   && ok "T5.d 미추적 스위트 → rc=2 (사본에 없어 0건으로 위장하지 않음)" || nope "T5.d 미추적" "rc=$rc out=[$out]"
 rm -f "$CL/scripts/tests/test-untracked.sh"
+if [ "$INERT" = 0 ]; then   # 무력 환경은 위 T0.a 가 다룬다
 out=$(bash "$FTW" --root "$FX" ./scripts/tests/test-writer.sh 2>&1); rc=$?
 { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT ./scripts/tests/test-writer.sh: ' \
   && printf '%s\n' "$out" | grep -qx 'TREE-WRITES: 확정 1건 · 검토 0건 · 스위트 1/1'; } \
   && ok "T5.e ./ 접두 경로도 결과가 집계된다 (점파일 누락 없음)" || nope "T5.e ./ 접두" "rc=$rc out=[$out]"
+fi
 printf '%s\n' '#!/usr/bin/env bash' 'R=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)' 'echo x > "$R/h.txt"; echo "PASS=1 FAIL=0"' > "$OD/scripts/tests/test-h#ash.sh"
 ( cd "$OD" && git add -A ) >/dev/null 2>&1
+if [ "$INERT" = 0 ]; then   # 무력 환경은 위 T0.a 가 다룬다
 out=$(bash "$FTW" --root "$OD" "scripts/tests/test-h#ash.sh" 2>&1); rc=$?
 { [ "$rc" -eq 1 ] && printf '%s\n' "$out" | grep -q '^WRITE-ATTEMPT scripts/tests/test-h#ash.sh: ' \
   && ! printf '%s\n' "$out" | grep -q '^sed:'; } \
   && ok "T5.f 이름에 # 가 있어도 보고된다 (sed 구분자 충돌 없음)" || nope "T5.f # 이름" "rc=$rc out=[$out]"
+fi
 
 # run-all 비포함(clarify Q2) — run-all 은 test-*.sh 만 모은다. 이름이 그 패턴이면 매 run-all 마다 전 스위트를 한 번 더 돈다
 case "$(basename "$FTW")" in

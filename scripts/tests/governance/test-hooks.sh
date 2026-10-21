@@ -415,6 +415,35 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T8.p 대상 고르기가 가려내지 못한다 — 대상='$_p_files' (기대 'scripts/a.sh scripts/d.sh skills/x/scripts/e.sh') · 걸린 줄='$_p_hits' (기대 'scripts/a.sh:3 scripts/d.sh:2')"
 fi
 
+# T8.q ★ 제품 스크립트의 awk 정규식에 구간 반복({n,m})이 없다 — mawk 호환 (20261021-root-skip-tests)
+#   왜: mawk 1.3.4(Ubuntu 24.04 기본 awk)는 구간 반복을 지원하지 않아 `/^#{2,3} AC-/` 가 한 줄도 맞지 않는다 —
+#   check-ac-format 은 모든 AC 를 "헤더형 0건" 으로, plan-to-tasks 는 태스크를 못 찾았다. CI 리눅스 러너는 gawk 라
+#   이 회귀는 CI 에서 보이지 않는다. 대상은 hooks · scripts(tests 제외) · skills · evals 의 *.sh 에서 awk 정규식
+#   리터럴(`~ /…/` · sub/gsub/match/split 의 `/…/` · 줄 머리 패턴 `/…/ {`)이다. grep -E · sed -E · bash =~ 는 보지 않는다.
+_AWK_IV_RE='(~|match\(|sub\(|gsub\(|split\()[^;]*/[^/]*\{[0-9]+(,[0-9]*)?\}[^/]*/|^[[:space:]]*/[^/]*\{[0-9]+(,[0-9]*)?\}[^/]*/[[:space:]]*\{'
+_awk_iv_hits() {  # <디렉토리…> → 걸린 줄 (…/scripts/tests/ 아래 제외 · 주석 줄 제외 · 없는 디렉토리는 건너뛴다)
+  find "$@" -name '*.sh' -not -path '*/scripts/tests/*' -exec grep -nE "$_AWK_IV_RE" {} + 2>/dev/null | grep -vE '^[^:]+:[0-9]+:[[:space:]]*#' | sort
+}
+_q_hits=$(_awk_iv_hits "$PLUGIN/hooks" "$PLUGIN/scripts" "$PLUGIN/skills" "$PLUGIN/evals")
+if [ -z "$_q_hits" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.q ★ 제품 스크립트의 awk 정규식에 구간 반복({n,m}) 없음 (mawk 호환)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.q awk 정규식이 구간 반복({n,m})을 쓴다 — mawk 에서 매칭 0건. 대안(##|###)·\\.\\.+·length() 로 바꿀 것:"; printf '%s\n' "$_q_hits" | cut -c1-200
+fi
+
+# T8.r 잠금(T8.q)의 판별식이 실제로 가려낸다 — awk 리터럴만, grep -E·sed -E·주석·테스트 디렉토리는 빼고
+_r_d=$(mktemp -d); mkdir -p "$_r_d/scripts/tests" "$_r_d/skills/x"
+printf '%s\n' 'awk '"'"'' '/^#{2,3} AC-/ { n++ }' '  if (s ~ /^\.{2,}$/) x=1' '  sub(/^#{1,3}[ \t]+/, "", t)' "'" > "$_r_d/scripts/a.sh"
+printf '%s\n' 'grep -qE "^[0-9]{8}-x$" <<< "$f"' 'sed -E "s/a{2}/b/"' '# awk 예: /^#{2,3} / { }' 'if [[ $f =~ ^[0-9]{8}$ ]]; then :; fi' > "$_r_d/skills/x/b.sh"
+printf '%s\n' '/^#{2,3} AC-/ { n++ }' > "$_r_d/scripts/tests/c.sh"
+_r_hits=$(_awk_iv_hits "$_r_d/hooks" "$_r_d/scripts" "$_r_d/skills" | sed -E "s|^$_r_d/||; s|^([^:]+:[0-9]+):.*|\1|" | tr '\n' ' ' | sed 's/ $//')
+rm -rf "$_r_d"
+if [ "$_r_hits" = "scripts/a.sh:2 scripts/a.sh:3 scripts/a.sh:4" ]; then
+  PASS=$((PASS+1)); echo "PASS T8.r 판별식 — awk 리터럴(줄 머리 패턴 · ~ · sub)만 잡고 grep -E · sed -E · bash =~ · 주석 · 테스트 디렉토리는 빠진다"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T8.r 판별식이 가려내지 못한다 — 걸린 줄='$_r_hits' (기대 'scripts/a.sh:2 scripts/a.sh:3 scripts/a.sh:4')"
+fi
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

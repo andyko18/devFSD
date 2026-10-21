@@ -216,7 +216,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .s
 
 ### API 전문가 패스 (엔드포인트를 바꿀 때만 — 20261021)
 
-DB 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan 이나 `api-spec.md` 가 엔드포인트를 추가·변경·삭제하거나, plan §2 가 라우트·컨트롤러·GraphQL 스키마 파일을 만들면 발동한다. 읽기 전용 내부 함수만 바꾸면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다. 빈칸·형식(경로·명명·상태코드·페이지 크기·멱등 정책·미정 칸)은 판정기(check-api-contract.sh)가 먼저 잡고 전문가는 판단이 필요한 계약(호환성·메서드 의미·응답 형태·오류·커서·멱등 키)을 본다. `§batch` 는 이 패스 미적용(batch 는 design-reviewer-ko 가 본다 — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
+DB 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan 이나 `api-spec.md` 가 엔드포인트를 추가·변경·삭제하거나, plan §2 가 라우트·컨트롤러·GraphQL 스키마 파일을 만들거나 고치면 발동한다. 읽기 전용 내부 함수만 바꾸면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다. 빈칸·형식(경로·명명·상태코드·페이지 크기·멱등 정책·미정 칸)은 판정기(check-api-contract.sh)가 먼저 잡고 전문가는 판단이 필요한 계약(호환성·메서드 의미·응답 형태·오류·커서·멱등 키)을 본다. `§batch` 는 이 패스 미적용(batch 는 design-reviewer-ko 가 본다 — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
 
 - **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:api-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/api-spec.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/api-expert/patterns/`.
 - **반영**: `.specops/<FID>/experts/api.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. DB 패스와 이 패스 중 하나라도 plan.md 를 바꿨으면 '사전검사'·'경계 대조 입력' 의 두 스크립트는 마지막 전문가 패스 뒤에 한 번만 다시 실행하고 plan-reviewer 를 부른다.

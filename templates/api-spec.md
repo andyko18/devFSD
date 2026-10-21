@@ -34,7 +34,7 @@
 | DELETE | `/v1/users/:id` | Bearer (admin) | — | `204 No Content` | 사용자 삭제 |
 <!-- specops:example:end -->
 
-**공통 에러 포맷** (RFC 7807 Problem Details):
+**공통 에러 포맷** (RFC 9457 Problem Details — 2023년에 RFC 7807 을 대체 · `Content-Type: application/problem+json`):
 ```json
 {
   "type": "https://example.com/errors/validation",

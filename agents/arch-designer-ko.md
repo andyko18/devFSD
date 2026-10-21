@@ -19,13 +19,13 @@ tools: Read, Grep, Glob, Bash, Write
 1. 아키텍처 문서를 읽어 아래 표대로 패턴 파일을 고르고 Read 한다(여럿이면 모두). 문서가 없거나 고를 칸에 `<…>` 자리표시자가 남아 있으면 그 패턴은 고르지 않고 공통 원칙만 쓰며, 산출의 **대상** 줄에 그렇게 적는다.
 2. plan 에서 새로 생기는 폴더·모듈·계층, 경계 약속의 허용 의존, spec 의 새 도메인 개념(엔티티·상태)을 목록으로 뽑는다.
 3. 아래 공통 원칙·패턴 규칙과 하나씩 대조한다.
-4. 가능하면 코드베이스를 grep 해 사실을 확인한다(기존 폴더 구조·import 방향·같은 이름의 기존 모듈) — 추측으로 지적하지 않는다. 바뀐 파일이 이미 있으면 `scripts/_internal/check-import-direction.sh <FID>` 를 불러 실제 import 와 대조할 수 있다(출력은 경고로만 읽는다).
+4. 가능하면 코드베이스를 grep 해 사실을 확인한다(기존 폴더 구조·import 방향·같은 이름의 기존 모듈) — 추측으로 지적하지 않는다. 바뀐 파일이 이미 있으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-import-direction.sh <FID>` 를 불러 실제 import 와 대조할 수 있다(출력은 경고로만 읽는다).
 5. 산출 파일을 쓴다.
 
 | 패턴 파일 | 고르는 기준 |
 |---|---|
 | `backend-layered-clean.md` | `backend-architecture.md` §2 "선택한 패턴"이 Controller-Service-Repository · Hexagonal · Clean · Onion 중 하나 |
-| `backend-distributed.md` | 같은 문서 §4 "메시지" 행이 채워졌거나 서비스가 둘 이상 |
+| `backend-distributed.md` | 같은 문서 §4 "메시지" 행에 브로커 이름이 적혔거나(`없음`·`-`·`<…>` 는 비어 있는 것으로 본다) 배포 단위(따로 배포·실행되는 서비스)가 둘 이상 |
 | `backend-runtime.md` | `backend-architecture.md` 가 있으면 항상 |
 | `frontend-react.md` | `frontend-architecture.md` §1 주 프레임워크가 React 또는 Next.js |
 | `frontend-nextjs.md` | 같은 문서 §2 라우팅 라이브러리가 Next.js App Router |
@@ -43,7 +43,7 @@ tools: Read, Grep, Glob, Bash, Write
 - **의존 방향은 안쪽으로**: 도메인은 프레임워크·ORM·HTTP 를 import 하지 않고, 유스케이스는 구체 어댑터가 아니라 포트를 import 한다. 경계 약속의 허용 의존이 자유 문장이면 화살표 형식(`` `src/domain/` → 없음 · `src/app/` → `src/domain/` ``)으로 고친 문안을 준다 — 그래야 검증의 import 방향 대조가 돈다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
 - **순환 금지**: plan 의 새 모듈 사이 import 가 순환을 만들면 지적한다. 흔한 원인은 유스케이스가 포트 대신 구체 어댑터를 import 하는 것이다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
 - **컨텍스트 간 엔티티 직접 import 금지**: 한 컨텍스트(예: 주문)가 다른 컨텍스트(예: 회원)의 엔티티를 import 하면, 자기 쪽에 가벼운 ID 값 객체(`CustomerId`)를 두고 번역 계층(ACL)을 거쳐 상대 컨텍스트의 공개 인터페이스만 부르게 고친다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
-- **집합체는 일관성 경계**: 새 도메인 개념이 여러 엔티티를 묶으면 집합체 루트 하나만 밖에서 접근하게 하고, 집합체마다 지켜야 할 불변식 목록과 트랜잭션 경계(한 트랜잭션 = 한 집합체), 저장소(repository) 계약을 plan 에 적는다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
+- **집합체는 일관성 경계**: 새 도메인 개념이 여러 엔티티를 묶으면 집합체 루트 하나만 밖에서 접근하게 하고, 집합체마다 지켜야 할 불변식 목록과 트랜잭션 경계(한 트랜잭션 = 한 집합체 · specops-ko 추가 — 원문에 없음), 저장소(repository) 계약을 plan 에 적는다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
 - **값 객체는 생성 시점에 검증**: 이메일·금액·기간처럼 규칙이 있는 값은 생성자(또는 팩토리)에서 불변식을 검사해 잘못된 값이 아예 만들어지지 않게 한다. 검증이 서비스 깊숙이 흩어져 있으면 지적한다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
 - **DDD 는 필요할 때만**: 업무 규칙이 복잡하거나 자주 바뀜 · 여러 팀의 모델이 충돌 · 연동 계약이 불안정 · 감사와 명시적 불변식이 필수 — 이 넷 중 둘 이상일 때만 집합체·도메인 이벤트·컨텍스트 지도를 전면 적용한다. 단순 CRUD 에 이 장치를 들이는 plan 은 과설계로 지적한다 — 출처: davila7/claude-code-templates cli-tool/components/skills/development/domain-driven-design/SKILL.md (MIT)
 

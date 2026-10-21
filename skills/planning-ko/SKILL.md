@@ -216,7 +216,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .s
 
 ### 구조 전문가 패스 (새 모듈·계층·도메인 개념을 만들 때만 — 20261021)
 
-DB 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조가 **새 폴더·새 모듈·새 계층**을 만들거나, 경계 약속의 허용 의존에 **새 의존 방향**이 생기거나, spec 에 **새 도메인 개념**(엔티티·상태)이 생기면 발동한다. 기존 파일 수정뿐이거나 문서·테스트만 바꾸면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다. `§batch` 는 이 패스 미적용(기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다. 효과는 미측정이다(평가 세트는 Argus 실제 계획서로 후속).
+DB 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조가 **새 폴더·새 모듈·새 계층**을 만들거나, 경계 약속의 허용 의존에 **새 의존 방향**이 생기거나, spec 에 **새 도메인 개념**(엔티티·상태)이 생기면 발동한다. 기존 파일 수정뿐이거나 문서·테스트만 바꾸면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다. `§batch` 는 이 패스 미적용(기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다. 효과는 합성 평가 케이스로만 봤다(Argus 실제 계획서 측정은 후속).
 
 - **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:arch-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/backend-architecture.md`·`frontend-architecture.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/arch-expert/patterns/`.
 - **반영**: 에이전트가 쓴 `.specops/<FID>/experts/arch.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. 두 전문가 패스 중 하나라도 plan.md 를 바꿨으면 위 두 스크립트(check-plan-predispatch.sh · check-plan-boundary.sh)를 **이 패스 뒤에 한 번만** 다시 실행한 뒤 plan-reviewer 를 부른다(입력은 그대로 — 전문가 파일을 넘기지 않는다).

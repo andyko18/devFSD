@@ -547,7 +547,7 @@ _ara_body_ok() {
     grep -F -- "- **$name**:" "$_ARA" | grep -qF -- "$body" || return 1
   done
 }
-if [ -f "$_ARA" ] && has "$_ARA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/arch\.md` 하나뿐이다' 'arch-expert/patterns/' '^## 받는 컨텍스트' '^## 핵심 규칙' '^## 공통 원칙' \
+if [ -f "$_ARA" ] && has "$_ARA" '^model: opus$' '^effort: high$' 'bash "\$\{CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-import-direction\.sh' '쓰는 파일은 `\.specops/<FID>/experts/arch\.md` 하나뿐이다' 'arch-expert/patterns/' '^## 받는 컨텍스트' '^## 핵심 규칙' '^## 공통 원칙' \
      'backend-layered-clean\.md' 'backend-distributed\.md' 'backend-runtime\.md' 'frontend-react\.md' 'frontend-nextjs\.md' \
      'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'check-import-direction\.sh' \
      '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '^## 확인 필요' '확인 필요 1> — 확인 결과' \
@@ -568,6 +568,7 @@ for _e in backend-layered-clean backend-distributed backend-runtime frontend-rea
 done
 grep -q '멱등.*specops-ko 추가' skills/planning-ko/arch-expert/patterns/backend-distributed.md || _arp_bad="$_arp_bad distributed(추가 규칙 표시 누락)"
 grep -q '직렬화할 수 있는 값' skills/planning-ko/arch-expert/patterns/frontend-nextjs.md || _arp_bad="$_arp_bad nextjs(직렬화 규칙 방향)"
+grep -q '단순 CRUD 는 엔티티 단위 저장소' skills/planning-ko/arch-expert/patterns/backend-layered-clean.md || _arp_bad="$_arp_bad layered-clean(집합체 저장소는 DDD 조건부)"
 [ -z "$_arp_bad" ] && ok "구조 전문가 패턴 파일 5개 — 출처·라이선스 · 규칙 ≥5 · 추가 규칙 표시" || nope "구조 전문가 패턴 파일" "$_arp_bad"
 
 # planning-ko 구조 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 1회 · 기록(DONE 금지) · batch 제외 (20261021-arch-designer-agent)
@@ -577,7 +578,7 @@ _l_pr2=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | 
 if [ -n "$_l_db2" ] && [ -n "$_l_ar" ] && [ -n "$_l_pr2" ] && [ "$_l_db2" -lt "$_l_ar" ] && [ "$_l_ar" -lt "$_l_pr2" ] \
    && has "$_PL" 'subagent_type: "specops-ko:arch-designer-ko"' 'experts/arch\.md' '\| arch-expert \| arch-designer-ko \| 반영 \|' '새 폴더·새 모듈·새 계층' '새 의존 방향' '새 도메인 개념' \
         'arch-expert/patterns/' '이 패스 뒤에 한 번만' '\| arch-expert \| - \| SKIP \|' '\| arch-expert \| arch-designer-ko \| 산출 없음 \|' \
-   && sed -n "${_l_ar},${_l_pr2}p" "$_PL" | grep -q '§batch' \
+   && sed -n "${_l_ar},${_l_pr2}p" "$_PL" | grep -q '§batch' && ! sed -n "${_l_ar},${_l_pr2}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| arch-expert \|' | grep -qE 'DONE|IMPL' \
    && ! sed -n "${_l_ar},${_l_pr2}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| arch-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
   ok "planning-ko 구조 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 1회 · 기록 · batch 제외"
 else

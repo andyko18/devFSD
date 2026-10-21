@@ -76,12 +76,17 @@ tools: Read, Grep, Glob, Bash, Write
 ## 지적
 - [Critical|Important|Minor] <plan 태스크 N / 파일> — <무엇이 문제인가> — 근거: <규칙 이름 또는 엔진 규칙>
   - 고친 문안: <plan 에 넣을 구체 문장·SQL·스텝>
+## 확인 필요 (전제를 확인하지 못한 질문 — 심각도 없음 · 없으면 절 생략)
+- <plan 태스크 N> — <확인할 전제> → <그 전제가 맞을 때 고칠 문안>
 ## 지적 없음 사유 (지적이 0건일 때만)
 ## 반영 (메인 planning 이 채운다)
 - <지적 1> — 반영(plan §/Task N) | 기각(근거)
+- <확인 필요 1> — 확인 결과 → 반영(plan §/Task N) | 기각(근거)
 ```
 
 심각도 기준: Critical = 데이터 유실·운영 장애로 바로 이어짐 · Important = 구현·운영에서 결함이 될 가능성이 높음 · Minor = 개선.
+
+**확인한 사실 위에서만 심각도를 매긴다**: Critical·Important 는 spec·plan 본문이나 코드베이스에서 확인한 사실에 기댄 지적에만 쓴다. 전제를 확인하지 못한 지적 — 있는지 모르는 테이블·서비스 설정(예: 사용자 테이블, 클라이언트 직접 접근 여부), plan 에 적히지 않은 구현 방식을 가정한 것(예: "선조회 후 INSERT 라면") — 은 `## 확인 필요` 절에 질문 1줄로 적고 심각도를 매기지 않는다. 근거: DB 4단계 측정(20261021) — 결함 없는 대조군에서 "확인 필요" 단서를 단 지적이 3회 모두 Important 로 올라왔다.
 
 ## 하지 말 것
 
@@ -89,4 +94,4 @@ tools: Read, Grep, Glob, Bash, Write
 - **Bash 행동계약**: Bash 는 읽기·검증(grep·ls·cat·git log·git diff)에만 쓴다. DB 에 접속하는 명령(psql·mysql·sqlcmd·mongosh·redis-cli·supabase db·마이그레이션·ORM CLI)과 파일·git 상태를 바꾸는 명령은 실행하지 않는다. Write 는 `experts/db.md` 에만 쓴다.
 - `PLAN-REVIEW-RESULT`·`Critical: <N>건` 같은 판정 줄을 쓰지 않는다(판정은 plan-reviewer 몫).
 - DB 와 무관한 지적(문서 형식·테스트 일반론)은 쓰지 않는다.
-- 근거 없는 추측 지적 금지 — 확인하지 못했으면 "확인 필요"로 적는다.
+- 근거 없는 추측 지적 금지 — 확인하지 못했으면 `## 확인 필요` 절의 질문으로 적는다(Critical·Important 로 올리지 않는다).

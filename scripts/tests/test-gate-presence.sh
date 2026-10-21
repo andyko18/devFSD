@@ -494,9 +494,9 @@ if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일
      '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
      'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'psql' '청크' 'migrations/' \
      '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '^## 확인 필요' '확인 필요 1> — 확인 결과' \
-   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 9건' README.md && grep -q '^| db-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 10건' README.md && grep -q '^| db-designer-ko' README.md \
    && _dba_body_ok; then
-  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 9건·모델 표"
+  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 10건·모델 표"
 else
   nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
 fi
@@ -527,13 +527,65 @@ _PL=skills/planning-ko/SKILL.md
 _l_db=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_bd=$(grep -n '^### 경계 대조 입력' "$_PL" | head -1 | cut -d: -f1)
 _l_pr=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
-if [ -n "$_l_db" ] && [ -n "$_l_bd" ] && [ -n "$_l_pr" ] && [ "$_l_bd" -lt "$_l_db" ] && [ "$_l_db" -lt "$_l_pr" ] \
+_l_dbend=$(awk -v s="$_l_db" 'NR>s && /^### /{print NR; exit}' "$_PL")   # DB 절 다음 제목 — 뒤에 붙는 전문가 절이 DB 검사를 대신 통과시키지 않게
+if [ -n "$_l_db" ] && [ -n "$_l_dbend" ] && [ -n "$_l_bd" ] && [ -n "$_l_pr" ] && [ "$_l_bd" -lt "$_l_db" ] && [ "$_l_db" -lt "$_l_pr" ] \
    && has "$_PL" 'subagent_type: "specops-ko:db-designer-ko"' 'experts/db\.md' '\| db-expert \| db-designer-ko \| 반영 \|' 'DB 산출물' 'upsert' '대량 적재' 'data-model\.md' '테스트 DB fixture' '언급되기만 하고' '## 반영' '두 스크립트를 다시 실행' '\| db-expert \| - \| SKIP \|' '가용 모델' '산출 없음' \
-   && sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -q '§batch' && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| db-expert \|' | grep -qE 'DONE|IMPL' \
-   && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| db-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+   && sed -n "${_l_db},${_l_dbend}p" "$_PL" | grep -q '§batch' && ! sed -n "${_l_db},${_l_dbend}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| db-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! sed -n "${_l_db},${_l_dbend}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| db-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
   ok "planning-ko DB 전문가 패스 — 경계 대조 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 · 기록 · batch 제외"
 else
   nope "planning-ko DB 전문가 패스" "위치(db=$_l_db bd=$_l_bd pr=$_l_pr) 또는 필수 문구 누락"
+fi
+
+# API 계약 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 판정기 선실행·중복 금지 · 공통 원칙 13(이름·본문 짝) · 범위 경계 (20261021-api-designer-agent)
+_APA=agents/api-designer-ko.md
+_apa_body_ok() {
+  local pair name body
+  for pair in '추가형 변경만|새 major' '폐기 표기와 유예|@deprecated' '관찰 가능한 동작은 계약|DB 스키마' '메서드 의미|PATCH' '응답 형태 하나|입력 타입' \
+              '벌크 부분 실패|항목마다' '오류 형식 하나|섞지 않는다' '기계가 읽는 오류 코드|카탈로그' '필드 단위 검증 오류|되돌려 주지 않는다' \
+              '커서에 정렬 컬럼 전부|유일' '페이지 메타데이터|has_more' '멱등 키는 의도에서|randomUUID' '멱등 키 재사용·보존|422'; do
+    name=${pair%%|*}; body=${pair#*|}
+    grep -F -- "- **$name**:" "$_APA" | grep -qF -- "$body" || return 1
+    grep -F -- "- **$name**:" "$_APA" | grep -qE '출처: .*\(MIT\)' || return 1
+  done
+}
+if [ -f "$_APA" ] && has "$_APA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/api\.md` 하나뿐이다' \
+     'CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-api-contract\.sh <FID>' '판정기가 낸 위반.*다시 지적하지 않는다' \
+     'api-expert/patterns/graphql\.md' '\.graphql' '리졸버' 'api-spec\.md 가 없으면' \
+     '^## 받는 컨텍스트' '^## 핵심 규칙' '^## 공통 원칙' '^## 빈 출력 규칙' '^## 확인 필요' '^## 하지 말 것' \
+     '\*\*엇갈리는 규약\*\*' 'RFC 9457' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' 'plan\.md.*직접 수정하지 않는다' '멱등 키 선점의 원자성\(유일 제약\)은 \*\*DB 전문가\*\*' '민감정보 노출은 \*\*보안\*\*' \
+   && ! grep -q '^role: evaluator' "$_APA" && grep -q 'agents/ .*← 10건' README.md && grep -q '^| api-designer-ko' README.md \
+   && _apa_body_ok; then
+  ok "API 계약 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 공통 원칙 13(이름·본문·출처) · 엇갈리는 규약 · README 10건·모델 표"
+else
+  nope "API 계약 전문가 에이전트" "파일·frontmatter·판정기 연계·원칙 13·범위 경계·README 중 빠진 것이 있다"
+fi
+
+# API 전문가 GraphQL 지식 파일 — 출처·라이선스 머리 주석 · 규칙 10줄 이상 · 핵심 규칙 앵커 (20261021-api-designer-agent)
+_apg=skills/planning-ko/api-expert/patterns/graphql.md
+_apg_bad=""
+if [ ! -f "$_apg" ]; then _apg_bad=" 파일 없음"; else
+  head -1 "$_apg" | grep -q 'reference_upstream:' || _apg_bad="$_apg_bad 출처 주석"
+  head -1 "$_apg" | grep -q 'MIT' || _apg_bad="$_apg_bad 라이선스"
+  [ "$(grep -cE '^- ' "$_apg")" -ge 10 ] || _apg_bad="$_apg_bad 규칙 10줄 미만"
+  for _k in 'DataLoader' 'pageInfo' '@deprecated' 'graphql-ws' '인자 하나짜리 `input` 타입'; do grep -q -- "$_k" "$_apg" || _apg_bad="$_apg_bad $_k"; done
+fi
+[ -z "$_apg_bad" ] && ok "API 전문가 GraphQL 지식 파일 — 출처·라이선스 · 규칙 ≥10 · 핵심 앵커" || nope "API 전문가 GraphQL 지식 파일" "$_apg_bad"
+
+# planning-ko API 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음 (20261021-api-designer-agent)
+_l_db3=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_api=$(grep -n '^### API 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_pr3=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
+if [ -n "$_l_db3" ] && [ -n "$_l_api" ] && [ -n "$_l_pr3" ] && [ "$_l_db3" -lt "$_l_api" ] && [ "$_l_api" -lt "$_l_pr3" ] \
+   && has "$_PL" 'subagent_type: "specops-ko:api-designer-ko"' 'experts/api\.md' '\| api-expert \| api-designer-ko \| 반영 \|' '\| api-expert \| - \| SKIP \|' '\| api-expert \| api-designer-ko \| 산출 없음 \|' \
+        '엔드포인트를 추가·변경·삭제' '라우트·컨트롤러·GraphQL 스키마' 'api-expert/patterns/' \
+   && sed -n "${_l_api},${_l_pr3}p" "$_PL" | grep -q '§batch' && sed -n "${_l_api},${_l_pr3}p" "$_PL" | grep -q '마지막 전문가 패스 뒤에 한 번만' \
+   && [ "$(sed -n "$((_l_api+1)),$((_l_pr3-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
+   && ! sed -n "${_l_api},${_l_pr3}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| api-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! sed -n "${_l_api},${_l_pr3}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| api-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+  ok "planning-ko API 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 한 번 · 기록 3종 · batch 제외"
+else
+  nope "planning-ko API 전문가 패스" "위치(db=$_l_db3 api=$_l_api pr=$_l_pr3) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
 fi
 
 finish

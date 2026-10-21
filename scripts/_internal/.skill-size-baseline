@@ -1,7 +1,7 @@
 {"skill":"advisor-ko","bytes":10408,"lines":154}
 {"skill":"analyzing-ko","bytes":19138,"lines":327}
 {"skill":"brainstorming-ko","bytes":15213,"lines":366}
-{"skill":"clarifying-ko","bytes":15779,"lines":221}
+{"skill":"clarifying-ko","bytes":17187,"lines":225}
 {"skill":"context-resets-ko","bytes":3949,"lines":60}
 {"skill":"decomposing-ko","bytes":27395,"lines":372}
 {"skill":"dispatching-parallel-agents-ko","bytes":9672,"lines":199}
@@ -28,4 +28,4 @@
 {"skill":"using-git-worktrees-ko","bytes":10417,"lines":294}
 {"skill":"using-specops-ko","bytes":11388,"lines":174}
 {"skill":"verifying-evidence-ko","bytes":30117,"lines":350}
-{"chain_bytes":268474,"chain_lines":3861}
+{"chain_bytes":269882,"chain_lines":3865}

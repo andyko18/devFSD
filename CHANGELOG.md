@@ -6,6 +6,7 @@
 
 ### Added
 
+- clarify: 범주표 "용어" 행이 한 말이 둘을 가리킬 때 정할 이름 하나를 추천하고 쓰지 않을 말을 함께 정한다(clarifications.md 에 `**용어**` 줄) · "예외·경계" 행이 동작 경계에 더해 개념의 경계를 시나리오 하나로 시험한다 · 대화 규칙에 "설명은 코드와 대조" — 기존 동작 설명은 묻기 전에 코드에서 확인하고 다르면 나란히 묻는다. 어긋남이 핵심 동작이면 BLOCKING(경량→풀) · §auto 는 ASSUMED 에 코드 동작과 설명을 둘 다 남긴다. 근거: 명확화가 용어는 "정의됐는가"까지만, 경계는 동작만 보고 있었고 기존 동작 설명을 코드로 확인하는 단계가 없었다. 출처: mattpocock/skills domain-modeling (MIT, 한국어 재작성). 전문가 로드맵 2번 분야(구조·도메인) FID-C.
 - verify: plan 「경계 약속」의 허용 의존을 화살표로 적으면(`` `src/domain/` → 없음 · `src/app/` → `src/domain/` ``) 이 FID 가 바꾼 파일의 실제 import 와 대조하고, import 순환을 찾아 evidence.md `### import-direction` 에 남긴다(Python·JS/TS · **경고 전용** — 검증 결과는 바뀌지 않는다). 자유 문장으로 쓴 기존 plan 은 방향 검사를 건너뛴다. 근거: 지금까지 import 방향은 아무 단계도 보지 않았다(경계 대조는 "import 방향은 보지 않는다"). 전문가 로드맵 2번 분야(구조·도메인) 첫 FID.
 - planning: DB 를 건드리는 계획은 plan-reviewer 전에 DB 설계 전문가(db-designer-ko · opus)가 집중 검토하고 메인이 반영한다 · 엔진별 지식(PostgreSQL·MySQL·Oracle·SQL Server·MongoDB·Redis)은 data-model §1 유형으로 고른다. 근거: Argus 실제 계획서 2개에서 plan-reviewer 가 DB 결함 0/2 적발.
 

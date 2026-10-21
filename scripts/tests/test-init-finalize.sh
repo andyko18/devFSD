@@ -166,6 +166,12 @@ _stale_assert() {     # $1=태그 $2=rc $3=out — 워킹트리·인덱스 모�
   fi
 }
 
+# F12·F13 은 권한 거부(444 .bak · 555 .specops)로 실패를 만든다 — root 는 둘 다 무시해 실패 경로를 못 타고
+#   단언이 공허하게 통과하므로 SKIP
+if [ "$(id -u)" -eq 0 ]; then
+  skip "F12 stale .bak 로 복원하지 않음(백업 cp 실패) — root 로 실행 중(권한 검사 무의미)"
+  skip "F13 stale .bak 로 복원하지 않음(append 실패) — root 로 실행 중(권한 검사 무의미)"
+else
 # F12 (Phase C Important 2) — append 는 성공했으나 그 백업 cp 가 실패해 .bak 이 stale
 R="$TMP/f12"; _mkstale "$R"
 out=$(bash "$FIN" 2>&1); rc=$?
@@ -180,6 +186,7 @@ chmod 555 .specops
 out=$(bash "$FIN" 2>&1); rc=$?
 chmod 755 .specops; chmod 644 .specops/session-progress.md.bak 2>/dev/null || true
 _stale_assert "F13" "$rc" "$out"
+fi
 
 # ── F14~F17 — 종결 커밋은 init 의 파일만 담는다 (20261009 init 점검) ──
 #   종전엔 `git commit` 에 경로가 없어 인덱스 전체가 `chore(init)` 커밋에 들어갔다(설치본 재현):

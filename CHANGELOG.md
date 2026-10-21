@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- tests: 권한 거부(`chmod 000`·`444`·`555`·`a-w`)를 전제로 한 나머지 케이스도 root 로 실행하면 FAIL 대신 `SKIP` 으로 보고한다 — test-reconcile-check R21 · test-plan-boundary B12(디렉터리 절반) · test-init-finalize F12·F13 · test-session-progress-backup T2.d · test-guard-map T5.ro · test-meter-tokens T6.h · test-fr-foundation-scope T9.k(PASS 로 적던 건너뜀을 SKIP 으로). test-rules T4.d2 · test-find-tree-writes 는 2.27.0 에서 이미 처리됐다. 근거: root 는 권한 비트를 무시해 이 케이스들이 거부가 일어나지 않은 채 공허하게 PASS 였다. 비-root 판정은 그대로다.
+
 ## [2.37.2] — 2026-10-25
 
 ### Fixed

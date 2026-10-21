@@ -234,13 +234,18 @@ if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -qF 'table-hdr'; then
 else no "R20" "rc=$rc out=[$out]"; fi
 
 # R21 — 읽기 권한 없는 파일: stderr 누출 없이 fail-open (Phase C Minor)
-mk_incomplete "20260106-noperm" "plan.md" '# plan\n## 1. 가정\n'
-chmod 000 "$TMP/.specops/20260106-noperm/plan.md" 2>/dev/null
-err=$(SPECOPS_ROOT="$TMP/.specops" bash "$SCRIPT" "20260106-noperm" 2>&1 >/dev/null); rc=$?
-chmod 644 "$TMP/.specops/20260106-noperm/plan.md" 2>/dev/null
-if [ "$rc" -eq 0 ] && ! printf '%s' "$err" | grep -qiE 'permission denied|No such file'; then
-  ok "R21 권한 없는 파일 stderr 무누출"
-else no "R21" "rc=$rc err=[$err]"; fi
+#   root 는 chmod 000 을 읽어 버려 권한 오류가 나지 않는다 — 통과가 공허하므로 SKIP
+if [ "$(id -u)" -eq 0 ]; then
+  echo "SKIP R21 권한 없는 파일 — root 로 실행 중(권한 검사 무의미)"
+else
+  mk_incomplete "20260106-noperm" "plan.md" '# plan\n## 1. 가정\n'
+  chmod 000 "$TMP/.specops/20260106-noperm/plan.md" 2>/dev/null
+  err=$(SPECOPS_ROOT="$TMP/.specops" bash "$SCRIPT" "20260106-noperm" 2>&1 >/dev/null); rc=$?
+  chmod 644 "$TMP/.specops/20260106-noperm/plan.md" 2>/dev/null
+  if [ "$rc" -eq 0 ] && ! printf '%s' "$err" | grep -qiE 'permission denied|No such file'; then
+    ok "R21 권한 없는 파일 stderr 무누출"
+  else no "R21" "rc=$rc err=[$err]"; fi
+fi
 
 # R22 — CRLF 산출물에서도 heading-end 탐지 (Phase C Minor — 회귀 고정)
 mk_incomplete "20260106-crlf" "plan.md" '# plan\r\n## 1. 가정\r\n'

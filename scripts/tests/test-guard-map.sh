@@ -449,8 +449,12 @@ ck "T5.h -h → rc 0 · stdout 에 사용법" "$RCH|$(grep -c '^사용: guard-ma
 env -i PATH="$PATH" TMPDIR="$SB/tmp" "$BASH_BIN" "$GM" --repo "" >"$SB/out" 2>"$SB/err"; RCE=$?
 env -i PATH="$PATH" TMPDIR="$SB/tmp" "$BASH_BIN" "$GM" --weak-only --repo "" >"$SB/out2" 2>"$SB/err2"; RCE2=$?
 ck "T5.j --repo \"\"(빈 값) → rc 2 · stdout 비어 있음 · stderr 에 사유와 사용법 (단독·--weak-only 함께)" "$RCE|$(wc -c < "$SB/out" | tr -d ' ')|$(grep -c '^guard-map: --repo 값이 비어 있다' "$SB/err")|$(grep -c '^사용: guard-map.sh' "$SB/err")|$RCE2|$(wc -c < "$SB/out2" | tr -d ' ')" "2|0|1|1|2|0"
-cpfx f1 f1ro; gm f1; RO_BASE="$OUT"; chmod -R a-w "$SB/f1ro"; gm f1ro; RO_RC=$RC; RO_OUT="$OUT"; chmod -R u+w "$SB/f1ro"
-ck "T5.ro 읽기 전용 root(chmod a-w)에서도 rc 0 · 같은 출력 — 임시 파일을 대상 repo 안에 만들지 않는다" "$RO_RC|$([ "$RO_OUT" = "$RO_BASE" ] && echo same)" "0|same"
+if [ "$(id -u)" -eq 0 ]; then  # root 는 a-w 트리에도 쓴다 — repo 안 임시 파일이 생겨도 실패하지 않아 단언이 공허하다
+  echo "SKIP T5.ro 읽기 전용 root(chmod a-w) — root 로 실행 중(권한 검사 무의미)"
+else
+  cpfx f1 f1ro; gm f1; RO_BASE="$OUT"; chmod -R a-w "$SB/f1ro"; gm f1ro; RO_RC=$RC; RO_OUT="$OUT"; chmod -R u+w "$SB/f1ro"
+  ck "T5.ro 읽기 전용 root(chmod a-w)에서도 rc 0 · 같은 출력 — 임시 파일을 대상 repo 안에 만들지 않는다" "$RO_RC|$([ "$RO_OUT" = "$RO_BASE" ] && echo same)" "0|same"
+fi
 ck "T5.i 오류 실행 뒤에도 임시 파일 잔존 0" "$(ls -A "$SB/tmp" | wc -l | tr -d ' ')" "0"
 # --repo 생략 시 기본: 이 스크립트 위치 기준 repo — 사본 트리 안의 스크립트를 돌리면 그 트리의 가드를 센다
 mkfx dflt; mkdir -p "$SB/dflt/scripts"; cp "$GM" "$SB/dflt/scripts/guard-map.sh"; chk dflt only1

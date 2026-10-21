@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- 템플릿: `api-spec.md` 의 API 계약 칸(오류 형식·오류 코드 카탈로그·목록 정책·멱등 정책)과 칸 계약 안내·오류 형식 예시를 §1 Markdown 엔드포인트 표 아래에서 §0 바로 뒤의 새 절 「공통 계약 — 오류·목록·멱등」으로 옮겼다 — `/init-project` 가 고르지 않은 방식 절(§1~§4)을 지우므로, OpenAPI·GraphQL·RPC 를 고른 프로젝트에서는 칸이 §1 과 함께 지워져 `check-api-contract.sh` 가 그 규칙을 `[건너뜀] (칸 없음)` 으로만 냈다(API 계약 판정이 버전 전략·rate limit 두 칸으로 줄었다). `test-init-project` T11.d 가 OpenAPI 로 init 한 문서에 네 칸이 남고 판정기가 그 규칙을 건너뛰지 않는지 본다. 이미 init 한 프로젝트는 그 절을 손으로 옮겨 넣어야 한다.
 - 템플릿: `api-spec.md`·`backend-architecture.md` 의 오류 형식 인용을 RFC 7807 에서 RFC 9457 로 고쳤다 — RFC 9457 이 2023년에 7807 을 대체했다(Problem Details 필드 구성은 같다). 근거: API 계약 분야 1단계 항목표에서 발견.
 
 ## [2.27.1] — 2026-10-21

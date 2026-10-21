@@ -256,6 +256,26 @@ else
 fi
 teardown_fixture
 
+# ── T11.d api-spec.md (KIND=2, m=2) → §1 을 지워도 API 계약 칸(오류 형식·오류 코드·목록·멱등)은 남는다 ──
+#   칸이 §1 아래 있으면 OpenAPI·GraphQL·RPC 를 고른 프로젝트에서 check-api-contract 가 그 규칙을 [건너뜀] 으로만 낸다.
+setup_fixture
+{
+  printf "2\np1\np2\np3\np4\np5\n"
+  printf "1. BE\n2. dev\n3. a, b, c\n4. m1\n5. m2\n6. m3\n\n"
+  printf "n\n2\n"  # DB=n, API=OpenAPI(2)
+} | bash "$SCRIPT" >/dev/null 2>&1
+f=.specops/memory/api-spec.md
+ac=$(bash "$PLUGIN/scripts/_internal/check-api-contract.sh" --spec "$f" 2>&1)
+if ! grep -q '^## §1\. ' "$f" 2>/dev/null \
+   && grep -q '^### 목록 정책' "$f" && grep -q '^### 멱등 정책' "$f" && grep -q '^### 오류 코드 카탈로그' "$f" \
+   && grep -qF -- '- **오류 형식**:' "$f" \
+   && ! printf '%s\n' "$ac" | grep -qE '\[건너뜀\] (오류|목록|멱등)'; then
+  ok "T11.d api-spec.md OpenAPI 선택 — §1 제거 후에도 오류 형식·오류 코드·목록·멱등 칸 유지(판정기 건너뜀 0)"
+else
+  nope "T11.d api-spec 계약 칸 유지" "contract=$(printf '%s' "$ac" | tr '\n' ' ')"
+fi
+teardown_fixture
+
 # ── T12.a 화면 이름 목록 → screens-overview 표만 (screens/* 껍데기 미생성) ──
 setup_fixture
 {

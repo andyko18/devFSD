@@ -19,23 +19,12 @@
 
 **채택한 방식**: <`/init-project` 입력값>
 
-## §1. Markdown 엔드포인트 표
+## 공통 계약 — 오류·목록·멱등
 
-> ⚠️ **아래는 전자상거래 예시다 — 실제 엔드포인트로 교체하고 `specops:example` 마커 블록째 삭제하라.**
-> 본 문서는 구현의 **설계 계약**이라 예시가 남으면 `design-reviewer-ko` 정합 검사·`verifying-evidence-ko`
-> memory 동기화 점검이 **유령 엔드포인트를 실 계약으로 읽는다**. 잔존 시 `scan-enrich-placeholders.sh` 가 미채움 판정.
+> 정의 방식(§1~§4)과 무관하게 모든 엔드포인트가 따르는 계약이다. `/init-project` 가 고르지 않은 방식 절을 지워도 이 절은 남는다 —
+> 방식 절 아래로 옮기지 마라(그 방식을 고르지 않은 프로젝트에서 칸이 함께 지워진다).
 
-<!-- specops:example:start -->
-| Method | Path | Auth | Request | Response | Status | 비고 |
-|---|---|---|---|---|---|---|
-| GET | `/v1/users` | Bearer (admin) | `?cursor=&limit=` | `Page<User>` | 200 · 401 · 403 | 사용자 목록 (목록 정책 적용) |
-| GET | `/v1/users/:id` | Bearer | — | `User` | 200 · 401 · 404 | 단일 사용자 조회 |
-| POST | `/v1/users` | Bearer (admin) | `CreateUserDto` | `User` | 201 · 401 · 403 · 409 · 422 | 사용자 생성 (`Location` 헤더) |
-| PATCH | `/v1/users/:id` | Bearer (self/admin) | `UpdateUserDto` | `User` | 200 · 401 · 403 · 404 · 422 | 사용자 수정 |
-| DELETE | `/v1/users/:id` | Bearer (admin) | — | `204 No Content` | 204 · 401 · 403 · 404 | 사용자 삭제 |
-<!-- specops:example:end -->
-
-> **칸 계약** (`check-api-contract.sh` 가 읽는다 — 경고 전용): 엔드포인트 표의 **Status** 열 · 아래 **오류 형식**·**오류 코드 카탈로그**·**목록 정책**·**멱등 정책** · §5 **rate limit** · §6 **버전 전략**. 비었거나 `<…>` 그대로면 검증 때 경고한다.
+> **칸 계약** (`check-api-contract.sh` 가 읽는다 — 경고 전용): §1 을 골랐으면 엔드포인트 표의 **Status** 열 · 이 절의 **오류 형식**·**오류 코드 카탈로그**·**목록 정책**·**멱등 정책** · §5 **rate limit** · §6 **버전 전략**. 비었거나 `<…>` 그대로면 검증 때 경고한다.
 
 - **오류 형식**: <RFC 9457 Problem Details / 자체 envelope — 모든 엔드포인트가 이 하나만 쓴다>
 
@@ -68,6 +57,22 @@
 ### 멱등 정책
 
 - <상태를 바꾸는 엔드포인트마다 둘 중 하나: `Idempotency-Key` 헤더를 받는다(키는 클라이언트가 의도마다 한 번 만든다 · 같은 키·다른 본문은 422 · 완료된 중복은 원래 응답 재생 · 보존기간) / 재시도 불안전 — 클라이언트가 재시도하지 않는다>
+
+## §1. Markdown 엔드포인트 표
+
+> ⚠️ **아래는 전자상거래 예시다 — 실제 엔드포인트로 교체하고 `specops:example` 마커 블록째 삭제하라.**
+> 본 문서는 구현의 **설계 계약**이라 예시가 남으면 `design-reviewer-ko` 정합 검사·`verifying-evidence-ko`
+> memory 동기화 점검이 **유령 엔드포인트를 실 계약으로 읽는다**. 잔존 시 `scan-enrich-placeholders.sh` 가 미채움 판정.
+
+<!-- specops:example:start -->
+| Method | Path | Auth | Request | Response | Status | 비고 |
+|---|---|---|---|---|---|---|
+| GET | `/v1/users` | Bearer (admin) | `?cursor=&limit=` | `Page<User>` | 200 · 401 · 403 | 사용자 목록 (목록 정책 적용) |
+| GET | `/v1/users/:id` | Bearer | — | `User` | 200 · 401 · 404 | 단일 사용자 조회 |
+| POST | `/v1/users` | Bearer (admin) | `CreateUserDto` | `User` | 201 · 401 · 403 · 409 · 422 | 사용자 생성 (`Location` 헤더) |
+| PATCH | `/v1/users/:id` | Bearer (self/admin) | `UpdateUserDto` | `User` | 200 · 401 · 403 · 404 · 422 | 사용자 수정 |
+| DELETE | `/v1/users/:id` | Bearer (admin) | — | `204 No Content` | 204 · 401 · 403 · 404 | 사용자 삭제 |
+<!-- specops:example:end -->
 
 ## §2. OpenAPI 3.1 YAML
 

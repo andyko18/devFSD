@@ -251,8 +251,10 @@ if [ $FAIL -gt 0 ]; then
 fi
 # 지문이 NO_GIT 이거나 UNHASHABLE(읽을 수 없는 파일 — 20261005-fingerprint-add-failclosed)이면 기록하지 않는다 —
 # 대조 불가한 값으로 skip 이 열리면 안 된다
-if [ "$_FSP_TREE" != "NO_GIT" ] && [ "$_FSP_TREE" != "UNHASHABLE" ]; then
-  mkdir -p "$(dirname "$_FSP_MARKER")" 2>/dev/null || true
+# `.specops/` 가 없으면 기록하지 않는다 — 디렉터리를 만들면 그 저장소가 관할로 편입돼 다음 커밋부터 R-1 이 막는다
+#   (CLAUDE.md "디렉토리는 관할을 여는 쪽만 만든다" · 20261021 실측: 새로 clone 한 클라우드 세션에서 run-all 이 관할을 열었다).
+#   기록이 없으면 pre-push 가 전체 스위트를 다시 돈다(안전한 쪽).
+if [ "$_FSP_TREE" != "NO_GIT" ] && [ "$_FSP_TREE" != "UNHASHABLE" ] && [ -d "$(dirname "$_FSP_MARKER")" ]; then
   printf '%s\n' "$_FSP_TREE" > "$_FSP_MARKER" 2>/dev/null || true
 fi
 

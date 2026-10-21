@@ -75,6 +75,7 @@ _suite "$S" p1 'sleep 0.3; echo "PASS=1 FAIL=0"'
 _suite "$S" p2 'echo "PASS=1 FAIL=0"'
 # ★ 커밋 필수 — HEAD 가 없으면 지문의 임시 index(빈 파일)를 git 이 손상으로 보아 NO_GIT 이 된다(실측)
 ( cd "$S" && git init -q && git add -A && git -c user.email=t@example.com -c user.name=t -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm base ) >/dev/null 2>&1
+mkdir -p "$S/.specops"   # 관할이 열린 저장소 — run-all 은 .specops/ 가 있을 때만 마커를 남긴다(20261021)
 _fp=$( cd "$S" && bash -c '. scripts/_internal/verification-state.sh; vs::nondoc_fingerprint' )
 o=$( cd "$S" && SPECOPS_RUN_ALL_JOBS=2 bash scripts/tests/run-all.sh --quiet 2>&1 ); rc=$?
 { [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$o" | tail -1)" = "VERIFY: PASS" ] \

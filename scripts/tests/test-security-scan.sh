@@ -329,6 +329,42 @@ else
 fi
 rm -rf "$T"
 
+# ── JSON 데이터 파일 인자 (llm-eval evals.json SQL 오탐 — FID 20261021-api-designer-agent 에서 분류·이연) ──
+# .json 은 실행되지 않는 데이터다. 한 줄 수천 자짜리 문자열에 `execute(` … 산문 `+` … `params` 가 놓이면 SQL 룰이 high 를 냈다.
+# 해제는 확장자로만 한다 — 같은 줄이 .py 에 있으면, 그리고 진짜 문자열 조립 SQL 은 계속 high 다(양성 대조군).
+T=$(mktemp -d)
+pad=$(printf '%0900d' 0 | tr 0 x)
+JSON_LINE="{\"prompt\": \"plan: session.execute(select(User)) ${pad} 산문 a + b ${pad} params = inspect.signature(fn) 그리고 eval(x) 서술\"}"
+printf '%s\n' "$JSON_LINE" > "$T/evals.json"
+printf '%s\n' "$JSON_LINE" > "$T/EVALS.JSON"
+for f in evals.json EVALS.JSON; do
+  o=$(bash "$SC" "$T/$f" 2>&1); e=$?
+  { [ "$e" = 0 ] && printf '%s' "$o" | grep -q 'crit=0 high=0'; } \
+    && ok "JSON-1 $f 데이터 줄은 위험함수·SQL high 를 내지 않는다" || nope "JSON-1 $f" "o=$o e=$e"
+done
+# 실제 오탐 원본 — 저장소의 evals.json (읽기만 한다)
+REAL_EVALS="$P/scripts/tests/llm-eval/skills/specifying-ko/evals.json"
+if [ -f "$REAL_EVALS" ]; then
+  o=$(bash "$SC" "$REAL_EVALS" 2>&1); e=$?
+  { [ "$e" = 0 ] && printf '%s' "$o" | grep -q 'crit=0 high=0'; } \
+    && ok "JSON-1b 실제 specifying-ko/evals.json 은 high=0" || nope "JSON-1b" "o=$o e=$e"
+else
+  skip "JSON-1b specifying-ko/evals.json 부재 — 실파일 대조 미실행 (PASS 집계 제외)"
+fi
+printf '%s\n' "$JSON_LINE" > "$T/same.py"
+printf '%s\n' "$JSON_LINE" > "$T/evals.json.py"
+printf 'cursor.execute("SELECT * FROM users WHERE name = \x27" + request.args["q"] + "\x27")\n' > "$T/real.py"
+for f in same.py evals.json.py real.py; do
+  o=$(bash "$SC" "$T/$f" 2>&1); e=$?
+  { [ "$e" = 1 ] && printf '%s' "$o" | grep -qE 'high=[1-9]'; } \
+    && ok "JSON-2 양성 대조군: $f 는 여전히 high" || nope "JSON-2 $f" "o=$o e=$e"
+done
+printf '{"aws": "%s"}\n' "AKIA""IOSFODNN7EXAMPLE" > "$T/sec.json"
+o=$(bash "$SC" "$T/sec.json" 2>&1); e=$?
+{ [ "$e" = 1 ] && printf '%s' "$o" | grep -qE 'crit=[1-9]'; } \
+  && ok "JSON-3 .json 의 secret 은 여전히 crit" || nope "JSON-3" "o=$o e=$e"
+rm -rf "$T"
+
 # SKIP 을 요약에 드러낸다 — green 이 곧 전량 실행은 아니다(도구 부재로 축소 실행 가능).
 #   SKIP=0 이면 종전 출력과 바이트 동일하다.
 sk=""; [ "${SKIP:-0}" -gt 0 ] && sk=" SKIP=$SKIP"

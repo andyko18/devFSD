@@ -10,6 +10,7 @@
 
 ### Fixed
 
+- 보안 스캔 self-check: 파일 인자로 받은 `.json` 에는 위험함수·SQL 룰을 걸지 않는다(문서 확장자와 같은 취급 · secret 룰은 그대로). llm-eval 의 `specifying-ko/evals.json` 은 한 줄 수천 자짜리 문자열에 Python 계획 문안을 담아 `execute(` … 산문 `+` … `params` 가 한 줄에 놓였고, SQL 룰이 줄 전체에 걸쳐 맞아 `high=1` 로 보안 게이트를 막았다(origin/main 재현 · FID 20261021-api-designer-agent 에서 오탐으로 분류·이연). 정규식 창을 좁히는 안은 코드 파일의 긴 SQL 문자열 줄을 놓치므로 택하지 않았다 — 코드 파일 탐지는 바뀌지 않는다(`cursor.execute("…" + request.args["q"])` 는 여전히 high · `test-security-scan.sh` JSON-1~3).
 - 템플릿: `api-spec.md`·`backend-architecture.md` 의 오류 형식 인용을 RFC 7807 에서 RFC 9457 로 고쳤다 — RFC 9457 이 2023년에 7807 을 대체했다(Problem Details 필드 구성은 같다). 근거: API 계약 분야 1단계 항목표에서 발견.
 
 ## [2.27.1] — 2026-10-21

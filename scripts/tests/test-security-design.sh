@@ -262,4 +262,8 @@ SP="$PLUGIN/skills/specifying-ko/SKILL.md"
 grep -qE 'scripts/_internal/check-security-design\.sh <FID>` 를 한 번 실행한다.*막지 않는다' "$SP" \
   && ok "S6b specifying Step 5.6 — 보안 칸 판정기 호출(비차단)" || nope "S6b" "specifying 문구 누락"
 
+VE="$PLUGIN/skills/verifying-evidence-ko/SKILL.md"
+grep -qE '`### security-design` 에 남긴다\. `WARN` 은 결함 후보일 뿐 VERIFY 결과를 바꾸지 않는다' "$VE" \
+  && ok "S6c verifying 체크 줄 — security-design 경고 전용" || nope "S6c" "verifying 문구 누락"
+
 finish

@@ -214,6 +214,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 - [ ] **구조 규칙 판정 명령 (헌법에 판정 `명령` 규칙이 있을 때)**: `run-verification.sh` 가 `check-rule-commands.sh` 로 실행하고 결과를 evidence.md `### structure-rule-commands` 에 남긴다. 위반(`FAIL`)은 `VERIFY: FAIL structure-rule-commands` 로 검증을 막는다 — 코드를 고치거나, 규칙이 틀렸으면 사용자에게 알린다(헌법을 스스로 고치지 않는다). `판정 불가`·`TIMEOUT`·`SKIP` 은 경고로 보고한다(`판정 불가` 는 도구·환경이 없어 확인하지 못한 것 — 위반 아님).
 - [ ] **import 방향·순환 (경고 전용)**: `run-verification.sh` 가 `check-import-direction.sh` 로 plan 의 허용 의존(화살표 형식)을 이 FID 의 import 와 대조하고 순환을 찾아 evidence.md `### import-direction` 에 남긴다. `WARN` 이어도 검증은 실패하지 않는다 — 역방향·순환은 구현을 고치거나 plan 의 허용 의존을 고쳐 맞추고, 그대로 두려면 PR 본문에 이유를 적는다
 - [ ] **API 계약 빈칸·형식 (경고 전용)**: `run-verification.sh` 가 `check-api-contract.sh` 로 `.specops/memory/api-spec.md` 의 이 FID 가 바꾼 엔드포인트 행(경로 동사·중첩 · 상태코드)과 계약 칸(오류 형식·오류 코드·목록 정책·멱등 정책·rate limit·버전 전략)을 보고 evidence.md `### api-contract` 에 남긴다. `WARN` 은 결함 후보일 뿐 VERIFY 결과를 바꾸지 않는다 · 칸이 없는 옛 문서는 `[건너뜀]` · api-spec 부재는 SKIP.
+- [ ] **보안 설계 칸·결함 (경고 전용)**: `run-verification.sh` 가 `check-security-design.sh` 로 `.specops/memory/api-spec.md`·`data-model.md` 의 보안 칸(인증 방식·권한 모델·CORS·CSRF·개인정보 분류·보존·삭제)과 이 FID 가 바꾼 엔드포인트 행(Auth 빈칸·URL 민감정보·응답 민감 필드), plan·tasks 파일 경로의 위험 기능 신호(업로드·웹훅 수신·외부 URL 가져오기·LLM 호출)를 보고 evidence.md `### security-design` 에 남긴다. `WARN` 은 결함 후보일 뿐 VERIFY 결과를 바꾸지 않는다 · 칸이 없는 옛 문서는 `[건너뜀]` · 두 문서 모두 부재는 SKIP.
 - [ ] `.specops/<FID>/evidence.md`에 출력 캡처 (`run-verification.sh` 가 자동 append)
 
 ## 5원칙 주입 (specops-ko 고유)

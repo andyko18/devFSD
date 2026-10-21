@@ -538,6 +538,7 @@ else
 fi
 
 # API 계약 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 판정기 선실행·중복 금지 · 공통 원칙 13(이름·본문 짝) · 범위 경계 (20261021-api-designer-agent)
+# Then 절별 같은 줄 연접 잠금 — 파일 전체 grep 이 다른 줄의 같은 구절로 통과하던 구멍(리뷰 B 2회)
 _APA=agents/api-designer-ko.md
 _apa_body_ok() {
   local pair name body
@@ -550,11 +551,14 @@ _apa_body_ok() {
   done
 }
 if [ -f "$_APA" ] && has "$_APA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/api\.md` 하나뿐이다' \
-     'CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-api-contract\.sh <FID>' '판정기가 낸 위반.*다시 지적하지 않는다' \
-     'api-expert/patterns/graphql\.md' '\.graphql' '리졸버' 'api-spec\.md 가 없으면' \
+     'CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-api-contract\.sh <FID>' \
+     'check-api-contract\.sh <FID>` 를 먼저 실행해 첫 줄과 rc 를 산출의 `## 판정기` 에 옮긴다.*판정기가 낸 위반.*다시 지적하지 않는다' \
+     'api-expert/patterns/graphql\.md` \| api-spec §0 정의 방식이 GraphQL 이거나 plan 이 `\.graphql`·스키마·리졸버 파일을 만들거나 고칠 때' \
+     '^- \*\*api-spec\.md 가 없으면\*\* plan 의 엔드포인트·태스크만으로 검토한다 — 판정기는 SKIP 을 내고, .*모두 `## 확인 필요` 로 낸다\.' \
      '^## 받는 컨텍스트' '^## 핵심 규칙' '^## 공통 원칙' '^## 빈 출력 규칙' '^## 확인 필요' '^## 하지 말 것' \
-     '\*\*엇갈리는 규약\*\*' 'RFC 9457' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' 'plan\.md.*직접 수정하지 않는다' '멱등 키 선점의 원자성\(유일 제약\)은 \*\*DB 전문가\*\*' '인증·인가는 \*\*보안\*\* 분야.*단 오류 응답의 입력값 반사는.*원칙 9' \
-     'api-spec\.md 가 없으면.*판정기는 SKIP' '정하지 않았으면 `## 확인 필요`' \
+     '\*\*엇갈리는 규약\*\*.*한쪽을 강요하지 않는다\. api-spec 에 정한 규약과 plan 이 어긋날 때만 지적하고, 정하지 않았으면 `## 확인 필요` 로 묻는다' \
+     'RFC 9457' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' 'plan\.md.*직접 수정하지 않는다' \
+     '멱등 키 선점의 원자성\(유일 제약\)은 \*\*DB 전문가\*\* 몫이고, 인증·인가는 \*\*보안\*\* 분야, 타임아웃·재시도 정책\(횟수·백오프\)은 구조 분야다.*단 오류 응답의 입력값 반사는.*원칙 9' \
    && ! grep -q '^role: evaluator' "$_APA" && grep -q 'agents/ .*← 10건' README.md && grep -q '^| api-designer-ko' README.md \
    && _apa_body_ok; then
   ok "API 계약 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 공통 원칙 13(이름·본문·출처) · 엇갈리는 규약 · README 10건·모델 표"

@@ -717,20 +717,22 @@ result=$(cd "$tmp" && mkdir -p .specops && cat > .specops/session-progress.md <<
 ## 20260401-first-fid
 entry
 EOF
-  source "$PLUGIN/hooks/governance-lib.sh"; detect_fid)
+  source "$PLUGIN/hooks/governance-lib.sh"; detect_fid) 2>"$tmp.err"
 if [ "$result" = "20260401-first-fid" ]; then
   PASS=$((PASS+1)); echo "PASS T12.b (U8) 마커 부재 → 첫 ## 헤더 fallback"
 else
   FAIL=$((FAIL+1)); echo "FAIL T12.b (got='$result')"
   # 진단(CI 에서만 재현되는 got='' 추적용 — 원인 확정 뒤 제거)
   {
-    echo "DIAG T12.b tmp=$tmp"
+    echo "DIAG T12.b tmp=$tmp bash=$BASH_VERSION"
+    echo "--- 원 호출 stderr:"; head -c 600 "$tmp.err" 2>&1
+    echo "--- 재호출(같은 구성):"; (cd "$tmp" && source "$PLUGIN/hooks/governance-lib.sh"; detect_fid) 2>&1
     (cd "$tmp" && ls -laR .specops 2>&1 | head -20; echo "--- progress:"; cat .specops/session-progress.md 2>&1)
     echo "--- trace:"
     (cd "$tmp" && source "$PLUGIN/hooks/governance-lib.sh" && PS4='+DIAG ' && set -x && detect_fid) 2>&1 | head -40
-  } 2>&1 | tr '\n' '|' | head -c 1800 | sed 's/^/FAIL T12.b-diag: /'; echo   # run-all 은 FAIL 줄을 5개까지만 보여준다 — 한 줄로 묶는다
+  } 2>&1 | tr '\n' '|' | head -c 2600 | sed 's/^/FAIL T12.b-diag: /'; echo   # run-all 은 FAIL 줄을 5개까지만 보여준다 — 한 줄로 묶는다
 fi
-rm -rf "$tmp"
+rm -rf "$tmp" "$tmp.err"
 
 # T12.c (U8) session-progress.md 자체 부재 → 빈 결과
 tmp=$(mktemp -d)

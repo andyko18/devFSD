@@ -505,7 +505,7 @@ _g "$MARKER_LIT" "$RUNALL"                        && ok "T20.a run-all 마커 �
 _g '_FSP_TREE=.*nondoc_fingerprint' "$RUNALL"  && ok "T20.b 지문 캡처가 nondoc_fingerprint" || nope "T20.b 지문 캡처가 nondoc_fingerprint"
 _g 'printf .*_FSP_TREE.*>.*_FSP_MARKER' "$RUNALL" && ok "T20.c 성공 시 기록"                || nope "T20.c 성공 시 기록"
 _g 'rm -f .*_FSP_MARKER' "$RUNALL"                && ok "T20.d FAIL 시 마커 제거"           || nope "T20.d FAIL 시 마커 제거"
-_g 'mkdir -p .*_FSP_MARKER' "$RUNALL"             && ok "T20.e 마커 디렉터리 보장"          || nope "T20.e 마커 디렉터리 보장"
+! _g 'mkdir -p .*_FSP_MARKER' "$RUNALL" && _g '\[ -d .*_FSP_MARKER' "$RUNALL" && ok "T20.e 마커 디렉터리를 만들지 않음(있을 때만 기록 — 관할 편입 금지)" || nope "T20.e 마커 디렉터리를 만들지 않음"
 # VERIFY 토큰 불변 — R-1/R-2 실행-근거 게이트가 transcript 에서 파싱한다
 _g '^echo "VERIFY: PASS"' "$RUNALL"               && ok "T20.f VERIFY: PASS 토큰 보존"      || nope "T20.f VERIFY: PASS 토큰 보존"
 _g '^  echo "VERIFY: FAIL"' "$RUNALL"             && ok "T20.g VERIFY: FAIL 토큰 보존"      || nope "T20.g VERIFY: FAIL 토큰 보존"
@@ -558,6 +558,12 @@ if [ "$_p_ntests" != "1" ]; then
 else
 
 _p_fp() { ( cd "$_p" && bash -c '. scripts/_internal/verification-state.sh; vs::nondoc_fingerprint' ); }
+
+# .specops/ 부재 → 성공해도 디렉터리를 만들지 않는다(관할 편입 금지 — 20261021)
+rm -rf "$_p/.specops"
+( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 ); _p_rc=$?
+{ [ "$_p_rc" -eq 0 ] && [ ! -e "$_p/.specops" ]; } && ok "T20.h0 .specops 부재 → run-all 성공 · 디렉터리 미생성" || nope "T20.h0 .specops 부재 → 디렉터리 미생성" "rc=$_p_rc · $(ls -a "$_p" | tr '\n' ' ')"
+mkdir -p "$_p/.specops"
 
 # 성공 → 마커가 지문과 일치
 ( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )

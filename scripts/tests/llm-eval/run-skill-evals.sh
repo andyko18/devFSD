@@ -4,6 +4,9 @@
 # 환경: CLAUDE_BIN(기본 claude) · SKILL_EVAL_DIR(기본 이 디렉터리의 skills/) · SKILL_EVAL_MODE(routed 강제)
 #       ANTHROPIC_API_KEY(있으면 isolated) · LLM_EVAL_MAX_TURNS(기본 4) · LLM_EVAL_TIMEOUT(기본 300초)
 #       SKILL_EVAL_INJECT=1(케이스 `agent` 필드의 agent 본문을 그 케이스 질의에만 --append-system-prompt 로 주입 — with/without 비교용)
+#         케이스 `knowledge`(플러그인 기준 .md 경로 목록)가 있으면 그 파일 내용을 본문 뒤 "보조 지식 파일" 절로 함께 주입한다 —
+#         평가는 Read 를 막아(DENY) 에이전트가 지식 파일(DB 엔진·구조 패턴)을 스스로 읽을 수 없기 때문이다(20261021 실측: 3회 모두 엔진 파일 미독).
+#         파일이 없으면 그 케이스는 SKIP(지식 없는 무음 측정 금지). SKILL_EVAL_KNOWLEDGE_ROOT(기본 플러그인 루트 — 테스트용)
 #       SKILL_EVAL_AGENTS_DIR(agent 파일 디렉터리, 기본 플러그인 agents/ — 테스트용)
 #       SKILL_EVAL_EFFORT=<low|medium|high|xhigh|max> · SKILL_EVAL_MODEL=<모델 별칭/ID>(candidate 질의에만 --effort/--model — 채점기 제외, effort·model arm 비교용 · CLAUDE_CODE_EFFORT_LEVEL 설정 시 EFFORT 노브는 거절)
 #       SKILL_EVAL_CASES=<id,id,…>(--evals 전용 — 지정 id 의 케이스만 질의·채점, 파일럿 비용 절감용. 선택 안 된 케이스는 집계하지 않는다)
@@ -61,6 +64,7 @@ else
 fi
 INJECT="${SKILL_EVAL_INJECT:-0}"
 AGENTS_DIR="${SKILL_EVAL_AGENTS_DIR:-$PLUGIN/agents}"
+KNOW_ROOT="${SKILL_EVAL_KNOWLEDGE_ROOT:-$PLUGIN}"
 INJ_N=0; INJ_CAND=0   # 주입한 케이스 수 / 주입 대상(agent 필드 보유 · 주입 on 일 때만 집계)
 [ "$INJECT" = 1 ] && LABEL="${LABEL}+inject"
 # arm 노브(20261007-eval-effort-knob) — candidate 질의(ask())에만 --effort/--model 을 건다. 채점기는 eval::judge_rubric 이 별도 호출하므로
@@ -116,6 +120,17 @@ agent_body() {  # <이름> → frontmatter(첫 줄 --- ~ 다음 ---) 를 뺀 age
   local f="$AGENTS_DIR/$1.md"
   [ -f "$f" ] || return 1
   awk 'NR==1 && $0=="---"{fm=1; next} fm && $0=="---"{fm=0; next} !fm' "$f"
+}
+
+knowledge_append() {  # <케이스 json> <본문> → 본문 + 보조 지식 파일 절. 파일 부재면 그 경로를 출력하고 rc 1
+  local o="$1" out="$2" k first=1
+  while IFS= read -r k; do
+    [ -n "$k" ] || continue
+    [ -f "$KNOW_ROOT/$k" ] || { printf '%s' "$k"; return 1; }
+    if [ "$first" = 1 ]; then out="$out"$'\n\n'"## 보조 지식 파일 (평가 주입 — 실제 dispatch 에서는 에이전트가 직접 Read 한다)"; first=0; fi
+    out="$out"$'\n\n'"### $k"$'\n\n'"$(cat "$KNOW_ROOT/$k")"
+  done < <(printf '%s' "$o" | jq -r '.knowledge // [] | .[]')
+  printf '%s' "$out"
 }
 
 ask() {  # <prompt> [agent 본문] → 전역 OUT(stream-json) · ERR(stderr 첫 줄 ≤120자) · rc 124=timeout · 3=result 없음. 질의마다 격리 sandbox(부트스트랩 안내 회피용 시드)
@@ -181,6 +196,7 @@ run_evals() {  # <skill> <file>
     if [ "$INJECT" = 1 ] && [ -n "$ag" ]; then
       INJ_CAND=$((INJ_CAND+1))
       if ! body=$(agent_body "$ag") || [ -z "$body" ]; then emit "$s" "$id" "SKIP(agent 부재·빈 본문: $ag)"; continue; fi
+      if ! body=$(knowledge_append "$o" "$body"); then emit "$s" "$id" "SKIP(knowledge 부재: $body)"; continue; fi
       INJ_N=$((INJ_N+1))
     fi
     ask "$p" "$body"; rc=$?

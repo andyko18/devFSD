@@ -119,6 +119,9 @@
           "type": "llm_rubric",
           "value": "실제 Argus 계획(20260729-backend-common-core)에 대한 리뷰다. 이 계획의 공통 대량 upsert 헬퍼에는 구현 리뷰에서야 발견된 DB 결함 두 가지가 있다: ① PostgreSQL/asyncpg 의 바인드 파라미터 상한(32767개) 때문에 행×컬럼이 많은 대량 upsert 는 청크로 나눠야 하는데 분할이 없다 ② 행마다 키(컬럼)가 다를 때 첫 행 기준으로 컬럼을 정해 다른 행의 값이 NULL 로 조용히 사라질 수 있다. DB 전문가 응답이 둘 중 하나 이상을 Critical 또는 Important 로 지적하면 PASS. 둘 다 지적하지 않으면 FAIL."
         }
+      ],
+      "knowledge": [
+        "skills/planning-ko/db-expert/engines/postgres.md"
       ]
     },
     {
@@ -130,6 +133,9 @@
           "type": "llm_rubric",
           "value": "실제 Argus 계획(20260828-market-axis)에 대한 리뷰다. 이 계획의 통합 테스트 fixture 는 접속 대상 DB URL 이 테스트 전용(argus_test 등)인지 검증하지 않고 drop_all 로 테이블을 지운다 — 러너를 거치지 않고 실행하면 실데이터 DB 를 지울 수 있다(구현 리뷰에서야 발견됨). DB 전문가 응답이 이 위험(테스트 fixture 의 drop_all/스키마 삭제 전 대상 DB 확인 부재)을 Critical 또는 Important 로 지적하면 PASS. 지적하지 않으면 FAIL."
         }
+      ],
+      "knowledge": [
+        "skills/planning-ko/db-expert/engines/postgres.md"
       ]
     },
     {
@@ -141,6 +147,9 @@
           "type": "llm_rubric",
           "value": "이 plan 은 DB 설계상 결함이 없는 대조군이다(FK·RLS 방침·롤백 왕복 시험·운영 적용 분리와 승인·IF NOT EXISTS·안정 정렬과 LIMIT·보유 상한을 사용자 행 잠금으로 직렬화·FK 위반 422 변환·조회에 맞는 인덱스·ORM 과 DDL 일치 시험·테스트 DB 를 마이그레이션 SQL 로 생성·fixture 대상 완전 일치 확인·PK 위반 409 변환이 모두 있다). DB 전문가 응답이 근거 없는 Critical 또는 Important 지적을 만들지 않으면 PASS(Minor 제안과 `확인 필요` 질문은 허용). 존재하지 않는 DB 결함을 Critical/Important 로 지적하면 FAIL."
         }
+      ],
+      "knowledge": [
+        "skills/planning-ko/db-expert/engines/postgres.md"
       ]
     }
   ]

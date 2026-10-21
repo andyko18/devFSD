@@ -269,14 +269,33 @@ fi
 CI_CHECK="$PLUGIN_ROOT/scripts/_internal/check-ci-status.sh"
 [ -f "$CI_CHECK" ] && (cd "$PLUGIN_ROOT" && bash "$CI_CHECK") || true
 
+# 원격 단계 일부만 성공하면(20261021 실측: 클라우드 세션에서 main push 는 됐는데 태그 push 가 HTTP 403)
+#   set -e 로 끝나 무엇이 이미 올라갔는지 알 수 없었다 — 어디까지 됐는지와 마무리 방법을 적고 실패로 끝낸다.
+_partial_release() {  # <실패 단계>
+  local sha; sha=$(git -C "$PLUGIN_ROOT" rev-parse --short HEAD 2>/dev/null || echo '?')
+  echo "" >&2
+  echo "Error: 부분 릴리즈 — '$1' 단계에서 실패했다 (로컬 커밋 ${sha} · 로컬 태그 v${VERSION} 는 있다)." >&2
+  case "$1" in
+    "main push")
+      echo "  원격에는 아무것도 올라가지 않았다. 수동: git push && git push origin v${VERSION}" >&2 ;;
+    "태그 push")
+      echo "  main 은 이미 push 됐다(${sha}). 태그만 원격에 없다. 수동 중 하나:" >&2
+      echo "    git push origin v${VERSION}" >&2
+      echo "    또는 GitHub 웹 Releases → Draft a new release → 태그 v${VERSION} 새로 만들기(target ${sha}) → 노트는 CHANGELOG [${VERSION}] 절" >&2 ;;
+    "GitHub Release")
+      echo "  main·태그는 push 됐다. Release 만 없다. 수동: gh release create v${VERSION} --verify-tag --latest --generate-notes 또는 GitHub 웹에서 태그 v${VERSION} 로 Release 생성" >&2 ;;
+  esac
+  exit 1
+}
+
 echo "-> 원격 push..."
 # pre-flight 가 방금 동일한 run-all.sh 전체를 통과했다. SPECOPS_RUN_ALL=1 은 pre-push
 # 재귀 가드(.githooks/pre-push 의 SPECOPS_RUN_ALL 분기)를 켜 같은 스위트의 중복 실행을 막는다.
 # ★ 반드시 명령 prefix 로 둘 것 — 스크립트 전역으로 export 하면 release.sh:65 가
 #   pre-flight 자체를 skip 해 게이트가 전면 상실된다 (T20.b 가 잠그는 유일 teeth —
 #   T11.a 는 RELEASE_PREFLIGHT_CMD=true 로 도는 탓에 이 회귀에 발화하지 않는다).
-SPECOPS_RUN_ALL=1 git -C "$PLUGIN_ROOT" push
-SPECOPS_RUN_ALL=1 git -C "$PLUGIN_ROOT" push origin "v${VERSION}"
+SPECOPS_RUN_ALL=1 git -C "$PLUGIN_ROOT" push || _partial_release "main push"
+SPECOPS_RUN_ALL=1 git -C "$PLUGIN_ROOT" push origin "v${VERSION}" || _partial_release "태그 push"
 
 # gh CLI 미설치 시 release 만 graceful skip (push 는 이미 성공)
 if ! command -v gh > /dev/null 2>&1; then
@@ -305,12 +324,12 @@ if [ -s "$NOTES_FILE" ]; then
     --repo "$(git -C "$PLUGIN_ROOT" remote get-url origin)" \
     --title "v${VERSION}" \
     --notes-file "$NOTES_FILE" \
-    --verify-tag --latest
+    --verify-tag --latest || { rm -f "$NOTES_FILE"; _partial_release "GitHub Release"; }
 else
   gh release create "v${VERSION}" \
     --repo "$(git -C "$PLUGIN_ROOT" remote get-url origin)" \
     --title "v${VERSION}" \
-    --verify-tag --latest --generate-notes
+    --verify-tag --latest --generate-notes || { rm -f "$NOTES_FILE"; _partial_release "GitHub Release"; }
 fi
 rm -f "$NOTES_FILE"
 

@@ -49,6 +49,10 @@ elif ([.cases[].asserts[].type | select((type=="string" and vocab)|not)] | lengt
 elif ([.cases[].asserts[].value | select((. != null and (tostring|length)>0)|not)] | length) > 0 then "빈 assert value"
 elif ([.cases[] | select(has("agent")) | .agent | select((type=="string" and test("\\A[a-z0-9-]+\\z"))|not)] | length) > 0
   then "agent 형식 오류: " + ([.cases[] | select(has("agent")) | .agent | select((type=="string" and test("\\A[a-z0-9-]+\\z"))|not)][0] | tostring)
+elif ([.cases[] | select(has("knowledge") and (has("agent")|not))] | length) > 0 then "knowledge 는 agent 가 있는 케이스에만"
+elif ([.cases[] | select(has("knowledge")) | .knowledge | select(((type=="array") and length>0)|not)] | length) > 0 then "knowledge 형식 오류: 빈 배열 또는 배열 아님"
+elif ([.cases[] | select(has("knowledge")) | .knowledge[] | select((type=="string" and test("\\A(skills|agents)/[A-Za-z0-9._/-]+\\.md\\z") and (test("\\.\\.")|not))|not)] | length) > 0
+  then "knowledge 형식 오류: " + ([.cases[] | select(has("knowledge")) | .knowledge[] | select((type=="string" and test("\\A(skills|agents)/[A-Za-z0-9._/-]+\\.md\\z") and (test("\\.\\.")|not))|not)][0] | tostring)
 else ([.cases[].id] | dup | if length>0 then "id 중복: " + .[0] else "" end)
 end
 JQ

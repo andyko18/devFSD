@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 템플릿: `api-spec.md`·`backend-architecture.md` 의 오류 형식 인용을 RFC 7807 에서 RFC 9457 로 고쳤다 — RFC 9457 이 2023년에 7807 을 대체했다(Problem Details 필드 구성은 같다). 근거: API 계약 분야 1단계 항목표에서 발견.
+
 ## [2.27.1] — 2026-10-21
 
 ### Fixed

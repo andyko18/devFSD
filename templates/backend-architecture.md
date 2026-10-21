@@ -69,7 +69,7 @@ DLQ (Dead Letter Queue) 정책: 3 회 실패 → DLQ 이동 + 알림
 상세 IF: `.specops/memory/api-spec.md`
 
 - 버저닝: <URL prefix `/v1/` / Header `Accept-Version`>
-- 에러 포맷: <RFC 7807 Problem Details>
+- 에러 포맷: <RFC 9457 Problem Details / 자체 envelope>
 - 페이지네이션: <cursor / offset>
 
 ## 8. 테스트

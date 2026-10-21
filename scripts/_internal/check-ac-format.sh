@@ -59,11 +59,13 @@ function flush() {
 function skeleton(s) {
   gsub(/^[[:space:]]+|[[:space:]]+$/, "", s)
   gsub(/^`|`$/, "", s)                 # 백틱 코드스팬 감싸기 제거 후 판정
-  if (s ~ /^<[^<>]{1,60}>$/) return 1
-  if (s ~ /^\.{2,}$/) return 1
+  # mawk 호환: 구간 반복({n,m})을 쓰지 않는다 — mawk 1.3.4(Ubuntu 24.04 기본)는 지원하지 않아 매칭이 0건이 된다.
+  #   길이 상한은 length() 로 본다(gawk·UTF-8 은 문자, mawk·BWK 는 바이트 — 한글 자리표시자는 mawk 에서 더 짧게 끊긴다).
+  if (s ~ /^<[^<>]+>$/ && length(s) <= 62) return 1
+  if (s ~ /^\.\.+$/) return 1
   return 0
 }
-/^#{2,3}[[:space:]]+AC-/ {
+/^(##|###)[[:space:]]+AC-/ {
   flush()
   # 헤더 규칙은 next 로 끝나므로 말미의 토큰 스캔 규칙이 헤더 줄을 보지 못한다.
   #   여기서 직접 세지 않으면 **AC-R 만 있는 유지보수 문서**가 has_token=0 이 되어
@@ -72,7 +74,7 @@ function skeleton(s) {
   #   골격을 지우는 것이 **정상 대응**이고 그때 정확히 이 경로에 닿는다.
   has_token = 1
   hdr = $0
-  sub(/^#{2,3}[[:space:]]+/, "", hdr)
+  sub(/^#+[[:space:]]+/, "", hdr)
   id = hdr; sub(/[:[:space:]].*$/, "", id)
   # AC-R 배제는 아래 두 줄이 **각각 단독으로** 성립한다(의도된 이중 방어).
   #   변이 검증 20260807: 한 줄만 지우면 T10 이 통과한다 — 둘 다 지워야 실패한다.
@@ -84,7 +86,7 @@ function skeleton(s) {
   if (skeleton(rest)) ph = 1
   next
 }
-/^#{2,3}[[:space:]]/ { flush(); next }
+/^(##|###)[[:space:]]/ { flush(); next }
 cur != "" {
   line = $0
   # 존재 판정은 **행 어디서든** — `**Given** 입력 / **When** 실행 / **Then** 정상` 처럼

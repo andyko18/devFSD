@@ -17,6 +17,7 @@
 
 ### Fixed
 
+- mawk(Ubuntu 24.04 기본 awk) 에서 AC 형식 검사(`check-ac-format.sh`)가 모든 AC 를 "헤더형 0건" 으로, plan→tasks 변환(`plan-to-tasks.sh`)이 태스크 헤더를 못 찾던 것을 고쳤다 — mawk 1.3.4 는 awk 정규식의 구간 반복(`#{2,3}`)을 지원하지 않는다. 대안 표기(`(##|###)` · `\.\.+` · `length()`)로 바꿨고, `governance/test-hooks` T8.q 가 제품 스크립트의 awk 정규식에 구간 반복이 다시 들어오는 것을 막는다(CI 리눅스 러너는 gawk 라 이 회귀가 CI 에서 보이지 않는다).
 - 테스트: root 로 도는 환경(클라우드 컨테이너 등)에서 권한 거부를 전제로 한 케이스가 FAIL 하던 것을 SKIP 으로 보고한다 — `governance/test-rules` T4.d2(`chmod 000` 이 읽기를 막지 못함) · `test-find-tree-writes` 탐지 케이스. 수동 도구 `find-tree-writes.sh` 는 쓰기 금지 사본이 쓰기를 막지 못하면 `0건` 대신 판정 불가(rc 2)로 끝난다 — 종전에는 root 에서 모든 스위트를 `확정 0건` 으로 보고했다. 비-root 에서는 판정이 그대로 돈다.
 
 ## [2.26.0] — 2026-10-19

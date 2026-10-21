@@ -50,14 +50,14 @@ BEGIN { fence = 0; ntask = 0; cur = ""; body = ""; nstep = 0; zero = "" }
     if (fence == 0)            fence = RLENGTH
     else if (RLENGTH >= fence) fence = 0
   }
-  if (fence == 0 && line ~ /^#{2,3}[ \t]+(Task|태스크)[ \t]+[0-9]+/) {
+  if (fence == 0 && line ~ /^(##|###)[ \t]+(Task|태스크)[ \t]+[0-9]+/) {
     flush_task()
     t = line
     sub(/^#+[ \t]+(Task|태스크)[ \t]+/, "", t)   # "N: 제목" 만 남긴다
     cur = t
     next
   }
-  if (cur != "" && fence == 0 && line ~ /^#{1,3}[ \t]/) { flush_task(); next }
+  if (cur != "" && fence == 0 && line ~ /^(#|##|###)[ \t]/) { flush_task(); next }
   if (cur != "") {
     # ★ fence == 0 가드 필수 — 코드펜스 **안**의 Step 은 문서가 스텝 문법을 예시한 것이지
     #   실제 스텝이 아니다. 가드가 없으면 "Step 이 예시로만 있는 Task" 가 zero-step 거부를

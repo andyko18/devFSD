@@ -581,4 +581,19 @@ bash scripts/_internal/check-plan-boundary.sh --plan <경로> [--constitution <�
 
 경로는 파일 구조 절(제목에 `파일` 이 든 `##` 절)의 목록 항목 줄(`-`·`*`·`1.` — 바로 백틱이거나 `생성:`·`T1:` 같은 짧은 이름표 뒤, 그 줄의 경로꼴 백틱 전부)과 표 첫 칸의 백틱에서만 뽑는다 — 산문·코드 블록·표 둘째 칸·코드 조각 백틱은 보지 않는다. 굵은 이름표(`**Create:**`) 뒤의 경로와, 셸·glob 글자(`< > | * ? $ "`)가 들거나 `-`·`=` 로 시작하는 토큰(`tests/*.sh` 등)은 뽑지 않는다(조용히 빠진다). 구조 규칙 표는 `check-constitution-rules.sh --list` 로만 읽는다.
 
-한계: import 방향은 보지 않는다(헌법 판정 명령·리뷰어 몫). 경로 비교는 폴더 경계 기준 접두 비교다(소유 `src` 는 `src/a.sh` 를 포함하고 `src2/` 는 포함하지 않는다). 실측(20261015): 하류 plan 57건 중 55건에서 경로를 뽑았고 2건(파일 구조 절 없음)은 판정 불가.
+한계: import 방향은 보지 않는다(검증 때 `check-import-direction.sh` 가 허용 의존 화살표와 대조한다 — 아래 절). 경로 비교는 폴더 경계 기준 접두 비교다(소유 `src` 는 `src/a.sh` 를 포함하고 `src2/` 는 포함하지 않는다). 실측(20261015): 하류 plan 57건 중 55건에서 경로를 뽑았고 2건(파일 구조 절 없음)은 판정 불가.
+
+## check-import-direction.sh — 허용 의존 화살표 대조 · import 순환 (읽기 전용 · 경고 전용)
+
+plan.md `### 경계 약속` 의 `허용 의존` 칸을 화살표 형식(`` `src/domain/` → 없음 · `src/app/` → `src/domain/` ``)으로 적으면, 이 FID 가 바꾼 파일(분기점…작업 트리 + 추적 안 한 새 파일 — 분기점은 `reuse-metrics.sh` 와 같다)의 실제 import 와 대조한다. `run-verification.sh` 가 30초 상한으로 불러 evidence.md `### import-direction` 에 남기고, 위반이면 경고만 낸다(VERIFY 판정·종료 코드 불변).
+
+```bash
+bash scripts/_internal/check-import-direction.sh <FID>
+bash scripts/_internal/check-import-direction.sh --plan <경로> --files <목록 파일> [--root <디렉터리>]
+```
+
+출력 첫 줄은 `IMPORT-DIRECTION: OK|WARN|SKIP|판정 불가`, 그 아래 `[역방향] <파일>:<줄> → <대상>` · `[순환] a → b → a` · `[미해석] N건`(별칭·동적 import 를 풀지 못함 — 지킴으로 치지 않는다) · `[범위 상한]`. 종료 코드 0 = 판정함(위반이 있어도 0)·SKIP · 1 = 사용 오류 · 2 = 판정 불가(python3 없음 · 분기점 없음 · 읽기 실패).
+
+판정은 **선언한 경로끼리만** 한다 — 왼쪽 경로 안의 파일이 다른 왼쪽 경로를 허용 없이 부르면 역방향이다. 어느 왼쪽 경로에도 속하지 않는 내부 파일이나 외부 패키지를 부르는 것은 보지 않는다(오탐을 만들지 않으려는 선택 — 누락은 생긴다). 화살표가 하나도 없으면(자유 문장·자리표시자) 방향은 SKIP 이고 순환만 본다. 순환은 바꾼 파일에서 최상위 import 를 따라가(노드 400개 상한) 바꾼 파일이 낀 것만 낸다 — 들여쓴 import·TS `import type`·동적 import 는 순환 간선에서 뺀다(방향 판정에는 넣는다).
+
+언어: Python(`import` · `from … import` · 상대 import — 패키지 루트는 저장소 루트·`src/`·선언 경로에서 모듈 첫 마디가 나오는 위치 앞) · JS/TS(`import … from` · `export … from` · `import '…'` · `require('…')` · `import('…')` · 상대 경로 · 루트 `tsconfig.json`/`jsconfig.json` 의 `paths`·`baseUrl`). 정규식 추출이다 — 오탐을 막으려고 주석·문자열·템플릿 리터럴 안의 import 꼴은 읽지 않고, 여러 줄 괄호 import 를 이어 읽고, 표준 라이브러리 첫 마디는 외부로 읽고, `__init__.py` 없는 폴더는 모듈로 치지 않고, tsconfig 에 `baseUrl` 이 없으면 bare 이름을 저장소 파일로 풀지 않는다. 절 찾기는 `check-plan-boundary.sh` 와 같다(펜스 안 무시 · 제목 수준 2~4). 판정기 자체의 오류·시간 초과는 evidence 에 `판정 불가` 줄로 남는다. 차단으로 올리는 것은 실사용 오탐 0 을 확인한 뒤 별도 변경으로 한다(구조 규칙 판정 명령과 같은 절차).

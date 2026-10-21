@@ -728,7 +728,7 @@ else
     (cd "$tmp" && ls -laR .specops 2>&1 | head -20; echo "--- progress:"; cat .specops/session-progress.md 2>&1)
     echo "--- trace:"
     (cd "$tmp" && source "$PLUGIN/hooks/governance-lib.sh" && PS4='+DIAG ' && set -x && detect_fid) 2>&1 | head -40
-  } 2>&1 | sed 's/^/FAIL T12.b-diag: /'
+  } 2>&1 | tr '\n' '|' | head -c 1800 | sed 's/^/FAIL T12.b-diag: /'; echo   # run-all 은 FAIL 줄을 5개까지만 보여준다 — 한 줄로 묶는다
 fi
 rm -rf "$tmp"
 

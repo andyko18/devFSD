@@ -26,13 +26,18 @@
 > memory 동기화 점검이 **유령 엔드포인트를 실 계약으로 읽는다**. 잔존 시 `scan-enrich-placeholders.sh` 가 미채움 판정.
 
 <!-- specops:example:start -->
-| Method | Path | Auth | Request | Response | 비고 |
-|---|---|---|---|---|---|
-| GET | `/v1/users/:id` | Bearer | — | `User` | 단일 사용자 조회 |
-| POST | `/v1/users` | Bearer (admin) | `CreateUserDto` | `User` | 사용자 생성 |
-| PATCH | `/v1/users/:id` | Bearer (self/admin) | `UpdateUserDto` | `User` | 사용자 수정 |
-| DELETE | `/v1/users/:id` | Bearer (admin) | — | `204 No Content` | 사용자 삭제 |
+| Method | Path | Auth | Request | Response | Status | 비고 |
+|---|---|---|---|---|---|---|
+| GET | `/v1/users` | Bearer (admin) | `?cursor=&limit=` | `Page<User>` | 200 · 401 · 403 | 사용자 목록 (목록 정책 적용) |
+| GET | `/v1/users/:id` | Bearer | — | `User` | 200 · 401 · 404 | 단일 사용자 조회 |
+| POST | `/v1/users` | Bearer (admin) | `CreateUserDto` | `User` | 201 · 401 · 403 · 409 · 422 | 사용자 생성 (`Location` 헤더) |
+| PATCH | `/v1/users/:id` | Bearer (self/admin) | `UpdateUserDto` | `User` | 200 · 401 · 403 · 404 · 422 | 사용자 수정 |
+| DELETE | `/v1/users/:id` | Bearer (admin) | — | `204 No Content` | 204 · 401 · 403 · 404 | 사용자 삭제 |
 <!-- specops:example:end -->
+
+> **칸 계약** (`check-api-contract.sh` 가 읽는다 — 경고 전용): 엔드포인트 표의 **Status** 열 · 아래 **오류 형식**·**오류 코드 카탈로그**·**목록 정책**·**멱등 정책** · §5 **rate limit** · §6 **버전 전략**. 비었거나 `<…>` 그대로면 검증 때 경고한다.
+
+- **오류 형식**: <RFC 9457 Problem Details / 자체 envelope — 모든 엔드포인트가 이 하나만 쓴다>
 
 **공통 에러 포맷** (RFC 9457 Problem Details — 2023년에 RFC 7807 을 대체 · `Content-Type: application/problem+json`):
 ```json
@@ -44,6 +49,25 @@
   "instance": "/v1/users"
 }
 ```
+
+### 오류 코드 카탈로그
+
+기계가 읽는 오류 코드 — 클라이언트는 문구가 아니라 이 코드로 분기한다. 검증 오류는 `errors[]` 에 `field`·`message` 를 담는다(입력값을 되돌려 주지 않는다).
+
+| 코드 | HTTP | 언제 |
+|---|---|---|
+| <ERROR_CODE> | <4xx·5xx> | <언제 나는가> |
+
+### 목록 정책
+
+- **방식**: <cursor / offset — 큰 목록·무한 스크롤은 cursor>
+- **기본 크기**: <20>
+- **최대 크기**: <100>
+- **정렬 키**: <예: created_at, id — 커서에는 정렬 컬럼 전부와 유일한 tiebreaker 를 담는다>
+
+### 멱등 정책
+
+- <상태를 바꾸는 엔드포인트마다 둘 중 하나: `Idempotency-Key` 헤더를 받는다(키는 클라이언트가 의도마다 한 번 만든다 · 같은 키·다른 본문은 422 · 완료된 중복은 원래 응답 재생 · 보존기간) / 재시도 불안전 — 클라이언트가 재시도하지 않는다>
 
 ## §2. OpenAPI 3.1 YAML
 
@@ -215,6 +239,7 @@ export interface UserRouter {
 
 ## §6. 버저닝
 
+- **버전 전략**: <URL prefix `/v1/` / 헤더 / 쿼리>
 - URL prefix `/v1/`, 신규 메이저 시 `/v2/` 신설 + `/v1/` 6 개월 deprecate
 - breaking change 정의: 응답 필드 제거, required 필드 추가, 의미 변경
 

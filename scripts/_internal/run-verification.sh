@@ -409,6 +409,35 @@ $impdir_out}" ;;
   esac
 fi
 
+# API 계약 빈칸·형식 (20261021-api-contract-check) — 경고 전용: 판정·종료 코드에 넣지 않는다. 30초에서 끊는다(판정 줄이 없으면 판정 불가 줄을 앞에 붙인다).
+#   .specops/memory/api-spec.md 의 칸(Status 열·오류 형식·오류 코드·목록·멱등·rate limit·버전 전략)을 본다 — api-spec 이 없으면 SKIP.
+APIC_SH="$PLUGIN/scripts/_internal/check-api-contract.sh"
+if [ -f "$APIC_SH" ]; then
+  if command -v bounded_run >/dev/null 2>&1; then
+    apic_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bounded_run 30 bash "$APIC_SH" "$FID"; } 2>&1 ); apic_ec=$?
+  else
+    apic_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bash "$APIC_SH" "$FID"; } 2>&1 ); apic_ec=$?
+  fi
+  case "$apic_out" in
+    "API-CONTRACT: "*) ;;
+    *) if [ "$apic_ec" -eq 124 ]; then _apic_why="30초 시간 초과"; else _apic_why="판정 줄 없음 · rc=$apic_ec"; fi
+       apic_out="API-CONTRACT: 판정 불가 (${_apic_why})${apic_out:+
+$apic_out}" ;;
+  esac
+  {
+    echo "### api-contract"
+    echo '```'
+    echo "$apic_out"
+    echo '```'
+    echo ""
+  } >> "$EVIDENCE"
+  case "$apic_out" in
+    "API-CONTRACT: WARN"*)
+      echo "WARN: API 계약 빈칸·형식 — 경고만(차단 아님) · evidence.md ### api-contract" >&2
+      printf '%s\n' "$apic_out" | head -6 >&2 ;;
+  esac
+fi
+
 if [ "$skipped" -gt 0 ]; then
   _record_result PARTIAL
   echo "VERIFY: PARTIAL — ${skipped}개 명령 whitelist 미통과, 수동 검증 필요 (executed=${executed} skipped=${skipped})"

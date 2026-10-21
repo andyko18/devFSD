@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- API 계약 빈칸·형식 경고(`scripts/_internal/check-api-contract.sh` · **경고 전용**): IF 설계서 `api-spec.md` 의 엔드포인트 표에서 첫 리소스 마디가 동사인 경로(`/createUser`)·리소스 중첩 3단계 이상·snake/camel 혼용·빈 상태코드·POST 의 201 누락·DELETE 의 204 누락을, 계약 칸에서 오류 형식·오류 코드 카탈로그·목록 정책(최대 페이지 크기)·멱등 정책·rate limit·버전 전략의 빈칸과 자리표시자를 짚는다. specifying Step 5.6 이 api-spec 을 고친 직후 한 번 보여 주고, 검증 러너가 evidence.md `### api-contract` 에 남긴다(VERIFY 결과는 바뀌지 않는다). git 추적 중인 api-spec 은 이 FID 가 바꾼 행만 본다. 템플릿 `api-spec.md` 에 Status 열·오류 형식·오류 코드 카탈로그·목록 정책·멱등 정책·버전 전략 칸을 두었고, 칸이 없는 옛 문서는 그 규칙을 건너뛴다. 근거: 지금까지 단일 FID 의 API 설계를 보는 단계가 없었다(`design-reviewer-ko` 는 batch 전용). 출처: wshobson/agents api-design-principles · addyosmani/agent-skills api-and-interface-design (모두 MIT, 한국어 재작성). 전문가 로드맵 3번 분야(API 계약) FID-1.
+
 ### Fixed
 
 - 템플릿: `api-spec.md`·`backend-architecture.md` 의 오류 형식 인용을 RFC 7807 에서 RFC 9457 로 고쳤다 — RFC 9457 이 2023년에 7807 을 대체했다(Problem Details 필드 구성은 같다). 근거: API 계약 분야 1단계 항목표에서 발견.

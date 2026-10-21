@@ -69,7 +69,7 @@ _spec "$ROOT/a2.md" "$_ok_rows
 | GET | \`/v1/users/:id/orders/:oid/items\` | Bearer | — | — | 200 | 중첩 |"
 out=$(_run "$ROOT/a2.md"); rc=$?
 { [ "$rc" -eq 0 ] && printf '%s\n' "$out" | head -1 | grep -q '^API-CONTRACT: WARN (위반 ' \
-  && printf '%s\n' "$out" | grep -qF '[경로] POST /v1/createOrder — 첫 리소스 마디가 동사(createOrder)' \
+  && printf '%s\n' "$out" | grep -qF '[경로] POST /v1/createOrder — 리소스 마디가 동사(createOrder)' \
   && printf '%s\n' "$out" | grep -qF '[경로] GET /v1/users/:id/orders/:oid/items — 리소스 중첩 3단계' \
   && ! printf '%s\n' "$out" | grep -qF '[경로] GET /v1/orders'; } \
   && ok "A2 경로 동사·중첩 3단계 적발 · 정상 경로는 조용 · rc 0" || nope "A2" "rc=$rc out=$out"
@@ -91,7 +91,7 @@ _spec "$ROOT/a4.md" "| GET | \`/v1/carts/:id\` | Bearer | — | — |  | 빈칸 
 out=$(_run "$ROOT/a4.md")
 { printf '%s\n' "$out" | grep -qF '[상태코드] GET /v1/carts/:id — 상태코드 칸이 비었다' \
   && printf '%s\n' "$out" | grep -qF '[상태코드] POST /v1/carts — 성공 코드(201·202·200) 없음' \
-  && printf '%s\n' "$out" | grep -qF '[상태코드] DELETE /v1/carts/:id — 성공 코드(204·200) 없음'; } \
+  && printf '%s\n' "$out" | grep -qF '[상태코드] DELETE /v1/carts/:id — 성공 코드(204·202·200) 없음'; } \
   && ok "A4 상태코드 빈칸·POST·DELETE 성공 코드 누락 적발" || nope "A4" "$out"
 
 # A5: 옛 문서 — Status 열·정책 칸이 없으면 그 규칙은 건너뛴다(경고로 덮지 않는다)
@@ -144,10 +144,10 @@ out=$(_run "$ROOT/a8.md")
 
 # A9: 예시 블록(specops:example) 안의 행은 보지 않는다 · 템플릿 그대로면 칸 자리표시자만 경고
 out=$(_run "$PLUGIN/templates/api-spec.md"); rc=$?
-{ [ "$rc" -eq 0 ] && printf '%s\n' "$out" | head -1 | grep -q '^API-CONTRACT: WARN (위반 3 · 엔드포인트 0/0 · ' \
-  && printf '%s\n' "$out" | grep -qF '[미정] 오류 형식' && printf '%s\n' "$out" | grep -qF '[미정] 버전 전략' \
+{ [ "$rc" -eq 0 ] && printf '%s\n' "$out" | head -1 | grep -q '^API-CONTRACT: WARN (위반 4 · 엔드포인트 0/0 · ' \
+  && printf '%s\n' "$out" | grep -qF '[미정] 오류 형식' && printf '%s\n' "$out" | grep -qF '[미정] 버전 전략' && printf '%s\n' "$out" | grep -qF '[미정] rate limit' \
   && ! printf '%s\n' "$out" | grep -qE '\[(경로|상태코드)\]'; } \
-  && ok "A9 템플릿 — 예시 행 무시 · 칸 자리표시자 3건만 경고" || nope "A9" "rc=$rc out=$out"
+  && ok "A9 템플릿 — 예시 행 무시 · 칸 자리표시자 4건만 경고(rate limit 포함)" || nope "A9" "rc=$rc out=$out"
 
 # A10: api-spec 부재 → SKIP rc 0 · 판정할 칸이 없는 문서 → SKIP · 사용 오류 rc 1
 out=$(bash "$CAC" --spec "$ROOT/none.md"); rc=$?
@@ -202,5 +202,70 @@ SP="$PLUGIN/skills/specifying-ko/SKILL.md"
   && grep -q '^### 목록 정책' "$PLUGIN/templates/api-spec.md" && grep -q '^### 멱등 정책' "$PLUGIN/templates/api-spec.md" \
   && grep -q '^### 오류 코드 카탈로그' "$PLUGIN/templates/api-spec.md" && grep -qF -- '- **버전 전략**:' "$PLUGIN/templates/api-spec.md"; } \
   && ok "A13 Step 5.6 판정기 호출(비차단) · 템플릿 칸 계약(Status 열·오류 코드·목록·멱등·버전 전략)" || nope "A13" "specifying 또는 템플릿 문구 누락"
+
+# ── Phase B·C 리뷰 반영 (20261021) ──
+# A14: 동사는 모든 리소스 마디에서 · /api 접두는 리소스로 세지 않는다(중첩 오탐·동사 미탐 둘 다 막는다)
+_spec "$ROOT/a14.md" "$_ok_rows
+| GET | \`/v1/users/:id/getOrders\` | Bearer | — | — | 200 | 둘째 마디 동사 |
+| GET | \`/api/v1/users/:id/orders\` | Bearer | — | — | 200 | api 접두 정상 |
+| POST | \`/api/createUser\` | Bearer | — | — | 201 | api 뒤 동사 |
+| POST | \`/auth/login\` | — | — | — | 200 | 정상 |
+| GET | \`/me\` | Bearer | — | — | 200 | 정상 |"
+out=$(_run "$ROOT/a14.md")
+{ printf '%s\n' "$out" | grep -qF '[경로] GET /v1/users/:id/getOrders — 리소스 마디가 동사(getOrders)' \
+  && printf '%s\n' "$out" | grep -qF '[경로] POST /api/createUser — 리소스 마디가 동사(createUser)' \
+  && ! printf '%s\n' "$out" | grep -qF '/api/v1/users/:id/orders' && ! printf '%s\n' "$out" | grep -qE '\[경로\] (POST /auth/login|GET /me)'; } \
+  && ok "A14 둘째 마디 동사 · /api 뒤 동사 적발 · /api 접두·/auth/login·/me 는 조용" || nope "A14" "$out"
+
+# A15: 꾸민 칸(백틱·굵게 메서드 · 백틱 오류 코드) · 셀 안의 이스케이프 파이프
+_spec "$ROOT/a15.md" "$_ok_rows
+| \`POST\` | \`/v1/createThing\` | Bearer | — | — | 201 | 백틱 메서드 |
+| **DELETE** | \`/v1/things/:id\` | Bearer | — | — | 404 | 굵게 메서드 |
+| PATCH | \`/v1/things/:id\` | Bearer | \`{a: \"x\\|y\"}\` | \`Thing \\| null\` | 200 · 422 | 이스케이프 파이프 |"
+sed -i.bak 's/^| ORDER_NOT_FOUND | 404 | 주문이 없다 |$/| `ORDER_NOT_FOUND` | 404 | 주문이 없다 |/' "$ROOT/a15.md"
+out=$(_run "$ROOT/a15.md")
+{ printf '%s\n' "$out" | grep -qF '[경로] POST /v1/createThing' && printf '%s\n' "$out" | grep -qF '[상태코드] DELETE /v1/things/:id — 성공 코드' \
+  && ! printf '%s\n' "$out" | grep -qF '[상태코드] PATCH' && ! printf '%s\n' "$out" | grep -qF '[미정] 오류 코드'; } \
+  && ok "A15 백틱·굵게 메서드 칸 읽음 · 백틱 오류 코드 인정 · 이스케이프 파이프는 칸을 밀지 않음" || nope "A15" "$out"
+
+# A16: 멱등은 엔드포인트별 — 경로로 언급되지 않은 쓰기를 짚고, 전체 적용 문장(모든·나머지)은 통과
+_spec "$ROOT/a16.md" "$_ok_rows"
+sed -i.bak 's/^- POST \/v1\/orders 는 Idempotency-Key 를 받는다 · 나머지 쓰기는 재시도 불안전$/- POST \/v1\/orders 는 Idempotency-Key 를 받는다/' "$ROOT/a16.md"
+out=$(_run "$ROOT/a16.md"); out2=$(_run "$ROOT/a1.md")
+{ printf '%s\n' "$out" | grep -qF '[멱등] 상태를 바꾸는 엔드포인트 1개가 「멱등 정책」에 없다' && printf '%s\n' "$out" | grep -qF 'DELETE /v1/orders/:id' \
+  && ! printf '%s\n' "$out2" | grep -q '\[멱등\]'; } \
+  && ok "A16 멱등 엔드포인트별 — 언급 없는 DELETE 적발 · '나머지' 전체 적용 문장은 통과" || nope "A16" "out=$out out2=$out2"
+
+# A17: 판정 불가(rc 2) — 읽을 수 없는 문서(디렉터리) · 닫히지 않은 코드 펜스 · 펜스 안의 표는 보지 않는다
+mkdir -p "$ROOT/a17dir"; out=$(bash "$CAC" --spec "$ROOT/a17dir"); rc=$?
+ln -s "$ROOT/does-not-exist.md" "$ROOT/a17link.md"; outL=$(bash "$CAC" --spec "$ROOT/a17link.md"); rcL=$?   # 셸 쪽 판정 불가(따라갈 수 없는 링크)
+_spec "$ROOT/a17.md" "$_ok_rows"; printf '\n```\n| GET | `/v1/createX` | — | — | — | 200 | 펜스 안 |\n' >> "$ROOT/a17.md"; out2=$(_run "$ROOT/a17.md"); rc2=$?
+_spec "$ROOT/a17b.md" "$_ok_rows"; printf '\n````\n```\n| Method | Path | Status |\n|---|---|---|\n| POST | `/v1/createY` | 201 |\n```\n````\n' >> "$ROOT/a17b.md"; out3=$(_run "$ROOT/a17b.md"); rc3=$?
+{ [ "$rc" -eq 2 ] && printf '%s\n' "$out" | grep -q '^API-CONTRACT: 판정 불가' \
+  && [ "$rcL" -eq 2 ] && printf '%s\n' "$outL" | grep -q '^API-CONTRACT: 판정 불가 (api-spec 을 따라갈 수 없는 심볼릭 링크' \
+  && [ "$rc2" -eq 2 ] && printf '%s\n' "$out2" | grep -q '^API-CONTRACT: 판정 불가 (닫히지 않은 코드 펜스' \
+  && [ "$rc3" -eq 0 ] && ! printf '%s\n' "$out3" | grep -qF 'createY' && printf '%s\n' "$out3" | head -1 | grep -q '^API-CONTRACT: OK'; } \
+  && ok "A17 판정 불가 rc 2(읽기 불가·깨진 링크·닫히지 않은 펜스) · 4백틱 펜스 안 3백틱·표는 무시" || nope "A17" "rc=$rc out=$out rc2=$rc2 out2=$out2 rc3=$rc3 out3=$out3"
+
+# A18: batch 경로 — api-spec 을 커밋한 뒤 review-base.sha 가 기록돼도 이 FID 가 더한 행을 본다(merge-base 기준)
+D="$ROOT/a18"; mkdir -p "$D/.specops/memory" "$D/.specops/20261021-f"
+_spec "$D/.specops/memory/api-spec.md" "$_ok_rows"
+( cd "$D" && git init -q -b main && git add -A && git -c user.email=t@t -c user.name=t commit -qm init && git checkout -qb feat )
+python3 - "$D/.specops/memory/api-spec.md" <<'PY'
+import sys
+p=sys.argv[1]; s=open(p).read()
+s=s.replace("| 204 · 404 | 삭제 |\n","| 204 · 404 | 삭제 |\n| POST | `/v1/createBatch` | Bearer | — | — | 201 | batch 새 행 |\n",1); open(p,"w").write(s)
+PY
+( cd "$D" && git add -A && git -c user.email=t@t -c user.name=t commit -qm spec && git rev-parse HEAD > .specops/20261021-f/review-base.sha )
+out=$(cd "$D" && bash "$CAC" 20261021-f)
+printf '%s\n' "$out" | grep -qF '[경로] POST /v1/createBatch' \
+  && ok "A18 batch — review-base.sha 가 api-spec 커밋 뒤여도 새 행을 본다" || nope "A18" "$out"
+
+# A19: 표기 변형 — 굵게 없는 '최대 크기' · 대소문자 다른 'Rate Limit' · 표 없는 문서는 경로·상태코드 [건너뜀]
+_spec "$ROOT/a19.md" "$_ok_rows"; sed -i.bak -e 's/^- \*\*최대 크기\*\*: 100$/- 최대 크기: 100/' -e 's/- \*\*rate limit\*\*/- **Rate Limit**/' "$ROOT/a19.md"
+out=$(_run "$ROOT/a19.md")
+printf -- '- **오류 형식**: RFC 9457\n- **버전 전략**: URL\n' > "$ROOT/a19b.md"; out2=$(_run "$ROOT/a19b.md")
+{ ! printf '%s\n' "$out" | grep -qE '\[(페이지|건너뜀)\]' && printf '%s\n' "$out2" | grep -qF '[건너뜀] 경로·상태코드(§1 Markdown 엔드포인트 표 없음'; } \
+  && ok "A19 굵게 없는 최대 크기·대소문자 다른 Rate Limit 인정 · 표 없는 문서는 경로·상태코드 [건너뜀]" || nope "A19" "out=$out out2=$out2"
 
 finish

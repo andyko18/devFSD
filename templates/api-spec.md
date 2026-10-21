@@ -235,7 +235,7 @@ export interface UserRouter {
 
 - **인증**: Bearer JWT (Access 15m + Refresh 7d)
 - **권한 모델**: RBAC — admin, user, guest
-- **rate limit**: 사용자당 100 req/min, 익명 20 req/min
+- **rate limit**: <예: 사용자당 100 req/min · 익명 20 req/min — 429 응답에 `Retry-After`>
 
 ## §6. 버저닝
 

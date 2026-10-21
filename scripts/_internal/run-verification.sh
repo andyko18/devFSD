@@ -379,6 +379,30 @@ elif [ "$rulecmd_ec" -ne 0 ]; then
   printf '%s\n' "$rulecmd_out" | grep '^RULE-COMMANDS:' >&2
 fi
 
+# import 방향·순환 (20261021-import-direction) — 경고 전용: 판정·종료 코드에 넣지 않는다. 30초에서 끊는다(출력이 없으면 판정 불가로 적는다).
+#   plan 의 허용 의존(화살표 형식)을 이 FID 가 바꾼 파일의 import 와 대조한다 — 코드는 원래 폴더(worktree)에서, plan 은 메인 .specops 에서 읽는다.
+IMPDIR_SH="$PLUGIN/scripts/_internal/check-import-direction.sh"
+if [ -f "$IMPDIR_SH" ]; then
+  if command -v bounded_run >/dev/null 2>&1; then
+    impdir_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bounded_run 30 bash "$IMPDIR_SH" "$FID"; } 2>&1 ); impdir_ec=$?
+  else
+    impdir_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bash "$IMPDIR_SH" "$FID"; } 2>&1 ); impdir_ec=$?
+  fi
+  [ -n "$impdir_out" ] || impdir_out="IMPORT-DIRECTION: 판정 불가 (출력 없음 — 시간 초과 등 · rc=$impdir_ec)"
+  {
+    echo "### import-direction"
+    echo '```'
+    echo "$impdir_out"
+    echo '```'
+    echo ""
+  } >> "$EVIDENCE"
+  case "$impdir_out" in
+    "IMPORT-DIRECTION: WARN"*)
+      echo "WARN: import 방향·순환 — 경고만(차단 아님) · evidence.md ### import-direction" >&2
+      printf '%s\n' "$impdir_out" | head -6 >&2 ;;
+  esac
+fi
+
 if [ "$skipped" -gt 0 ]; then
   _record_result PARTIAL
   echo "VERIFY: PARTIAL — ${skipped}개 명령 whitelist 미통과, 수동 검증 필요 (executed=${executed} skipped=${skipped})"

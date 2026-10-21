@@ -6,6 +6,7 @@
 
 ### Added
 
+- verify: plan 「경계 약속」의 허용 의존을 화살표로 적으면(`` `src/domain/` → 없음 · `src/app/` → `src/domain/` ``) 이 FID 가 바꾼 파일의 실제 import 와 대조하고, import 순환을 찾아 evidence.md `### import-direction` 에 남긴다(Python·JS/TS · **경고 전용** — 검증 결과는 바뀌지 않는다). 자유 문장으로 쓴 기존 plan 은 방향 검사를 건너뛴다. 근거: 지금까지 import 방향은 아무 단계도 보지 않았다(경계 대조는 "import 방향은 보지 않는다"). 전문가 로드맵 2번 분야(구조·도메인) 첫 FID.
 - planning: DB 를 건드리는 계획은 plan-reviewer 전에 DB 설계 전문가(db-designer-ko · opus)가 집중 검토하고 메인이 반영한다 · 엔진별 지식(PostgreSQL·MySQL·Oracle·SQL Server·MongoDB·Redis)은 data-model §1 유형으로 고른다. 근거: Argus 실제 계획서 2개에서 plan-reviewer 가 DB 결함 0/2 적발.
 
 ### Changed

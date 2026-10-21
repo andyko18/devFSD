@@ -153,7 +153,7 @@ def section(lines, title_re):
 def words(s):
     """camelCase·snake·kebab·경로를 소문자 낱말로 자른다."""
     s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)
-    s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", s)
+    s = re.sub(r"([A-Z]+)([A-Z](?!s(?![a-z]))[a-z])", r"\1_\2", s)   # 약어 복수형(LLMs)은 자르지 않는다
     return [w for w in re.split(r"[^a-z0-9]+", s.lower()) if w]
 
 # ── §1 엔드포인트 표 ──

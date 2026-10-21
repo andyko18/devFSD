@@ -297,5 +297,9 @@ _api "$ROOT/s7d.md" "$_ok_rows"; sed -i.bak -e 's/^- \*\*웹훅 수신\*\*: .*/-
 out=$(_run "$ROOT/s7d.md" --plan "$ROOT/plan-s7.md")
 { _has "$out" '[승인 대상] LLM 호출 — plan §2 `src/LLMService.ts` —' && ! _has "$out" '[승인 대상] 웹훅 수신'; } \
   && ok "S7c 약어 camelCase LLMService 신호 · 「범위 밖」 경로는 신호 아님" || nope "S7c" "$out"
+_api "$ROOT/s7e.md" "$_ok_rows"; sed -i.bak 's/^- \*\*LLM 호출\*\*: .*/- **LLM 호출**: <해당 없음>/' "$ROOT/s7e.md"
+printf '# 플랜\n\n## 2. 파일 구조\n\n- `src/LLMsClient.ts` — 여러 모델 호출\n' > "$ROOT/plan-s7e.md"
+out=$(_run "$ROOT/s7e.md" --plan "$ROOT/plan-s7e.md")
+_has "$out" '[승인 대상] LLM 호출 — plan §2 `src/LLMsClient.ts` —' && ok "S7d 약어 복수형 LLMsClient 도 신호(Phase C 재라운드)" || nope "S7d" "$out"
 
 finish

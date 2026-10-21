@@ -78,8 +78,37 @@ printf "import { a } from '@/lib/a'\nexport const c = 1\n" > "$D/web/ui/c.tsx"
 printf "// import { c } from '../ui/c'\nimport type { C } from '../ui/c'\nexport const a = 1\n" > "$D/web/lib/a.ts"
 out=$(_run "$D")
 { printf '%s\n' "$out" | grep -qF '[역방향] web/lib/a.ts:2 → web/ui/c.tsx' && ! printf '%s\n' "$out" | grep -q 'a.ts:1' \
-  && ! printf '%s\n' "$out" | grep -q '\[순환\]' && printf '%s\n' "$out" | head -1 | grep -q 'WARN (역방향 1 · 순환 0 · '; } \
-  && ok "D7 TS 별칭 해석 · 주석 무시 · import type 은 방향만" || nope "D7" "$out"
+  && ! printf '%s\n' "$out" | grep -q '\[순환\]' && printf '%s\n' "$out" | head -1 | grep -q 'WARN (역방향 1 · 순환 0 · ' \
+  && ! printf '%s\n' "$out" | grep -q '\[미해석\]'; } \
+  && ok "D7 TS 별칭 해석(미해석 0) · 주석 무시 · import type 은 방향만" || nope "D7" "$out"
+
+# D7b: 별칭으로 금지 방향을 부르면 역방향이다 — 별칭을 풀지 못하면 이 줄이 사라진다
+D="$ROOT/d7b"; mkdir -p "$D/web/ui" "$D/web/lib"
+_plan "$D/plan.md" '`web/lib/` → 없음 · `web/ui/` → `web/lib/`'
+printf '{ "compilerOptions": { "paths": { "@/*": ["./web/*"] } } }\n' > "$D/tsconfig.json"
+printf "export const c = 1\n" > "$D/web/ui/c.tsx"
+printf "import { c } from '@/ui/c'\nexport const a = c\n" > "$D/web/lib/a.ts"
+out=$(_run "$D")
+printf '%s\n' "$out" | grep -qF '[역방향] web/lib/a.ts:1 → web/ui/c.tsx' && ok "D7b 별칭 경유 금지 방향 적발" || nope "D7b" "$out"
+
+# D7c: 추출 형식마다 위반 1건 — export … from · require('…') · 리터럴 import('…') · 파이썬 import a.b · 계층을 넘는 상대 import 2꼴
+D="$ROOT/d7c"; _py "$D"; mkdir -p "$D/js/domain" "$D/js/adapters"
+_plan "$D/plan.md" "$_layers"' · `js/domain/` → 없음 · `js/adapters/` → `js/domain/`'
+printf 'X = 1\n' > "$D/src/adapters/db.py"; : > "$D/src/adapters/__init__.py"; : > "$D/src/domain/__init__.py"; : > "$D/src/__init__.py"
+printf 'import src.adapters.db\n' > "$D/src/domain/p1.py"
+printf 'from ..adapters import db\n' > "$D/src/domain/p2.py"
+printf 'from ..adapters.db import X\n' > "$D/src/domain/p3.py"
+printf "export const z = 1\n" > "$D/js/adapters/z.ts"
+printf "export { z } from '../adapters/z'\n" > "$D/js/domain/e.ts"
+printf "const z = require('../adapters/z')\n" > "$D/js/domain/r.js"
+printf "export async function f() { return import('../adapters/z') }\n" > "$D/js/domain/d.ts"
+out=$(_run "$D")
+_miss=""
+for w in 'src/domain/p1.py:1 → src/adapters/db.py' 'src/domain/p2.py:1 → src/adapters/db.py' 'src/domain/p3.py:1 → src/adapters/db.py' \
+         'js/domain/e.ts:1 → js/adapters/z.ts' 'js/domain/r.js:1 → js/adapters/z.ts' 'js/domain/d.ts:1 → js/adapters/z.ts'; do
+  printf '%s\n' "$out" | grep -qF "[역방향] $w" || _miss="$_miss [$w]"
+done
+[ -z "$_miss" ] && ok "D7c 추출 형식 6종(import a.b · 상대 2꼴 · export from · require · import()) 각각 적발" || nope "D7c" "누락:$_miss out=$out"
 
 # D8: 풀지 못한 import(별칭 없이 @/ · 동적 require) 는 미해석으로 센다 — OK 여도 줄이 남는다
 D="$ROOT/d8"; mkdir -p "$D/web/ui"; _plan "$D/plan.md" '`web/ui/` → 없음'
@@ -87,6 +116,12 @@ printf "import { x } from '@/missing'\nconst m = require(name)\nimport React fro
 out=$(_run "$D")
 { printf '%s\n' "$out" | head -1 | grep -q '^IMPORT-DIRECTION: OK ' && printf '%s\n' "$out" | grep -q '^  \[미해석\] 2건 — web/ui/p.ts:1 '"'"'@/missing'"'"; } \
   && ok "D8 미해석 2건(별칭 없음·동적) — 지킴으로 치지 않고 따로 적는다" || nope "D8" "$out"
+
+# D8b: 풀리지 않는 파이썬 상대 import 도 미해석으로 센다(절대 import 는 외부 패키지로 읽어 세지 않는다)
+D="$ROOT/d8b"; _py "$D"; _plan "$D/plan.md" "$_layers"
+printf 'from .missing import x\nimport numpy\n' > "$D/src/domain/q.py"
+out=$(_run "$D")
+printf '%s\n' "$out" | grep -q "^  \[미해석\] 1건 — src/domain/q.py:1 '.missing'" && ok "D8b 풀리지 않는 상대 import 미해석 1건 · 외부 패키지는 세지 않음" || nope "D8b" "$out"
 
 # D9: 파이썬 삼중따옴표 안의 import 꼴은 읽지 않는다
 D="$ROOT/d9"; _py "$D"; _plan "$D/plan.md" "$_layers"
@@ -120,7 +155,11 @@ _grepo() {  # $1=dir — main 에 이미 위반이 하나 있는 저장소, feat
 }
 D="$ROOT/d12"; _grepo "$D"
 printf 'from src.adapters.db import X\n' > "$D/src/domain/new.py"
+printf 'from src.adapters.db import X\n' > "$D/src/domain/done.py"; ( cd "$D" && git add src/domain/done.py && git -c user.email=t@t -c user.name=t commit -qm feat )
+printf 'from src.adapters.db import X\n' > "$D/src/domain/staged.py"; ( cd "$D" && git add src/domain/staged.py )
 out=$(cd "$D" && bash "$CID" 20261021-f); rc=$?
+{ printf '%s\n' "$out" | grep -qF '[역방향] src/domain/done.py:1 →' && printf '%s\n' "$out" | grep -qF '[역방향] src/domain/staged.py:1 →'; } \
+  && ok "D12a FID 모드 — 분기점 이후 커밋한 파일 · 스테이징만 한 파일 포함" || nope "D12a" "$out"
 D2="$ROOT/d12b"; mkdir -p "$D2/.specops/20261021-f"; _plan "$D2/.specops/20261021-f/plan.md" "$_layers"
 ( cd "$D2" && git init -q -b trunk && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m x )
 o2=$(cd "$D2" && bash "$CID" 20261021-f); r2=$?

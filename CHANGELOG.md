@@ -8,6 +8,13 @@
 
 - planning: 새 폴더·모듈·계층, 새 의존 방향, 새 도메인 개념(엔티티·상태)을 만드는 계획은 DB 전문가 패스 뒤·plan-reviewer 전에 구조 설계 전문가(arch-designer-ko · opus)가 집중 검토하고 메인이 반영한다 — 얕은 통과 모듈 · 인터페이스(불변식·순서·오류 방식) · 이음새는 어댑터 둘일 때 · 의존성 4분류 · 의존 방향 · 순환 · 컨텍스트 간 import · 집합체 · 값 객체 · DDD 는 필요할 때만. 패턴별 지식(계층형·Clean · 분산 · 재시도·타임아웃 · React 상태 · Next.js App Router)은 `backend-architecture.md`·`frontend-architecture.md` 로 고른다. 출처: mattpocock/skills codebase-design · wshobson/agents · davila7/claude-code-templates domain-driven-design (모두 MIT, 한국어 재작성). 효과는 미측정이다 — 평가 세트(기준선 plan-reviewer · 구조 전문가 · 결함 없는 대조군)는 Argus 실제 계획서로 후속. 전문가 로드맵 2번 분야(구조·도메인) FID-A.
 
+### Fixed
+
+- CI: macOS run-all 작업 시간 한도 15분 → 30분 — 실측 소요가 11·13.5·15분으로 한도에 붙어, 202/202 통과 직후 취소(cancelled)됐다(실측의 2배 이상 — `llm-smoke.yml` 규약).
+- release: 원격 단계가 일부만 성공하면(main push 는 됐는데 태그 push 가 거부되는 등) 어디까지 올라갔는지와 마무리 방법(`git push origin vX` 또는 GitHub 웹에서 태그·target 커밋으로 Release 생성)을 알리고 실패로 끝난다 — 종전에는 set -e 로 안내 없이 끝나 반쯤 된 릴리즈가 남았다(20261021 클라우드 세션 실측: 태그 push HTTP 403).
+- 테스트 러너: `run-all.sh` 가 통과 마커를 남기려고 `.specops/` 를 만들던 것을 멈췄다 — 디렉터리가 있을 때만 기록한다. 만들면 그 저장소가 관할로 편입돼 다음 커밋부터 R-1 이 막는다(CLAUDE.md "디렉토리는 관할을 여는 쪽만 만든다" · 20261021 새로 clone 한 클라우드 세션에서 실측).
+- skill 행동 eval: 케이스 `knowledge`(플러그인 기준 .md 경로 목록)가 있으면 주입 모드에서 그 파일 내용을 에이전트 본문 뒤에 함께 주입한다 — 평가는 Read 를 막아 전문가 에이전트가 지식 파일(DB 엔진·구조 패턴)을 스스로 읽을 수 없었다(DB 4단계 측정 3회 모두 엔진 파일 미독). 파일이 없으면 그 케이스는 SKIP. e-11~e-13 에 `postgres.md` 지정.
+
 ## [2.27.0] — 2026-10-21
 
 ### Added

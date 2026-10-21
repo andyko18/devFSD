@@ -65,6 +65,17 @@ D="$TMP/m12/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a 
 if skill_evals::check evals "$D/evals.json" "$ROOT" >/dev/null; then ok "T10.s4 유효 agent 통과"; else nope "T10.s4" "유효 agent 가 거부됨"; fi
 D="$TMP/m13/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].agent="ok\n"')"
 _expect_fail "T10.s5 agent 끝 개행 거절(jq 의 ^…$ 는 끝 개행을 허용하므로 \A…\z)" evals "$D/evals.json" "agent 형식 오류: ok"
+# knowledge(20261021): agent 가 있는 케이스에만 · 비지 않은 배열 · skills/·agents/ 아래 .md · .. 금지
+D="$TMP/m14/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].knowledge=["skills/x/a.md"]')"
+_expect_fail "T10.s6 agent 없는 knowledge 거절" evals "$D/evals.json" "knowledge 는 agent 가 있는 케이스에만"
+D="$TMP/m15/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].agent="fake-agent" | .cases[0].knowledge=[]')"
+_expect_fail "T10.s7 빈 knowledge 배열 거절" evals "$D/evals.json" "knowledge 형식 오류: 빈 배열 또는 배열 아님"
+D="$TMP/m16/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].agent="fake-agent" | .cases[0].knowledge=["skills/../../etc/x.md"]')"
+_expect_fail "T10.s8 knowledge 경로 순회 거절" evals "$D/evals.json" "knowledge 형식 오류: skills/../../etc/x.md"
+D="$TMP/m17/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].agent="fake-agent" | .cases[0].knowledge=["/etc/passwd.md"]')"
+_expect_fail "T10.s9 knowledge 절대경로 거절" evals "$D/evals.json" "knowledge 형식 오류: /etc/passwd.md"
+D="$TMP/m18/fake-a"; _mk "$D" "$(_valid_trigger fake-a)" "$(_valid_evals fake-a | jq '.cases[0].agent="fake-agent" | .cases[0].knowledge=["skills/planning-ko/db-expert/engines/postgres.md"]')"
+if skill_evals::check evals "$D/evals.json" "$ROOT" >/dev/null; then ok "T10.s10 유효 knowledge 통과"; else nope "T10.s10" "유효 knowledge 가 거부됨"; fi
 # T3 (AC-3) 스트림 전체 Skill 호출 파서
 s0='{"type":"assistant","message":{"content":[{"type":"text","text":"안녕"}]}}'
 s1='{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"specifying-ko"}}]}}'
@@ -654,6 +665,26 @@ if cmp -s "$TMP/off-agent-1.args" "$TMP/calls/1.args" && cmp -s "$TMP/off-agent-
 _run '{"text":"응답"}\n{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10c" SKILL_EVAL_INJECT=1 "$AG" -- --evals
 if printf '%s\n' "$RUN_OUT" | grep -qxF 'INJECT: 0/0' && printf '%s\n' "$RUN_OUT" | grep -q '^NOTE: SKILL_EVAL_INJECT=1 이지만 주입된 케이스 0건'; then
   ok "T10.f 주입 on 인데 agent 필드 케이스 0 → INJECT: 0/0 + NOTE (with 로 오인 방지)"; else nope "T10.f" "$RUN_OUT"; fi
+
+# T10.g·h (20261021) knowledge — 평가는 Read 를 막아 에이전트가 지식 파일을 못 읽는다. 내용을 같은 --append-system-prompt 인자에 붙인다
+mkdir -p "$TMP/know/skills/k" "$TMP/data10k/karpathy-ko" "$TMP/data10m/karpathy-ko"
+printf 'KNOWSENTINEL 엔진 규칙\n' > "$TMP/know/skills/k/eng.md"
+jq -n '{skill:"karpathy-ko",cases:[{id:"k-1",agent:"fake-agent",knowledge:["skills/k/eng.md"],prompt:"질문K",asserts:[{type:"contains",value:"응답"}]}]}' > "$TMP/data10k/karpathy-ko/evals.json"
+jq -n '{skill:"karpathy-ko",cases:[{id:"m-1",agent:"fake-agent",knowledge:["skills/k/none.md"],prompt:"질문M",asserts:[{type:"contains",value:"응답"}]}]}' > "$TMP/data10m/karpathy-ko/evals.json"
+_calls_reset
+_run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10k" SKILL_EVAL_INJECT=1 SKILL_EVAL_KNOWLEDGE_ROOT="$TMP/know" "$AG" -- --evals
+_kp=$(tr '\0' '\n' < "$TMP/calls/1.args" 2>/dev/null | awk 'p{print; exit} $0=="--append-system-prompt"{p=1}')
+if [ "$(_ncalls)" -eq 1 ] && _arg_has_part "$TMP/calls/1.args" 'KNOWSENTINEL 엔진 규칙' && _arg_has_part "$TMP/calls/1.args" '### skills/k/eng.md' \
+   && [ "$(tr '\0' '\n' < "$TMP/calls/1.args" | grep -cxF -- '--append-system-prompt')" -eq 1 ] && [ "$_kp" = "BODYSENTINEL 본문" ]; then
+  ok "T10.g knowledge 내용이 본문 뒤 같은 --append-system-prompt 인자로 주입된다(플래그 1회)"; else nope "T10.g" "$(tr '\0' ' ' < "$TMP/calls/1.args" 2>/dev/null)"; fi
+_calls_reset
+_run '{"text":"응답"}' CLAUDE_BIN="$TMP/rec10" SKILL_EVAL_DIR="$TMP/data10m" SKILL_EVAL_INJECT=1 SKILL_EVAL_KNOWLEDGE_ROOT="$TMP/know" "$AG" -- --evals
+if [ "$(_ncalls)" -eq 0 ] && _line m-1 | grep -qF 'SKIP(knowledge 부재: skills/k/none.md)'; then
+  ok "T10.h knowledge 파일 부재 → SKIP(지식 없는 무음 측정 금지)"; else nope "T10.h" "calls=$(_ncalls) $RUN_OUT"; fi
+# 실데이터: knowledge 로 적은 파일이 플러그인에 실제로 있다(이름이 바뀌면 측정이 SKIP 으로만 끝나 눈에 띄지 않는다)
+_kn_bad=$(for _ej in "$LE"/skills/*/evals.json; do jq -r '.cases[] | .knowledge // [] | .[]' "$_ej"; done | sort -u | while IFS= read -r _k; do [ -f "$PLUGIN/$_k" ] || printf '%s ' "$_k"; done)
+_kn_n=$(for _ej in "$LE"/skills/*/evals.json; do jq -r '.cases[] | .knowledge // [] | .[]' "$_ej"; done | grep -c .)
+[ -z "$_kn_bad" ] && [ "$_kn_n" -ge 3 ] && ok "T10.j 실데이터 knowledge 경로 ${_kn_n}건 모두 존재" || nope "T10.j" "없는 경로: [$_kn_bad] · 건수 $_kn_n"
 
 EJ="$LE/skills/implementing-ko/evals.json"
 _ag_bad=$(jq -r '

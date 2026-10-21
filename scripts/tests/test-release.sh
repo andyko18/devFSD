@@ -259,6 +259,22 @@ grep -q -- "--notes-file" "$GH_LOG" \
   && ok "T14.d CHANGELOG 노트 --notes-file 전달" || fail "T14.d (gh_log='$(cat "$GH_LOG")')"
 rm -rf "$TD" "$BARE" "$FAKEBIN" "$GH_LOG"
 
+# T14p: 부분 릴리즈 — main push 는 되고 태그 push 가 거부되면(20261021 클라우드 403 재현) 어디까지 됐는지·마무리 방법을 알리고 rc 1
+TD=$(mktemp -d); _make_git_fixture "$TD"
+BARE=$(mktemp -d); git init --bare -q "$BARE"
+printf '#!/usr/bin/env bash\nwhile read -r _o _n ref; do case "$ref" in refs/tags/*) echo "tags denied" >&2; exit 1 ;; esac; done\nexit 0\n' > "$BARE/hooks/pre-receive"
+chmod +x "$BARE/hooks/pre-receive"
+git -C "$TD" remote add origin "$BARE"
+git -C "$TD" push -q -u origin HEAD
+out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true PATH="$(mktemp -d):$PATH" bash "$RELEASE" 1.11.0 2>&1); rc=$?
+_sha=$(git -C "$TD" rev-parse --short HEAD)
+{ [ "$rc" -eq 1 ] && echo "$out" | grep -q "부분 릴리즈 — '태그 push'" && echo "$out" | grep -q "main 은 이미 push 됐다(${_sha})" \
+  && echo "$out" | grep -q "git push origin v1.11.0" && echo "$out" | grep -q "target ${_sha}" \
+  && [ "$(git -C "$BARE" rev-parse --short HEAD)" = "$_sha" ] && [ -z "$(git -C "$BARE" tag -l v1.11.0)" ]; } \
+  && ok "T14p.a 태그 push 거부 → rc 1 · main push 됨·태그 없음 · 수동 마무리(git push · 웹 target sha) 안내" || fail "T14p.a (rc=$rc out='$out')"
+! echo "$out" | grep -q "릴리즈 발행 완료" && ok "T14p.b 부분 릴리즈를 완료로 보고하지 않음" || fail "T14p.b"
+rm -rf "$TD" "$BARE"
+
 # T15: FR-12 origin 부재 시 push/release skip (commit/tag 는 로컬 수행, exit 0)
 TD=$(mktemp -d); _make_git_fixture "$TD"
 out=$(RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.11.0 2>&1); rc=$?

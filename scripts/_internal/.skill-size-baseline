@@ -20,12 +20,12 @@
 {"skill":"release-ko","bytes":3908,"lines":80}
 {"skill":"requesting-code-review-ko","bytes":8965,"lines":189}
 {"skill":"security-review-ko","bytes":10023,"lines":192}
-{"skill":"specifying-ko","bytes":56010,"lines":540}
+{"skill":"specifying-ko","bytes":56713,"lines":541}
 {"skill":"sprint-contracts-ko","bytes":4529,"lines":96}
 {"skill":"structured-artifacts-ko","bytes":6910,"lines":144}
 {"skill":"systematic-debugging-ko","bytes":11894,"lines":327}
 {"skill":"tdd-ko","bytes":13961,"lines":382}
 {"skill":"using-git-worktrees-ko","bytes":10417,"lines":294}
 {"skill":"using-specops-ko","bytes":11388,"lines":174}
-{"skill":"verifying-evidence-ko","bytes":30117,"lines":350}
-{"chain_bytes":272527,"chain_lines":3874}
+{"skill":"verifying-evidence-ko","bytes":30635,"lines":351}
+{"chain_bytes":273748,"chain_lines":3876}

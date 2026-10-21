@@ -185,4 +185,88 @@ TPL="$PLUGIN/templates/plan.md"
   && grep -F -- '- **허용 의존**: <' "$TPL" | grep -qF '`src/domain/` → 없음'; } \
   && ok "D14 plan 템플릿 허용 의존 칸 — 화살표 안내 · 자리표시자 유지" || nope "D14" "templates/plan.md 허용 의존 칸"
 
+# ── 오탐 회귀 (Phase C 리뷰 실측 7종) — 각 케이스는 고치기 전 판정기에서 WARN 이 났다 ──
+
+# F1: 표준 라이브러리 이름은 같은 이름의 선언 폴더로 풀지 않는다(types · email) · __init__.py 없는 폴더는 모듈이 아니다
+D="$ROOT/f1"; mkdir -p "$D/app/types" "$D/app/domain" "$D/src/adapters/email" "$D/src/app"
+_plan "$D/plan.md" '`app/types/` → 없음 · `app/domain/` → 없음 · `src/adapters/` → 없음 · `src/adapters/stripe/` → 없음 · `src/app/` → 없음'
+: > "$D/app/types/__init__.py"; printf 'from types import SimpleNamespace\n' > "$D/app/domain/m.py"
+printf 'X = 1\n' > "$D/src/adapters/email/sender.py"; printf 'import email\n' > "$D/src/app/notify.py"
+mkdir -p "$D/src/adapters/stripe"; printf 'X = 1\n' > "$D/src/adapters/stripe/client.py"; printf 'import stripe\n' > "$D/src/app/pay.py"   # 서드파티 이름 · __init__ 없는 폴더
+out=$(_run "$D")
+printf '%s\n' "$out" | head -1 | grep -q '^IMPORT-DIRECTION: OK (역방향 0 ' && ok "F1 표준 라이브러리(types·email)·서드파티(stripe) 이름 — 로컬 폴더로 풀지 않음" || nope "F1" "$out"
+
+# F2: 여러 줄 괄호 import(black·isort 출력) — 한 줄로 쓴 것과 같은 판정(패키지 __init__ 으로 떨어져 순환을 만들지 않는다)
+D="$ROOT/f2"; mkdir -p "$D/src/pkg"; _plan "$D/plan.md" '<불러 써도 되는 모듈과 방향>'
+printf 'from . import a\n' > "$D/src/pkg/__init__.py"
+printf 'from . import (\n    b,\n)\n' > "$D/src/pkg/a.py"; printf 'Y = 1\n' > "$D/src/pkg/b.py"
+out=$(_run "$D")
+{ ! printf '%s\n' "$out" | grep -q '\[순환\]' && printf '%s\n' "$out" | head -1 | grep -q '순환 0 '; } && ok "F2 여러 줄 괄호 import — 하위 모듈 이름 유지 · 순환 오탐 없음" || nope "F2" "$out"
+
+# F3: export type … from 은 타입 간선이다 — 순환에 넣지 않는다
+D="$ROOT/f3"; mkdir -p "$D/web"; _plan "$D/plan.md" '<불러 써도 되는 모듈과 방향>'
+printf "import { b } from './b'\nexport type A = number\n" > "$D/web/a.ts"; printf "export type { A } from './a'\nexport const b = 1\n" > "$D/web/b.ts"
+out=$(_run "$D")
+! printf '%s\n' "$out" | grep -q '\[순환\]' && ok "F3 export type … from — 순환 간선 아님" || nope "F3" "$out"
+D="$ROOT/f3b"; mkdir -p "$D/web/lib" "$D/web/ui"; _plan "$D/plan.md" '`web/lib/` → 없음 · `web/ui/` → `web/lib/`'
+printf 'export type C = number\n' > "$D/web/ui/c.ts"; printf "export type { C } from '../ui/c'\n" > "$D/web/lib/t.ts"
+out=$(_run "$D")
+printf '%s\n' "$out" | grep -qF '[역방향] web/lib/t.ts:1 → web/ui/c.ts' && ok "F3b export type … from 도 방향 판정에는 넣는다" || nope "F3b" "$out"
+
+# F4: tsconfig 에 baseUrl 이 없으면 bare 이름(config)을 저장소 루트 파일로 풀지 않는다
+D="$ROOT/f4"; mkdir -p "$D/web/lib" "$D/config"; _plan "$D/plan.md" '`web/lib/` → 없음 · `config/` → 없음'
+printf '{"compilerOptions":{"strict":true}}\n' > "$D/tsconfig.json"
+printf "export default 1\n" > "$D/config/index.ts"; printf "import config from 'config'\nexport const a = config\n" > "$D/web/lib/a.ts"
+out=$(_run "$D")
+printf '%s\n' "$out" | head -1 | grep -q '^IMPORT-DIRECTION: OK (역방향 0 ' && ok "F4 baseUrl 없음 — bare 이름은 외부 패키지" || nope "F4" "$out"
+
+# F5: 문자열·템플릿 리터럴 속 import 꼴은 import 가 아니다(코드 생성기·스냅숏 문자열)
+D="$ROOT/f5"; mkdir -p "$D/web/lib" "$D/web/ui"; _plan "$D/plan.md" '`web/lib/` → 없음 · `web/ui/` → `web/lib/`'
+printf 'export const b = 1\n' > "$D/web/ui/button.ts"
+printf "export const tpl = \`\nimport { Button } from '../ui/button'\n\`\nexport const msg = \"run: import x from '../ui/button'\"\n" > "$D/web/lib/gen.ts"
+out=$(_run "$D")
+printf '%s\n' "$out" | head -1 | grep -q '^IMPORT-DIRECTION: OK (역방향 0 ' && ok "F5 문자열·템플릿 속 import 꼴 무시" || nope "F5" "$out"
+
+# F6: 절 찾기는 경계 대조와 같다 — 펜스 안 예시 칸 무시 · 번호 붙은 제목 · #### 수준
+D="$ROOT/f6"; mkdir -p "$D/src/x" "$D/src/y"
+printf '# plan\n\n## 2. 파일 구조\n\n```md\n### 경계 약속\n- **허용 의존**: `src/x/` → 없음 · `src/y/` → 없음\n```\n\n#### 2.1 경계 약속\n\n- **허용 의존**: `src/x/` → `src/y/` · `src/y/` → 없음\n' > "$D/plan.md"
+printf 'from src.y.m import a\n' > "$D/src/x/k.py"; printf 'a = 1\n' > "$D/src/y/m.py"
+out=$(_run "$D")
+printf '%s\n' "$out" | head -1 | grep -q '^IMPORT-DIRECTION: OK ' && ok "F6 펜스 안 예시 무시 · 번호 붙은 #### 경계 약속 절을 읽는다" || nope "F6" "$out"
+
+# F7 (배선): 판정기가 판정 줄 없이 죽으면 evidence 에 판정 불가 줄을 앞에 붙인다 — VERIFY PASS·rc 0 은 그대로
+D="$ROOT/f7"; _grepo "$D"; VF=20261021-f
+mkdir -p "$D/scripts/tests" "$ROOT/f7shim"; printf '#!/usr/bin/env bash\nexit 0\n' > "$D/scripts/tests/dummy.sh"; chmod +x "$D/scripts/tests/dummy.sh"
+printf -- '- [ ] **스텝 4**: 실행: `bash scripts/tests/dummy.sh`\n' > "$D/.specops/$VF/tasks.md"
+_realpy=$(command -v python3)
+printf '#!/usr/bin/env bash\nif [ "${1:-}" = "-E" ] && [ "${2:-}" = "-" ]; then echo "Traceback (most recent call last): boom"; exit 1; fi\nexec %s "$@"\n' "$_realpy" > "$ROOT/f7shim/python3"; chmod +x "$ROOT/f7shim/python3"
+out=$(cd "$D" && PATH="$ROOT/f7shim:$PATH" bash "$RV" "$VF" 2>/dev/null); rc=$?
+ev="$D/.specops/$VF/evidence.md"
+{ [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] \
+  && awk '/^### import-direction$/{f=1;next} f&&/^```$/{n++; next} f&&n==1{print; exit}' "$ev" | grep -qx 'IMPORT-DIRECTION: 판정 불가 (판정 줄 없음 · rc=1)' \
+  && grep -qF 'Traceback (most recent call last): boom' "$ev"; } \
+  && ok "F7 판정기 크래시 — evidence 첫 줄 판정 불가 · 원문 보존 · VERIFY PASS·rc 0" || nope "F7" "rc=$rc out=$out ev=$(sed -n '/### import-direction/,/^$/p' "$ev" 2>/dev/null)"
+
+# ── 경계값·형식 ──
+
+# E1: `->` 화살표 · `;` 구분자도 받는다
+D="$ROOT/e1"; _py "$D"; _plan "$D/plan.md" '`src/domain/` -> 없음; `src/adapters/` -> `src/domain/`'
+printf 'from src.adapters.db import Repo\n' > "$D/src/domain/user.py"; printf 'X = 1\n' > "$D/src/adapters/db.py"
+out=$(_run "$D")
+printf '%s\n' "$out" | grep -qF '[역방향] src/domain/user.py:1 → src/adapters/db.py' && ok "E1 -> 화살표 · ; 구분자" || nope "E1" "$out"
+
+# E2: TS 의 .js 확장자 import 는 같은 이름의 .ts 로 푼다(ESM 관례)
+D="$ROOT/e2"; mkdir -p "$D/web/lib" "$D/web/ui"; _plan "$D/plan.md" '`web/lib/` → 없음 · `web/ui/` → `web/lib/`'
+printf 'export const c = 1\n' > "$D/web/ui/c.ts"; printf "import { c } from '../ui/c.js'\n" > "$D/web/lib/a.ts"
+out=$(_run "$D")
+printf '%s\n' "$out" | grep -qF '[역방향] web/lib/a.ts:1 → web/ui/c.ts' && ok "E2 .js 명시 → .ts 파일" || nope "E2" "$out"
+
+# E3: node_modules 아래 파일은 바뀐 파일이어도 보지 않는다 · 자기 자신 import 는 순환이 아니다
+D="$ROOT/e3"; mkdir -p "$D/node_modules/pkg/src/domain" "$D/src/domain" "$D/src/adapters"; _plan "$D/plan.md" "$_layers"
+printf 'from src.adapters.db import X\n' > "$D/node_modules/pkg/src/domain/z.py"; printf 'X = 1\n' > "$D/src/adapters/db.py"
+printf "import { s } from './self'\nexport const s = 1\n" > "$D/src/domain/self.ts"
+mkdir -p "$D/src/domain/node_modules/p"; printf "const d = require('../../../adapters/db.py')\nimport x from '../../../adapters/q'\n" > "$D/src/domain/node_modules/p/i.js"; printf 'export const q = 1\n' > "$D/src/adapters/q.ts"
+out=$(_run "$D")
+{ ! printf '%s\n' "$out" | grep -q 'node_modules' && ! printf '%s\n' "$out" | grep -q '\[순환\]'; } && ok "E3 node_modules 제외 · 자기 import 는 순환 아님" || nope "E3" "$out"
+
 finish

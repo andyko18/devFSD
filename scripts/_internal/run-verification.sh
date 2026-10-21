@@ -379,7 +379,7 @@ elif [ "$rulecmd_ec" -ne 0 ]; then
   printf '%s\n' "$rulecmd_out" | grep '^RULE-COMMANDS:' >&2
 fi
 
-# import 방향·순환 (20261021-import-direction) — 경고 전용: 판정·종료 코드에 넣지 않는다. 30초에서 끊는다(출력이 없으면 판정 불가로 적는다).
+# import 방향·순환 (20261021-import-direction) — 경고 전용: 판정·종료 코드에 넣지 않는다. 30초에서 끊는다(판정 줄이 없으면 — 시간 초과·크래시 — 판정 불가 줄을 앞에 붙인다).
 #   plan 의 허용 의존(화살표 형식)을 이 FID 가 바꾼 파일의 import 와 대조한다 — 코드는 원래 폴더(worktree)에서, plan 은 메인 .specops 에서 읽는다.
 IMPDIR_SH="$PLUGIN/scripts/_internal/check-import-direction.sh"
 if [ -f "$IMPDIR_SH" ]; then
@@ -388,7 +388,13 @@ if [ -f "$IMPDIR_SH" ]; then
   else
     impdir_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bash "$IMPDIR_SH" "$FID"; } 2>&1 ); impdir_ec=$?
   fi
-  [ -n "$impdir_out" ] || impdir_out="IMPORT-DIRECTION: 판정 불가 (출력 없음 — 시간 초과 등 · rc=$impdir_ec)"
+  # 판정 줄로 시작하지 않으면(시간 초과의 Terminated · 크래시 원문 · 빈 출력) 판정 불가 줄을 앞에 붙인다 — 원문은 그 아래에 남긴다
+  case "$impdir_out" in
+    "IMPORT-DIRECTION: "*) ;;
+    *) if [ "$impdir_ec" -eq 124 ]; then _impdir_why="30초 시간 초과"; else _impdir_why="판정 줄 없음 · rc=$impdir_ec"; fi
+       impdir_out="IMPORT-DIRECTION: 판정 불가 (${_impdir_why})${impdir_out:+
+$impdir_out}" ;;
+  esac
   {
     echo "### import-direction"
     echo '```'

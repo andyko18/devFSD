@@ -61,6 +61,21 @@ _ok_rows='| GET | `/v1/orders` | Bearer | `?cursor=&limit=` | `Page<Order>` | 20
 _run() { bash "$CSD" --spec "$@" --all-rows; }
 _has() { printf '%s\n' "$1" | grep -qF -- "$2"; }
 
+# ── S1 템플릿 보안 칸 (AC-1) ──
+TA="$PLUGIN/templates/api-spec.md"; TD="$PLUGIN/templates/data-model.md"
+out=$(bash "$CSD" --spec "$TA" --data-model "$TD" --all-rows); rc=$?
+{ [ "$rc" -eq 0 ] && grep -qE '^- \*\*인증 방식\*\*: <.+>$' "$TA" && grep -qE '^- \*\*권한 모델\*\*: <.+>$' "$TA" \
+  && grep -qE '^- \*\*CORS\*\*: <.+>$' "$TA" && grep -qE '^- \*\*CSRF\*\*: <.+>$' "$TA" && grep -q '^### 위험 기능 결정$' "$TA" \
+  && grep -qE '^- \*\*업로드\*\*: <' "$TA" && grep -qE '^- \*\*웹훅 수신\*\*: <' "$TA" && grep -qE '^- \*\*외부 URL 가져오기\*\*: <' "$TA" && grep -qE '^- \*\*LLM 호출\*\*: <' "$TA" \
+  && grep -qE '^- \*\*개인정보 분류\*\*: <.+>$' "$TD" && grep -qE '^- \*\*보존·삭제\*\*: <.+>$' "$TD" \
+  && [ "$(printf '%s\n' "$out" | grep -c '^  \[미정\] ')" -eq 6 ] \
+  && _has "$out" '[미정] 인증 방식 —' && _has "$out" '[미정] 권한 모델 —' && _has "$out" '[미정] CORS —' && _has "$out" '[미정] CSRF —' \
+  && _has "$out" '[미정] 개인정보 분류 —' && _has "$out" '[미정] 보존·삭제 —' \
+  && ! printf '%s\n' "$out" | grep -qE '\[건너뜀\] (인증 방식|권한 모델|CORS|CSRF|개인정보 분류|보존·삭제|승인 대상)'; } \
+  && ok "S1 템플릿 — 보안 칸 10개 · 판정기 [미정] 6건 · 칸 규칙 건너뜀 없음" || nope "S1" "rc=$rc out=$out"
+grep -qF '**Auth 열** (`check-security-design.sh` 가 읽는다 — 경고 전용): 공개면 `없음(공개)`' "$TA" \
+  && ok "S1b 템플릿 §1 — Auth 열 값 규칙 안내" || nope "S1b" "Auth 열 안내 문장 없음"
+
 # ── S2 판정 규칙 (AC-2) ──
 _api "$ROOT/ok.md" "$_ok_rows"; _dm "$ROOT/dm.md"
 out=$(_run "$ROOT/ok.md" --data-model "$ROOT/dm.md"); rc=$?

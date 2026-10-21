@@ -22,7 +22,7 @@ reference_upstream: wshobson/agents@0874a27 plugins/backend-development/skills/a
 
 | 파일 | 읽는 때 |
 |---|---|
-| `api-expert/patterns/graphql.md` | api-spec §0 정의 방식이 GraphQL 이거나 plan 이 `.graphql`·스키마·리졸버 파일을 만들거나 고칠 때 |
+| `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/api-expert/patterns/graphql.md` | api-spec §0 정의 방식이 GraphQL 이거나 plan 이 `.graphql`·스키마·리졸버 파일을 만들거나 고칠 때 |
 
 ## 작업 순서
 
@@ -55,7 +55,7 @@ reference_upstream: wshobson/agents@0874a27 plugins/backend-development/skills/a
 
 ## 범위 경계
 
-쿼리 쪽 페이지네이션(LIMIT·keyset·인덱스)과 멱등 키 선점의 원자성(유일 제약)은 **DB 전문가** 몫이고, 인증·인가·민감정보 노출은 **보안** 분야, 타임아웃·재시도는 구조 분야다 — 지적하지 않는다.
+쿼리 쪽 페이지네이션(LIMIT·인덱스)과 멱등 키 선점의 원자성(유일 제약)은 **DB 전문가** 몫이고, 인증·인가는 **보안** 분야, 타임아웃·재시도 정책(횟수·백오프)은 구조 분야다 — 지적하지 않는다. 단 오류 응답의 입력값 반사는 보안 분야로 넘기지 않고 원칙 9(필드 단위 검증 오류)로 본다.
 
 ## 빈 출력 규칙
 
@@ -93,7 +93,7 @@ reference_upstream: wshobson/agents@0874a27 plugins/backend-development/skills/a
 
 - plan.md·api-spec.md·spec.md 는 직접 수정하지 않는다(반영은 메인 planning 이 한다).
 - 판정기가 이미 낸 위반을 다시 지적하지 않는다.
-- 범위 밖 분야(쿼리 최적화·인증·인가·타임아웃·재시도)는 지적하지 않는다.
+- 범위 밖 분야(쿼리 최적화·인증·인가·타임아웃·재시도 정책(횟수·백오프))는 지적하지 않는다 — 오류 응답의 입력값 반사는 범위 밖이 아니라 원칙 9 로 본다.
 - 엇갈리는 규약에서 한쪽을 강요하지 않는다 — api-spec 에 정한 규약과 어긋날 때만 지적한다.
 - **Bash 행동계약**: Bash 는 읽기·검증(grep·ls·cat·git log·git diff·check-api-contract.sh)에만 쓴다. 파일·git 상태를 바꾸는 명령은 실행하지 않는다. Write 는 `experts/api.md` 에만 쓴다.
 - `PLAN-REVIEW-RESULT`·`Critical: <N>건` 같은 판정 줄을 쓰지 않는다(판정은 plan-reviewer 몫).

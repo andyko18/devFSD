@@ -240,4 +240,22 @@ out2=$(cd "$D2" && bash "$CSD" 20261021-f); rc2=$?
   && [ "$rc2" -eq 0 ] && _has "$out2" '[인증] GET /v1/fresh' && _has "$out2" '[인증] GET /v1/legacy' && _has "$out2" '[범위] 전체 행'; } \
   && ok "S5 FID 모드 — 추적 중이면 바뀐 행만 · 추적 밖이면 전체 행 + [범위]" || nope "S5" "rc=$rc out=$out rc2=$rc2 out2=$out2"
 
+# ── S6 배선 — 검증 러너·specifying·verifying (AC-6) ──
+D="$ROOT/s6"; VF=20261021-f; mkdir -p "$D/.specops/memory" "$D/.specops/$VF" "$D/scripts/tests"
+_api "$D/.specops/memory/api-spec.md" "$_ok_rows"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$D/scripts/tests/dummy.sh"; chmod +x "$D/scripts/tests/dummy.sh"
+printf -- '- [ ] **스텝 4**: 실행: `bash scripts/tests/dummy.sh`\n' > "$D/.specops/$VF/tasks.md"
+( cd "$D" && git init -q -b main && git add -A && git -c user.email=t@t -c user.name=t commit -qm init && git checkout -qb feat )
+python3 - "$D/.specops/memory/api-spec.md" <<'PY'
+import sys
+p=sys.argv[1]; s=open(p).read()
+s=s.replace("| 페이지 커서 |\n","| 페이지 커서 |\n| GET | `/v1/fresh` |  | — | — | 200 | 새 빈칸 |\n",1); open(p,"w").write(s)
+PY
+out=$(cd "$D" && bash "$RV" "$VF" 2>"$ROOT/s6.err"); rc=$?; err=$(cat "$ROOT/s6.err")
+ev="$D/.specops/$VF/evidence.md"
+{ [ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] && grep -qx '### security-design' "$ev" \
+  && grep -q '^SECURITY-DESIGN: WARN ' "$ev" && grep -qF '[인증] GET /v1/fresh' "$ev" \
+  && _has "$err" 'WARN: 보안 설계 칸·결함 — 경고만(차단 아님) · evidence.md ### security-design'; } \
+  && ok "S6a run-verification — evidence ### security-design · 경고 · VERIFY PASS·rc 0 불변" || nope "S6a" "rc=$rc out=$out err=$err"
+
 finish

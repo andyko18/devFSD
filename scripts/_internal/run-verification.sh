@@ -438,6 +438,36 @@ $apic_out}" ;;
   esac
 fi
 
+
+# 보안 설계 칸·결함 (20261021-security-design-checker) — 경고 전용: 판정·종료 코드에 넣지 않는다. 30초에서 끊는다(판정 줄이 없으면 판정 불가 줄을 앞에 붙인다).
+#   .specops/memory/api-spec.md·data-model.md 의 보안 칸, 이 FID 가 바꾼 엔드포인트 행, plan·tasks 경로의 위험 기능 신호를 본다 — 두 문서가 없으면 SKIP.
+SECD_SH="$PLUGIN/scripts/_internal/check-security-design.sh"
+if [ -f "$SECD_SH" ]; then
+  if command -v bounded_run >/dev/null 2>&1; then
+    secd_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bounded_run 30 bash "$SECD_SH" "$FID"; } 2>&1 ); secd_ec=$?
+  else
+    secd_out=$( { [ -z "${_SR_CWD:-}" ] || export SPECOPS_ROOT="$PWD/.specops"; _sr_leave && bash "$SECD_SH" "$FID"; } 2>&1 ); secd_ec=$?
+  fi
+  case "$secd_out" in
+    "SECURITY-DESIGN: "*) ;;
+    *) if [ "$secd_ec" -eq 124 ]; then _secd_why="30초 시간 초과"; else _secd_why="판정 줄 없음 · rc=$secd_ec"; fi
+       secd_out="SECURITY-DESIGN: 판정 불가 (${_secd_why})${secd_out:+
+$secd_out}" ;;
+  esac
+  {
+    echo "### security-design"
+    echo '```'
+    echo "$secd_out"
+    echo '```'
+    echo ""
+  } >> "$EVIDENCE"
+  case "$secd_out" in
+    "SECURITY-DESIGN: WARN"*)
+      echo "WARN: 보안 설계 칸·결함 — 경고만(차단 아님) · evidence.md ### security-design" >&2
+      printf '%s\n' "$secd_out" | head -6 >&2 ;;
+  esac
+fi
+
 if [ "$skipped" -gt 0 ]; then
   _record_result PARTIAL
   echo "VERIFY: PARTIAL — ${skipped}개 명령 whitelist 미통과, 수동 검증 필요 (executed=${executed} skipped=${skipped})"

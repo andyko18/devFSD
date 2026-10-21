@@ -211,6 +211,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | implementer-ko (구현) | sonnet · medium | plan 이 코드를 담아 전사에 가깝고 호출이 가장 많다. 재시도·BLOCKED 때만 부모가 opus 로 1회 상향 |
 | spec-reviewer-ko · design-reviewer-ko | sonnet · high | 명세·설계 대조와 명령 실행 |
 | plan-reviewer-ko · code-reviewer-ko | opus · high | 계획 결함은 하류에 곱해지고 코드 리뷰는 최종 관문 |
+| db-designer-ko (DB 설계 전문가) | opus · high | DB 결함은 구현·운영에서 비싸다 — DB 를 건드리는 계획만 집중 검토 |
 | red-team-ko · blue-team-ko · auditor-ko | 세션 모델 계승 | 드문 self-config 감사 |
 
 외부 critic(`scripts/critic-ask.sh`)도 기본 opus, fallback sonnet 이다(`CRITIC_CLAUDE_MODEL`·`CRITIC_CLAUDE_FALLBACK` 로 변경).
@@ -266,7 +267,7 @@ specops-ko/
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
 ├── skills/             flat: skills/<name>/SKILL.md × 30
 │                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 Harness(원칙)
-├── agents/             ← 8건  implementer · spec-reviewer · code-reviewer · plan-reviewer
+├── agents/             ← 9건  implementer · db-designer · spec-reviewer · code-reviewer · plan-reviewer
 │                              design-reviewer · red-team · blue-team · auditor
 ├── templates/          ← 37건 (lifecycle 20 + /init-project 산출 14 + 기타 3)
 ├── scripts/            doctor · release · gbrain · security-scan · dag/ · tests/ · _internal/

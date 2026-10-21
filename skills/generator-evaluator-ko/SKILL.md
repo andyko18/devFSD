@@ -25,7 +25,7 @@ used_by: implementing-ko (2단계 리뷰 패턴), requesting-code-review-ko, pla
 | 구현 Phase C | `implementer-ko` | (동일 산출) | `code-reviewer-ko` | 코드 품질·보안·커버리지·DB 판정 |
 | self-config 감사 | — | (플러그인 자기 번들) | `red-team-ko` → `blue-team-ko` → `auditor-ko` | risk 등급 리포트 |
 
-**실재 에이전트는 `agents/` 8종뿐**: Generator 1 (`implementer-ko`) / Evaluator 7 (`spec-reviewer-ko`·`code-reviewer-ko`·`plan-reviewer-ko`·`design-reviewer-ko`·`red-team-ko`·`blue-team-ko`·`auditor-ko`). 이 표에 없는 에이전트를 dispatch 하지 마라 — 존재하지 않는다.
+**실재 에이전트는 `agents/` 9종뿐**: Generator 2 (`implementer-ko`·`db-designer-ko`) / Evaluator 7 (`spec-reviewer-ko`·`code-reviewer-ko`·`plan-reviewer-ko`·`design-reviewer-ko`·`red-team-ko`·`blue-team-ko`·`auditor-ko`). 이 표에 없는 에이전트를 dispatch 하지 마라 — 존재하지 않는다.
 
 ## 엄격 규칙
 

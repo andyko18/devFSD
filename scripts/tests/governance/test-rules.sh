@@ -717,7 +717,10 @@ result=$(cd "$tmp" && mkdir -p .specops && cat > .specops/session-progress.md <<
 ## 20260401-first-fid
 entry
 EOF
-  source "$PLUGIN/hooks/governance-lib.sh"; detect_fid)
+  # bash 5.3: $(...) 안에서 here-doc 바로 다음 줄의 첫 `;` 이 사라진다 — `source lib; detect_fid` 가
+  #   `source lib detect_fid` 로 읽혀 detect_fid 가 호출되지 않았다(CI 러너가 5.3 으로 올라간 뒤 got=''). 줄을 나눈다.
+  source "$PLUGIN/hooks/governance-lib.sh"
+  detect_fid)
 if [ "$result" = "20260401-first-fid" ]; then
   PASS=$((PASS+1)); echo "PASS T12.b (U8) 마커 부재 → 첫 ## 헤더 fallback"
 else

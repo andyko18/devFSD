@@ -478,4 +478,45 @@ else
   nope "단일 plan 리뷰 한도 초과" "단일 대화형 절·기계 판정·기록·정지 조건 중 빠진 것이 있다"
 fi
 
+# DB 설계 전문가 에이전트 — opus·high · Generator(evaluator 아님) · 산출 계약(파일 하나) · 사고 11규칙(굵은 이름 앵커) · 엔진 선택 (20261020-db-designer-agent)
+_DBA=agents/db-designer-ko.md
+if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/db\.md` 하나뿐이다' 'db-expert/engines/' '§1 유형' '^## 받는 컨텍스트' 'data-model\.md' \
+     '\*\*바인드 파라미터 상한\*\*' '\*\*created_at 보존\*\*' '\*\*키 불균일 금지\*\*' '\*\*롤백 파일 위치\*\*' '\*\*적용 태스크\*\*' '\*\*ORM 과 DDL 제약 일치\*\*' \
+     '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
+     'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'psql' '청크' 'migrations/' \
+   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 9건' README.md && grep -q '^| db-designer-ko' README.md; then
+  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 엔진 선택 · README 9건·모델 표"
+else
+  nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
+fi
+
+# DB 전문가 엔진 지식 파일 6개 — 출처·라이선스 머리 주석 · 미대조 없음 · 규칙 5줄 이상 (20261020-db-designer-agent)
+_dbe_bad=""
+for _e in postgres mysql oracle mssql mongodb redis; do
+  _f="skills/planning-ko/db-expert/engines/$_e.md"
+  if [ ! -f "$_f" ]; then _dbe_bad="$_dbe_bad $_e(없음)"; continue; fi
+  head -1 "$_f" | grep -q 'reference_upstream:' || _dbe_bad="$_dbe_bad $_e(출처 주석)"
+  head -1 "$_f" | grep -qE 'MIT|Apache-2\.0|공식 문서' || _dbe_bad="$_dbe_bad $_e(라이선스)"
+  grep -q '미대조' "$_f" && _dbe_bad="$_dbe_bad $_e(미대조 잔존)"
+  [ "$(grep -cE '^- ' "$_f")" -ge 5 ] || _dbe_bad="$_dbe_bad $_e(규칙 5줄 미만)"
+done
+grep -q '32767' skills/planning-ko/db-expert/engines/postgres.md || _dbe_bad="$_dbe_bad postgres(드라이버 상한 32767 누락)"
+grep -q 'btree_gist' skills/planning-ko/db-expert/engines/postgres.md || _dbe_bad="$_dbe_bad postgres(btree_gist 누락)"
+grep -qE 'NOT NULL[^.]*휘발성|휘발성 기본값\(`now' skills/planning-ko/db-expert/engines/postgres.md && _dbe_bad="$_dbe_bad postgres(now 휘발성 오기)"
+[ -z "$_dbe_bad" ] && ok "DB 전문가 엔진 파일 6개 — 출처·라이선스 · 미대조 없음 · 규칙 ≥5" || nope "DB 전문가 엔진 파일" "$_dbe_bad"
+
+# planning-ko DB 전문가 패스 — 경계 대조 뒤·plan-reviewer 전 · 비batch · 발동 조건 · dispatch · 반영 · 재검사 · 기록(DONE 금지) (20261020-db-designer-agent)
+_PL=skills/planning-ko/SKILL.md
+_l_db=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_bd=$(grep -n '^### 경계 대조 입력' "$_PL" | head -1 | cut -d: -f1)
+_l_pr=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
+if [ -n "$_l_db" ] && [ -n "$_l_bd" ] && [ -n "$_l_pr" ] && [ "$_l_bd" -lt "$_l_db" ] && [ "$_l_db" -lt "$_l_pr" ] \
+   && has "$_PL" 'subagent_type: "specops-ko:db-designer-ko"' 'experts/db\.md' '\| db-expert \| db-designer-ko \| 반영 \|' 'DB 산출물' 'upsert' '대량 적재' 'data-model\.md' '테스트 DB fixture' '언급되기만 하고' '## 반영' '두 스크립트를 다시 실행' '\| db-expert \| - \| SKIP \|' '가용 모델' '산출 없음' \
+   && sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -q '§batch' && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| db-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -oE '`\| <N> \| <ISO-8601> \| db-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+  ok "planning-ko DB 전문가 패스 — 경계 대조 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 · 기록 · batch 제외"
+else
+  nope "planning-ko DB 전문가 패스" "위치(db=$_l_db bd=$_l_bd pr=$_l_pr) 또는 필수 문구 누락"
+fi
+
 finish

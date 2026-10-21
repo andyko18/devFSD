@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- planning: DB 를 건드리는 계획은 plan-reviewer 전에 DB 설계 전문가(db-designer-ko · opus)가 집중 검토하고 메인이 반영한다 · 엔진별 지식(PostgreSQL·MySQL·Oracle·SQL Server·MongoDB·Redis)은 data-model §1 유형으로 고른다. 근거: Argus 실제 계획서 2개에서 plan-reviewer 가 DB 결함 0/2 적발.
+
 ## [2.26.0] — 2026-10-19
 
 ### Changed

@@ -494,9 +494,9 @@ if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일
      '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
      'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'psql' '청크' 'migrations/' \
      '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '^## 확인 필요' '확인 필요 1> — 확인 결과' \
-   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 9건' README.md && grep -q '^| db-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 10건' README.md && grep -q '^| db-designer-ko' README.md \
    && _dba_body_ok; then
-  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 9건·모델 표"
+  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 10건·모델 표"
 else
   nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
 fi
@@ -534,6 +534,54 @@ if [ -n "$_l_db" ] && [ -n "$_l_bd" ] && [ -n "$_l_pr" ] && [ "$_l_bd" -lt "$_l_
   ok "planning-ko DB 전문가 패스 — 경계 대조 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 · 기록 · batch 제외"
 else
   nope "planning-ko DB 전문가 패스" "위치(db=$_l_db bd=$_l_bd pr=$_l_pr) 또는 필수 문구 누락"
+fi
+
+
+# 구조 설계 전문가 에이전트 — opus·high · Generator(evaluator 아님) · 산출 파일 하나 · 공통 원칙 10개(이름·본문 짝) · 패턴 선택 · 확인 필요 (20261021-arch-designer-agent)
+_ARA=agents/arch-designer-ko.md
+_ara_body_ok() {
+  local pair name body
+  for pair in '얕은 통과 모듈 금지|삭제 테스트' '인터페이스는 호출자가 알아야 할 전부|불변식' '이음새는 어댑터 둘일 때|둘 이상' '의존성 4분류|소유한 원격' '의존 방향은 안쪽으로|포트를 import' \
+              '순환 금지|구체 어댑터' '컨텍스트 간 엔티티 직접 import 금지|번역 계층' '집합체는 일관성 경계|불변식 목록' '값 객체는 생성 시점에 검증|생성자' 'DDD 는 필요할 때만|둘 이상'; do
+    name=${pair%%|*}; body=${pair#*|}
+    grep -F -- "- **$name**:" "$_ARA" | grep -qF -- "$body" || return 1
+  done
+}
+if [ -f "$_ARA" ] && has "$_ARA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/arch\.md` 하나뿐이다' 'arch-expert/patterns/' '^## 받는 컨텍스트' '^## 핵심 규칙' '^## 공통 원칙' \
+     'backend-layered-clean\.md' 'backend-distributed\.md' 'backend-runtime\.md' 'frontend-react\.md' 'frontend-nextjs\.md' \
+     'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'check-import-direction\.sh' \
+     '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '^## 확인 필요' '확인 필요 1> — 확인 결과' \
+   && ! grep -q '^role: evaluator' "$_ARA" && grep -q '^| arch-designer-ko' README.md && _ara_body_ok; then
+  ok "구조 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 공통 원칙 10개 · 패턴 선택 5종 · 확인 필요 절 · README 모델 표"
+else
+  nope "구조 설계 전문가 에이전트" "파일·frontmatter·산출 계약·공통 원칙·패턴 선택·확인 필요·README 중 빠진 것이 있다"
+fi
+
+# 구조 전문가 패턴 파일 5개 — 출처·라이선스 머리 주석 · 규칙 5줄 이상 · 원문에 없는 규칙은 표시 (20261021-arch-designer-agent)
+_arp_bad=""
+for _e in backend-layered-clean backend-distributed backend-runtime frontend-react frontend-nextjs; do
+  _f="skills/planning-ko/arch-expert/patterns/$_e.md"
+  if [ ! -f "$_f" ]; then _arp_bad="$_arp_bad $_e(없음)"; continue; fi
+  head -1 "$_f" | grep -q 'reference_upstream: wshobson/agents@0874a27' || _arp_bad="$_arp_bad $_e(출처 주석)"
+  head -1 "$_f" | grep -q 'MIT' || _arp_bad="$_arp_bad $_e(라이선스)"
+  [ "$(grep -cE '^- ' "$_f")" -ge 5 ] || _arp_bad="$_arp_bad $_e(규칙 5줄 미만)"
+done
+grep -q '멱등.*specops-ko 추가' skills/planning-ko/arch-expert/patterns/backend-distributed.md || _arp_bad="$_arp_bad distributed(추가 규칙 표시 누락)"
+grep -q '직렬화할 수 있는 값' skills/planning-ko/arch-expert/patterns/frontend-nextjs.md || _arp_bad="$_arp_bad nextjs(직렬화 규칙 방향)"
+[ -z "$_arp_bad" ] && ok "구조 전문가 패턴 파일 5개 — 출처·라이선스 · 규칙 ≥5 · 추가 규칙 표시" || nope "구조 전문가 패턴 파일" "$_arp_bad"
+
+# planning-ko 구조 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 1회 · 기록(DONE 금지) · batch 제외 (20261021-arch-designer-agent)
+_l_db2=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_ar=$(grep -n '^### 구조 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_pr2=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
+if [ -n "$_l_db2" ] && [ -n "$_l_ar" ] && [ -n "$_l_pr2" ] && [ "$_l_db2" -lt "$_l_ar" ] && [ "$_l_ar" -lt "$_l_pr2" ] \
+   && has "$_PL" 'subagent_type: "specops-ko:arch-designer-ko"' 'experts/arch\.md' '\| arch-expert \| arch-designer-ko \| 반영 \|' '새 폴더·새 모듈·새 계층' '새 의존 방향' '새 도메인 개념' \
+        'arch-expert/patterns/' '이 패스 뒤에 한 번만' '\| arch-expert \| - \| SKIP \|' '\| arch-expert \| arch-designer-ko \| 산출 없음 \|' \
+   && sed -n "${_l_ar},${_l_pr2}p" "$_PL" | grep -q '§batch' \
+   && ! sed -n "${_l_ar},${_l_pr2}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| arch-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+  ok "planning-ko 구조 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 1회 · 기록 · batch 제외"
+else
+  nope "planning-ko 구조 전문가 패스" "위치(db=$_l_db2 arch=$_l_ar pr=$_l_pr2) 또는 필수 문구 누락"
 fi
 
 finish

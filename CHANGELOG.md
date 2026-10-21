@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- planning: 새 폴더·모듈·계층, 새 의존 방향, 새 도메인 개념(엔티티·상태)을 만드는 계획은 DB 전문가 패스 뒤·plan-reviewer 전에 구조 설계 전문가(arch-designer-ko · opus)가 집중 검토하고 메인이 반영한다 — 얕은 통과 모듈 · 인터페이스(불변식·순서·오류 방식) · 이음새는 어댑터 둘일 때 · 의존성 4분류 · 의존 방향 · 순환 · 컨텍스트 간 import · 집합체 · 값 객체 · DDD 는 필요할 때만. 패턴별 지식(계층형·Clean · 분산 · 재시도·타임아웃 · React 상태 · Next.js App Router)은 `backend-architecture.md`·`frontend-architecture.md` 로 고른다. 출처: mattpocock/skills codebase-design · wshobson/agents · davila7/claude-code-templates domain-driven-design (모두 MIT, 한국어 재작성). 효과는 미측정이다 — 평가 세트(기준선 plan-reviewer · 구조 전문가 · 결함 없는 대조군)는 Argus 실제 계획서로 후속. 전문가 로드맵 2번 분야(구조·도메인) FID-A.
+
 ## [2.27.0] — 2026-10-21
 
 ### Added

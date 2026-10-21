@@ -153,6 +153,7 @@ def section(lines, title_re):
 def words(s):
     """camelCase·snake·kebab·경로를 소문자 낱말로 자른다."""
     s = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", s)
+    s = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", s)
     return [w for w in re.split(r"[^a-z0-9]+", s.lower()) if w]
 
 # ── §1 엔드포인트 표 ──
@@ -211,21 +212,22 @@ for r in scoped:
     if hit: out.append(f"[응답 민감 필드] {r['meth']} {r['path']} — {hit} — 응답에서 빼고 응답 전용 타입으로 내보낸다")
 
 # ── 칸 ──
-AUTH_LBL, ROLE_LBL, CORS_LBL, CSRF_LBL = r"인증 방식|인증", r"권한 모델", r"CORS", r"CSRF"
+AUTH_LBL, ROLE_LBL, CORS_LBL, CSRF_LBL = r"인증 방식", r"권한 모델", r"CORS", r"CSRF"
 cells = [("인증 방식", api, AUTH_LBL, spec_p), ("권한 모델", api, ROLE_LBL, spec_p), ("CORS", api, CORS_LBL, spec_p),
          ("CSRF", api, CSRF_LBL, spec_p), ("개인정보 분류", dm, r"개인정보 분류", dm_p), ("보존·삭제", dm, r"보존\s*[·・/]?\s*삭제", dm_p)]
 n_cells = 0
 for label, lines, rx, present in cells:
     if not present: continue
     v = field(lines, rx)
+    if v is None and label == "인증 방식": v = field(lines, r"인증")   # 옛 이름은 새 칸이 없을 때만 (clarify Q2)
     if v is None: skipped.append(f"{label}(칸 없음)"); continue
     n_cells += 1
     if unset(v): out.append(f"[미정] {label} — 칸이 비었거나 자리표시자({v or '빈 값'})")
 cors = field(api, CORS_LBL)
 if cors is not None and not unset(cors):
-    star = re.search(r"(^|[\s,;:(（'\"`])\*($|[\s,;)）'\"`])", cors)
+    star = re.search(r"(^|[\s,;:=(（'\"`])\*($|[\s,;)）'\"`])", cors)
     m = re.search(r"credentials?\s*[:=]?\s*([^·,;/|]*)", cors, re.I)
-    cred = bool(m) and re.search(r"true|include|사용|허용", m.group(1), re.I) and not re.search(r"false|omit|미사용|불허|없음|금지|안\s*함", m.group(1), re.I)
+    cred = bool(m) and re.search(r"true|include|사용|허용", m.group(1), re.I) and not re.search(r"false|omit|\bno\b|미사용|불허|비허용|없음|금지|않|안\s*[함됨]", m.group(1), re.I)
     if star and cred: out.append("[CORS] 허용 origin `*` 와 credentials 를 함께 쓴다 — 브라우저가 거부하거나, origin 을 반사하면 아무 사이트나 인증 요청을 보낸다")
 
 # ── [승인 대상] — 파일 경로·엔드포인트 경로에서만 신호를 찾는다 ──
@@ -247,6 +249,7 @@ if plan is not None:
     if not any(re.match(r"^##\s+2\.\s*파일 구조", l) for l in shown):
         skipped.append("승인 대상 plan 신호(plan 에 `## 2. 파일 구조` 절 없음)")
     for raw in psec:
+        if re.match(r"^\s*[-*]\s*\*\*범위 밖\*\*", raw): continue   # 건드리지 않는다고 적은 경로는 신호가 아니다
         for tok in re.findall(r"`([^`\s]+)`", raw):
             if "/" in tok or "." in tok: sources.append((f"plan §2 `{tok}`", tok))
 if tasks is not None:

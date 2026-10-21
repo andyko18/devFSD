@@ -266,4 +266,36 @@ VE="$PLUGIN/skills/verifying-evidence-ko/SKILL.md"
 grep -qE '`### security-design` 에 남긴다\. `WARN` 은 결함 후보일 뿐 VERIFY 결과를 바꾸지 않는다' "$VE" \
   && ok "S6c verifying 체크 줄 — security-design 경고 전용" || nope "S6c" "verifying 문구 누락"
 
+# ── S7 Phase C 리뷰 반영 (20261021) ──
+# 옛 **인증** 과 새 **인증 방식** 이 함께 있으면 새 칸을 판정한다(clarify Q2 — 옛 이름은 새 칸이 없을 때만)
+sed 's/^- \*\*인증\*\*: .*/- **인증**: Bearer JWT (Access 15m)\n- **인증 방식**: <Bearer 헤더 \/ 쿠키>/' "$ROOT/old.md" > "$ROOT/s7a.md"
+out=$(_run "$ROOT/s7a.md")
+_has "$out" '[미정] 인증 방식 — 칸이 비었거나 자리표시자(<Bearer 헤더 / 쿠키>)' && ok "S7a 옛 인증 + 새 인증 방식(자리표시자) 공존 → 새 칸 [미정]" || nope "S7a" "$out"
+# CORS credentials 한국어 부정형은 경고하지 않는다 · origin=* 표기는 별표로 읽는다
+n=0
+for neg in 'credentials 사용하지 않음' 'credentials 허용하지 않음' 'credentials 사용 안 됨' 'credentials 비허용'; do
+  _api "$ROOT/s7b.md" "$_ok_rows"; sed -i.bak "s/^- \*\*CORS\*\*: .*/- **CORS**: \`*\` · $neg/" "$ROOT/s7b.md"
+  o=$(_run "$ROOT/s7b.md"); printf '%s\n' "$o" | head -1 | grep -q '^SECURITY-DESIGN: OK' && ! _has "$o" '[CORS]' && n=$((n+1))
+done
+_api "$ROOT/s7c.md" "$_ok_rows"; sed -i.bak 's/^- \*\*CORS\*\*: .*/- **CORS**: origin=* · credentials: true/' "$ROOT/s7c.md"
+out=$(_run "$ROOT/s7c.md")
+{ [ "$n" -eq 4 ] && _has "$out" '[CORS] 허용 origin `*` 와 credentials 를 함께 쓴다'; } \
+  && ok "S7b CORS 한국어 부정형 4종 조용 · origin=* + credentials 적발" || nope "S7b" "neg_ok=$n/4 out=$out"
+# plan §2 의 **범위 밖** 줄 경로는 신호가 아니다 · 약어 camelCase(LLMService) 는 낱말로 자른다
+cat > "$ROOT/plan-s7.md" <<'EOF'
+# 플랜
+
+## 2. 파일 구조
+
+- `src/LLMService.ts` — 요약 호출
+
+### 경계 약속
+
+- **범위 밖**: `src/webhooks/` — 건드리지 않는다
+EOF
+_api "$ROOT/s7d.md" "$_ok_rows"; sed -i.bak -e 's/^- \*\*웹훅 수신\*\*: .*/- **웹훅 수신**: <해당 없음>/' -e 's/^- \*\*LLM 호출\*\*: .*/- **LLM 호출**: <해당 없음>/' "$ROOT/s7d.md"
+out=$(_run "$ROOT/s7d.md" --plan "$ROOT/plan-s7.md")
+{ _has "$out" '[승인 대상] LLM 호출 — plan §2 `src/LLMService.ts` —' && ! _has "$out" '[승인 대상] 웹훅 수신'; } \
+  && ok "S7c 약어 camelCase LLMService 신호 · 「범위 밖」 경로는 신호 아님" || nope "S7c" "$out"
+
 finish

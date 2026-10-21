@@ -213,6 +213,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
   - **근거**: 소비측 재사용 게이트(`decomposing-ko`)는 이 파일 **존재를 전제**로만 발동한다. 생산은 `planning-ko` 산문 지시뿐(강제 evaluator 부재)이라, verify 가 실제 산출물을 확인하지 않으면 manifest 누락 시 후속 `/start` 재사용 게이트가 **침묵 무발동(no-op)** 한다. 본 게이트가 **Mode1(manifest 태스크 누락)·Mode2(태스크 존재하나 파일 미작성)** 를 모두 차단 → implementing **후** 실제 파일을 검사하는 유일 지점이므로 소비 게이트를 무접촉으로 transitively 건전화한다.
 - [ ] **구조 규칙 판정 명령 (헌법에 판정 `명령` 규칙이 있을 때)**: `run-verification.sh` 가 `check-rule-commands.sh` 로 실행하고 결과를 evidence.md `### structure-rule-commands` 에 남긴다. 위반(`FAIL`)은 `VERIFY: FAIL structure-rule-commands` 로 검증을 막는다 — 코드를 고치거나, 규칙이 틀렸으면 사용자에게 알린다(헌법을 스스로 고치지 않는다). `판정 불가`·`TIMEOUT`·`SKIP` 은 경고로 보고한다(`판정 불가` 는 도구·환경이 없어 확인하지 못한 것 — 위반 아님).
 - [ ] **import 방향·순환 (경고 전용)**: `run-verification.sh` 가 `check-import-direction.sh` 로 plan 의 허용 의존(화살표 형식)을 이 FID 의 import 와 대조하고 순환을 찾아 evidence.md `### import-direction` 에 남긴다. `WARN` 이어도 검증은 실패하지 않는다 — 역방향·순환은 구현을 고치거나 plan 의 허용 의존을 고쳐 맞추고, 그대로 두려면 PR 본문에 이유를 적는다
+- [ ] **API 계약 빈칸·형식 (경고 전용)**: `run-verification.sh` 가 `check-api-contract.sh` 로 `.specops/memory/api-spec.md` 의 이 FID 가 바꾼 엔드포인트 행(경로 동사·중첩 · 상태코드)과 계약 칸(오류 형식·오류 코드·목록 정책·멱등 정책·rate limit·버전 전략)을 보고 evidence.md `### api-contract` 에 남긴다. `WARN` 은 결함 후보일 뿐 VERIFY 결과를 바꾸지 않는다 · 칸이 없는 옛 문서는 `[건너뜀]` · api-spec 부재는 SKIP.
 - [ ] `.specops/<FID>/evidence.md`에 출력 캡처 (`run-verification.sh` 가 자동 append)
 
 ## 5원칙 주입 (specops-ko 고유)

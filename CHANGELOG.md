@@ -8,6 +8,8 @@
 
 - planning: 새 폴더·모듈·계층, 새 의존 방향, 새 도메인 개념(엔티티·상태)을 만드는 계획은 DB 전문가 패스 뒤·plan-reviewer 전에 구조 설계 전문가(arch-designer-ko · opus)가 집중 검토하고 메인이 반영한다 — 얕은 통과 모듈 · 인터페이스(불변식·순서·오류 방식) · 이음새는 어댑터 둘일 때 · 의존성 4분류 · 의존 방향 · 순환 · 컨텍스트 간 import · 집합체 · 값 객체 · DDD 는 필요할 때만. 패턴별 지식(계층형·Clean · 분산 · 재시도·타임아웃 · React 상태 · Next.js App Router)은 `backend-architecture.md`·`frontend-architecture.md` 로 고른다. 출처: mattpocock/skills codebase-design · wshobson/agents · davila7/claude-code-templates domain-driven-design (모두 MIT, 한국어 재작성). 효과는 미측정이다 — 평가 세트(기준선 plan-reviewer · 구조 전문가 · 결함 없는 대조군)는 Argus 실제 계획서로 후속. 전문가 로드맵 2번 분야(구조·도메인) FID-A.
 
+## [2.27.1] — 2026-10-21
+
 ### Fixed
 
 - CI: macOS run-all 작업 시간 한도 15분 → 30분 — 실측 소요가 11·13.5·15분으로 한도에 붙어, 202/202 통과 직후 취소(cancelled)됐다(실측의 2배 이상 — `llm-smoke.yml` 규약).
@@ -3368,7 +3370,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.27.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.27.1...HEAD
+[2.27.1]: https://github.com/andyko18/specops-ko/compare/v2.27.0...v2.27.1
 [2.27.0]: https://github.com/andyko18/specops-ko/compare/v2.26.0...v2.27.0
 [2.26.0]: https://github.com/andyko18/specops-ko/compare/v2.25.1...v2.26.0
 [2.25.1]: https://github.com/andyko18/specops-ko/compare/v2.25.0...v2.25.1

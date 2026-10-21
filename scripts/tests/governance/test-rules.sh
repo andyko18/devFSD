@@ -722,6 +722,13 @@ if [ "$result" = "20260401-first-fid" ]; then
   PASS=$((PASS+1)); echo "PASS T12.b (U8) 마커 부재 → 첫 ## 헤더 fallback"
 else
   FAIL=$((FAIL+1)); echo "FAIL T12.b (got='$result')"
+  # 진단(CI 에서만 재현되는 got='' 추적용 — 원인 확정 뒤 제거)
+  {
+    echo "DIAG T12.b tmp=$tmp"
+    (cd "$tmp" && ls -laR .specops 2>&1 | head -20; echo "--- progress:"; cat .specops/session-progress.md 2>&1)
+    echo "--- trace:"
+    (cd "$tmp" && source "$PLUGIN/hooks/governance-lib.sh" && PS4='+DIAG ' && set -x && detect_fid) 2>&1 | head -40
+  } 2>&1 | sed 's/^/FAIL T12.b-diag: /'
 fi
 rm -rf "$tmp"
 

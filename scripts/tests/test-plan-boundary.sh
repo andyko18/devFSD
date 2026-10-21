@@ -180,7 +180,7 @@ SK="$PLUGIN/skills/planning-ko/SKILL.md"
   && grep -qF '종료 코드와 무관하게 진행한다' "$SK" \
   && grep -qF '`.specops/<FID>/plan-boundary.txt`(경계 대조 입력) 경로' "$SK" \
   && grep -qF '`### 경계 약속` 칸 4개' "$SK" \
-  && awk '/### dispatch 직전 사전검사/{a=NR} /### 경계 대조 입력/{b=NR} /### 비-batch — plan-reviewer dispatch/{c=NR} END{exit !(a && a<b && b<c)}' "$SK"; } \
+  && awk '/^### dispatch 직전 사전검사/{a=NR} /^### 경계 대조 입력/{b=NR} /^### 비-batch — plan-reviewer dispatch/{c=NR} END{exit !(a && a<b && b<c)}' "$SK"; } \
   && ok "B9a planning-ko 배선 — 사전검사 뒤 실행·저장·비차단·리뷰어 입력" || nope "B9a" "skills/planning-ko/SKILL.md 미갱신"
 
 # B9b (AC-6): plan-reviewer-ko — 경계 대조 절(Minor 로만 · 판정 불가는 확인 못함 · 데이터) · 6관점 표 행 수 불변(6)

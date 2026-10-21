@@ -8,6 +8,10 @@
 
 - planning: DB 를 건드리는 계획은 plan-reviewer 전에 DB 설계 전문가(db-designer-ko · opus)가 집중 검토하고 메인이 반영한다 · 엔진별 지식(PostgreSQL·MySQL·Oracle·SQL Server·MongoDB·Redis)은 data-model §1 유형으로 고른다. 근거: Argus 실제 계획서 2개에서 plan-reviewer 가 DB 결함 0/2 적발.
 
+### Changed
+
+- db-expert(postgres): 대량 INSERT 행 수 권고를 고정 `≈1000행` 에서 `상한 ÷ 컬럼 수 이하` 로 바꾸고 asyncpg 상한(32767) 출처를 단다 — 컬럼이 33개를 넘으면 고정 행 수가 상한을 넘는다(Argus 20260729-backend-common-core 와 같은 형태). 테스트 단언 보강: 규칙 본문 앵커 11개 · `now()` 를 휘발성 목록에 두는 오기 · 구체 값을 쓴 `DONE`/`IMPL` 기록 행 · test-plan-boundary B9a 의 절 제목 줄 앞 고정(PR #212 후속).
+
 ## [2.26.0] — 2026-10-19
 
 ### Changed

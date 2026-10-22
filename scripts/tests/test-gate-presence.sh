@@ -494,9 +494,9 @@ if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일
      '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
      'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'psql' '청크' 'migrations/' \
      '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '^## 확인 필요' '확인 필요 1> — 확인 결과' \
-   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 11건' README.md && grep -q '^| db-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 12건' README.md && grep -q '^| db-designer-ko' README.md \
    && _dba_body_ok; then
-  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 11건·모델 표"
+  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 12건·모델 표"
 else
   nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
 fi
@@ -537,6 +537,73 @@ else
   nope "planning-ko DB 전문가 패스" "위치(db=$_l_db bd=$_l_bd pr=$_l_pr) 또는 필수 문구 누락"
 fi
 
+# API 계약 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 판정기 선실행·중복 금지 · 공통 원칙 13(이름·본문 짝) · 범위 경계 (20261021-api-designer-agent)
+# Then 절별 같은 줄 연접 잠금 — 파일 전체 grep 이 다른 줄의 같은 구절로 통과하던 구멍(리뷰 B 2회)
+_APA=agents/api-designer-ko.md
+_apa_body_ok() {
+  local pair name body
+  for pair in '추가형 변경만|새 major' '폐기 표기와 유예|@deprecated' '관찰 가능한 동작은 계약|DB 스키마' '메서드 의미|PATCH' '응답 형태 하나|입력 타입' \
+              '벌크 부분 실패|항목마다' '오류 형식 하나|섞지 않는다' '기계가 읽는 오류 코드|카탈로그' '필드 단위 검증 오류|되돌려 주지 않는다' \
+              '커서에 정렬 컬럼 전부|유일' '페이지 메타데이터|has_more' '멱등 키는 의도에서|randomUUID' '멱등 키 재사용·보존|422'; do
+    name=${pair%%|*}; body=${pair#*|}
+    grep -F -- "- **$name**:" "$_APA" | grep -qF -- "$body" || return 1
+    grep -F -- "- **$name**:" "$_APA" | grep -qE '출처: .*\(MIT\)' || return 1
+  done
+}
+if [ -f "$_APA" ] && has "$_APA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/api\.md` 하나뿐이다' \
+     'CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-api-contract\.sh <FID>' \
+     'check-api-contract\.sh <FID>` 를 먼저 실행해 첫 줄과 rc 를 산출의 `## 판정기` 에 옮긴다.*판정기가 낸 위반.*다시 지적하지 않는다' \
+     'api-expert/patterns/graphql\.md` \| api-spec §0 정의 방식이 GraphQL 이거나 plan 이 `\.graphql`·스키마·리졸버 파일을 만들거나 고칠 때' \
+     '^- \*\*api-spec\.md 가 없으면\*\* plan 의 엔드포인트·태스크만으로 검토한다 — 판정기는 SKIP 을 내고, .*모두 `## 확인 필요` 로 낸다\.' \
+     '^## 받는 컨텍스트' '^## 핵심 규칙' '^## 공통 원칙' '^## 빈 출력 규칙' '^## 확인 필요' '^## 하지 말 것' \
+     '\*\*엇갈리는 규약\*\*.*한쪽을 강요하지 않는다\. api-spec 에 정한 규약과 plan 이 어긋날 때만 지적하고, 정하지 않았으면 `## 확인 필요` 로 묻는다' \
+     'RFC 9457' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' 'plan\.md.*직접 수정하지 않는다' \
+     '멱등 키 선점의 원자성\(유일 제약\)은 \*\*DB 전문가\*\* 몫이고, 인증·인가는 \*\*보안\*\* 분야, 타임아웃·재시도 정책\(횟수·백오프\)은 구조 분야다.*단 오류 응답의 입력값 반사는.*원칙 9' \
+   && ! grep -q '^role: evaluator' "$_APA" && grep -q 'agents/ .*← 12건' README.md && grep -q '^| api-designer-ko' README.md \
+   && _apa_body_ok; then
+  ok "API 계약 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 공통 원칙 13(이름·본문·출처) · 엇갈리는 규약 · README 12건·모델 표"
+else
+  nope "API 계약 전문가 에이전트" "파일·frontmatter·판정기 연계·원칙 13·범위 경계·README 중 빠진 것이 있다"
+fi
+
+# API 전문가 GraphQL 지식 파일 — 출처·라이선스 머리 주석 · 규칙 10줄 이상 · 핵심 규칙 앵커 (20261021-api-designer-agent)
+_apg=skills/planning-ko/api-expert/patterns/graphql.md
+_apg_bad=""
+if [ ! -f "$_apg" ]; then _apg_bad=" 파일 없음"; else
+  head -1 "$_apg" | grep -q 'reference_upstream:' || _apg_bad="$_apg_bad 출처 주석"
+  head -1 "$_apg" | grep -q 'MIT' || _apg_bad="$_apg_bad 라이선스"
+  [ "$(grep -cE '^- ' "$_apg")" -ge 10 ] || _apg_bad="$_apg_bad 규칙 10줄 미만"
+  for _k in 'DataLoader' 'pageInfo' '@deprecated' 'graphql-ws' '인자 하나짜리 `input` 타입'; do grep -q -- "$_k" "$_apg" || _apg_bad="$_apg_bad $_k"; done
+fi
+[ -z "$_apg_bad" ] && ok "API 전문가 GraphQL 지식 파일 — 출처·라이선스 · 규칙 ≥10 · 핵심 앵커" || nope "API 전문가 GraphQL 지식 파일" "$_apg_bad"
+
+# planning-ko API 전문가 패스 — DB 뒤·보안 앞(DB → API → 보안 → 테스트 → plan-reviewer) · 발동 조건 · dispatch · 반영 · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음
+#   문구는 API 절 범위(다음 `### ` 앞까지)에서만 찾는다 — 파일 전체 grep 은 다른 절의 같은 문구로 통과했다 (20261021-api-designer-agent · 범위 교정 20261022-api-expert-integrate)
+_l_db3=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_api=$(grep -n '^### API 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_sec3=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_tst3=$(grep -n '^### 테스트 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_pr3=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
+_l_apiend=""; _api_body=""
+if [ -n "$_l_api" ]; then
+  _l_apiend=$(awk -v s="$_l_api" 'NR>s && /^### /{print NR; exit}' "$_PL")
+  [ -n "$_l_apiend" ] && _api_body=$(sed -n "${_l_api},$((_l_apiend-1))p" "$_PL")
+fi
+_api_has() { local p; for p in "$@"; do printf '%s\n' "$_api_body" | grep -qE -- "$p" || return 1; done; return 0; }
+if [ -n "$_l_db3" ] && [ -n "$_l_apiend" ] && [ -n "$_l_sec3" ] && [ -n "$_l_tst3" ] && [ -n "$_l_pr3" ] \
+   && [ "$_l_db3" -lt "$_l_api" ] && [ "$_l_api" -lt "$_l_sec3" ] && [ "$_l_sec3" -lt "$_l_tst3" ] && [ "$_l_tst3" -lt "$_l_pr3" ] \
+   && _api_has 'subagent_type: "specops-ko:api-designer-ko"' 'experts/api\.md' '\| api-expert \| api-designer-ko \| 반영 \|' '\| api-expert \| - \| SKIP \|' '\| api-expert \| api-designer-ko \| 산출 없음 \|' \
+        '엔드포인트를 추가·변경·삭제' '라우트·컨트롤러·GraphQL 스키마' 'api-expert/patterns/' '`§batch` 는 이 패스 미적용' '마지막 전문가 패스 뒤에 한 번만' \
+   && [ "$(printf '%s\n' "$_api_body" | sed 1d | grep -c '^#')" -eq 0 ] \
+   && ! printf '%s\n' "$_api_body" | grep -E '^\| [^|]*\| [^|]*\| api-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! printf '%s\n' "$_api_body" | grep -oE '`\| [^|`]* \| [^|`]* \| api-expert \|[^`]*`' | grep -qE 'DONE|IMPL' \
+   && sed -n "${_l_sec3},$((_l_tst3-1))p" "$_PL" | grep -q 'API 전문가 패스 뒤' && ! sed -n "${_l_sec3},$((_l_tst3-1))p" "$_PL" | grep -q 'DB 전문가 패스 뒤' \
+   && sed -n "${_l_db3},$((_l_api-1))p" "$_PL" | grep -qF '뒤의 전문가 패스(API·보안·테스트)'; then
+  ok "planning-ko API 전문가 패스 — DB → API → 보안 → 테스트 순 · 절 범위 문구 · 재검사 한 번 · 기록 3종 · batch 제외 · 앞뒤 절 순서 문구"
+else
+  nope "planning-ko API 전문가 패스" "위치(db=$_l_db3 api=$_l_api end=$_l_apiend sec=$_l_sec3 tst=$_l_tst3 pr=$_l_pr3) · 절 범위 문구 · 순서 문구 · DONE 행 중 문제"
+fi
+
 # 보안 설계 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 판정기 선실행·중복 금지 · 질문 틀 · 공통 원칙 16(이름·본문·출처 같은 줄) · 범위 경계 (20261021-security-designer-agent)
 # Then 절별 같은 줄 연접 잠금 — 파일 전체 grep 이 다른 줄의 같은 구절로 통과하던 구멍(API 전문가 리뷰 B 2회)
 _SDA=agents/security-designer-ko.md
@@ -571,9 +638,9 @@ if [ -f "$_SDA" ] && has "$_SDA" '^model: opus$' '^effort: high$' '쓰는 파일
      'security-expert/patterns/oauth\.md` \| plan 이 OAuth·OIDC' \
      '^## 받는 컨텍스트' '^## 작업 순서' '^## 질문 틀' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
      '\*\*Bash 행동계약\*\*' \
-   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 11건' README.md && grep -q '^| security-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 12건' README.md && grep -q '^| security-designer-ko' README.md \
    && _sda_order_ok && _sda_body_ok; then
-  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 11건·모델 표"
+  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 12건·모델 표"
 else
   nope "보안 설계 전문가 에이전트" "파일·frontmatter·판정기 연계·질문 틀·원칙 16·범위 경계·패턴 표·README 중 빠진 것이 있다"
 fi
@@ -591,7 +658,7 @@ for _f in 'ssrf-upload-webhook|DNS 레코드를 \*\*전부\*\*|magic bytes|HMAC'
   [ -z "$_sdp_bad" ] && ok "보안 전문가 패턴 파일 $_n — 출처·라이선스 · 규칙 ≥4 · 핵심 앵커" || nope "보안 전문가 패턴 파일 $_n" "$_sdp_bad"
 done
 
-# planning-ko 보안 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 [승인 대상] · dispatch · 반영 · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음 (20261021-security-designer-agent)
+# planning-ko 보안 전문가 패스 — API 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 [승인 대상] · dispatch · 반영 · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음 (20261021-security-designer-agent)
 _l_db4=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_sec=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_pr4=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
@@ -603,7 +670,7 @@ if [ -n "$_l_secend" ] && [ -n "$_l_db4" ] && [ -n "$_l_sec" ] && [ -n "$_l_pr4"
    && [ "$(sed -n "$((_l_sec+1)),$((_l_secend-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
    && ! sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| security-expert \|' | grep -qE 'DONE|IMPL' \
    && ! sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| security-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
-  ok "planning-ko 보안 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 승인 대상 · dispatch · 반영 · 재검사 한 번 · 기록 3종 · batch 제외"
+  ok "planning-ko 보안 전문가 패스 — API 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 승인 대상 · dispatch · 반영 · 재검사 한 번 · 기록 3종 · batch 제외"
 else
   nope "planning-ko 보안 전문가 패스" "위치(db=$_l_db4 sec=$_l_sec pr=$_l_pr4) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
 fi
@@ -630,9 +697,9 @@ if [ -f "$_TDA" ] && has "$_TDA" '^model: opus$' '^effort: high$' '^reference_up
      'acceptance-criteria\.md' 'test-strategy\.md' '^## 수용 기준별 테스트 설계$' '^## 지적$' '^## 확인 필요' '\| AC \| 테스트 \| 떨어뜨리는 잘못된 구현 \| 단언\(값까지\) \| 픽스처가 태우는 경계 \|' \
      '`must` AC 는 모두 한 행씩 쓴다' '^\*\*확인한 사실 위에서만 심각도를 매긴다\*\*:' '테스트 DB 환경.*\*\*DB 전문가\*\*' \
      '^- plan\.md·spec\.md·acceptance-criteria\.md 는 직접 수정하지 않는다' '\*\*Bash 행동계약\*\*' \
-   && ! grep -q '^role: evaluator' "$_TDA" && grep -q 'agents/ .*← 11건 .*test-designer' README.md && grep -q '^| test-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_TDA" && grep -q 'agents/ .*← 12건 .*test-designer' README.md && grep -q '^| test-designer-ko' README.md \
    && _tda_rules_ok; then
-  ok "테스트 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 핵심 규칙 4(근거) · 공통 원칙 11(출처) · 설계표 변이 열 · 범위 경계 · README 11건·모델 표"
+  ok "테스트 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 핵심 규칙 4(근거) · 공통 원칙 11(출처) · 설계표 변이 열 · 범위 경계 · README 12건·모델 표"
 else
   nope "테스트 설계 전문가 에이전트" "파일·frontmatter·산출 계약·핵심 규칙·공통 원칙·설계표·범위 경계·README 중 빠진 것이 있다"
 fi

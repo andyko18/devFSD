@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.29.0] — 2026-10-23
+
 ### Added
 
 - planning 에 API 계약 전문가 패스를 더했다(`agents/api-designer-ko.md` · opus · high). API 엔드포인트를 바꾸는 FID 에서 plan-reviewer 전에 dispatch 되어 spec·plan·api-spec 의 API 계약만 집중 검토하고 지적과 고친 문안을 `experts/api.md` 에 쓴다(plan.md 는 직접 고치지 않는다). 공통 원칙 13개는 추가형 변경만·폐기 표기와 유예·관찰 가능한 동작은 계약·메서드 의미·응답 형태 하나·벌크 부분 실패·오류 형식 하나·기계가 읽는 오류 코드·필드 단위 검증 오류·커서에 정렬 컬럼 전부·페이지 메타데이터·멱등 키는 의도에서·멱등 키 재사용과 보존이다. 이와 별개로 출처끼리 답이 다른 규약 7곳은 한쪽을 강요하지 않고 api-spec 에 정한 규약과 어긋날 때만 지적하며, 정하지 않았으면 `확인 필요` 로 묻는다. GraphQL 은 조건이 맞을 때만 읽는 지식 파일(`skills/planning-ko/api-expert/patterns/graphql.md`)로 분리했다. 판정기 `check-api-contract.sh` 가 잡는 빈칸·형식 위반은 다시 지적하지 않고 판단이 필요한 것만 본다 — 쿼리 쪽 페이지네이션(LIMIT·인덱스)·멱등 키 선점의 원자성은 DB 전문가, 인증·인가는 보안, 타임아웃·재시도 정책(횟수·백오프)은 구조 분야 몫이다 — 단 오류 응답의 입력값 반사는 보안으로 넘기지 않고 원칙 9(필드 단위 검증 오류)로 본다. 출처 4곳(wshobson/agents · addyosmani/agent-skills · davila7/claude-code-templates · supabase/agent-skills)은 모두 MIT 이며 한국어로 재작성했다. 패스 순서는 DB → API → 보안 → 테스트다. 효과는 Argus 실제 계획서 2건 × 3회로 쟀다 — plan-reviewer 0/6 → api-designer 4/6, 결함 없는 단순 대조군(e-23 · 상품 조회 `discontinuedAt` 추가)에서 헛지적 0/3. 측정 케이스는 `specifying-ko/evals.json` e-19~e-23 · e-33~e-36 이고 출처는 `current-state.md` §4 와 측정 기록이다.
@@ -3390,7 +3392,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.28.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.29.0...HEAD
+[2.29.0]: https://github.com/andyko18/specops-ko/compare/v2.28.0...v2.29.0
 [2.28.0]: https://github.com/andyko18/specops-ko/compare/v2.27.1...v2.28.0
 [2.27.1]: https://github.com/andyko18/specops-ko/compare/v2.27.0...v2.27.1
 [2.27.0]: https://github.com/andyko18/specops-ko/compare/v2.26.0...v2.27.0

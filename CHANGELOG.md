@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- planning 사전검사(`check-plan-predispatch.sh`)의 dangling-lock 판정이 작업 폴더 안의 다른 git 저장소(링크 worktree·복사본)의 같은 문자열을 "repo 에 있음" 으로 읽어 결함을 놓치던 것을 고쳤다 — 플러그인 폴더가 git 저장소의 최상위면 `git grep --untracked` 로 이 저장소의 파일만 본다(추적 + 무시되지 않은 미추적 · 중첩 저장소 안은 보지 않는다 · 비ASCII 경로 그대로). 바깥 저장소 안의 하위 폴더(홈 dotfiles 저장소 안의 설치본 등)면 종전 `grep -r` — 바깥 저장소의 gitignore 가 폴더를 가려 실재 문자열을 놓치지 않게. 계기: v2.28.0 발행 사전 점검이 메인 폴더(안에 worktree 가 있음)에서 test-plan-predispatch P1 로 실패.
+
 ## [2.28.0] — 2026-10-22
 
 ### Added

@@ -41,6 +41,8 @@ _report() { echo "  [$1] $2"; FOUND=$((FOUND + 1)); }
 #   영구 FAIL 이다(실측: `BATCH-PHASE1-DONE:decomposing-ko` 가 repo 전체 0건).
 # 판별 규칙: repo 부재 AND plan 본문(그 인용 줄 제외) 부재 → 보고.
 #   plan 이 새로 만드는 문자열은 구현부 코드블록에 등장하므로 자동으로 면제된다.
+_git_top=0; _top=$(git -C "$PLUGIN" rev-parse --show-toplevel 2>/dev/null) \
+  && [ "$(cd "$_top" && pwd -P)" = "$(cd "$PLUGIN" && pwd -P)" ] && _git_top=1
 _quotes=$(grep -oE "grep -(q|qF|c) '[^']+'" "$PLAN" 2>/dev/null \
           | sed -E "s/^grep -(q|qF|c) '//; s/'$//" | sort -u)
 
@@ -54,8 +56,17 @@ while IFS= read -r s; do
   # repo 실재? (.specops·.git 제외 — 전자는 gitignore 산출물이라 근거가 못 된다)
   # ★ 검사 대상 plan 자신은 제외한다 — 포함하면 그 어서션 줄이 스스로를 매치시켜
   #   dangling 을 영원히 통과시킨다(구현 중 실증: 양성 픽스처가 rc=0 이었다).
-  if grep -rlF --exclude-dir=.git --exclude-dir=.specops --exclude-dir=.worktrees \
-       -- "$probe" "$PLUGIN" 2>/dev/null | grep -qvF -- "$PLAN_ABS"; then
+  # ★ git 저장소면 **이 저장소의 파일만** 본다(추적 + 무시되지 않은 미추적 · 중첩 git 저장소 안은 보지 않는다) —
+  #   grep -r 은 작업 폴더 안의 링크 worktree·복사본의 같은 문자열을 실재로 읽어 dangling 을 놓쳤다(20261022 실측).
+  #   PLUGIN 이 저장소 **최상위**일 때만 — 바깥 저장소 안의 하위 폴더(홈 dotfiles 저장소 안의 설치본 등)면
+  #   그 저장소의 gitignore 가 PLUGIN 을 통째로 가려 실재 문자열을 dangling 으로 오보고한다 → 종전 grep -r.
+  if [ "$_git_top" = 1 ]; then
+    _hits=$(git -C "$PLUGIN" -c core.quotePath=false grep -lF --untracked -e "$probe" -- . ':!.specops' ':!.worktrees' 2>/dev/null \
+            | awk -v p="$PLUGIN/" '{ print p $0 }')
+  else
+    _hits=$(grep -rlF --exclude-dir=.git --exclude-dir=.specops --exclude-dir=.worktrees -- "$probe" "$PLUGIN" 2>/dev/null)
+  fi
+  if printf '%s\n' "$_hits" | grep -v '^$' | grep -qvF -- "$PLAN_ABS"; then
     continue
   fi
   # plan 이 스스로 만드는가? **인용 패턴만** 지우고 나머지 본문에서 찾는다.

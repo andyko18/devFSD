@@ -60,7 +60,7 @@ grep -q '11종' "$GE" \
   && ok "T9 gen-eval agents 11종 (7종뿐 부재)" \
   || nope "T9" "11종/design-reviewer 누락 또는 7종뿐 잔존"
 
-# T10: agents/*.md 실측 == 10, gen-eval이 그와 모순되는 7종뿐 미포함
+# T10: agents/*.md 실측 == 11, gen-eval이 그와 모순되는 7종뿐 미포함
 ag_count=$(ls "$PLUGIN"/agents/*.md 2>/dev/null | wc -l | tr -d ' ')
 [ "$ag_count" -eq 11 ] && ! grep -q '7종뿐' "$GE" \
   && ok "T10 agents 실측 11 + gen-eval 비모순" \

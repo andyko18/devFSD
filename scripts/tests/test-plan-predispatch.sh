@@ -110,4 +110,37 @@ o=$(_run 09-step2x-boundary.md); rc=$?
 [ "$rc" -eq 0 ] && printf '%s' "$o" | grep -q 'PREDISPATCH: OK' \
   && ok "P14 Step 2X 접두 오매치 없음 (NFR-3)" || nope "P14" "rc=$rc out=[$o]"
 
+# P15·P16 — repo 실재 판정은 **이 저장소의 파일만** 본다 (20261022-predispatch-nested-repo)
+#   작업 폴더 안에 다른 git 저장소(링크 worktree·복사본)가 있으면 grep -r 이 그 안의 같은 문자열을
+#   "repo 에 있음" 으로 읽어 dangling 을 놓쳤다(실측: 메인 폴더 안의 worktree 가 픽스처를 담아 P1 FAIL).
+#   격리 저장소에 검사기 사본을 두고 확인한다 — 검사기는 자기 위치에서 repo 루트를 정한다.
+_tmp=$(mktemp -d)
+mkdir -p "$_tmp/r/scripts/_internal" "$_tmp/r/nested" "$_tmp/r/notes"
+cp "$CHK" "$_tmp/r/scripts/_internal/"
+printf '%s\n' "- [ ] **Step 1: RED** — \`grep -q 'QQZ-NESTED-ONLY-TOKEN' out.txt\`" > "$_tmp/plan.md"
+( cd "$_tmp/r" && git init -q && git -c user.email=t@t -c user.name=t add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm base )
+( cd "$_tmp/r/nested" && git init -q && echo 'QQZ-NESTED-ONLY-TOKEN' > f.txt )   # 중첩 저장소 안에만 있다
+o=$(bash "$_tmp/r/scripts/_internal/check-plan-predispatch.sh" --plan "$_tmp/plan.md" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$o" | grep -q 'dangling-lock' \
+  && ok "P15 중첩 git 저장소 안의 문자열은 repo 실재로 치지 않는다" || nope "P15" "rc=$rc out=[$o]"
+echo 'QQZ-NESTED-ONLY-TOKEN' > "$_tmp/r/notes/untracked.txt"          # 이 저장소의 미추적 파일 — 실재로 친다(종전 동작 유지)
+o=$(bash "$_tmp/r/scripts/_internal/check-plan-predispatch.sh" --plan "$_tmp/plan.md" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$o" | grep -q 'PREDISPATCH: OK' \
+  && ok "P16 이 저장소의 미추적 파일에 있으면 실재로 친다" || nope "P16" "rc=$rc out=[$o]"
+rm -rf "$_tmp"
+
+# P17 — 플러그인 폴더가 **바깥 저장소의 gitignore 된 하위 폴더**여도 실재 문자열을 찾는다
+#   (홈 폴더 dotfiles 저장소에 `*` 무시 패턴 + 그 아래 설치본). git grep 은 무시된 파일을 건너뛰므로
+#   최상위가 아니면 종전 grep -r 로 본다 — 아니면 실재 문자열을 dangling 으로 오보고한다(Phase C 프로브).
+_tmp=$(mktemp -d)
+mkdir -p "$_tmp/home/plug/scripts/_internal" "$_tmp/home/plug/notes"
+cp "$CHK" "$_tmp/home/plug/scripts/_internal/"
+printf '%s\n' "- [ ] **Step 1: RED** — \`grep -q 'QQZ-IGNORED-PLUG-TOKEN' out.txt\`" > "$_tmp/plan.md"
+( cd "$_tmp/home" && git init -q && printf '*\n' > .gitignore )
+echo 'QQZ-IGNORED-PLUG-TOKEN' > "$_tmp/home/plug/notes/t.txt"
+o=$(bash "$_tmp/home/plug/scripts/_internal/check-plan-predispatch.sh" --plan "$_tmp/plan.md" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$o" | grep -q 'PREDISPATCH: OK' \
+  && ok "P17 바깥 저장소가 무시하는 하위 폴더여도 실재 문자열을 찾는다" || nope "P17" "rc=$rc out=[$o]"
+rm -rf "$_tmp"
+
 finish

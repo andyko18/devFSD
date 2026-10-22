@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.28.0] — 2026-10-22
+
 ### Added
 
 - **테스트 설계 전문가 패스** (전문가 로드맵 테스트 분야): 새 `agents/test-designer-ko.md`(opus·high·Generator, `experts/test.md` 하나만 씀)를 planning-ko 가 보안 전문가 패스 뒤·plan-reviewer 전에 부른다 — plan 이 테스트 파일을 만들거나 고치면 발동한다. 수용 기준마다 "이 테스트가 떨어뜨리는 잘못된 구현"·값까지 묶은 단언·규칙을 태우는 픽스처·가드 테스트 3요건(위반 사례 FAIL · 대상 0개면 실패 · 우회 변형)을 설계표로 낸다. 근거: Argus 재작업 지적 중 테스트 148건(구현 단계 79건이 계획 리뷰 통과). 효과 측정 케이스 e-41~e-45. 20261022 로컬 3회 실측(에이전트 규칙의 근거가 아닌 Argus 실제 계획 2건 · Critical·Important 적발): plan-reviewer 0/6 → test-designer 6/6 · 대조군 e-45 헛지적 0/3 · $12.80 (#228).
@@ -3379,7 +3381,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.27.1...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.28.0...HEAD
+[2.28.0]: https://github.com/andyko18/specops-ko/compare/v2.27.1...v2.28.0
 [2.27.1]: https://github.com/andyko18/specops-ko/compare/v2.27.0...v2.27.1
 [2.27.0]: https://github.com/andyko18/specops-ko/compare/v2.26.0...v2.27.0
 [2.26.0]: https://github.com/andyko18/specops-ko/compare/v2.25.1...v2.26.0

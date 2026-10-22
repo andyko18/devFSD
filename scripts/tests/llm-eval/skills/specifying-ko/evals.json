@@ -261,7 +261,7 @@
       "asserts": [
         {
           "type": "llm_rubric",
-          "value": "실제 Argus 계획(20261016-screen-metrics-flow-gap)에 대한 리뷰다. 이 계획은 계획 리뷰를 통과했고, 구현 리뷰에서야 다음 테스트 설계 결함이 발견됐다: `--dev-seed` 로컬 DB 가드(AC-3)는 \"호스트 비교를 `in` 에서 접미사 검사로 바꾸는 변이 시 실패하는지 확인\" 을 요구하는데, 계획의 파라미터 테스트 14건에는 로컬 이름을 접미사로 가진 원격 호스트(예: `evil-localhost` · `db.localhost.example.com`)가 없다 — 집합 포함 검사를 `endswith` 같은 접미사 검사로 바꾼 잘못된 구현이 14건을 모두 통과한다. 응답이 이 변이를 떨어뜨릴 입력이 테스트에 없다는 점(접미사·부분 일치 호스트 사례 누락)을 Critical 또는 Important 로 지적하면 PASS, 아니면 FAIL. 위 결함과 같은 원인을 짚었는지로 판정한다(표현·고친 방법은 달라도 된다). 다른 지적이 많아도 이 결함을 짚지 못하면 FAIL. `확인 필요` 절의 질문으로만 언급하면 지적으로 보지 않는다."
+          "value": "실제 Argus 계획(20261016-screen-metrics-flow-gap)에 대한 리뷰다. 이 계획은 계획 리뷰를 통과했고, 구현 리뷰에서야 다음 테스트 설계 결함이 발견됐다: `--dev-seed` 로컬 DB 가드(AC-3)는 \"호스트 비교를 `in` 에서 접미사 검사로 바꾸는 변이 시 실패하는지 확인\" 을 요구하는데, 계획의 파라미터 테스트 14건에는 로컬 이름을 접미사로 가진 원격 호스트(예: `evil-localhost` · `db.localhost.example.com`)가 없다 — 집합 포함 검사를 로컬 이름 목록에 대한 접미사 검사(예: `host.endswith(tuple(_LOCAL_HOSTS))`)로 바꾼 잘못된 구현이 14건을 모두 통과한다. 응답이 이 변이를 떨어뜨릴 입력이 테스트에 없다는 점(접미사·부분 일치 호스트 사례 누락)을 Critical 또는 Important 로 지적하면 PASS, 아니면 FAIL. 위 결함과 같은 원인을 짚었는지로 판정한다(표현·고친 방법은 달라도 된다). 다른 지적이 많아도 이 결함을 짚지 못하면 FAIL. `확인 필요` 절의 질문으로만 언급하면 지적으로 보지 않는다."
         }
       ]
     },
@@ -272,7 +272,7 @@
       "asserts": [
         {
           "type": "llm_rubric",
-          "value": "실제 Argus 계획(20261016-screen-metrics-flow-gap)에 대한 리뷰다. 이 계획은 계획 리뷰를 통과했고, 구현 리뷰에서야 다음 테스트 설계 결함이 발견됐다: `--dev-seed` 로컬 DB 가드(AC-3)는 \"호스트 비교를 `in` 에서 접미사 검사로 바꾸는 변이 시 실패하는지 확인\" 을 요구하는데, 계획의 파라미터 테스트 14건에는 로컬 이름을 접미사로 가진 원격 호스트(예: `evil-localhost` · `db.localhost.example.com`)가 없다 — 집합 포함 검사를 `endswith` 같은 접미사 검사로 바꾼 잘못된 구현이 14건을 모두 통과한다. 응답이 이 변이를 떨어뜨릴 입력이 테스트에 없다는 점(접미사·부분 일치 호스트 사례 누락)을 Critical 또는 Important 로 지적하면 PASS, 아니면 FAIL. 위 결함과 같은 원인을 짚었는지로 판정한다(표현·고친 방법은 달라도 된다). 다른 지적이 많아도 이 결함을 짚지 못하면 FAIL. `확인 필요` 절의 질문으로만 언급하면 지적으로 보지 않는다."
+          "value": "실제 Argus 계획(20261016-screen-metrics-flow-gap)에 대한 리뷰다. 이 계획은 계획 리뷰를 통과했고, 구현 리뷰에서야 다음 테스트 설계 결함이 발견됐다: `--dev-seed` 로컬 DB 가드(AC-3)는 \"호스트 비교를 `in` 에서 접미사 검사로 바꾸는 변이 시 실패하는지 확인\" 을 요구하는데, 계획의 파라미터 테스트 14건에는 로컬 이름을 접미사로 가진 원격 호스트(예: `evil-localhost` · `db.localhost.example.com`)가 없다 — 집합 포함 검사를 로컬 이름 목록에 대한 접미사 검사(예: `host.endswith(tuple(_LOCAL_HOSTS))`)로 바꾼 잘못된 구현이 14건을 모두 통과한다. 응답이 이 변이를 떨어뜨릴 입력이 테스트에 없다는 점(접미사·부분 일치 호스트 사례 누락)을 Critical 또는 Important 로 지적하면 PASS, 아니면 FAIL. 위 결함과 같은 원인을 짚었는지로 판정한다(표현·고친 방법은 달라도 된다). 다른 지적이 많아도 이 결함을 짚지 못하면 FAIL. `확인 필요` 절의 질문으로만 언급하면 지적으로 보지 않는다."
         }
       ]
     },
@@ -301,11 +301,11 @@
     {
       "id": "e-45",
       "agent": "test-designer-ko",
-      "prompt": "[test-designer-ko] 아래 spec 과 plan 요약의 테스트 설계를 당신의 역할대로 검토하고 산출 형식(수용 기준별 테스트 설계·지적·고친 문안)으로 답하라. 파일을 읽을 수 없고 명령도 실행할 수 없는 환경이라 본문을 그대로 붙인다. spec: 순수 함수 `split_batches(items: list, size: int) -> list[list]` 추가(파이썬 · 외부 호출·I/O·로그 없음). 항목 순서를 지키며 길이 size 이하의 묶음으로 나눈다. AC-1(must): 순서를 지키고 마지막 묶음만 size 보다 짧을 수 있다. AC-2(must): size 가 1 미만이면 ValueError(\"size must be >= 1\"). AC-3(must): 빈 리스트는 빈 리스트를 돌려준다. AC-4(must): 입력 리스트를 바꾸지 않는다. 타입 검사는 범위 밖(타입 힌트만 — 호출자 책임). plan: Task 1 — `tests/test_batches.py` 를 먼저 쓴다(RED). 테스트와 각 테스트가 떨어뜨리는 잘못된 구현: `assert split_batches([1,2,3,4,5], 2) == [[1,2],[3,4],[5]]`(마지막 짧은 묶음을 버림 · 한 칸씩 밀림) · `assert split_batches([1,2,3,4], 2) == [[1,2],[3,4]]`(길이가 size 배수일 때 빈 묶음을 덧붙임) · `assert split_batches([1,2,3], 3) == [[1,2,3]]` · `assert split_batches([1,2,3], 5) == [[1,2,3]]`(size 가 길이 이상일 때 나눔) · `assert split_batches([1,2,3], 1) == [[1],[2],[3]]`(경계 size=1) · `assert split_batches([], 3) == []`(빈 입력에 [[]] 를 돌려줌) · `pytest.raises(ValueError, match=\"size must be >= 1\")` 를 size=0 과 size=-1 에 각각(검사 삭제 · `< 0` 으로 잘못 씀) · `items=[3,1,2]; split_batches(items, 2); assert items == [3,1,2]`(입력 정렬·pop 으로 변형). 기대값은 모두 손으로 쓴 리터럴이다. Task 2 — `src/batches.py` 최소 구현: size < 1 이면 ValueError, 아니면 `[items[i:i+size] for i in range(0, len(items), size)]`. 검증 명령 `pytest tests/test_batches.py -q`. 목·픽스처·전역 상태 없음 · 각 태스크 TDD 5스텝.",
+      "prompt": "[test-designer-ko] 아래 spec 과 plan 요약의 테스트 설계를 당신의 역할대로 검토하고 산출 형식(수용 기준별 테스트 설계·지적·고친 문안)으로 답하라. 파일을 읽을 수 없고 명령도 실행할 수 없는 환경이라 본문을 그대로 붙인다. spec: 순수 함수 `split_batches(items: list, size: int) -> list[list]` 추가(파이썬 · 외부 호출·I/O·로그 없음). 항목 순서를 지키며 길이 size 이하의 묶음으로 나눈다. AC-1(must): 순서를 지키고 마지막 묶음만 size 보다 짧을 수 있다. AC-2(must): size 가 1 미만이면 ValueError(\"size must be >= 1\"). AC-3(must): 빈 리스트는 빈 리스트를 돌려준다. AC-4(must): 입력 리스트를 바꾸지 않는다. 타입 검사는 범위 밖(타입 힌트만 — 호출자 책임). plan: Task 1 — `tests/test_batches.py` 를 먼저 쓴다(RED). 테스트와 각 테스트가 떨어뜨리는 잘못된 구현: `assert split_batches([1,2,3,4,5], 2) == [[1,2],[3,4],[5]]`(마지막 짧은 묶음을 버림 · 한 칸씩 밀림) · `assert split_batches([3,1,2,2], 3) == [[3,1,2],[2]]`(입력을 정렬하거나 중복을 지움) · `assert split_batches([1,2,3,4], 2) == [[1,2],[3,4]]`(길이가 size 배수일 때 빈 묶음을 덧붙임) · `assert split_batches([1,2,3], 3) == [[1,2,3]]` · `assert split_batches([1,2,3], 5) == [[1,2,3]]`(size 가 길이 이상일 때 나눔) · `assert split_batches([1,2,3], 1) == [[1],[2],[3]]`(경계 size=1) · `assert split_batches([], 3) == []`(빈 입력에 [[]] 를 돌려줌) · `pytest.raises(ValueError, match=\"size must be >= 1\")` 를 size=0 과 size=-1 에 각각(검사 삭제 · `< 0` 으로 잘못 씀) · `items=[3,1,2]; out = split_batches(items, 2); assert out == [[3,1],[2]] and items == [3,1,2]`(입력 정렬·pop 으로 변형 · 정렬한 사본으로 자름). 기대값은 모두 손으로 쓴 리터럴이다. Task 2 — `src/batches.py` 최소 구현: size < 1 이면 ValueError, 아니면 `[items[i:i+size] for i in range(0, len(items), size)]`. 검증 명령 `pytest tests/test_batches.py -q`. 목·픽스처·전역 상태 없음 · 각 태스크 TDD 5스텝.",
       "asserts": [
         {
           "type": "llm_rubric",
-          "value": "이 plan 은 테스트 설계상 결함이 없는 대조군이다(AC 마다 값까지 묶은 정확 일치 단언 · 기대값은 손으로 쓴 리터럴 · 마지막 짧은 묶음·배수 길이·size=1·size≥길이·빈 입력·0과 음수 경계 · 오류 메시지까지 단언 · 입력 불변 단언 · 각 테스트가 떨어뜨리는 잘못된 구현을 적음 · 외부 호출·목·전역 상태 없음 · 타입 검사는 spec 이 범위 밖으로 정함). 테스트 전문가 응답이 근거 없는 Critical 또는 Important 지적을 만들지 않으면 PASS(Minor 제안과 `확인 필요` 질문은 허용). 존재하지 않는 테스트 결함을 Critical/Important 로 지적하면 FAIL."
+          "value": "이 plan 은 테스트 설계상 결함이 없는 대조군이다(AC 마다 값까지 묶은 정확 일치 단언 · 기대값은 손으로 쓴 리터럴 · 마지막 짧은 묶음·배수 길이·size=1·size≥길이·빈 입력·0과 음수 경계·비정렬과 중복 입력의 순서 · 오류 메시지까지 단언 · 입력 불변 단언 · 각 테스트가 떨어뜨리는 잘못된 구현을 적음 · 외부 호출·목·전역 상태 없음 · 타입 검사는 spec 이 범위 밖으로 정함). 테스트 전문가 응답이 근거 없는 Critical 또는 Important 지적을 만들지 않으면 PASS(Minor 제안과 `확인 필요` 질문은 허용). 존재하지 않는 테스트 결함을 Critical/Important 로 지적하면 FAIL."
         }
       ]
     }

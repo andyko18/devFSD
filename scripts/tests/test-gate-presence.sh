@@ -595,13 +595,14 @@ done
 _l_db4=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_sec=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_pr4=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
-if [ -n "$_l_db4" ] && [ -n "$_l_sec" ] && [ -n "$_l_pr4" ] && [ "$_l_db4" -lt "$_l_sec" ] && [ "$_l_sec" -lt "$_l_pr4" ] \
+_l_secend=$(awk -v s="$_l_sec" 'NR>s && /^### /{print NR; exit}' "$_PL")   # 보안 절 다음 제목 — 뒤에 붙는 전문가 절이 보안 검사를 대신 통과시키지 않게
+if [ -n "$_l_secend" ] && [ -n "$_l_db4" ] && [ -n "$_l_sec" ] && [ -n "$_l_pr4" ] && [ "$_l_db4" -lt "$_l_sec" ] && [ "$_l_sec" -lt "$_l_pr4" ] \
    && has "$_PL" 'subagent_type: "specops-ko:security-designer-ko"' 'experts/security\.md' '\| security-expert \| security-designer-ko \| 반영 \|' '\| security-expert \| - \| SKIP \|' '\| security-expert \| security-designer-ko \| 산출 없음 \|' \
         '\*\*인증·인가·세션\*\*.*\*\*외부 입력 경계\*\*.*\*\*개인정보 필드\*\*.*만들거나 바꾸면 발동한다' '판단 전에 `bash "\$\{CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-security-design\.sh <FID>` 를 한 번 실행해 `\[승인 대상\]` 줄이 있으면 발동한다' 'security-expert/patterns/' \
-   && sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -q '`§batch` 는 이 패스 미적용' && sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -q '마지막 전문가 패스 뒤에 한 번만' \
-   && [ "$(sed -n "$((_l_sec+1)),$((_l_pr4-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
-   && ! sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| security-expert \|' | grep -qE 'DONE|IMPL' \
-   && ! sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| security-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+   && sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -q '`§batch` 는 이 패스 미적용' && sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -q '마지막 전문가 패스 뒤에 한 번만' \
+   && [ "$(sed -n "$((_l_sec+1)),$((_l_secend-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
+   && ! sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| security-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| security-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
   ok "planning-ko 보안 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 승인 대상 · dispatch · 반영 · 재검사 한 번 · 기록 3종 · batch 제외"
 else
   nope "planning-ko 보안 전문가 패스" "위치(db=$_l_db4 sec=$_l_sec pr=$_l_pr4) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
@@ -634,6 +635,24 @@ if [ -f "$_TDA" ] && has "$_TDA" '^model: opus$' '^effort: high$' '^reference_up
   ok "테스트 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 핵심 규칙 4(근거) · 공통 원칙 11(출처) · 설계표 변이 열 · 범위 경계 · README 11건·모델 표"
 else
   nope "테스트 설계 전문가 에이전트" "파일·frontmatter·산출 계약·핵심 규칙·공통 원칙·설계표·범위 경계·README 중 빠진 것이 있다"
+fi
+
+# planning-ko 테스트 전문가 패스 — 보안 패스 뒤·plan-reviewer 전 · 발동 조건(테스트 파일) · dispatch · 반영(변이 칸을 테스트 스텝으로) · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음 (20261022-test-designer-agent)
+_l_sec5=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_tst=$(grep -n '^### 테스트 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_pr5=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
+_l_tstend=$(awk -v s="$_l_tst" 'NR>s && /^### /{print NR; exit}' "$_PL")   # 테스트 절 다음 제목 — 뒤에 절이 더 붙어도 이 검사가 그 절 문구로 통과하지 않게
+if [ -n "$_l_sec5" ] && [ -n "$_l_tst" ] && [ -n "$_l_pr5" ] && [ -n "$_l_tstend" ] && [ "$_l_sec5" -lt "$_l_tst" ] && [ "$_l_tst" -lt "$_l_pr5" ] \
+   && has "$_PL" 'subagent_type: "specops-ko:test-designer-ko"' 'experts/test\.md' '\| test-expert \| test-designer-ko \| 반영 \|' '\| test-expert \| - \| SKIP \|' '\| test-expert \| test-designer-ko \| 산출 없음 \|' \
+        '\*\*테스트 파일\*\*.*`test_\*\.py`.*`scripts/tests/`.*만들거나 고치면 발동한다' '전문가 패스 가운데 마지막' '떨어뜨리는 잘못된 구현" 칸은 plan 의 해당 테스트 스텝에 옮긴다' \
+   && sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -q '`§batch` 는 이 패스 미적용' && sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -q '마지막 전문가 패스 뒤에 한 번만' \
+   && sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -q 'acceptance-criteria\.md' \
+   && [ "$(sed -n "$((_l_tst+1)),$((_l_tstend-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
+   && ! sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| test-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| test-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+  ok "planning-ko 테스트 전문가 패스 — 보안 패스 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 한 번 · 기록 3종 · batch 제외"
+else
+  nope "planning-ko 테스트 전문가 패스" "위치(sec=$_l_sec5 test=$_l_tst end=$_l_tstend pr=$_l_pr5) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
 fi
 
 finish

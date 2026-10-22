@@ -494,9 +494,9 @@ if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일
      '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
      'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'psql' '청크' 'migrations/' \
      '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '^## 확인 필요' '확인 필요 1> — 확인 결과' \
-   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 11건' README.md && grep -q '^| db-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 12건' README.md && grep -q '^| db-designer-ko' README.md \
    && _dba_body_ok; then
-  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 11건·모델 표"
+  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 12건·모델 표"
 else
   nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
 fi
@@ -571,9 +571,9 @@ if [ -f "$_SDA" ] && has "$_SDA" '^model: opus$' '^effort: high$' '쓰는 파일
      'security-expert/patterns/oauth\.md` \| plan 이 OAuth·OIDC' \
      '^## 받는 컨텍스트' '^## 작업 순서' '^## 질문 틀' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
      '\*\*Bash 행동계약\*\*' \
-   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 11건' README.md && grep -q '^| security-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 12건' README.md && grep -q '^| security-designer-ko' README.md \
    && _sda_order_ok && _sda_body_ok; then
-  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 11건·모델 표"
+  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 12건·모델 표"
 else
   nope "보안 설계 전문가 에이전트" "파일·frontmatter·판정기 연계·질문 틀·원칙 16·범위 경계·패턴 표·README 중 빠진 것이 있다"
 fi
@@ -630,9 +630,9 @@ if [ -f "$_TDA" ] && has "$_TDA" '^model: opus$' '^effort: high$' '^reference_up
      'acceptance-criteria\.md' 'test-strategy\.md' '^## 수용 기준별 테스트 설계$' '^## 지적$' '^## 확인 필요' '\| AC \| 테스트 \| 떨어뜨리는 잘못된 구현 \| 단언\(값까지\) \| 픽스처가 태우는 경계 \|' \
      '`must` AC 는 모두 한 행씩 쓴다' '^\*\*확인한 사실 위에서만 심각도를 매긴다\*\*:' '테스트 DB 환경.*\*\*DB 전문가\*\*' \
      '^- plan\.md·spec\.md·acceptance-criteria\.md 는 직접 수정하지 않는다' '\*\*Bash 행동계약\*\*' \
-   && ! grep -q '^role: evaluator' "$_TDA" && grep -q 'agents/ .*← 11건 .*test-designer' README.md && grep -q '^| test-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_TDA" && grep -q 'agents/ .*← 12건 .*test-designer' README.md && grep -q '^| test-designer-ko' README.md \
    && _tda_rules_ok; then
-  ok "테스트 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 핵심 규칙 4(근거) · 공통 원칙 11(출처) · 설계표 변이 열 · 범위 경계 · README 11건·모델 표"
+  ok "테스트 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 핵심 규칙 4(근거) · 공통 원칙 11(출처) · 설계표 변이 열 · 범위 경계 · README 12건·모델 표"
 else
   nope "테스트 설계 전문가 에이전트" "파일·frontmatter·산출 계약·핵심 규칙·공통 원칙·설계표·범위 경계·README 중 빠진 것이 있다"
 fi

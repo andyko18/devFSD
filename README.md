@@ -269,7 +269,7 @@ specops-ko/
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
 ├── skills/             flat: skills/<name>/SKILL.md × 30
 │                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 Harness(원칙)
-├── agents/             ← 11건  implementer · db-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
+├── agents/             ← 12건  implementer · db-designer · api-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
 │                              design-reviewer · red-team · blue-team · auditor
 ├── templates/          ← 37건 (lifecycle 20 + /init-project 산출 14 + 기타 3)
 ├── scripts/            doctor · release · gbrain · security-scan · dag/ · tests/ · _internal/

@@ -537,6 +537,46 @@ else
   nope "planning-ko DB 전문가 패스" "위치(db=$_l_db bd=$_l_bd pr=$_l_pr) 또는 필수 문구 누락"
 fi
 
+# API 계약 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 판정기 선실행·중복 금지 · 공통 원칙 13(이름·본문 짝) · 범위 경계 (20261021-api-designer-agent)
+# Then 절별 같은 줄 연접 잠금 — 파일 전체 grep 이 다른 줄의 같은 구절로 통과하던 구멍(리뷰 B 2회)
+_APA=agents/api-designer-ko.md
+_apa_body_ok() {
+  local pair name body
+  for pair in '추가형 변경만|새 major' '폐기 표기와 유예|@deprecated' '관찰 가능한 동작은 계약|DB 스키마' '메서드 의미|PATCH' '응답 형태 하나|입력 타입' \
+              '벌크 부분 실패|항목마다' '오류 형식 하나|섞지 않는다' '기계가 읽는 오류 코드|카탈로그' '필드 단위 검증 오류|되돌려 주지 않는다' \
+              '커서에 정렬 컬럼 전부|유일' '페이지 메타데이터|has_more' '멱등 키는 의도에서|randomUUID' '멱등 키 재사용·보존|422'; do
+    name=${pair%%|*}; body=${pair#*|}
+    grep -F -- "- **$name**:" "$_APA" | grep -qF -- "$body" || return 1
+    grep -F -- "- **$name**:" "$_APA" | grep -qE '출처: .*\(MIT\)' || return 1
+  done
+}
+if [ -f "$_APA" ] && has "$_APA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/api\.md` 하나뿐이다' \
+     'CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-api-contract\.sh <FID>' \
+     'check-api-contract\.sh <FID>` 를 먼저 실행해 첫 줄과 rc 를 산출의 `## 판정기` 에 옮긴다.*판정기가 낸 위반.*다시 지적하지 않는다' \
+     'api-expert/patterns/graphql\.md` \| api-spec §0 정의 방식이 GraphQL 이거나 plan 이 `\.graphql`·스키마·리졸버 파일을 만들거나 고칠 때' \
+     '^- \*\*api-spec\.md 가 없으면\*\* plan 의 엔드포인트·태스크만으로 검토한다 — 판정기는 SKIP 을 내고, .*모두 `## 확인 필요` 로 낸다\.' \
+     '^## 받는 컨텍스트' '^## 핵심 규칙' '^## 공통 원칙' '^## 빈 출력 규칙' '^## 확인 필요' '^## 하지 말 것' \
+     '\*\*엇갈리는 규약\*\*.*한쪽을 강요하지 않는다\. api-spec 에 정한 규약과 plan 이 어긋날 때만 지적하고, 정하지 않았으면 `## 확인 필요` 로 묻는다' \
+     'RFC 9457' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' 'plan\.md.*직접 수정하지 않는다' \
+     '멱등 키 선점의 원자성\(유일 제약\)은 \*\*DB 전문가\*\* 몫이고, 인증·인가는 \*\*보안\*\* 분야, 타임아웃·재시도 정책\(횟수·백오프\)은 구조 분야다.*단 오류 응답의 입력값 반사는.*원칙 9' \
+   && ! grep -q '^role: evaluator' "$_APA" && grep -q 'agents/ .*← 12건' README.md && grep -q '^| api-designer-ko' README.md \
+   && _apa_body_ok; then
+  ok "API 계약 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 공통 원칙 13(이름·본문·출처) · 엇갈리는 규약 · README 12건·모델 표"
+else
+  nope "API 계약 전문가 에이전트" "파일·frontmatter·판정기 연계·원칙 13·범위 경계·README 중 빠진 것이 있다"
+fi
+
+# API 전문가 GraphQL 지식 파일 — 출처·라이선스 머리 주석 · 규칙 10줄 이상 · 핵심 규칙 앵커 (20261021-api-designer-agent)
+_apg=skills/planning-ko/api-expert/patterns/graphql.md
+_apg_bad=""
+if [ ! -f "$_apg" ]; then _apg_bad=" 파일 없음"; else
+  head -1 "$_apg" | grep -q 'reference_upstream:' || _apg_bad="$_apg_bad 출처 주석"
+  head -1 "$_apg" | grep -q 'MIT' || _apg_bad="$_apg_bad 라이선스"
+  [ "$(grep -cE '^- ' "$_apg")" -ge 10 ] || _apg_bad="$_apg_bad 규칙 10줄 미만"
+  for _k in 'DataLoader' 'pageInfo' '@deprecated' 'graphql-ws' '인자 하나짜리 `input` 타입'; do grep -q -- "$_k" "$_apg" || _apg_bad="$_apg_bad $_k"; done
+fi
+[ -z "$_apg_bad" ] && ok "API 전문가 GraphQL 지식 파일 — 출처·라이선스 · 규칙 ≥10 · 핵심 앵커" || nope "API 전문가 GraphQL 지식 파일" "$_apg_bad"
+
 # 보안 설계 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 판정기 선실행·중복 금지 · 질문 틀 · 공통 원칙 16(이름·본문·출처 같은 줄) · 범위 경계 (20261021-security-designer-agent)
 # Then 절별 같은 줄 연접 잠금 — 파일 전체 grep 이 다른 줄의 같은 구절로 통과하던 구멍(API 전문가 리뷰 B 2회)
 _SDA=agents/security-designer-ko.md

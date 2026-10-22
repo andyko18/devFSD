@@ -16,7 +16,7 @@ reference_upstream: addyosmani/agent-skills@aeac41d skills/security-and-hardenin
 - `.specops/<FID>/spec.md` · `.specops/<FID>/plan.md` · `.specops/memory/api-spec.md`·`data-model.md`(있으면)
 - 패턴 폴더: `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/security-expert/patterns/`
 - 경로만 받고 직접 Read 한다.
-- **api-spec.md 가 없으면** plan 의 파일·태스크만으로 검토한다 — 판정기 SKIP 을 산출에 적고, 칸이 없어 정해지지 않은 결정(토큰 보관·권한 모델 등)은 `## 확인 필요` 로 낸다.
+- **api-spec.md 가 없으면** plan 의 파일·태스크만으로 검토한다 — 판정기 SKIP 을 산출에 적고, 칸이 없어 정해지지 않은 결정(토큰 보관·권한 모델 등)은 `## 확인 필요` 로 낸다. data-model.md 가 있으면 판정기는 SKIP 하지 않으므로 그 첫 줄을 그대로 옮기고, 판정기가 낸 위반은 다시 지적하지 않는다.
 
 패턴 파일은 조건이 맞을 때만 Read 한다.
 

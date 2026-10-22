@@ -494,9 +494,9 @@ if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일
      '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
      'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'psql' '청크' 'migrations/' \
      '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '^## 확인 필요' '확인 필요 1> — 확인 결과' \
-   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 9건' README.md && grep -q '^| db-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 10건' README.md && grep -q '^| db-designer-ko' README.md \
    && _dba_body_ok; then
-  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 9건·모델 표"
+  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 10건·모델 표"
 else
   nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
 fi
@@ -527,13 +527,85 @@ _PL=skills/planning-ko/SKILL.md
 _l_db=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_bd=$(grep -n '^### 경계 대조 입력' "$_PL" | head -1 | cut -d: -f1)
 _l_pr=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
-if [ -n "$_l_db" ] && [ -n "$_l_bd" ] && [ -n "$_l_pr" ] && [ "$_l_bd" -lt "$_l_db" ] && [ "$_l_db" -lt "$_l_pr" ] \
+_l_dbend=$(awk -v s="$_l_db" 'NR>s && /^### /{print NR; exit}' "$_PL")   # DB 절 다음 제목 — 뒤에 붙는 전문가 절이 DB 검사를 대신 통과시키지 않게
+if [ -n "$_l_db" ] && [ -n "$_l_dbend" ] && [ -n "$_l_bd" ] && [ -n "$_l_pr" ] && [ "$_l_bd" -lt "$_l_db" ] && [ "$_l_db" -lt "$_l_pr" ] \
    && has "$_PL" 'subagent_type: "specops-ko:db-designer-ko"' 'experts/db\.md' '\| db-expert \| db-designer-ko \| 반영 \|' 'DB 산출물' 'upsert' '대량 적재' 'data-model\.md' '테스트 DB fixture' '언급되기만 하고' '## 반영' '두 스크립트를 다시 실행' '\| db-expert \| - \| SKIP \|' '가용 모델' '산출 없음' \
-   && sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -q '§batch' && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| db-expert \|' | grep -qE 'DONE|IMPL' \
-   && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| db-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+   && sed -n "${_l_db},${_l_dbend}p" "$_PL" | grep -q '§batch' && ! sed -n "${_l_db},${_l_dbend}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| db-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! sed -n "${_l_db},${_l_dbend}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| db-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
   ok "planning-ko DB 전문가 패스 — 경계 대조 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 · 기록 · batch 제외"
 else
   nope "planning-ko DB 전문가 패스" "위치(db=$_l_db bd=$_l_bd pr=$_l_pr) 또는 필수 문구 누락"
 fi
 
+# 보안 설계 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 판정기 선실행·중복 금지 · 질문 틀 · 공통 원칙 16(이름·본문·출처 같은 줄) · 범위 경계 (20261021-security-designer-agent)
+# Then 절별 같은 줄 연접 잠금 — 파일 전체 grep 이 다른 줄의 같은 구절로 통과하던 구멍(API 전문가 리뷰 B 2회)
+_SDA=agents/security-designer-ko.md
+_sda_body_ok() {
+  local pair name body
+  for pair in '남용 사례와 거부 AC|미인증 거부' '보호 엔드포인트마다 인증|컨텍스트 층' '인증 방식과 토큰 보관|httpOnly' '토큰 수명·폐기·검증|해시' \
+              '인증 엔드포인트 시도 한도|공유 저장소' '재설정·복구|1회용' '기능 수준 인가|역할·scope' '객체 수준 인가|BOLA' \
+              '바꿀 수 있는 필드 허용 목록|mass assignment' '경계에서 스키마 검증|파싱된 값' '데이터에서 온 경로의 파괴 작업|허용 루트' \
+              '응답 민감 필드|응답 전용 타입' '개인정보 분류·최소화|목적' '보존기간과 실제 삭제 경로|백업' '쿠키 인증이면 CSRF|SameSite' '보안 이벤트 기록|로그에 남기지 않는다'; do
+    name=${pair%%|*}; body=${pair#*|}
+    grep -F -- "- **$name**:" "$_SDA" | grep -qF -- "$body" || return 1
+    grep -F -- "- **$name**:" "$_SDA" | grep -qE '출처: .*\(MIT\)' || return 1
+  done
+}
+# 산출 형식에서 신뢰 경계·자산 절이 지적 절보다 먼저 온다
+_sda_order_ok() {
+  local b j
+  b=$(grep -n '^## 신뢰 경계·자산$' "$_SDA" | head -1 | cut -d: -f1); j=$(grep -n '^## 지적$' "$_SDA" | head -1 | cut -d: -f1)
+  [ -n "$b" ] && [ -n "$j" ] && [ "$b" -lt "$j" ]
+}
+if [ -f "$_SDA" ] && has "$_SDA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/security\.md` 하나뿐이다' \
+     'CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-security-design\.sh <FID>` 를 먼저 실행해 첫 줄과 rc 를 산출의 `## 판정기` 에 옮긴다.*판정기가 낸 위반.*다시 지적하지 않는다' \
+     '^- \*\*STRIDE 는 이번 FID 의 경계만\*\*: 이번 FID 가 만들거나 바꾸는 경계마다 STRIDE 6범주\(위장·변조·부인·노출·서비스 거부·권한 상승\)를 묻고, 기존 경계는 다시 보지 않는다' \
+     '^- \*\*신뢰 경계·자산 먼저\*\*:.*산출의 `## 신뢰 경계·자산` 에 먼저 적는다' \
+     '^\*\*확인한 사실 위에서만 심각도를 매긴다\*\*:.*`## 확인 필요` 절에 질문 1줄로 적고 심각도를 매기지 않는다' \
+     '^- \*\*api-spec\.md 가 없으면\*\* plan 의 파일·태스크만으로 검토한다 — 판정기 SKIP 을 산출에 적고, .*`## 확인 필요` 로 낸다\.' \
+     '쿼리 쪽 권한\(RLS·GRANT·SECURITY DEFINER\)은 \*\*DB 전문가\*\*, 타임아웃·재시도는 \*\*구조\*\* 분야, 오류 형식·오류 응답의 입력값 반사·일반 rate limit 은 \*\*API 전문가\*\* 몫이고, 보안 전문가는 인증 엔드포인트 전용 한도만 본다' \
+     '^- plan\.md·api-spec\.md·data-model\.md·spec\.md 는 직접 수정하지 않는다' \
+     'security-expert/patterns/ssrf-upload-webhook\.md` \| plan 이 서버에서 사용자가 준 URL 을 가져오거나·파일 업로드·웹훅 수신' \
+     'security-expert/patterns/llm\.md` \| plan 이 LLM 을 호출하거나' \
+     'security-expert/patterns/browser-session\.md` \| 브라우저 클라이언트가 쿠키·세션·CORS' \
+     'security-expert/patterns/oauth\.md` \| plan 이 OAuth·OIDC' \
+     '^## 받는 컨텍스트' '^## 작업 순서' '^## 질문 틀' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
+     '\*\*Bash 행동계약\*\*' \
+   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 10건' README.md && grep -q '^| security-designer-ko' README.md \
+   && _sda_order_ok && _sda_body_ok; then
+  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 10건·모델 표"
+else
+  nope "보안 설계 전문가 에이전트" "파일·frontmatter·판정기 연계·질문 틀·원칙 16·범위 경계·패턴 표·README 중 빠진 것이 있다"
+fi
+
+# 보안 전문가 2층 패턴 파일 — 파일마다 출처·라이선스 머리 주석 · 규칙 4줄 이상 · 핵심 앵커 (20261021-security-designer-agent)
+for _f in 'ssrf-upload-webhook|DNS 레코드를 \*\*전부\*\*|magic bytes|HMAC' 'llm|LLM05|LLM01|테넌트별' 'browser-session|httpOnly|SameSite|credentials' 'oauth|PKCE\(S256 만\)|Implicit|scope'; do
+  _n=${_f%%|*}; _p=skills/planning-ko/security-expert/patterns/$_n.md; _sdp_bad=""
+  if [ ! -f "$_p" ]; then _sdp_bad=" 파일 없음"; else
+    head -1 "$_p" | grep -q 'reference_upstream:' || _sdp_bad="$_sdp_bad 출처 주석"
+    head -1 "$_p" | grep -q 'MIT' || _sdp_bad="$_sdp_bad 라이선스"
+    [ "$(grep -cE '^- ' "$_p")" -ge 4 ] || _sdp_bad="$_sdp_bad 규칙 4줄 미만"
+    _rest=${_f#*|}
+    while :; do _k=${_rest%%|*}; grep -qE -- "$_k" "$_p" || _sdp_bad="$_sdp_bad $_k"; [ "$_rest" = "$_k" ] && break; _rest=${_rest#*|}; done
+  fi
+  [ -z "$_sdp_bad" ] && ok "보안 전문가 패턴 파일 $_n — 출처·라이선스 · 규칙 ≥4 · 핵심 앵커" || nope "보안 전문가 패턴 파일 $_n" "$_sdp_bad"
+done
+
+# planning-ko 보안 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 [승인 대상] · dispatch · 반영 · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음 (20261021-security-designer-agent)
+_l_db4=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_sec=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_pr4=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
+if [ -n "$_l_db4" ] && [ -n "$_l_sec" ] && [ -n "$_l_pr4" ] && [ "$_l_db4" -lt "$_l_sec" ] && [ "$_l_sec" -lt "$_l_pr4" ] \
+   && has "$_PL" 'subagent_type: "specops-ko:security-designer-ko"' 'experts/security\.md' '\| security-expert \| security-designer-ko \| 반영 \|' '\| security-expert \| - \| SKIP \|' '\| security-expert \| security-designer-ko \| 산출 없음 \|' \
+        '\*\*인증·인가·세션\*\*.*\*\*외부 입력 경계\*\*.*\*\*개인정보 필드\*\*.*만들거나 바꾸면 발동한다' '판단 전에 `bash "\$\{CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-security-design\.sh <FID>` 를 한 번 실행해 `\[승인 대상\]` 줄이 있으면 발동한다' 'security-expert/patterns/' \
+   && sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -q '`§batch` 는 이 패스 미적용' && sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -q '마지막 전문가 패스 뒤에 한 번만' \
+   && [ "$(sed -n "$((_l_sec+1)),$((_l_pr4-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
+   && ! sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| security-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| security-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+  ok "planning-ko 보안 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 승인 대상 · dispatch · 반영 · 재검사 한 번 · 기록 3종 · batch 제외"
+else
+  nope "planning-ko 보안 전문가 패스" "위치(db=$_l_db4 sec=$_l_sec pr=$_l_pr4) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
+fi
+
 finish
+

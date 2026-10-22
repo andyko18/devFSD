@@ -494,9 +494,9 @@ if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일
      '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
      'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'psql' '청크' 'migrations/' \
      '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '^## 확인 필요' '확인 필요 1> — 확인 결과' \
-   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 10건' README.md && grep -q '^| db-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 11건' README.md && grep -q '^| db-designer-ko' README.md \
    && _dba_body_ok; then
-  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 10건·모델 표"
+  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 11건·모델 표"
 else
   nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
 fi
@@ -571,9 +571,9 @@ if [ -f "$_SDA" ] && has "$_SDA" '^model: opus$' '^effort: high$' '쓰는 파일
      'security-expert/patterns/oauth\.md` \| plan 이 OAuth·OIDC' \
      '^## 받는 컨텍스트' '^## 작업 순서' '^## 질문 틀' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
      '\*\*Bash 행동계약\*\*' \
-   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 10건' README.md && grep -q '^| security-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 11건' README.md && grep -q '^| security-designer-ko' README.md \
    && _sda_order_ok && _sda_body_ok; then
-  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 10건·모델 표"
+  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 11건·모델 표"
 else
   nope "보안 설계 전문가 에이전트" "파일·frontmatter·판정기 연계·질문 틀·원칙 16·범위 경계·패턴 표·README 중 빠진 것이 있다"
 fi
@@ -595,16 +595,64 @@ done
 _l_db4=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_sec=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_pr4=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
-if [ -n "$_l_db4" ] && [ -n "$_l_sec" ] && [ -n "$_l_pr4" ] && [ "$_l_db4" -lt "$_l_sec" ] && [ "$_l_sec" -lt "$_l_pr4" ] \
+_l_secend=$(awk -v s="$_l_sec" 'NR>s && /^### /{print NR; exit}' "$_PL")   # 보안 절 다음 제목 — 뒤에 붙는 전문가 절이 보안 검사를 대신 통과시키지 않게
+if [ -n "$_l_secend" ] && [ -n "$_l_db4" ] && [ -n "$_l_sec" ] && [ -n "$_l_pr4" ] && [ "$_l_db4" -lt "$_l_sec" ] && [ "$_l_sec" -lt "$_l_pr4" ] \
    && has "$_PL" 'subagent_type: "specops-ko:security-designer-ko"' 'experts/security\.md' '\| security-expert \| security-designer-ko \| 반영 \|' '\| security-expert \| - \| SKIP \|' '\| security-expert \| security-designer-ko \| 산출 없음 \|' \
         '\*\*인증·인가·세션\*\*.*\*\*외부 입력 경계\*\*.*\*\*개인정보 필드\*\*.*만들거나 바꾸면 발동한다' '판단 전에 `bash "\$\{CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-security-design\.sh <FID>` 를 한 번 실행해 `\[승인 대상\]` 줄이 있으면 발동한다' 'security-expert/patterns/' \
-   && sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -q '`§batch` 는 이 패스 미적용' && sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -q '마지막 전문가 패스 뒤에 한 번만' \
-   && [ "$(sed -n "$((_l_sec+1)),$((_l_pr4-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
-   && ! sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| security-expert \|' | grep -qE 'DONE|IMPL' \
-   && ! sed -n "${_l_sec},${_l_pr4}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| security-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+   && sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -q '`§batch` 는 이 패스 미적용' && sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -q '마지막 전문가 패스 뒤에 한 번만' \
+   && [ "$(sed -n "$((_l_sec+1)),$((_l_secend-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
+   && ! sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| security-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| security-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
   ok "planning-ko 보안 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 승인 대상 · dispatch · 반영 · 재검사 한 번 · 기록 3종 · batch 제외"
 else
   nope "planning-ko 보안 전문가 패스" "위치(db=$_l_db4 sec=$_l_sec pr=$_l_pr4) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
+fi
+
+# 테스트 설계 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 핵심 규칙 4(이름·본문·근거 같은 줄) · 공통 원칙 11(이름·본문·출처 같은 줄) · 설계표 변이 열 · 범위 경계 (20261022-test-designer-agent)
+_TDA=agents/test-designer-ko.md
+_tda_rules_ok() {
+  local pair name body
+  for pair in '떨어뜨리는 잘못된 구현|이름 붙여' '값까지 묶는 단언|부분집합' '규칙을 태우는 픽스처|경계값' '가드 테스트 3요건|대상이 0개'; do
+    name=${pair%%|*}; body=${pair#*|}
+    grep -F -- "- **$name**:" "$_TDA" | grep -qF -- "$body" || return 1
+    grep -F -- "- **$name**:" "$_TDA" | grep -qE '근거: Argus 2026[0-9]{4}-' || return 1
+  done
+  for pair in '기대값의 독립 출처|다시 계산' '실패 경로마다 테스트|CancelledError' '목은 기준 바깥 경계에|통째로' '대역은 계약을 지킨다|로그 레벨' \
+              '외부 서비스는 기본 차단|fail-closed' '로그 기준은 내용을 단언|레벨' '부재 단언에 양성 대조|문구가 바뀌어도' '수·집합 단언 승계|grep' \
+              '테스트 격리|순서에 의존' '공개 인터페이스로 검증|내부 협력자' '위험 영역에 집중|test-strategy'; do
+    name=${pair%%|*}; body=${pair#*|}
+    grep -F -- "- **$name**:" "$_TDA" | grep -qF -- "$body" || return 1
+    grep -F -- "- **$name**:" "$_TDA" | grep -qF -- '출처: ' || return 1
+  done
+}
+if [ -f "$_TDA" ] && has "$_TDA" '^model: opus$' '^effort: high$' '^reference_upstream: mattpocock/skills@5beb35b' '쓰는 파일은 `\.specops/<FID>/experts/test\.md` 하나뿐이다' \
+     '^## 받는 컨텍스트' '^## 작업 순서' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
+     'acceptance-criteria\.md' 'test-strategy\.md' '^## 수용 기준별 테스트 설계$' '^## 지적$' '^## 확인 필요' '\| AC \| 테스트 \| 떨어뜨리는 잘못된 구현 \| 단언\(값까지\) \| 픽스처가 태우는 경계 \|' \
+     '`must` AC 는 모두 한 행씩 쓴다' '^\*\*확인한 사실 위에서만 심각도를 매긴다\*\*:' '테스트 DB 환경.*\*\*DB 전문가\*\*' \
+     '^- plan\.md·spec\.md·acceptance-criteria\.md 는 직접 수정하지 않는다' '\*\*Bash 행동계약\*\*' \
+   && ! grep -q '^role: evaluator' "$_TDA" && grep -q 'agents/ .*← 11건 .*test-designer' README.md && grep -q '^| test-designer-ko' README.md \
+   && _tda_rules_ok; then
+  ok "테스트 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 핵심 규칙 4(근거) · 공통 원칙 11(출처) · 설계표 변이 열 · 범위 경계 · README 11건·모델 표"
+else
+  nope "테스트 설계 전문가 에이전트" "파일·frontmatter·산출 계약·핵심 규칙·공통 원칙·설계표·범위 경계·README 중 빠진 것이 있다"
+fi
+
+# planning-ko 테스트 전문가 패스 — 보안 패스 뒤·plan-reviewer 전 · 발동 조건(테스트 파일) · dispatch · 반영(변이 칸을 테스트 스텝으로) · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음 (20261022-test-designer-agent)
+_l_sec5=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_tst=$(grep -n '^### 테스트 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_pr5=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
+_l_tstend=$(awk -v s="$_l_tst" 'NR>s && /^### /{print NR; exit}' "$_PL")   # 테스트 절 다음 제목 — 뒤에 절이 더 붙어도 이 검사가 그 절 문구로 통과하지 않게
+if [ -n "$_l_sec5" ] && [ -n "$_l_tst" ] && [ -n "$_l_pr5" ] && [ -n "$_l_tstend" ] && [ "$_l_sec5" -lt "$_l_tst" ] && [ "$_l_tst" -lt "$_l_pr5" ] \
+   && has "$_PL" 'subagent_type: "specops-ko:test-designer-ko"' 'experts/test\.md' '\| test-expert \| test-designer-ko \| 반영 \|' '\| test-expert \| - \| SKIP \|' '\| test-expert \| test-designer-ko \| 산출 없음 \|' \
+        '\*\*테스트 파일\*\*.*`test_\*\.py`.*`scripts/tests/`.*만들거나 고치면 발동한다' '전문가 패스 가운데 마지막' '떨어뜨리는 잘못된 구현" 칸은 plan 의 해당 테스트 스텝에 옮긴다' \
+   && sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -q '`§batch` 는 이 패스 미적용' && sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -q '마지막 전문가 패스 뒤에 한 번만' \
+   && sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -q 'acceptance-criteria\.md' \
+   && [ "$(sed -n "$((_l_tst+1)),$((_l_tstend-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
+   && ! sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| test-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| test-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+  ok "planning-ko 테스트 전문가 패스 — 보안 패스 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 한 번 · 기록 3종 · batch 제외"
+else
+  nope "planning-ko 테스트 전문가 패스" "위치(sec=$_l_sec5 test=$_l_tst end=$_l_tstend pr=$_l_pr5) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
 fi
 
 finish

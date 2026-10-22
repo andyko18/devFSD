@@ -53,18 +53,18 @@ grep -q 'design-reviewer-ko' "$GE" \
   && ok "T8 gen-eval design-reviewer-ko" \
   || nope "T8" "generator-evaluator에 design-reviewer-ko 부재"
 
-# T9: agents 10종 표기 + Evaluator 목록에 design-reviewer (구 '7종뿐' 회귀 금지)
-grep -q '10종' "$GE" \
+# T9: agents 11종 표기 + Evaluator 목록에 design-reviewer (구 '7종뿐' 회귀 금지)
+grep -q '11종' "$GE" \
   && grep -q 'design-reviewer-ko' "$GE" \
   && ! grep -q '7종뿐' "$GE" \
-  && ok "T9 gen-eval agents 10종 (7종뿐 부재)" \
-  || nope "T9" "10종/design-reviewer 누락 또는 7종뿐 잔존"
+  && ok "T9 gen-eval agents 11종 (7종뿐 부재)" \
+  || nope "T9" "11종/design-reviewer 누락 또는 7종뿐 잔존"
 
-# T10: agents/*.md 실측 == 10, gen-eval이 그와 모순되는 7종뿐 미포함
+# T10: agents/*.md 실측 == 11, gen-eval이 그와 모순되는 7종뿐 미포함
 ag_count=$(ls "$PLUGIN"/agents/*.md 2>/dev/null | wc -l | tr -d ' ')
-[ "$ag_count" -eq 10 ] && ! grep -q '7종뿐' "$GE" \
-  && ok "T10 agents 실측 10 + gen-eval 비모순" \
-  || nope "T10" "agents=$ag_count (기대 10) 또는 gen-eval 7종뿐"
+[ "$ag_count" -eq 11 ] && ! grep -q '7종뿐' "$GE" \
+  && ok "T10 agents 실측 11 + gen-eval 비모순" \
+  || nope "T10" "agents=$ag_count (기대 11) 또는 gen-eval 7종뿐"
 
 # T11: CLAUDE foundation Step 5.5 전면-skip 단정 금지 · 셸/allowlist 존재
 #   구 문구: "Step 5.5 는 skip" / "Step 5.5(화면 루프) skip"

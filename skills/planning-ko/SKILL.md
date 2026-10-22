@@ -210,7 +210,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .s
 경계 대조 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조나 태스크가 **DB 산출물**(마이그레이션·SQL·스키마·ORM 모델·`data-model.md`·upsert·대량 적재 코드·테스트 DB fixture)을 만들거나 바꾸면 발동한다. 단어가 언급되기만 하고 그런 파일·태스크가 없으면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다(긴 plan 에서 DB 결함은 plan-reviewer 를 통과했다: Argus 실제 계획서 2개 0/2). `§batch` 는 이 패스 미적용(후속 FID — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
 
 - **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:db-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/data-model.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/db-expert/engines/`.
-- **반영**: 에이전트가 쓴 `.specops/<FID>/experts/db.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. plan.md 가 바뀌었으면 위 '사전검사'(check-plan-predispatch.sh)와 '경계 대조 입력'(check-plan-boundary.sh) 의 두 스크립트를 다시 실행한 뒤 plan-reviewer 를 부른다 — 뒤의 보안 전문가 패스도 돌면 재실행은 마지막 전문가 패스 뒤에 한 번만 한다(입력은 그대로 — 전문가 파일을 넘기지 않는다).
+- **반영**: 에이전트가 쓴 `.specops/<FID>/experts/db.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. plan.md 가 바뀌었으면 위 '사전검사'(check-plan-predispatch.sh)와 '경계 대조 입력'(check-plan-boundary.sh) 의 두 스크립트를 다시 실행한 뒤 plan-reviewer 를 부른다 — 뒤의 전문가 패스(보안·테스트)도 돌면 재실행은 마지막 전문가 패스 뒤에 한 번만 한다(입력은 그대로 — 전문가 파일을 넘기지 않는다).
 - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(plan-reviewer 의 모델 불가 fallback 과 같은 원칙 — 부모가 대신 검토하지 않는다). `experts/db.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | db-expert | db-designer-ko | 산출 없음 | - |` 를 남기고 plan-reviewer 로 진행한다.
 - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기 `reconcile-check.sh` 가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | db-expert | db-designer-ko | 반영 | experts/db.md (지적 N · 반영 N · 기각 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | db-expert | - | SKIP | DB 표면 없음 |` 1행.
 
@@ -222,6 +222,15 @@ DB 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. pl
 - **반영**: `.specops/<FID>/experts/security.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. 앞의 전문가 패스와 이 패스 중 하나라도 plan.md 를 바꿨으면 '사전검사'·'경계 대조 입력' 의 두 스크립트는 마지막 전문가 패스 뒤에 한 번만 다시 실행하고 plan-reviewer 를 부른다.
 - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/security.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | security-expert | security-designer-ko | 산출 없음 | - |` 를 남기고 plan-reviewer 로 진행한다.
 - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | security-expert | security-designer-ko | 반영 | experts/security.md (지적 N · 반영 N · 기각 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | security-expert | - | SKIP | 보안 표면 없음 |` 1행.
+
+### 테스트 전문가 패스 (테스트 파일을 만들거나 고칠 때 — 20261022)
+
+보안 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조나 태스크가 **테스트 파일**(`test_*.py`·`*_test.py`·`*.test.*`·`*.spec.*`·`tests/`·`test/`·`__tests__/`·`scripts/tests/` 같은 테스트 경로)을 만들거나 고치면 발동한다. 문서·설정만 바꾸는 plan 은 발동하지 않는다 — grep 으로 문서를 확인하는 RED 스텝만 있고 테스트 파일을 고치지 않는 plan 도 마찬가지다. 판단이 서지 않으면 부른다(Argus 에서 테스트 검증력 결함 79건이 plan-reviewer 를 통과했다 — 틀린 구현도 통과하는 단언·규칙을 안 태우는 픽스처·공허한 가드). 앞의 전문가 패스가 바꾼 plan 의 테스트를 보도록 전문가 패스 가운데 마지막에 둔다. `§batch` 는 이 패스 미적용(후속 FID — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
+
+- **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:test-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `plan.md` · `.specops/memory/test-strategy.md`(있으면).
+- **반영**: `.specops/<FID>/experts/test.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. 수용 기준별 설계표의 "떨어뜨리는 잘못된 구현" 칸은 plan 의 해당 테스트 스텝에 옮긴다(구현자의 되돌려-관찰 대상이 된다). 앞의 전문가 패스와 이 패스 중 하나라도 plan.md 를 바꿨으면 '사전검사'·'경계 대조 입력' 의 두 스크립트는 마지막 전문가 패스 뒤에 한 번만 다시 실행하고 plan-reviewer 를 부른다.
+- **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/test.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | test-expert | test-designer-ko | 산출 없음 | - |` 를 남기고 plan-reviewer 로 진행한다.
+- **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | test-expert | test-designer-ko | 반영 | experts/test.md (지적 N · 반영 N · 기각 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | test-expert | - | SKIP | 테스트 파일 없음 |` 1행.
 
 ### 비-batch — plan-reviewer dispatch
 

@@ -577,6 +577,33 @@ if [ ! -f "$_apg" ]; then _apg_bad=" 파일 없음"; else
 fi
 [ -z "$_apg_bad" ] && ok "API 전문가 GraphQL 지식 파일 — 출처·라이선스 · 규칙 ≥10 · 핵심 앵커" || nope "API 전문가 GraphQL 지식 파일" "$_apg_bad"
 
+# planning-ko API 전문가 패스 — DB 뒤·보안 앞(DB → API → 보안 → 테스트 → plan-reviewer) · 발동 조건 · dispatch · 반영 · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음
+#   문구는 API 절 범위(다음 `### ` 앞까지)에서만 찾는다 — 파일 전체 grep 은 다른 절의 같은 문구로 통과했다 (20261021-api-designer-agent · 범위 교정 20261022-api-expert-integrate)
+_l_db3=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_api=$(grep -n '^### API 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_sec3=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_tst3=$(grep -n '^### 테스트 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_pr3=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
+_l_apiend=""; _api_body=""
+if [ -n "$_l_api" ]; then
+  _l_apiend=$(awk -v s="$_l_api" 'NR>s && /^### /{print NR; exit}' "$_PL")
+  [ -n "$_l_apiend" ] && _api_body=$(sed -n "${_l_api},$((_l_apiend-1))p" "$_PL")
+fi
+_api_has() { local p; for p in "$@"; do printf '%s\n' "$_api_body" | grep -qE -- "$p" || return 1; done; return 0; }
+if [ -n "$_l_db3" ] && [ -n "$_l_apiend" ] && [ -n "$_l_sec3" ] && [ -n "$_l_tst3" ] && [ -n "$_l_pr3" ] \
+   && [ "$_l_db3" -lt "$_l_api" ] && [ "$_l_api" -lt "$_l_sec3" ] && [ "$_l_sec3" -lt "$_l_tst3" ] && [ "$_l_tst3" -lt "$_l_pr3" ] \
+   && _api_has 'subagent_type: "specops-ko:api-designer-ko"' 'experts/api\.md' '\| api-expert \| api-designer-ko \| 반영 \|' '\| api-expert \| - \| SKIP \|' '\| api-expert \| api-designer-ko \| 산출 없음 \|' \
+        '엔드포인트를 추가·변경·삭제' '라우트·컨트롤러·GraphQL 스키마' 'api-expert/patterns/' '`§batch` 는 이 패스 미적용' '마지막 전문가 패스 뒤에 한 번만' \
+   && [ "$(printf '%s\n' "$_api_body" | sed 1d | grep -c '^#')" -eq 0 ] \
+   && ! printf '%s\n' "$_api_body" | grep -E '^\| [^|]*\| [^|]*\| api-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! printf '%s\n' "$_api_body" | grep -oE '`\| [^|`]* \| [^|`]* \| api-expert \|[^`]*`' | grep -qE 'DONE|IMPL' \
+   && sed -n "${_l_sec3},$((_l_tst3-1))p" "$_PL" | grep -q 'API 전문가 패스 뒤' && ! sed -n "${_l_sec3},$((_l_tst3-1))p" "$_PL" | grep -q 'DB 전문가 패스 뒤' \
+   && sed -n "${_l_db3},$((_l_api-1))p" "$_PL" | grep -qF '뒤의 전문가 패스(API·보안·테스트)'; then
+  ok "planning-ko API 전문가 패스 — DB → API → 보안 → 테스트 순 · 절 범위 문구 · 재검사 한 번 · 기록 3종 · batch 제외 · 앞뒤 절 순서 문구"
+else
+  nope "planning-ko API 전문가 패스" "위치(db=$_l_db3 api=$_l_api end=$_l_apiend sec=$_l_sec3 tst=$_l_tst3 pr=$_l_pr3) · 절 범위 문구 · 순서 문구 · DONE 행 중 문제"
+fi
+
 # 보안 설계 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 판정기 선실행·중복 금지 · 질문 틀 · 공통 원칙 16(이름·본문·출처 같은 줄) · 범위 경계 (20261021-security-designer-agent)
 # Then 절별 같은 줄 연접 잠금 — 파일 전체 grep 이 다른 줄의 같은 구절로 통과하던 구멍(API 전문가 리뷰 B 2회)
 _SDA=agents/security-designer-ko.md
@@ -631,7 +658,7 @@ for _f in 'ssrf-upload-webhook|DNS 레코드를 \*\*전부\*\*|magic bytes|HMAC'
   [ -z "$_sdp_bad" ] && ok "보안 전문가 패턴 파일 $_n — 출처·라이선스 · 규칙 ≥4 · 핵심 앵커" || nope "보안 전문가 패턴 파일 $_n" "$_sdp_bad"
 done
 
-# planning-ko 보안 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 [승인 대상] · dispatch · 반영 · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음 (20261021-security-designer-agent)
+# planning-ko 보안 전문가 패스 — API 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 [승인 대상] · dispatch · 반영 · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음 (20261021-security-designer-agent)
 _l_db4=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_sec=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_pr4=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
@@ -643,7 +670,7 @@ if [ -n "$_l_secend" ] && [ -n "$_l_db4" ] && [ -n "$_l_sec" ] && [ -n "$_l_pr4"
    && [ "$(sed -n "$((_l_sec+1)),$((_l_secend-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
    && ! sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| security-expert \|' | grep -qE 'DONE|IMPL' \
    && ! sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| security-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
-  ok "planning-ko 보안 전문가 패스 — DB 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 승인 대상 · dispatch · 반영 · 재검사 한 번 · 기록 3종 · batch 제외"
+  ok "planning-ko 보안 전문가 패스 — API 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 승인 대상 · dispatch · 반영 · 재검사 한 번 · 기록 3종 · batch 제외"
 else
   nope "planning-ko 보안 전문가 패스" "위치(db=$_l_db4 sec=$_l_sec pr=$_l_pr4) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
 fi

@@ -26,7 +26,7 @@ reference_upstream: mattpocock/skills@5beb35b skills/engineering/tdd (SKILL.md �
 
 ## 핵심 규칙 (실제 사고에서 나온 것)
 
-- **떨어뜨리는 잘못된 구현**: 수용 기준마다 이 테스트가 떨어뜨리는 잘못된 구현(변이)을 1개 이상 이름 붙여 plan 의 테스트 목록에 적는다. 이름 붙일 수 없으면 그 테스트는 검증력이 없다 — 단언·픽스처를 고친 문안을 낸다. 근거: Argus 20260729-backend-common-core(가드를 지워도 AC-4 테스트 전부 통과) · 20260801-daily-candle-sync(default 를 지워도 통과) · 20260801-investor-flow-sync(필터를 지워도 377건 통과) · 20261016-signal-registry
+- **떨어뜨리는 잘못된 구현**: 수용 기준마다 이 테스트가 떨어뜨리는 잘못된 구현(변이)을 1개 이상 이름 붙여 설계표의 "떨어뜨리는 잘못된 구현" 칸에 적는다(plan 에는 메인 planning 이 옮긴다). 이름 붙일 수 없으면 그 테스트는 검증력이 없다 — 단언·픽스처를 고친 문안을 낸다. 근거: Argus 20260729-backend-common-core(가드를 지워도 AC-4 테스트 전부 통과) · 20260801-daily-candle-sync(default 를 지워도 통과) · 20260801-investor-flow-sync(필터를 지워도 377건 통과) · 20261016-signal-registry
 - **값까지 묶는 단언**: 단언은 존재·포함·부분집합(`<=`)·부분 문자열 일치로 끝내지 않는다 — 키와 값 전체, 집합 등가, 비교 대상 전 컬럼을 확인한다. 근거: Argus 20260730-frontend-common-base(멤버십만 검사) · 20260731-stock-master-sync(`<=` 로 매핑 삭제 생존) · 20261012-pipeline-ops-runtime(`"2"` 가 날짜 문자열에도 일치) · 20261016-signal-registry(11 컬럼 중 4개만 비교)
 - **규칙을 태우는 픽스처**: 규칙(병합·직전 거래일·절단·건너뜀)마다 그 규칙이 결과를 바꾸는 데이터를 픽스처에 둔다 — 원소 하나·연속일·배수 크기만이면 규칙이 실행되지 않는다. 경계값(0·1·상한·상한+1)과 동치 분할을 적는다. 근거: Argus 20260801-investor-flow-sync(종목 하나뿐) · 20261016-signal-registry(연속일뿐 · 건너뛸 종목 없음) · 20260902-us-universe-sync(모두 250 의 배수)
 - **가드 테스트 3요건**: 검사기·가드(정규식 스캐너·경계 검사·린트 래퍼)를 만드는 태스크는 ① 잡아야 할 위반을 넣은 사례로 FAIL 을 확인하고 ② 검사 대상이 0개면 통과가 아니라 실패하게 하며 ③ 우회 변형(상대 import·alias·대소문자·위치 인자)을 목록으로 적는다. 근거: Argus 20260729-backend-common-core(경로가 깨지면 빈 결과로 영구 통과 · 상대 import 우회) · 20260903-ticker-notation-fix(자기 검증이 검사 함수를 부르지 않음) · 20260730-frontend-common-base(자기 시나리오를 못 잡음) · 20260801-investor-flow-sync(정규식 구멍)
@@ -40,7 +40,7 @@ reference_upstream: mattpocock/skills@5beb35b skills/engineering/tdd (SKILL.md �
 - **외부 서비스는 기본 차단**: 테스트에서 외부 서비스는 기본적으로 막힌다(fail-closed) — 스텁을 빠뜨리면 실제 호출이 나가지 않고 실패해야 한다. 막는 범위가 실제 진입점 전부인지 적는다 — 출처: addyosmani/agent-skills skills/test-driven-development/SKILL.md(테스트 크기) (MIT) · 사례: Argus 20260904-us-financials-sync
 - **로그 기준은 내용을 단언**: 로그·이벤트가 수용 기준이거나 plan 이 새 로그 이벤트를 만들면 이벤트 이름·레벨·핵심 필드(그리고 남기면 안 되는 값)를 단언한다 — "남는다"가 아니라 무엇이 남는지 — 출처: Argus 20261012-krx-session-hardening · 20260824-batch-scheduler 사례(출처 스킬에 없는 규칙)
 - **부재 단언에 양성 대조**: "보이지 않는다·일어나지 않는다" 단언에는 같은 검사가 존재할 때 FAIL 하는 양성 대조를 짝으로 둔다 — 문구가 바뀌어도 검사가 살아 있게 — 출처: Argus 20261016-tracked-screen 사례(출처 스킬에 없는 규칙)
-- **수·집합 단언 승계**: 이 변경으로 바뀌는 수·집합 단언(테이블 수·FK 수·마이그레이션 수·엔드포인트 목록)을 기존 테스트에서 실제로 grep 해 승계 목록을 적는다 — 출처: Argus 20261013-tracked-scope · 20261016-screener-metrics 사례(출처 스킬에 없는 규칙)
+- **수·집합 단언 승계**: 이 변경으로 바뀌는 수·집합 단언(테이블 수·FK 수·마이그레이션 수·엔드포인트 목록)을 기존 테스트에서 실제로 grep 해 승계 목록을 적는다(스키마 단언의 위치·내용은 DB 전문가 몫 — 여기서는 승계 목록만) — 출처: Argus 20261013-tracked-scope · 20261016-screener-metrics 사례(출처 스킬에 없는 규칙)
 - **테스트 격리**: 환경 변수·전역 상태·픽스처 정의가 중복·셰도잉되지 않고, 테스트가 순서에 의존하지 않는다 — 출처: addyosmani/agent-skills skills/test-driven-development/SKILL.md (MIT)
 - **공개 인터페이스로 검증**: 내부 협력자 호출 횟수·순서, 비공개 함수, DB 직접 조회로 동작을 검증하지 않는다(스키마 자체가 기준이면 예외 — DB 전문가 몫) — 출처: mattpocock/skills skills/engineering/tdd/SKILL.md · tests.md · addyosmani/agent-skills skills/test-driven-development/SKILL.md (MIT)
 - **위험 영역에 집중**: 새 코드·복잡한 로직·과거 결함 지점을 근거와 함께 적고 테스트 노력을 거기 모은다. 커버리지 목표는 `test-strategy.md` 에서 가져오고 보편 수치를 가정하지 않는다 — 출처: davila7/claude-code-templates cli-tool/components/agents/development-tools/qa-expert.md · mattpocock/skills skills/engineering/tdd/SKILL.md (MIT)

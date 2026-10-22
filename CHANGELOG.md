@@ -4,9 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- planning 에 API 계약 전문가 패스를 더했다(`agents/api-designer-ko.md` · opus · high). API 엔드포인트를 바꾸는 FID 에서 plan-reviewer 전에 dispatch 되어 spec·plan·api-spec 의 API 계약만 집중 검토하고 지적과 고친 문안을 `experts/api.md` 에 쓴다(plan.md 는 직접 고치지 않는다). 공통 원칙 13개는 추가형 변경만·폐기 표기와 유예·관찰 가능한 동작은 계약·메서드 의미·응답 형태 하나·벌크 부분 실패·오류 형식 하나·기계가 읽는 오류 코드·필드 단위 검증 오류·커서에 정렬 컬럼 전부·페이지 메타데이터·멱등 키는 의도에서·멱등 키 재사용과 보존이다. 이와 별개로 출처끼리 답이 다른 규약 7곳은 한쪽을 강요하지 않고 api-spec 에 정한 규약과 어긋날 때만 지적하며, 정하지 않았으면 `확인 필요` 로 묻는다. GraphQL 은 조건이 맞을 때만 읽는 지식 파일(`skills/planning-ko/api-expert/patterns/graphql.md`)로 분리했다. 판정기 `check-api-contract.sh` 가 잡는 빈칸·형식 위반은 다시 지적하지 않고 판단이 필요한 것만 본다 — 쿼리 쪽 페이지네이션(LIMIT·인덱스)·멱등 키 선점의 원자성은 DB 전문가, 인증·인가는 보안, 타임아웃·재시도 정책(횟수·백오프)은 구조 분야 몫이다 — 단 오류 응답의 입력값 반사는 보안으로 넘기지 않고 원칙 9(필드 단위 검증 오류)로 본다. 출처 4곳(wshobson/agents · addyosmani/agent-skills · davila7/claude-code-templates · supabase/agent-skills)은 모두 MIT 이며 한국어로 재작성했다. 패스 순서는 DB → API → 보안 → 테스트다. 효과는 Argus 실제 계획서 2건 × 3회로 쟀다 — plan-reviewer 0/6 → api-designer 4/6, 결함 없는 단순 대조군(e-23 · 상품 조회 `discontinuedAt` 추가)에서 헛지적 0/3. 측정 케이스는 `specifying-ko/evals.json` e-19~e-23 · e-33~e-36 이고 출처는 `current-state.md` §4 와 측정 기록이다.
+
 ### Fixed
 
 - planning 사전검사(`check-plan-predispatch.sh`)의 dangling-lock 판정이 작업 폴더 안의 다른 git 저장소(링크 worktree·복사본)의 같은 문자열을 "repo 에 있음" 으로 읽어 결함을 놓치던 것을 고쳤다 — 플러그인 폴더가 git 저장소의 최상위면 `git grep --untracked` 로 이 저장소의 파일만 본다(추적 + 무시되지 않은 미추적 · 중첩 저장소 안은 보지 않는다 · 비ASCII 경로 그대로). 바깥 저장소 안의 하위 폴더(홈 dotfiles 저장소 안의 설치본 등)면 종전 `grep -r` — 바깥 저장소의 gitignore 가 폴더를 가려 실재 문자열을 놓치지 않게. 계기: v2.28.0 발행 사전 점검이 메인 폴더(안에 worktree 가 있음)에서 test-plan-predispatch P1 로 실패.
+- 템플릿: `api-spec.md` 의 API 계약 칸(오류 형식·오류 코드 카탈로그·목록 정책·멱등 정책)과 칸 계약 안내·오류 형식 예시를 §1 Markdown 엔드포인트 표 아래에서 §0 바로 뒤의 새 절 「공통 계약 — 오류·목록·멱등」으로 옮겼다 — `/init-project` 가 고르지 않은 방식 절(§1~§4)을 지우므로, OpenAPI·GraphQL·RPC 를 고른 프로젝트에서는 칸이 §1 과 함께 지워져 `check-api-contract.sh` 가 그 규칙을 `[건너뜀] (칸 없음)` 으로만 냈다(API 계약 판정이 버전 전략·rate limit 두 칸으로 줄었다). `test-init-project` T11.d 가 OpenAPI 로 init 한 문서에 네 칸이 남고 판정기가 그 규칙을 건너뛰지 않는지 본다. 이미 init 한 프로젝트는 그 절을 손으로 옮겨 넣어야 한다.
 
 ## [2.28.0] — 2026-10-22
 

@@ -5,13 +5,18 @@
 # mark : .specops/<FID>/reviews/.dispatched-<phase> 표지를 만든다(B/C dispatch 직전).
 # check: tid 마다 reviews/<tid>-<phase>-report.md 가 표지보다 새것이면 rc 0 · 하나라도 없거나 낡았으면 rc 1 + 빠진 tid 를 한 줄씩.
 #        표지가 없으면 rc 1 + 전 tid. 인자 오류·FID 디렉터리 없음 rc 2. 파일을 지우거나 고치지 않는다.
-# 기준 디렉터리: SPECOPS_ROOT = `.specops` 디렉터리 자체(저장소 관례 — 기본 `.specops`). bash 3.2 의 -nt 는 초 단위 비교다(같은 초면 낡은 것으로 본다 — 안전 방향).
+# 기준 디렉터리: SPECOPS_ROOT = `.specops` 디렉터리 자체(저장소 관례 — 기본 `.specops`; worktree 셸이면 specops_root_enter 로 메인으로 옮긴다). bash 3.2 의 -nt 는 초 단위 비교다(같은 초면 낡은 것으로 본다 — 안전 방향).
 set -u
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) || exit 2
 die() { echo "review-saved: $1" >&2; exit 2; }
 cmd=${1:-}; fid=${2:-}; phase=${3:-}
 case "$cmd" in mark|check) ;; *) die "usage: $0 mark <FID> <B|C> | check <FID> <B|C> <tid>..." ;; esac
 [[ "$fid" =~ ^[0-9]{8}-[a-z0-9-]+$ ]] || die "FID 형식 오류: ${fid:-없음}"
 case "$phase" in B|C) ;; *) die "phase 는 B 또는 C: ${phase:-없음}" ;; esac
+# worktree 에서 불려도 메인 worktree 의 .specops 를 쓴다(review-skip-pass.sh 와 같다)
+#   훅은 .specops 가 있는 프로젝트 폴더에서 부르므로 이동하지 않는다. SPECOPS_ROOT 를 준 호출도 그대로다.
+# shellcheck source=/dev/null
+. "$HERE/specops-root.sh" 2>/dev/null && specops_root_enter "$fid" 2>/dev/null || true
 dir="${SPECOPS_ROOT:-.specops}/$fid"
 [ -d "$dir" ] || die "FID 디렉터리 없음: $dir"
 rev="$dir/reviews"; marker="$rev/.dispatched-$phase"

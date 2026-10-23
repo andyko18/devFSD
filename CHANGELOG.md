@@ -13,6 +13,7 @@
 
 - implementing-ko dev-autonomy §2: 서브에이전트·백그라운드 명령을 기다리며 턴을 끝낼 때 질문으로 끝내지 않고 무엇을 기다리는지 1줄만 쓴다(알림이 다음 턴을 연다).
 - `/start`·`/maintain`·`/start-lite`·`/maintain-lite` 와 자연어 진입의 기본 동작을 `§일괄` 로 바꿨다 — 질문은 최대 2회 묶음(회당 4개)으로 받고, intent·분석·설계·spec·AC·화면·IF·답변을 한 번에 승인받은 뒤 PR 게이트까지 묻지 않는다(실행 방식·병렬 worktree 동의·lite 규모 초과 승격·verify 재시도 1회). 비가역·보안 Critical/High·plan 리뷰 Critical·B/C 한도 뒤 Critical·NEEDS_DISCUSSION·PR 은 그대로 멈춘다. 지금까지의 단계별 확인은 `--step`(예: `/start --step …`). 승인 묶음 형식은 `skills/specifying-ko/once-approval.md`.
+- `/start-all` 의 기본 동작을 `§일괄` 로 바꿨다 — 체인 전 FR 전체 질문 묶음(Phase 1a) · FR 체인 무정지(`/start-all-auto` 와 같은 `<!-- auto: true -->` 셋째 줄) · Phase 1 끝 추측(ASSUMED) 확인 묶음(Phase 1c — 답이 바뀐 FR 만 clarify·plan·decompose 재실행) · Phase 2 일괄 게이트 생략 · 2.5-E 설계 승인이 유일한 승인(질문 답·가정 다이제스트 포함). 회당 질문은 많아야 4개. 지금까지의 동작은 `/start-all --step`. `/start-all-auto` 는 그대로.
 
 ### Fixed
 

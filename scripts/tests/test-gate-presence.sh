@@ -745,4 +745,29 @@ else
   nope "planning-ko 테스트 전문가 패스" "위치(sec=$_l_sec5 test=$_l_tst end=$_l_tstend pr=$_l_pr5) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
 fi
 
+# specifying-ko Step 6.5 요구사항 전문가 — 6 < 6.5 < 7 · 절 범위(6.5 줄 ~ 7 줄 앞)에서만 문구 · 제외 5종 · §8 이관 · 기록 3종(DONE 금지) (20261023-req-expert-integrate)
+_SPK=skills/specifying-ko/SKILL.md
+_l_s6=$(grep -n '^6\. \*\*설계 문서 작성\*\*' "$_SPK" | head -1 | cut -d: -f1)
+_l_s65=$(grep -n '^6\.5\. ' "$_SPK" | head -1 | cut -d: -f1)
+_l_s7=$(grep -n '^7\. \*\*스펙 자체 검토\*\*' "$_SPK" | head -1 | cut -d: -f1)
+_s65_body=""
+[ -n "$_l_s65" ] && [ -n "$_l_s7" ] && [ "$_l_s65" -lt "$_l_s7" ] && _s65_body=$(sed -n "${_l_s65},$((_l_s7-1))p" "$_SPK")
+_s65_has() { local p; for p in "$@"; do printf '%s\n' "$_s65_body" | grep -qE -- "$p" || return 1; done; return 0; }
+_s65_ex=$(printf '%s\n' "$_s65_body" | grep -E '^   - \*\*제외\*\*:')
+if [ -n "$_l_s6" ] && [ -n "$_s65_body" ] && [ "$_l_s6" -lt "$_l_s65" ] \
+   && _s65_has 'subagent_type: "specops-ko:req-designer-ko"' 'experts/req\.md' '저장·계산·판정' '판단이 서지 않으면 부른다' \
+        'spec §8 열린 질문으로 옮긴다' '`§auto` 면 질문을 best-guess 로 정해 §8 에 `\(ASSUMED\)` 로 남긴다' \
+        '`acceptance-criteria\.md` · `intent\.md`' '가용 모델 override 로 다시 dispatch' '부모가 대신 검토하지 않는다' \
+        '\| req-expert \| req-designer-ko \| 반영 \|' '\| req-expert \| - \| SKIP \| 데이터 표면 없음 \|' '\| req-expert \| req-designer-ko \| 산출 없음 \|' \
+   && printf '%s\n' "$_s65_ex" | grep -qE '^   - \*\*제외\*\*: `§batch` · `§lite`.* · `§유형: trivial` · promote\(`promote-fid`\) · foundation 은 부르지 않는다' \
+   && printf '%s\n' "$_s65_ex" | grep -qF '유지보수 분기와 `§auto` 는 부른다' \
+   && ! printf '%s\n' "$_s65_body" | grep -vE '^   - \*\*제외\*\*:' | grep -E '(§batch|§lite|trivial|promote|foundation)' | grep -q '부른다' \
+   && [ "$(printf '%s\n' "$_s65_body" | grep -c '^ *#')" -eq 0 ] \
+   && ! printf '%s\n' "$_s65_body" | grep -E '^ *\| [^|]*\| [^|]*\| req-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! printf '%s\n' "$_s65_body" | grep -oE '`\| [^|`]* \| [^|`]* \| req-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+  ok "specifying-ko Step 6.5 요구사항 전문가 — 6 < 6.5 < 7 · 절 범위 문구 · 제외 5종 · §8 이관 · 기록 3종 · DONE 없음"
+else
+  nope "specifying-ko Step 6.5 요구사항 전문가" "위치(6=$_l_s6 6.5=$_l_s65 7=$_l_s7) · 절 범위 문구 · 하위 제목 · DONE 행 중 문제"
+fi
+
 finish

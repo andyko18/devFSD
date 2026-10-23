@@ -112,4 +112,6 @@ _has "O10.o 2.5-D §일괄 Important-only cap (AC-3·AC-4)" "$(_sec "$SA" '^####
 _has "O10.p Phase 2 스텝 1 이 2.6 을 가리킴 (AC-3)" "$_p2" '대화형은 HARD GATE(§일괄 은 아래 2.6)'
 # 쓰는 쪽(clarifying 형식)과 읽는 쪽(1c 수집 키)이 같은 문자열
 grep -qF '· BLOCKING · ASSUMED' "$SK/clarifying-ko/SKILL.md" && ok "O10.n 1c 수집 키 = clarifying Q-block 머리줄 형식 (AC-2)" || nope "O10.n"
+_has "O10.k once-approval 적용 범위에 /start-all (AC-5)" "$(head -8 "$SK/specifying-ko/once-approval.md")" '`/start-all` 은 `commands/start-all.md`' '질문 묶음 = Phase 1a·1c · 승인 묶음 = Phase 2.5-E'
+_has "O10.l README 기본 동작에 /start-all (AC-5)" "$(_sec "$PLUGIN/README.md" '^## 진입로' '^## ')" '`/start-all` 도 같다 — 질문은 체인 전·Phase 1 끝 묶음 2회, 승인은 설계 승인(2.5-E) 1회'
 finish

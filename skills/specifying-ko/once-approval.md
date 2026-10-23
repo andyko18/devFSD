@@ -2,6 +2,7 @@
 
 > `skills/specifying-ko/SKILL.md` Step 1 의 §일괄 판정, `skills/analyzing-ko/SKILL.md` Step 7, `skills/clarifying-ko/SKILL.md` `## §일괄 모드` 가 이 문서를 가리킨다.
 > 적용: `/start`·`/maintain`·`/start-lite`·`/maintain-lite` 와 자연어 진입의 기본. `--step`(`<!-- step: true -->`)이면 적용하지 않고 각 skill 의 기존 동작대로 단계마다 확인한다. `§auto`·`§batch`·foundation 은 해당 없음.
+> `/start-all` 은 `commands/start-all.md` 「기본 동작과 `--step`」(0번) — 질문 묶음 = Phase 1a·1c · 승인 묶음 = Phase 2.5-E.
 > 원칙: 사람에게는 **질문 묶음 최대 2회와 승인 묶음 1회**만 받고, 승인 뒤에는 PR 게이트까지 묻지 않는다. 승인 생략은 확인 생략이지 검증 생략이 아니다 — TDD·B/C·verify·보안·R-1/R-2 는 그대로다.
 
 ## 1. 질문 묶음

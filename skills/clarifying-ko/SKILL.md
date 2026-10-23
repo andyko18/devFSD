@@ -55,6 +55,16 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /clarify 완료 "clarifications.md (N 쟁점 해소)"` 호출. `specops-ko:planning-ko` 다음 단계 안내
 10. **전환** — `specops-ko:planning-ko` 호출
 
+## §일괄 모드 — 질문 묶음 2회째와 승인 묶음
+
+`grep -qE '^\*\*§일괄\*\*:[[:space:]]*true' .specops/<FID>/spec.md` 이면 아래가 이 skill 의 다른 절(사용자 대화 규칙의 'BLOCKING 은 한 번에 한 질문'·경량 모드의 묶음 1회)보다 우선한다. 규칙 원본 `../specifying-ko/once-approval.md` 를 Read 해 따른다.
+
+1. 모호성 탐지·범주표·분류(Step 2~3)는 그대로 한다. clarifications.md 머리 `**mode**` 는 `once`(형식 블록의 `**mode**: full | lite` 줄도 `full | lite | once` 로 고친다). Step 7 에서 더할 AC 는 승인 묶음 4번에 미리 싣는다.
+2. BLOCKING·DESIRABLE 후보를 **한 번에 묶어** 묻는다 — 질문 묶음 2회째 · 많아야 4개 · 추천 먼저(AskUserQuestion 이 있으면 그것으로). 서로 답에 의존하는 질문은 먼저 정할 것만 넣는다.
+3. 묶음에 넣지 못한 것은 묻지 않고 `status: ASSUMED` + `**가정 근거**` 로 적는다.
+4. 질문이 끝나면(후보가 없었으면 곧바로) 승인 묶음을 제시한다. 승인 전에는 planning-ko 를 호출하지 않는다. 수정 요청은 반영한 뒤 승인 묶음을 다시 제시한다.
+5. 승인되면 once-approval.md 의 기록을 남기고 Step 5~10 을 마친 뒤 planning-ko 로 간다.
+
 ## 경량 모드 (lite) — BLOCKING 0 자동 탐지
 
 **[§auto 이외 분기]**: Step 2 모호성 탐지 결과가 `spec §열린질문=0 AND AC Given/When/Then 완결`이면 **BLOCKING=0 판정** → 경량 분기:
@@ -162,7 +172,7 @@ spec·AC 를 아래 8범주로 훑어 범주마다 **확인됨 · 부분 · 빠�
 
 **status**: RESOLVED | BLOCKED | ASSUMED
 **timestamp**: <auto-injected ISO-8601>
-**mode**: full | lite   (경량 모드 적용 시 lite — BLOCKING 0 자동 탐지)
+**mode**: full | lite | once   (경량 모드 적용 시 lite — BLOCKING 0 자동 탐지)
 **범주 점검**: 빠짐 N · 부분 M (범주 이름)   (범주표 결과)
 
 ## Q1 · <topic> · BLOCKING

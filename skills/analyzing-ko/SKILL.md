@@ -41,7 +41,7 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
 
 풀 Step 1~6 대신 아래만 수행한다. Step 0 FID 생성·브랜치는 동일.
 
-1. **args**: `<!-- entry: maintain-lite -->` 첫 줄 제거 후 대상 설명 추출 (FID slug 규칙은 Step 0과 동일).
+1. **args**: `<!-- entry: maintain-lite -->` 첫 줄 제거 후 대상 설명 추출 (`<!-- step: true -->` 줄도 뺀다) (FID slug 규칙은 Step 0과 동일).
 2. **★ strict 승격 가드**: auth·oauth·jwt·rbac·credential·migration·ALTER/DROP·결제/PII·파괴적 스키마·public API 등 strict 신호가 보이면 lite-mini **중단** — "`/maintain`으로 진행하세요" 안내 (강제 진행 금지). 무인 표지가 있으면 중단 대신 승격한다 — 위 `## 무인 표지`.
 3. **current-state.md (mini)**:
    - §1 변경 대상 파일·심볼·라인 범위(합산 명시) — grep/`wc -l` 실측
@@ -51,7 +51,7 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
    - 회귀 영향·롤백·데이터 영향 **요약 각 3~5줄** (풀 5항목 루프 축소)
    - 스키마/데이터 변경이면 expand-contract·데이터 보존 포인트를 **반드시** 1줄 이상
    - `## 4. Advisor 협의 기록`: 불확실 없으면 `해당 없음 — lite-mini 분석 중 불확실 지점 없음` 1줄 (R-5)
-5. ★ HARD GATE: "lite-mini 분석 검토. 진행? [y/n]" — [n] 시 chain 중단
+5. ★ HARD GATE: "lite-mini 분석 검토. 진행? [y/n]" — [n] 시 chain 중단 (**§일괄** 이면 Step 7 의 [§일괄] 과 같이 묻지 않고 지난다 — 요약은 specifying 끝의 승인 묶음에 실린다)
 6. session-progress append `/analyze 완료` 후 `specops-ko:specifying-ko` — **args 그대로** (`<!-- entry: maintain-lite -->` 유지). specifying-ko **[maintain-lite 분기]**가 참조.
 
 > mini는 baseline·AC-R-1 근거를 남기기 위한 축소이지 analyzing **완전 skip이 아니다**.
@@ -68,7 +68,7 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
 - **사용자 메시지**: promote-fid 분기는 `"FID: <FID> — mini-FID 승격 분석을 시작합니다."` 로 출력(아래 Step 0 기본 메시지 대신 — 승격 진입 명시, 투명성).
 - promote-fid 신호가 **없으면** 아래 기존 FID 생성 절차를 그대로 수행한다(무손상).
 
-args에서 `<!-- entry: maintain -->` 또는 `<!-- entry: maintain-lite -->` 첫 줄을 제거한 나머지 텍스트가 대상 설명이다. (`maintain-lite`면 위 **[lite-mini 분기]**로 — 본 풀 체크리스트를 돌리지 않는다.) 파일명·심볼명·핵심 명사를 우선 추출해 kebab-slug를 구성하고, `YYYYMMDD-<slug>` 형식으로 FID를 생성한다.
+args에서 `<!-- entry: maintain -->` 또는 `<!-- entry: maintain-lite -->` 첫 줄을 제거한 나머지 텍스트가 대상 설명이다. `<!-- step: true -->` 줄도 함께 뺀다(`--step` 표지 — 대상 설명·슬러그에 넣지 않는다). (`maintain-lite`면 위 **[lite-mini 분기]**로 — 본 풀 체크리스트를 돌리지 않는다.) 파일명·심볼명·핵심 명사를 우선 추출해 kebab-slug를 구성하고, `YYYYMMDD-<slug>` 형식으로 FID를 생성한다.
 
 **FID 생성 절차:**
 ```bash
@@ -262,6 +262,8 @@ git log --oneline --grep="<symbol>" -n 5
 ---
 
 ### Step 7: ★ HARD GATE (AC-7, AC-8)
+
+**[§일괄]** (args 앞쪽 주석 줄에 `<!-- step: true -->`·`<!-- auto: true -->` 가 없을 때 — `../specifying-ko/SKILL.md` 의 §일괄 판정과 같다): [y/n] 을 묻지 않고 Step 8 로 간다. 분석 요약(변경 대상 · 보존할 동작 · 회귀 위험)은 승인 묶음에 실린다(`../specifying-ko/once-approval.md`) — 한 줄 출력: `분석 검토는 승인 묶음으로 넘깁니다(§일괄)`. 아래는 `--step` 일 때의 동작이다.
 
 두 산출물 경로를 명시하고 사용자 응답 대기:
 

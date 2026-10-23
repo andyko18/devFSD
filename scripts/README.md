@@ -476,6 +476,17 @@ bash scripts/stage-timing.sh --by-agent --since 20260902   # 어느 역할(구�
 bash scripts/stage-timing.sh --split --transcript-dir A --transcript-dir B   # 지정은 반복 가능 · 지정 없으면 git worktree 전부의 projects 디렉토리 합집합
 ```
 
+## prompt-kinds.sh — 무정보 프롬프트 종류 집계 (관측 전용)
+
+- `prompt-kinds.sh` — Claude Code transcript 의 사람 프롬프트(`origin.kind=human` · isMeta 아님 · 본문 문자열) 가운데 앞뒤 공백을 뗀 20자 이하를 `단계승인`·`외부승인`(직전 assistant 글에 PR 낱말·머지·merge·발행·릴리즈·release·push·비용)·`결정위임`·`진행확인`·`다음단계`·`기타짧음` 으로 나눠 건수와 비율을 낸다. 소요 단축(승인 1회 무정지) 전후 비교용이다.
+- 옵션: `--since YYYYMMDD`(transcript timestamp 는 UTC — 그 UTC 날짜 이후) · `--transcript-dir DIR`(반복 가능 — 없으면 stage-timing 과 같은 규칙으로 현재 실경로의 디렉터리).
+- rc: 0 = 집계(0건 포함 · 읽지 못한 파일은 빼고 `읽기 실패 N 파일` 줄과 stderr 경고) · 2 = 인자 오류·디렉터리 없음 · 3 = jq 없음.
+- **프롬프트·응답 본문은 출력하지 않는다** — 종류 판정에만 쓰고 test-prompt-kinds 가 픽스처 문자열 부재를 잠근다. 낱말 판정이라 종류는 근사다(예: "응" 이 단계 승인인지 질문 답인지 구분하지 않는다).
+
+```bash
+bash scripts/prompt-kinds.sh --since 20261020
+```
+
 ## review-cost.sh — plan-reviewer 비용·재dispatch 집계 (관측 전용)
 
 - `review-cost.sh` — `.specops/*/dispatch-log.md` 의 plan-reviewer 구조화 행으로 **FID 별 라운드 수·첫/끝 판정·Critical/Important 건수**를 집계한다(읽기 전용). 요약은 라운드 분포·평균·**첫 라운드 FAIL 비율**·마지막 판정 PASS·Critical/Important 합·첫 라운드 FAIL 의 심각도 분해·predispatch 도입 전후·월별 줄이고, 원장(`session-progress.md`)의 FID 별 plan 창과 서브에이전트 transcript(`scripts/_internal/agent-spans.sh` 재사용)를 조인해 plan-reviewer **wall(분)** 을 FID 에 귀속한 뒤 비용 상위 FID 표를 낸다. "plan 리뷰 비용의 어디를 줄이면 되는가"를 숫자로 보는 도구다 — 개선안을 제안하지는 않는다.

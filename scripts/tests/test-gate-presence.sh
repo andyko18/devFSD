@@ -908,4 +908,14 @@ else
   nope "planning-ko 구조 전문가 패스" "위치(db=$_l_db6 arch=$_l_ar end=$_l_arend api=$_l_api6 sec=$_l_sec6 tst=$_l_tst6 pr=$_l_pr6) · 절 범위 문구 · DONE 행 중 문제"
 fi
 
+# dev-autonomy §2 대기 중 턴 종료 규칙 — §2 범위(다음 ## 앞) 안 · 질문 금지 · 기다리는 것 1줄 · 알림이 다음 턴을 연다 (20261023-speed-foundation)
+_DA=skills/implementing-ko/dev-autonomy.md
+_l_da2=$(grep -n '^## 2\. ' "$_DA" | head -1 | cut -d: -f1)
+_l_da3=$(grep -n '^## 3\. ' "$_DA" | head -1 | cut -d: -f1)
+if [ -n "$_l_da2" ] && [ -n "$_l_da3" ] && sed -n "${_l_da2},$((_l_da3-1))p" "$_DA" | grep -q '^\*\*기다리며 턴을 끝낼 때는 질문으로 끝내지 않는다\.\*\* .*무엇을 기다리는지 1줄만 쓴다.*알림이 다음 턴을 연다' ; then
+  ok "dev-autonomy §2 대기 중 턴 종료 규칙 — 질문 금지 · 알림이 다음 턴"
+else
+  nope "dev-autonomy 대기 중 턴 종료 규칙" "§2(${_l_da2}~${_l_da3}) 안에 규칙 문장 없음"
+fi
+
 finish

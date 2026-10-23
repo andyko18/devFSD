@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- scripts/prompt-kinds.sh — 사람 프롬프트 가운데 20자 이하를 단계승인·외부승인·결정위임·진행확인·다음단계·기타짧음으로 세는 관측 스크립트(본문 미출력). 소요 단축 전후 비교용.
+
+### Changed
+
+- implementing-ko dev-autonomy §2: 서브에이전트·백그라운드 명령을 기다리며 턴을 끝낼 때 질문으로 끝내지 않고 무엇을 기다리는지 1줄만 쓴다(알림이 다음 턴을 연다).
+
+### Fixed
+
+- 리뷰 보고서 저장 훅(save-review-report)이 반환 도구(SubagentHandback)로 끝난 리뷰어의 보고서도 저장한다 — hooks.json PreToolUse 에 matcher SubagentHandback 항목을 더하고, 두 리뷰어의 tool_input.message 만 저장한 뒤 exit 0 한다(종전에는 마지막 글이 비어 무동작이라 매 FID 부모가 대신 저장했다). 64KB 넘는 메시지를 조용히 건너뛰던 파이프와 bash 3.2 에서 느린 빈 본문 검사식도 고쳤다.
+
 ## [2.31.0] — 2026-10-23
 
 ### Added

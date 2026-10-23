@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# specops-ko save-review-report — SubagentStop 훅 (matcher: spec-reviewer-ko|code-reviewer-ko).
+# specops-ko save-review-report — SubagentStop 훅 (matcher: spec-reviewer-ko|code-reviewer-ko) + PreToolUse 훅 (matcher: SubagentHandback — 두 리뷰어만).
 # 리뷰어 최종 메시지의 <<<REVIEW …>>> ~ <<<END>>> 블록을 .specops/<FID>/reviews/<tid>-<phase>-report.md 로
 #   tid 별 저장하고(통과 판정이 아니면 -feedback.md 병기) exit 2 로 요약 재종료를 지시한다.
-# stdin: SubagentStop JSON (cwd · stop_hook_active · last_assistant_message)
-# Exit: 2 = 전 블록 저장 + 요약 지시(stderr → 서브에이전트) · 1 = 계약 위반 fail-open(사유 1줄 → 사용자 · 전문은 부모로) · 0 = 무동작 fail-open(인프라·파일 조작 · stderr 없음)
+#   반환 도구(PreToolUse) 경로는 같은 저장 뒤 exit 0 이다 — exit 2 는 반환 자체를 막으므로 요약 재종료를 지시하지 않는다.
+# stdin: SubagentStop JSON (cwd · stop_hook_active · last_assistant_message) 또는 PreToolUse JSON (cwd · tool_name · agent_type · tool_input.message — 저장 뒤 exit 0)
+# Exit: 2 = 전 블록 저장 + 요약 지시(stderr → 서브에이전트) · 1 = 계약 위반 fail-open(사유 1줄 → 사용자 · 전문은 부모로) · 0 = 무동작 fail-open(인프라·파일 조작 · stderr 없음) · PreToolUse 경로는 2 를 쓰지 않는다
 # 전부 아니면 무 (clarify Q1): 블록 하나라도 형식 오류면 _bail(exit 1 · 사유 1줄) · 대상 경로가 일반 파일 아님 ·
 #   임시 쓰기 실패 · 이동 실패면 reviews/ 를 실행 전 상태로 되돌리고(이동 실패는 백업 복원) exit 0 —
 #   요약을 요구하면 그 전문이 소실된다. 1·0 어느 쪽이든 비차단이라 전문은 부모에게 그대로 간다.
@@ -19,10 +20,26 @@ bash "$plugin_root/scripts/_internal/is-hook-enabled.sh" save-review-report >/de
 command -v jq >/dev/null 2>&1 || exit 0
 
 input=$(cat 2>/dev/null || true)
-active=$(printf '%s' "$input" | jq -r '.stop_hook_active // false' 2>/dev/null || true)
-[ "$active" = "true" ] && exit 0
-cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
-msg=$(printf '%s' "$input" | jq -r '.last_assistant_message // empty' 2>/dev/null || true)
+_j() { printf '%s' "$input" | jq -r "$1" 2>/dev/null || true; }
+cwd=$(_j '.cwd // empty')
+handback=0
+if [ "$(_j '.hook_event_name // empty')" = "PreToolUse" ]; then
+  # 반환 도구(SubagentHandback) 경로 — 반환 도구로 끝난 리뷰어는 보고서가 last_assistant_message 가 아니라
+  #   이 도구의 tool_input.message 로 온다(공식 hooks 문서 SubagentStop 절). transcript 는 비동기 기록이라 읽지 않는다.
+  #   matcher 가 도구 이름이라 모든 서브에이전트의 반환이 여기 온다 — 두 리뷰어가 아니거나 블록이 없으면 조용히 지나간다.
+  #   저장 뒤에도 exit 0: PreToolUse 의 exit 2 는 반환 자체를 막는다(요약 재종료 지시 없음).
+  [ "$(_j '.tool_name // empty')" = "SubagentHandback" ] || exit 0
+  case "$(_j '.agent_type // empty')" in
+    specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko) ;;
+    *) exit 0 ;;
+  esac
+  msg=$(_j '.tool_input.message // empty')
+  grep -q '^<<<REVIEW ' <<<"$msg" || exit 0   # 파이프 금지 — pipefail 아래 grep -q 가 먼저 끝나면 printf 가 SIGPIPE 로 실패해 큰 메시지를 조용히 건너뛴다
+  handback=1
+else
+  [ "$(_j '.stop_hook_active // false')" = "true" ] && exit 0
+  msg=$(_j '.last_assistant_message // empty')
+fi
 { [ -n "$cwd" ] && [ -n "$msg" ]; } || exit 0
 
 work=$(mktemp -d 2>/dev/null) || exit 0
@@ -66,7 +83,7 @@ while [ "$i" -le "$count" ]; do
   case "$seen" in *" $b_tid-$b_phase "*) _bail "tid-phase 중복" ;; esac
   seen="$seen$b_tid-$b_phase "
   body=$(<"$work/$i.body")
-  [ -n "${body//[[:space:]]/}" ] || _bail "본문이 비어 있음"
+  [[ $body =~ [^[:space:]] ]] || _bail "본문이 비어 있음"
   printf '%s %s %s\n' "$b_tid" "$b_phase" "$b_verdict" > "$work/$i.key"
   i=$((i+1))
 done
@@ -131,6 +148,7 @@ for name in $names; do
 done
 _cleanup
 [ -n "$saved" ] || exit 0
+[ "$handback" = 0 ] || exit 0
 
 cat >&2 <<EOF
 리뷰 보고서 전문을 저장했다:$saved

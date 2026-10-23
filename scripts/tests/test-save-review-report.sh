@@ -448,4 +448,57 @@ rm -f "$_rb" "$_rc" "$_rb.rc" "$_rc.rc"
 if [ -z "${_bad:-}" ]; then ok "T6.a B·C 동시 종료 5회 — 두 report 모두 저장·교차 오염 0·백업 잔존 0 (rc 2/2)"
 else nope "T6.a 동시 종료" "$_bad"; fi
 
+# ── T9 반환 도구(SubagentHandback) PreToolUse 경로 (20261023-speed-foundation) ──
+# 반환 도구로 끝난 리뷰어의 보고서는 last_assistant_message 가 아니라 이 도구의 tool_input.message 로 온다(공식 hooks 문서).
+# $1=agent_type $2=message [$3=tool_name] → RC, ERR, OUT  (mktemp 는 $TD 밖 — _files 비교 오탐 방지)
+_run_pt() {
+  local json so
+  # 메시지는 stdin 으로 넘긴다 — Linux 는 인자 1개를 128KB 까지만 받아 T9.i(200KB)가 E2BIG 로 빈 입력이 된다
+  json=$(printf '%s' "$2" | jq -Rs --arg cwd "$TD" --arg t "$1" --arg tn "${3:-SubagentHandback}" \
+    '{hook_event_name:"PreToolUse",tool_name:$tn,agent_type:$t,cwd:$cwd,tool_input:{message:.}}')
+  so=$(mktemp)
+  ERR=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE PATH="${RUN_PATH:-$PATH}" SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" 2>&1 >"$so")
+  RC=$?
+  OUT=$(cat "$so"); rm -f "$so"
+}
+hb="$(_block T1 B PASS '# T1 반환 본문')
+$(_block T2 B NEEDS_FIX '# T2 반환 본문')"
+_reset
+_run_pt specops-ko:spec-reviewer-ko "$hb"
+{ [ "$RC" = 0 ] && [ -z "$OUT" ] && [ -z "$ERR" ] \
+  && [ "$(cat "$R/T1-B-report.md")" = "# T1 반환 본문" ] && [ "$(cat "$R/T2-B-report.md")" = "# T2 반환 본문" ] \
+  && [ "$(cat "$R/T2-B-feedback.md")" = "# T2 반환 본문" ] && [ ! -e "$R/T1-B-feedback.md" ] && [ -z "$(_leftover)" ]; } \
+  && ok "T9.a spec 리뷰어 반환 → 블록 본문 저장 · rc 0 · 출력 없음 (AC-1)" || nope "T9.a" "RC=$RC OUT=$OUT ERR=$ERR $(ls -A "$R")"
+_reset
+_run_pt specops-ko:code-reviewer-ko "$(_block T1 C READY_TO_MERGE '# T1 C 본문')"
+{ [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(cat "$R/T1-C-report.md")" = "# T1 C 본문" ] && [ ! -e "$R/T1-C-feedback.md" ]; } \
+  && ok "T9.b code 리뷰어 반환 → 저장 (AC-1)" || nope "T9.b" "RC=$RC ERR=$ERR $(ls -A "$R")"
+_reset; before=$(_files)
+_run_pt specops-ko:test-designer-ko "$hb"
+{ [ "$RC" = 0 ] && [ -z "$ERR" ] && [ -z "$OUT" ] && [ "$(_files)" = "$before" ]; } \
+  && ok "T9.c 리뷰어 아닌 에이전트의 반환 → 무동작 (AC-2)" || nope "T9.c" "RC=$RC ERR=$ERR"
+_reset; before=$(_files)
+_run_pt "" "$hb"
+{ [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(_files)" = "$before" ]; } \
+  && ok "T9.d agent_type 빈 문자열(내부 에이전트) → 무동작 (AC-2)" || nope "T9.d" "RC=$RC ERR=$ERR"
+_reset; before=$(_files)
+_run_pt specops-ko:spec-reviewer-ko "$hb" Bash
+{ [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(_files)" = "$before" ]; } \
+  && ok "T9.e 반환 도구가 아닌 PreToolUse → 무동작" || nope "T9.e" "RC=$RC ERR=$ERR"
+_reset; before=$(_files)
+_run_pt specops-ko:spec-reviewer-ko "요약: 인용 <<<REVIEW fid=$FID tid=T1 phase=B verdict=PASS>>> 는 줄 처음이 아니다"
+{ [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(_files)" = "$before" ]; } \
+  && ok "T9.f 줄 처음 REVIEW 없음 → 조용히 무동작 (AC-2)" || nope "T9.f" "RC=$RC ERR=$ERR"
+_reset; before=$(_files)
+_run_pt specops-ko:spec-reviewer-ko "$(printf '<<<REVIEW fid=%s tid=T1 phase=B verdict=PASS>>>\n# 닫힘 없음\n' "$FID")"
+{ [ "$RC" = 1 ] && [ -z "$OUT" ] && printf '%s' "$ERR" | head -1 | grep -qF "짝 불일치" && [ "$(_files)" = "$before" ]; } \
+  && ok "T9.g 블록 형식 오류 → 종전 _bail(exit 1 · 비차단) · 저장 없음" || nope "T9.g" "RC=$RC ERR=$ERR"
+_reset
+_big=$(awk 'BEGIN{for(i=0;i<3000;i++) printf "본문 줄 %d — 큰 반환 메시지 채우기 문장입니다.\n", i}')
+_run_pt specops-ko:spec-reviewer-ko "$(_block T1 B PASS "$_big")"
+{ [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(wc -c < "$R/T1-B-report.md")" -gt 65536 ]; } \
+  && ok "T9.i 64KB 넘는 반환 메시지도 저장 (pipefail SIGPIPE 회귀 · AC-1)" || nope "T9.i" "RC=$RC ERR=$ERR"
+_pt_n=$(jq -r '[.hooks.PreToolUse[]? | select(.matcher == "SubagentHandback") | .hooks[] | select(.command | contains("${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh")) | select(.async != true)] | length' "$PLUGIN/hooks/hooks.json" 2>/dev/null)
+[ "$_pt_n" = 1 ] && ok "T9.h hooks.json PreToolUse matcher=SubagentHandback · save-review-report · 동기 1건 (AC-1)" || nope "T9.h" "n=${_pt_n:-?}"
+
 finish

@@ -133,7 +133,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
        > 본 가드는 조기 차단(설계 전)이지만 **모델 판단**이다. 놓쳐도 `decomposing-ko` Step 10c 의 `risk-profile.sh` 가 `LITE-STRICT-GUARD` rc=3 으로 기계 탐지한다(승격 강제). 이중 안전망 — 여기서 잡는 게 손실이 가장 적다.
      - Step 6에서 `**§lite**: true` + `**§유형**: trivial` **질문 없이 강제**(슬래시 진입=축약 승인). "축약할까요?" 제안 **하지 않음**.
      - Step 3~4(명확화 질문·2~3 접근)는 **경량화**: 블로킹 모호점만 0~2문장으로 확인하거나 명백하면 skip — **clarifying-ko·planning-ko 스킬은 호출하지 않음**.
-     - Step 5 설계 제시 → ★ HARD GATE 1회(스펙+(해당 시) 화면/IF 통합 승인) (**§일괄**: 이 1회가 승인 묶음이다 — `once-approval.md` 형식으로)
+     - Step 5 설계 제시 → ★ HARD GATE 1회(스펙+(해당 시) 화면/IF 통합 승인) (**§일괄**: 여기서 묻지 않는다 — 이 1회는 Step 8 자리의 승인 묶음으로 옮긴다(`once-approval.md`))
      - **Step 5.5·5.6: [신규 분기]와 동일 조건·동일 의무** — UI면 화면, API/스키마면 IF. lite라도 제외 금지.
      - 승인 후 `## 다음 skill`의 **§lite/trivial 단축 경로**로 decomposing-ko 직행
 

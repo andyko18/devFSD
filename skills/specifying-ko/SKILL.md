@@ -273,6 +273,12 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
      라벨이 `유지보수` 면 acceptance-criteria.md 의 "## 회귀 방지 AC (유지보수 FID 필수)" 섹션이 자동 활성 — sprint-contracts-ko evaluator 가 `AC-R-*` ≥ 1 강제.
 
    - **성공지표 작성 유도 (권장 — should)**: §유형이 `trivial`이 아니면 spec.md §1 개요 하위 `### 성공지표` 서브섹션에 measurable target을 작성한다(정량 우선, 불가 시 정성+검증방법). **권장 — 미작성이 evaluator FAIL은 아니나**, 기능 가치 입증·learning-loop 추적을 위해 작성 강력 권고. trivial FID는 면제.
+6.5. **[데이터를 다루는 spec] 요구사항 전문가 패스** — spec.md·AC 를 저장한 직후, 자체 검토(7) 전에 부른다. spec 이 입력 데이터를 받아 저장·계산·판정하거나 외부 소스·배치를 다루면 발동한다. 화면 문구·설정·문서만 바꾸는 spec 은 부르지 않는다. 판단이 서지 않으면 부른다(측정: 데이터 규칙 빈칸 결함을 plan-reviewer 0/6 · 이 전문가 6/6 · 결함 없는 대조군 헛지적 0/3).
+   - **제외**: `§batch` · `§lite`(`/start-lite`·`/maintain-lite`) · `§유형: trivial` · promote(`promote-fid`) · foundation 은 부르지 않는다(기록 행도 남기지 않는다). 유지보수 분기와 `§auto` 는 부른다.
+   - **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:req-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `intent.md` · `.specops/memory/requirements.md`·`data-model.md`·`api-spec.md`(있으면).
+   - **반영**: `.specops/<FID>/experts/req.md` 의 지적은 spec·AC 에 반영하거나 기각하고 같은 파일 끝 `## 반영` 에 `반영(spec §/AC-N)` 또는 `기각(근거)` 1줄씩 적는다. `## 확인 필요` 질문은 spec §8 열린 질문으로 옮긴다(clarifying-ko 가 사용자에게 묻는다). `§auto` 면 질문을 best-guess 로 정해 §8 에 `(ASSUMED)` 로 남긴다.
+   - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/req.md` 가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | req-expert | req-designer-ko | 산출 없음 | - |` 를 남기고 7 로 진행한다.
+   - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | req-expert | req-designer-ko | 반영 | experts/req.md (지적 N · 반영 N · 기각 N · 질문 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | req-expert | - | SKIP | 데이터 표면 없음 |` 1행.
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
 8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기
 9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /specify 완료 "spec.md, AC.md" "<기능명>"` (첫 진입이라 신규 FID 섹션 생성)
@@ -331,6 +337,8 @@ screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 (참고용)
                                    └── no ─────────────────────┘
                                    ↓
                               설계 문서 작성 (spec.md — §참조에 screens/ + api-spec/data-model 포함)
+                                   ↓
+                              데이터를 다루는 spec? ── yes ──▶ 요구사항 전문가 패스 (Step 6.5)
                                    ↓
                               스펙 자체 검토 (인라인 수정)
                                    ↓

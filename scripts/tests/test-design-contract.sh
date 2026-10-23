@@ -169,7 +169,7 @@ _bnd_b=$(grep -cE '^#### B\.' "$_sa" 2>/dev/null || true)
 if [ "${_bnd_a:-0}" -ne 1 ] || [ "${_bnd_b:-0}" -ne 1 ]; then
   nope "U24.j" "Phase 2.5 구간 경계 소실 (#### A.=${_bnd_a:-0} / #### B.=${_bnd_b:-0}, 각 1건 기대) — 구간 한정 검사 불가"
 else
-  _tmpl_n=$(awk '/^#### A\./,/^#### B\./' "$_sa" | grep -c 'templates/screen\.html' || true)
+  _tmpl_n=$(awk '/^#### A\./{f=1;next} /^#### /{f=0} f' "$_sa" | grep -c 'templates/screen\.html' || true)
   if [ "${_tmpl_n:-0}" -ge 1 ]; then
     ok "U24.j start-all Phase 2.5-A 구간 내 templates/screen.html 참조 (AC-2)"
   else

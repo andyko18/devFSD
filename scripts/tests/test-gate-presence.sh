@@ -817,4 +817,26 @@ else
   nope "specifying-ko Step 6.6 화면 전문가" "위치(6.5=$_l_s65 6.6=$_l_s66 end=$_l_s66end 7=$_l_s7) · 절 범위 문구 · 하위 제목 · DONE 행 중 문제"
 fi
 
+# /start-all Phase 2.5 A2 화면 전문가 — A < A2 < B · 절 범위(A2 ~ 다음 #### 앞) · batch 당 1회 · SKIP 기록 · 산출 경로 · E 게이트 이관 · 통상 순서 줄 (20261023-ui-expert-integrate)
+_SAL=commands/start-all.md
+_l_pa=$(grep -n '^#### A\. ' "$_SAL" | head -1 | cut -d: -f1)
+_l_pa2=$(grep -n '^#### A2\. ' "$_SAL" | head -1 | cut -d: -f1)
+_l_pb=$(grep -n '^#### B\. ' "$_SAL" | head -1 | cut -d: -f1)
+_a2_end=""; [ -n "$_l_pa2" ] && _a2_end=$(awk -v s="$_l_pa2" 'NR>s && /^#### /{print NR; exit}' "$_SAL")
+_a2_body=""; [ -n "$_a2_end" ] && _a2_body=$(sed -n "${_l_pa2},$((_a2_end-1))p" "$_SAL")
+_a2_has() { local p; for p in "$@"; do printf '%s\n' "$_a2_body" | grep -qE -- "$p" || return 1; done; return 0; }
+if [ -n "$_l_pa" ] && [ -n "$_l_pa2" ] && [ -n "$_l_pb" ] && [ "$_l_pa" -lt "$_l_pa2" ] && [ "$_l_pa2" -lt "$_l_pb" ] && [ "$_a2_end" = "$_l_pb" ] \
+   && _a2_has '`UI-EXPERT: SKIP — 화면 산출 없음`' '`\.specops/<BATCH_ID>/experts/ui\.md`' 'E 설계 승인 게이트에서 함께 묻는다' \
+        '`§auto` 면 best-guess 로 정해 `\(ASSUMED\)` 로 queue 다이제스트에 남긴다' '부모가 대신 검토하지 않는다' '`UI-EXPERT: 산출 없음`' \
+        'D\(`design-reviewer-ko`\)의 독립 판정은 그대로다' '`BATCH_ID` 와 산출 경로 `\.specops/<BATCH_ID>/experts/ui\.md`\(산출 경로의 `<FID>` 자리에만 `<BATCH_ID>` 를 쓴다고 프롬프트에 적는다\)' \
+   && printf '%s\n' "$_a2_body" | grep -F 'subagent_type: "specops-ko:ui-designer-ko"' | grep -qF 'batch 당 1회' \
+   && printf '%s\n' "$_a2_body" | grep -F '`UI-EXPERT: SKIP — 화면 산출 없음`' | grep -F 'foundation 셸(`<!-- foundation-shell -->`)만 재사용했거나 A 가 SKIP 이면' | grep -qF '(`|` 로 시작 금지)' \
+   && _l_pe=$(grep -n '^#### E\. ' "$_SAL" | head -1 | cut -d: -f1) && [ -n "$_l_pe" ] && _e_end=$(awk -v s="$_l_pe" 'NR>s && /^#### /{print NR; exit}' "$_SAL") && [ -n "$_e_end" ] \
+   && sed -n "${_l_pe},$((_e_end-1))p" "$_SAL" | grep -qF 'A2 의 `experts/ui.md` `## 확인 필요` 질문' \
+   && grep -qF '통상 순서: **A 화면 → A2 화면 전문가 → B 인터페이스 → C cross-FR → D 무거운 설계 리뷰 → E 승인 → F 커밋**' "$_SAL"; then
+  ok "start-all Phase 2.5 A2 화면 전문가 — A < A2 < B · 절 범위 문구 · batch 당 1회 · SKIP·산출 없음 기록 · E 게이트 이관 · 통상 순서"
+else
+  nope "start-all Phase 2.5 A2 화면 전문가" "위치(A=$_l_pa A2=$_l_pa2 end=$_a2_end B=$_l_pb) · 절 범위 문구 · 통상 순서 줄 중 문제"
+fi
+
 finish

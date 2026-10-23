@@ -20,6 +20,8 @@ reference_upstream: specops-ko 독자 추가 (commands/start.md § lite variant)
 
 ## Process
 
+0. **기본 동작과 `--step`** — 인자가 `--step` 으로 시작하면 그 낱말(과 뒤 공백)을 떼고 `<!-- step: true -->` 줄을 args 의 약속어 줄(`<!-- entry: … -->`) 바로 다음 줄에(아래 2 에서 약속어를 붙인 뒤) 넣는다(지금까지의 단계별 확인). 없으면 넣지 않는다 — 기본은 `§일괄`: 질문은 최대 2회 묶음, intent·설계·스펙·AC·화면·IF·답변을 한 번에 승인받고 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 등은 그대로 멈춘다 — `skills/specifying-ko/once-approval.md`).
+
 1. **메타 skill 활성 확인** — `skills/using-specops-ko/SKILL.md`가 세션 시작 시 이미 활성
 2. **args 첫 줄에 `<!-- entry: lite -->` prepend**:
    ```

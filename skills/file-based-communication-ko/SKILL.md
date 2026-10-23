@@ -86,6 +86,6 @@ REPORT: 판정(PASS/BLOCK)과 근거만 반환하세요. 읽은 산출물을 수
 `spec-reviewer-ko`·`code-reviewer-ko` 의 보고서는 호출자가 아니라 SubagentStop 훅(`hooks/save-review-report.sh`)이 저장한다. 리뷰어는 여전히 read-only 이고, 전문을 `<<<REVIEW …>>>` 블록으로 내면 훅이 `reviews/<tid>-<phase>-report.md` 로 옮긴 뒤 요약 재종료를 요구한다.
 
 - 판정 SoT = reviews 파일 — 반환 요약은 경로 포인터일 뿐이다. 판정은 파일을 읽어 확정한다
-- report 부재 시 부모 fallback 저장 — 훅이 돌지 않았거나 형식이 틀리면 전문이 그대로 반환되므로 부모가 태스크별로 저장한다. 반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장한다(이전 라운드 report 가 남아 옛 판정을 읽는 경로 차단)
+- report 부재 시 부모 fallback 저장 — 훅이 돌지 않았거나 형식이 틀리면 전문이 그대로 반환되므로 부모가 태스크별로 저장한다. 반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장한다(이전 라운드 report 가 남아 옛 판정을 읽는 경로 차단) · 반환 뒤 `review-saved.sh check` 가 rc 0 이면(훅이 이번 dispatch 뒤 저장) 다시 쓰지 않는다 — 규약 원본은 implementing-ko 「end-loaded B/C 산출물 규약」
 - dispatch-log 행은 부모가 기록 — 훅은 파일만 쓴다
 - 한계: `SPECOPS_GOVERNANCE_PROFILE` 이 `standard`·`minimal` 이면 is-hook-enabled 가 이 훅을 끄므로 저장은 전부 부모 fallback 경로로 간다

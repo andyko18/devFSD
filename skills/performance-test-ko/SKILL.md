@@ -264,6 +264,8 @@ fi
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh show <FID>
 ```
 
+`§일괄` 이면(`grep -qE '^\*\*§일괄\*\*:[[:space:]]*true' .specops/<FID>/spec.md`) 묻지 않고 정한 항목도 보인다 — `grep -n 'ASSUMED' .specops/<FID>/clarifications.md .specops/<FID>/intent.md .specops/<FID>/spec.md 2>/dev/null` 출력(없는 파일은 건너뛴다 · 0건이면 그 사실 1줄)과, `.specops/<FID>/auto-state.md` 가 있으면 그 escalations(묻지 않고 한 재시도).
+
 이어서 묻는다:
 
 > "모든 테스트 통과 (또는 skip). PR을 생성하시겠습니까? [y/n]"

@@ -33,6 +33,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
    # FID 결정 (날짜 + 기능 설명 슬러그)
    # 슬러그 규칙: 소문자 kebab-case, 영숫자+하이픈만, 최대 40자(초과 시 의미 단위로 절단),
    #   추출 불가(빈값·특수문자만·이모지) 시 fallback `feature-<HHMM>` 사용 — trailing dash 금지
+   #   args 의 주석 줄(`<!-- step: true -->` 등)은 슬러그에서 뺀다
    FID="YYYYMMDD-<slug>"
    mkdir -p .specops/$FID
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/git-branch-create.sh $FID
@@ -107,6 +108,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
      - args 첫 줄이 `<!-- entry: auto -->` HTML 주석이면 **[auto 분기]** 진입 — git-branch-create.sh **호출 유지** (§auto는 단독 기능, 자체 브랜치 필요). Step 6에서 spec.md §1에 `**§auto**: true` 라벨 기재. 이후 `[신규 분기]` 동작 계속 (DESIGN.md·screens/ 점검 동일)
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
        - **★ 유지보수 오분류 백스톱** (soft — 하드강제 아님, 5원칙4 주권): [신규 분기]로 왔으나 요청이 **이미 구현된 코드·동작의 수정**(버그 수정·리팩터·기존 기능 변경)이면, 메타스킬 유지보수 분류나 `<!-- entry: maintain -->` 라벨이 누락됐을 수 있다(라벨은 모델-prepend 프로즈라 훅 강제 없음). 신규로 계속하기 전 사용자에게 **1회 확인**: "이 요청이 기존 코드 수정이면 `analyzing-ko` 선행이 회귀 안전망(current-state·impact-analysis + 회귀 AC-R 데이터/동작 보존)을 켭니다 — [신규 진행 / 유지보수 전환]?". `유지보수 전환` 응답 시 `analyzing-ko` 부터(★ HARD GATE) 재진입. **오탐 방지 계약**: 순수 신규 창작이 "개선·변경" 어휘를 포함하는 건 흔하므로, **기존 산출물(코드·스키마·API)을 실제로 건드리는 경우에만** 확인한다 — 신규 창작이면 묻지 말 것. 근거: 라벨 누락 시 analyzing HARD GATE 통째 skip → 유지보수가 신규로 처리돼 회귀 AC 미적용(커맨드 감사 20260719 [MED] — 관찰 실패 0의 백스톱).
+     - **§일괄 판정 (기본 — 20261023)**: 신규·유지보수·lite·maintain-lite 분기에서 args 앞쪽 주석 줄에 `<!-- step: true -->`·`<!-- auto: true -->` 가 없으면 `§일괄` 이다(`entry: auto`·`batch`·`foundation` 은 해당 없음). Step 6 에서 spec §1 에 `**§일괄**: true` 를 적고, spec 이전(Step 1~5.6)과 `analyzing-ko` 는 이 args 판정을 쓴다. `§일괄` 이면 이 skill 의 사람 확인 — 명확화 질문 · 접근 선택 · intent 게이트 · 설계 섹션 승인 · 화면별 승인 · IF 확인 · 계약 칸 질문 · 유지보수 오분류 확인 · trivial 축약 제안 · 스펙 검토 — 은 같은 디렉터리 `once-approval.md` 를 Read 해 따른다(질문은 Step 3 에서 묶음 1회, 나머지는 승인 묶음). `<!-- step: true -->` 면 각 절의 기존 동작 그대로다. `<!-- step: true -->` 줄은 FID 슬러그·대상 설명에서 뺀다(주석 줄).
 
    **[유지보수 분기]** (Phase C 적용 — 본문 축약, analyzing-ko 결과 참조):
      - `analyzing-ko` 가 이미 호출되어 `.specops/<FID>/current-state.md` + `.specops/<FID>/impact-analysis.md` 가 산출되어 있어야 함
@@ -131,7 +133,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
        > 본 가드는 조기 차단(설계 전)이지만 **모델 판단**이다. 놓쳐도 `decomposing-ko` Step 10c 의 `risk-profile.sh` 가 `LITE-STRICT-GUARD` rc=3 으로 기계 탐지한다(승격 강제). 이중 안전망 — 여기서 잡는 게 손실이 가장 적다.
      - Step 6에서 `**§lite**: true` + `**§유형**: trivial` **질문 없이 강제**(슬래시 진입=축약 승인). "축약할까요?" 제안 **하지 않음**.
      - Step 3~4(명확화 질문·2~3 접근)는 **경량화**: 블로킹 모호점만 0~2문장으로 확인하거나 명백하면 skip — **clarifying-ko·planning-ko 스킬은 호출하지 않음**.
-     - Step 5 설계 제시 → ★ HARD GATE 1회(스펙+(해당 시) 화면/IF 통합 승인)
+     - Step 5 설계 제시 → ★ HARD GATE 1회(스펙+(해당 시) 화면/IF 통합 승인) (**§일괄**: 여기서 묻지 않는다 — 이 1회는 Step 8 자리의 승인 묶음으로 옮긴다(`once-approval.md`))
      - **Step 5.5·5.6: [신규 분기]와 동일 조건·동일 의무** — UI면 화면, API/스키마면 IF. lite라도 제외 금지.
      - 승인 후 `## 다음 skill`의 **§lite/trivial 단축 경로**로 decomposing-ko 직행
 
@@ -159,11 +161,12 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
    | lite | 5절 각 1~2줄 | 설계 승인과 통합 |
    | batch | **FR 행** + PRD §1·§3 에서 도출 · `Status: draft` | per-FR 게이트 없음 → `/start-all` Phase 2.5-E 일괄 확인 |
    | auto (무인 표지 포함) | 추정 항목에 `(ASSUMED)` · spec §1 에 `**자동 결정 intent**` 1줄 | 자동 통과(PR 게이트 다이제스트로 집계) |
+   | §일괄 (기본 · 신규·유지보수·lite) | 분기별 내용 그대로 | 독립 게이트·설계 승인 통합 없음 → 승인 묶음에 싣는다(`once-approval.md`) · 승인되면 `Status: accepted` |
 
 2. **Visual Companion 제안** (시각 질문이 예상되면) — 자체 메시지로만. 명확화 질문과 섞지 말 것. 아래 Visual Companion 섹션 참조
-3. **명확화 질문** — 한 번에 하나, 목적·제약·성공 기준 이해 (**lite·maintain-lite**: 위 분기 경량 규칙 — clarifying-ko 미호출)
-4. **2~3 접근 제안** — 트레이드오프와 권고 제시 (**lite·maintain-lite**: 생략 가능)
-5. **설계 제시** — 섹션을 복잡도에 맞춰 스케일, 각 섹션 후 사용자 승인 확인
+3. **명확화 질문** — 한 번에 하나, 목적·제약·성공 기준 이해 (**lite·maintain-lite**: 위 분기 경량 규칙 — clarifying-ko 미호출) · **§일괄**: 질문을 한 번에 묶어 1회(많아야 4개 — `once-approval.md`)
+4. **2~3 접근 제안** — 트레이드오프와 권고 제시 (**lite·maintain-lite**: 생략 가능) · **§일괄**: 고르게 하지 않고 추천안으로 설계하고 버린 대안을 승인 묶음에 싣는다
+5. **설계 제시** — 섹션을 복잡도에 맞춰 스케일, 각 섹션 후 사용자 승인 확인 (**§일괄**: 섹션별 승인 없이 승인 묶음에 싣는다)
 5.5. **[UI 기능인 경우] 인라인 화면 설계** — 설계 승인 직후 실행:
 
    > lifecycle 밖에서 개별/일괄 화면을 따로 손보려면 `/design-screen`(단수)·`/design-screens`(복수). 본 Step 5.5 는 lifecycle 내 자동 처리다.
@@ -196,6 +199,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
    - 모든 화면 저장 완료 후 **Step 5.6 진행** (인터페이스 설계도 거친다 — Step 6 직행 금지)
 
    **[§auto 이외 모드]** (기존 동작):
+   - **§일괄 이면 화면을 모두 만든 뒤** 경로 목록만 승인 묶음에 싣는다 — 아래 2(보여 주고 수정 요청 수렴)·3(승인)을 화면마다 하지 않고 1 로 만든 화면을 바로 저장한다. 수정 요청은 승인 묶음에서 받는다.
    - 이 기능에 필요한 화면 목록을 자동 판단하여 명시:
      > "이 기능에 필요한 화면은 N개입니다: {name1}({설명}), {name2}({설명}) ..."
    - **[design system]**: 프로젝트 `DESIGN.md` 가 화면 스타일의 유일한 출처다 — 각 화면 생성 시 [공통] 의 DESIGN.md 준수 지시를 따른다(부재 시 `templates/screen.html` 기본 토큰).
@@ -233,6 +237,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
    - 반영 완료 후 Step 6 진행
 
    **[§auto 이외 모드]**:
+   - **§일괄 이면 바꾸는 인터페이스를** 명시하고 확인을 묻지 않은 채 아래대로 memory 문서를 갱신한다 — 바꾼 행은 승인 묶음에 싣는다. memory 문서가 없어 생성 여부를 물어야 하는 경우와 계약 칸 점검 `WARN` 도 승인 묶음에 싣는다.
    - 이번 기능이 건드리는 인터페이스/스키마를 명시:
      > "이 기능은 다음 인터페이스를 추가/변경합니다: {POST /orders — 주문 생성}, {orders 테이블 — id·user_id·status ...}"
    - 사용자 확인 후 해당 memory 문서 섹션을 **구현 전에 먼저 갱신**:
@@ -246,6 +251,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
    - **AC 필수 필드 (기계 검증)** — AC 블록마다 `### AC-<n>: <제목>` 헤더 + **Given·When·Then·우선순위** 를 반드시 채운다. `**우선순위**` 값은 `must`·`should`·`nice-to-have` 중 하나. 판정 SoT = `scripts/_internal/check-ac-format.sh` (구현 직전 `emit-context.sh` 가 자동 호출 — 미충족 시 dispatch 가 열리지 않는다). **`**우선순위**` 는 서식이 아니라 스위치다** — 없으면 `emit-context` 의 must AC 역방향 커버리지 검사가 그 AC 를 보지 못해, 필수 AC 가 태스크 매핑 없이 통과하고 영영 구현되지 않는다. 쓰지 않는 템플릿 골격 AC(`<...>`·`...`)는 **남기지 말고 삭제**한다(골격 잔존도 차단 대상).
    - **AC 개수 상한 (should — 하드 게이트가 아니다)** — 코드 변경이 **50줄 미만이면 AC 6건**을 넘기지 않는 것을 권고한다. 넘어간다면 **계약이 아니라 설명을 쓰고 있는지** 의심하라. AC 가 늘면 plan·tasks·리뷰 대상이 함께 늘어 **비용이 곱으로 번진다** (실측 20260808: 코드 **18줄** 변경에 AC **12건** → plan 558줄·tasks 468줄·plan-reviewer 2회 dispatch). `check-ac-format.sh` 는 개수를 **검사하지 않는다** — 계약이 진짜로 필요하면 6건을 넘겨도 된다. 이 상한은 **되묻는 장치**지 금지가 아니다. (반대 방향 주의: 상한을 지키려고 **must AC 를 빠뜨리면** `emit-context` 의 역방향 커버리지가 막는다 — 줄일 것은 AC 개수가 아니라 **설명으로 쓴 AC** 다.)
    - **Intent 추적**: spec §1 에 `**Intent**: .specops/<FID>/intent.md` 를 적고, §1 목적·성공 판정을 intent 의 문제·기대 결과에서 도출한다
+   - **§일괄 라벨**: Step 1 의 §일괄 판정이 참이면 spec §1 의 `**§유형**` 줄 다음에 `**§일괄**: true` 를 적는다(`--step`·무인·batch·foundation 은 적지 않는다).
    - **열린 질문 처리**: intent 의 IQ 를 spec §8 에 `IQ-n → 답변(§섹션)` 또는 `IQ-n → 이월(Qn)` 로 적는다(IQ 가 없었으면 "해당 없음")
    - UI 기능이면 §참조에 `screens/{name}.md` 목록 자동 포함
    - API/스키마 기능이면 §참조에 `.specops/memory/api-spec.md`·`data-model.md` 자동 포함 (Step 5.6 갱신분)
@@ -286,7 +292,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
    - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/ui.md` 가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | ui-expert | ui-designer-ko | 산출 없음 | - |` 를 남기고 7 로 진행한다.
    - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | ui-expert | ui-designer-ko | 반영 | experts/ui.md (지적 N · 반영 N · 기각 N · 질문 N) |`. 화면 변경이 없으면 `| <N> | <ISO-8601> | ui-expert | - | SKIP | 화면 변경 없음 |` 1행.
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
-8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기
+8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기 (**§일괄**: `### 사용자 검토 게이트` 의 [§일괄 모드])
 9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /specify 완료 "spec.md, AC.md" "<기능명>"` (첫 진입이라 신규 FID 섹션 생성)
 10. **구현으로 전환** — `specops-ko:clarifying-ko` 스킬 호출
 
@@ -465,6 +471,8 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 자체 검토 완료 즉시 **자동 통과** — 사용자 응답 대기 없이 다음 단계로 간다(정상 경로는 clarifying-ko · `§lite` 는 `## 다음 skill` 의 §lite 단축 경로로 decomposing-ko). handoff/dispatch-log에 "spec auto-approved (§auto mode)" 기록.
 
 **[trivial 게이트 통합]** (`§유형: trivial` + 신규 trivial 단축 경로 — 20260716 dogfood 관찰 A): 사용자는 직전에 **설계 승인 + trivial 축약 승인** 2회를 이미 응답했다. spec.md 가 승인된 설계와 **내용 동일**하면(자체 검토에서 신규 논점·범위 변화 없음 확인) 본 게이트를 **통합 통과** — 별도 스펙 승인 응답을 요구하지 않고 "스펙 저장 완료(설계 승인 내용과 동일) — decomposing 진행" 1줄 고지 후 진행한다. **단** spec 작성 중 설계 제시에 없던 결정·범위 변화가 생겼으면 게이트를 **유지**한다(동일 내용일 때만 통합 — 주권 불변). trivial 4연속 게이트(포맷Q·설계승인·축약승인·스펙승인)의 마지막 중복 1개를 제거해 단축 경로의 완주율 이득을 보전한다.
+
+**[§일괄 모드]** (`grep -qE '^\*\*§일괄\*\*:[[:space:]]*true' .specops/<FID>/spec.md`): `§lite` 또는 `§유형: trivial` 단축 경로면 여기서 `once-approval.md` 의 승인 묶음을 제시하고, 승인되면 그 문서의 기록을 남긴 뒤 `## 다음 skill` 의 단축 경로로 간다. 정상 경로는 묻지 않고 clarifying-ko 를 호출한다 — 승인 묶음은 clarifying-ko 끝에서 받는다. 아래 기존 동작은 `--step`(`<!-- step: true -->`)일 때만 적용한다. 위 trivial 통합 규칙(설계 승인 + 축약 승인 2회 전제)은 `§일괄` 에 적용하지 않는다 — 이 문단이 대신한다.
 
 **[§auto·trivial 이외 모드]** (기존 동작):
 

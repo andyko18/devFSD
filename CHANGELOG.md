@@ -7,10 +7,12 @@
 ### Added
 
 - scripts/prompt-kinds.sh — 사람 프롬프트 가운데 20자 이하를 단계승인·외부승인·결정위임·진행확인·다음단계·기타짧음으로 세는 관측 스크립트(본문 미출력). 소요 단축 전후 비교용.
+- `scripts/_internal/review-saved.sh` — B/C dispatch 직전 표지를 남기고 반환 뒤 tid 마다 보고서가 표지보다 새것인지 판정한다. 훅이 저장했으면 부모가 보고서를 다시 쓰지 않는다.
 
 ### Changed
 
 - implementing-ko dev-autonomy §2: 서브에이전트·백그라운드 명령을 기다리며 턴을 끝낼 때 질문으로 끝내지 않고 무엇을 기다리는지 1줄만 쓴다(알림이 다음 턴을 연다).
+- `/start`·`/maintain`·`/start-lite`·`/maintain-lite` 와 자연어 진입의 기본 동작을 `§일괄` 로 바꿨다 — 질문은 최대 2회 묶음(회당 4개)으로 받고, intent·분석·설계·spec·AC·화면·IF·답변을 한 번에 승인받은 뒤 PR 게이트까지 묻지 않는다(실행 방식·병렬 worktree 동의·lite 규모 초과 승격·verify 재시도 1회). 비가역·보안 Critical/High·plan 리뷰 Critical·B/C 한도 뒤 Critical·NEEDS_DISCUSSION·PR 은 그대로 멈춘다. 지금까지의 단계별 확인은 `--step`(예: `/start --step …`). 승인 묶음 형식은 `skills/specifying-ko/once-approval.md`.
 
 ### Fixed
 

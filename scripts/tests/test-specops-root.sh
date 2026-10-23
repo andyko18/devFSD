@@ -234,6 +234,14 @@ grep -q 'sr-14' "$TN/.specops/session-progress.md" && ! grep -q 'sr-14' "$TNW/.s
   && ok "SR-14 ★ 추적 .specops worktree 에서 진행 기록·receipt → 메인 · 테스트는 worktree(memory 상대경로) · worktree .specops 불변" \
   || nope "SR-14" "main=$(grep -c sr-14 "$TN/.specops/session-progress.md") wt=$(grep -c sr-14 "$TNW/.specops/session-progress.md") marker=$(head -1 "$TD/tn.marker") status=[$(git -C "$TNW" status --porcelain -- .specops | tr '\n' ' ')]"
 
+# SR-14b review-saved mark — 표지가 메인에 남고 worktree 의 추적 .specops 는 그대로
+(cd "$TNW" && bash "$PLUGIN/scripts/_internal/review-saved.sh" mark "$TFID" B) >/dev/null 2>&1; rsrc=$?
+[ "$rsrc" = 0 ] && [ -f "$TN/.specops/$TFID/reviews/.dispatched-B" ] && [ ! -e "$TNW/.specops/$TFID/reviews/.dispatched-B" ] \
+  && [ -z "$(git -C "$TNW" status --porcelain -- .specops)" ] \
+  && ok "SR-14b ★ 추적 .specops worktree 에서 review-saved mark → 메인 표지 · worktree .specops 불변" \
+  || nope "SR-14b" "rc=$rsrc main=$([ -f "$TN/.specops/$TFID/reviews/.dispatched-B" ] && echo y || echo n) wt=$([ -e "$TNW/.specops/$TFID/reviews/.dispatched-B" ] && echo y || echo n) status=[$(git -C "$TNW" status --porcelain -- .specops | tr '\n' ' ')]"
+rm -f "$TN/.specops/$TFID/reviews/.dispatched-B"
+
 # SR-15 검증 러너·receipt 판정 — 메인 판정 상태 PASS · receipt rc 0 · worktree .specops 불변
 out=$(cd "$TNW" && bash "$RUNV" "$TFID" 2>&1)
 st=$(jq -r '.verdict // "-"' "$TN/.specops/$TFID/verification-state.json" 2>/dev/null)

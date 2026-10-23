@@ -94,14 +94,15 @@ git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/d
 
 worktree 생성은 **동의 없이는 금지** (upstream #991). 모드별 동의 주체:
 
-모드 감지: `grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md` (§batch 동일 패턴) — 라벨 없으면 단일 모드.
+모드 감지: `grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md` (§batch 동일 패턴 · `§일괄` 은 `^\*\*§일괄\*\*:[[:space:]]*true`) — 라벨 없으면 단일 모드.
 
 | 모드 | 동의 주체 | 동작 |
 |---|---|---|
 | 단일 | 사용자 | "worktree 생성 (<목록>) — 진행? [y/n]". **n → worktree 없이 SEQUENTIAL 분기로 전환** (거부 ≠ 작업 중단) |
 | §auto | 자동통과 (가역) | dispatch-log 기록 + PR 게이트 **가정 다이제스트** 집계 |
 | §batch | 오케스트레이터 대행 | dispatch-log 기록 |
-| 병렬 wave (implementing-ko) | 부모가 wave 시작 시 **1회 일괄** 동의 요청 (leaf 수·경로 명시) | 단일 모드 규칙. §auto/batch 면 해당 행 적용 |
+| §일괄 | 승인 묶음이 동의(묶음에 병렬 worktree 사용을 예고했다) | 다시 묻지 않는다 · dispatch-log 기록 |
+| 병렬 wave (implementing-ko) | 부모가 wave 시작 시 **1회 일괄** 동의 요청 (leaf 수·경로 명시) | 단일 모드 규칙. §auto/batch/§일괄 면 해당 행 적용 |
 
 ## 생성 단계
 

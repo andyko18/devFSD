@@ -121,7 +121,7 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
   Phase B 1회: spec-reviewer-ko — FID 전체(전 task context·AC·diff)
     → SubagentStop 훅(hooks/save-review-report.sh)이 **task마다** reviews/<tid>-B-report.md 저장
       (판정 SoT = reviews 파일 · report 부재 시 부모 fallback 저장 — 반환 전문에서 tid 별로)
-      (반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장 — `저장:` 경로 목록이 아니면 옛 report 를 반환 전문으로 교체)
+      (반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장 — `저장:` 경로 목록이 아니면 옛 report 를 반환 전문으로 교체) · 단 `review-saved.sh check` rc 0 이면 다시 쓰지 않는다(「end-loaded B/C 산출물 규약」)
     → dispatch-log 행은 부모가 기록: 각 tid 행(경로 `reviews/<tid>-B-report.md` 또는 ## task-<tid> + B 셀)
     → FAIL 시 feedback → 관련 implementer 재dispatch(cap=2 FID 단위) → B 재실행
   Phase C 1회: code-reviewer-ko — FID 전체 + B-report 경로들(최초 병렬은 `병렬 dispatch: yes (B 판정 대기)`)
@@ -139,7 +139,7 @@ specops-ko:verifying-evidence-ko 호출
 
 한 번의 Evaluator dispatch여도 **감사 teeth는 per-task 파일**을 요구한다 (`check-review-audit.sh`):
 
-1. 리뷰어는 FID 전체를 보고 tid 마다 `<<<REVIEW …>>>` 블록으로 전문을 낸다. SubagentStop 훅(`hooks/save-review-report.sh`)이 `reviews/<tid>-B-report.md` / `reviews/<tid>-C-report.md` 로 분할 저장하고(통과 판정이 아니면 `-feedback.md` 병기) 리뷰어에게 요약 재종료를 요구한다. 판정 SoT = reviews 파일 — 부모는 반환 요약이 아니라 파일을 읽어 판정한다. report 부재 시 부모 fallback 저장: 훅이 돌지 않았거나 블록 형식이 틀리면 리뷰어 전문이 그대로 반환되므로 부모가 태스크별로 분할 저장한다. 반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장한다 — 반환이 훅 요약(`저장:` 경로 목록)이 아니면 이전 라운드 report 가 남아 있어도 반환 전문으로 tid 별로 덮어써, 형식 오류·이동 실패로 옛 판정을 읽는 경로를 막는다
+1. 리뷰어는 FID 전체를 보고 tid 마다 `<<<REVIEW …>>>` 블록으로 전문을 낸다. SubagentStop 훅(`hooks/save-review-report.sh`)이 `reviews/<tid>-B-report.md` / `reviews/<tid>-C-report.md` 로 분할 저장하고(통과 판정이 아니면 `-feedback.md` 병기) 리뷰어에게 요약 재종료를 요구한다. 판정 SoT = reviews 파일 — 부모는 반환 요약이 아니라 파일을 읽어 판정한다. report 부재 시 부모 fallback 저장: 훅이 돌지 않았거나 블록 형식이 틀리면 리뷰어 전문이 그대로 반환되므로 부모가 태스크별로 분할 저장한다. 단 B/C dispatch 직전 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/review-saved.sh mark <FID> <B|C>` 를 남기고, 반환 뒤 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/review-saved.sh check <FID> <B|C> <tid>...` 가 rc 0 이면 반환 도구 경로의 훅(PreToolUse — 요약을 내지 않는다)이 이번 dispatch 뒤에 모든 tid 를 저장한 것이라 다시 쓰지 않는다 · rc 1 이면 출력된 tid 만 아래 규칙으로 저장한다 · rc 2(인자 오류·FID 디렉터리 없음)면 rc 1 처럼 전 tid 를 저장한다. 반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장한다 — 반환이 훅 요약(`저장:` 경로 목록)이 아니면 이전 라운드 report 가 남아 있어도 반환 전문으로 tid 별로 덮어써, 형식 오류·이동 실패로 옛 판정을 읽는 경로를 막는다
 
 > **부모 dispatch 프롬프트 규약 (형식을 그대로 옮길 것)**: Phase B/C dispatch 시 리뷰어에게 아래 형식을 지시한다. 속성을 생략하면 훅이 저장하지 않는다 — 형식이 어긋나면 훅이 `exit 1` 로 사유를 남기고 부모 fallback 경로로 떨어진다.
 >
@@ -262,7 +262,7 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
 - 단일 모드 + `irreversible: true` → 사전 승인 기록(`dispatch/<task-id>-approval.md` — `dev-autonomy.md` §1)이 있으면 다시 묻지 않고 진행, 없으면 task 내부 Step 0
 
 **reviewer 출력 파일 경로 규약** (file-based-communication-ko 준수 — reviewer 는 read-only, SubagentStop 훅이 저장 · report 부재 시 부모 fallback 저장):
-- `.specops/<FID>/reviews/<task-id>-B-report.md` — spec-reviewer-ko 판정 보고서(PASS/FAIL 무관). **SubagentStop 훅이 저장** — 부모는 fallback 조건(report 부재 · 반환에 훅 요약 없음)일 때만 저장
+- `.specops/<FID>/reviews/<task-id>-B-report.md` — spec-reviewer-ko 판정 보고서(PASS/FAIL 무관). **SubagentStop 훅이 저장** — 부모는 fallback 조건(report 부재 · 반환에 훅 요약 없음)일 때만 저장 · `review-saved.sh check` rc 0 이면 저장하지 않는다
 - `.specops/<FID>/reviews/<task-id>-B-feedback.md` — FAIL 시 implementer-ko 재dispatch 용 (B-report 와 동일 내용이거나 이슈 발췌)
 - `.specops/<FID>/reviews/<task-id>-C-feedback.md` — code-reviewer-ko 출력. **SubagentStop 훅이 저장** — 부모는 같은 fallback 조건일 때만 저장
 

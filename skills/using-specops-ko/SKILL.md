@@ -82,6 +82,8 @@ specops-ko:clarifying-ko (skill 본문이 다음 chain 명시)
 "PR 생성? [y/n]"
 ```
 
+> **기본 동작 `§일괄`**: 질문 묶음 → 승인 1회 → PR 까지 무정지. 위 단계별 확인은 `--step` — 슬래시로만(자연어 추론 금지).
+
 **핵심**: Conductor 에이전트 없음. 본 메타 skill + 각 engine skill 본문이 chain 형성.
 
 ## maintenance flag 분류 로직 (Phase D — 신규 추가)

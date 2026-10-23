@@ -494,9 +494,9 @@ if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일
      '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
      'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'psql' '청크' 'migrations/' \
      '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '^## 확인 필요' '확인 필요 1> — 확인 결과' \
-   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 12건' README.md && grep -q '^| db-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 13건' README.md && grep -q '^| db-designer-ko' README.md \
    && _dba_body_ok; then
-  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 12건·모델 표"
+  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 13건·모델 표"
 else
   nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
 fi
@@ -559,9 +559,9 @@ if [ -f "$_APA" ] && has "$_APA" '^model: opus$' '^effort: high$' '쓰는 파일
      '\*\*엇갈리는 규약\*\*.*한쪽을 강요하지 않는다\. api-spec 에 정한 규약과 plan 이 어긋날 때만 지적하고, 정하지 않았으면 `## 확인 필요` 로 묻는다' \
      'RFC 9457' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' 'plan\.md.*직접 수정하지 않는다' \
      '멱등 키 선점의 원자성\(유일 제약\)은 \*\*DB 전문가\*\* 몫이고, 인증·인가는 \*\*보안\*\* 분야, 타임아웃·재시도 정책\(횟수·백오프\)은 구조 분야다.*단 오류 응답의 입력값 반사는.*원칙 9' \
-   && ! grep -q '^role: evaluator' "$_APA" && grep -q 'agents/ .*← 12건' README.md && grep -q '^| api-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_APA" && grep -q 'agents/ .*← 13건' README.md && grep -q '^| api-designer-ko' README.md \
    && _apa_body_ok; then
-  ok "API 계약 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 공통 원칙 13(이름·본문·출처) · 엇갈리는 규약 · README 12건·모델 표"
+  ok "API 계약 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 공통 원칙 13(이름·본문·출처) · 엇갈리는 규약 · README 13건·모델 표"
 else
   nope "API 계약 전문가 에이전트" "파일·frontmatter·판정기 연계·원칙 13·범위 경계·README 중 빠진 것이 있다"
 fi
@@ -638,9 +638,9 @@ if [ -f "$_SDA" ] && has "$_SDA" '^model: opus$' '^effort: high$' '쓰는 파일
      'security-expert/patterns/oauth\.md` \| plan 이 OAuth·OIDC' \
      '^## 받는 컨텍스트' '^## 작업 순서' '^## 질문 틀' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
      '\*\*Bash 행동계약\*\*' \
-   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 12건' README.md && grep -q '^| security-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 13건' README.md && grep -q '^| security-designer-ko' README.md \
    && _sda_order_ok && _sda_body_ok; then
-  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 12건·모델 표"
+  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 13건·모델 표"
 else
   nope "보안 설계 전문가 에이전트" "파일·frontmatter·판정기 연계·질문 틀·원칙 16·범위 경계·패턴 표·README 중 빠진 것이 있다"
 fi
@@ -675,6 +675,29 @@ else
   nope "planning-ko 보안 전문가 패스" "위치(db=$_l_db4 sec=$_l_sec pr=$_l_pr4) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
 fi
 
+# 요구사항 이해 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 빈칸 증명(찾은 곳·빈칸) · 핵심 규칙 12(이름·근거 같은 줄) · 공통 원칙 5(출처 같은 줄) · README 13건·모델 표 (20261023-req-expert-integrate)
+_RQA=agents/req-designer-ko.md
+_rqa_rules_ok() {
+  local name
+  for name in '필드 상태마다 뜻' '결측이 섞인 계산' '유효 범위와 범위 밖 처리' '빈 결과의 원인별 결과' '실패 단위' '셈의 축' \
+              '보장의 주체' '실제 진입점까지' '버리는 경로의 신호' '기록의 위치와 주체' '비교 기준의 출처' '마스터 문서와 다른 값'; do
+    grep -F -- "- **$name**:" "$_RQA" | grep -qE '근거: Argus 2026[0-9]{4}-' || return 1
+  done
+  for name in '공유 경계는 한 곳에 정의' '흐린 말은 시나리오로' '검증 가능한 성공 기준' '엣지 케이스는 spec 에서' '결정은 사용자에게, 질문은 하나씩'; do
+    grep -F -- "- **$name**:" "$_RQA" | grep -qE '출처: .*\(MIT\)' || return 1
+  done
+  [ "$(awk '/^## 핵심 규칙/{f=1;next} /^## /{f=0} f' "$_RQA" | grep -c '^- \*\*')" -eq 12 ] && [ "$(awk '/^## 공통 원칙/{f=1;next} /^## /{f=0} f' "$_RQA" | grep -c '^- \*\*')" -eq 5 ] || return 1
+}
+if [ -f "$_RQA" ] && has "$_RQA" '^name: req-designer-ko$' '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/req\.md` 하나뿐이다' \
+     '^## 받는 컨텍스트' '^## 작업 순서' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^### Important 의 자격 — 빈칸 증명' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
+     '`찾은 곳:`' '`빈칸:`' 'Important 는 많아야 5건' '\*\*`## 확인 필요` 질문으로만\*\*' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' \
+   && ! grep -q '^role: evaluator' "$_RQA" && grep -q 'agents/ .*← 13건 .*req-designer' README.md && grep -qE '^\| req-designer-ko .*\| opus · high \|' README.md \
+   && _rqa_rules_ok; then
+  ok "요구사항 이해 전문가 에이전트 — opus·high · 산출 파일 하나 · 빈칸 증명 · 핵심 규칙 12(근거) · 공통 원칙 5(출처) · README 13건·모델 표"
+else
+  nope "요구사항 이해 전문가 에이전트" "파일·frontmatter·빈칸 증명·핵심 규칙·공통 원칙·README 중 빠진 것이 있다"
+fi
+
 # 테스트 설계 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 핵심 규칙 4(이름·본문·근거 같은 줄) · 공통 원칙 11(이름·본문·출처 같은 줄) · 설계표 변이 열 · 범위 경계 (20261022-test-designer-agent)
 _TDA=agents/test-designer-ko.md
 _tda_rules_ok() {
@@ -697,9 +720,9 @@ if [ -f "$_TDA" ] && has "$_TDA" '^model: opus$' '^effort: high$' '^reference_up
      'acceptance-criteria\.md' 'test-strategy\.md' '^## 수용 기준별 테스트 설계$' '^## 지적$' '^## 확인 필요' '\| AC \| 테스트 \| 떨어뜨리는 잘못된 구현 \| 단언\(값까지\) \| 픽스처가 태우는 경계 \|' \
      '`must` AC 는 모두 한 행씩 쓴다' '^\*\*확인한 사실 위에서만 심각도를 매긴다\*\*:' '테스트 DB 환경.*\*\*DB 전문가\*\*' \
      '^- plan\.md·spec\.md·acceptance-criteria\.md 는 직접 수정하지 않는다' '\*\*Bash 행동계약\*\*' \
-   && ! grep -q '^role: evaluator' "$_TDA" && grep -q 'agents/ .*← 12건 .*test-designer' README.md && grep -q '^| test-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_TDA" && grep -q 'agents/ .*← 13건 .*test-designer' README.md && grep -q '^| test-designer-ko' README.md \
    && _tda_rules_ok; then
-  ok "테스트 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 핵심 규칙 4(근거) · 공통 원칙 11(출처) · 설계표 변이 열 · 범위 경계 · README 12건·모델 표"
+  ok "테스트 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 핵심 규칙 4(근거) · 공통 원칙 11(출처) · 설계표 변이 열 · 범위 경계 · README 13건·모델 표"
 else
   nope "테스트 설계 전문가 에이전트" "파일·frontmatter·산출 계약·핵심 규칙·공통 원칙·설계표·범위 경계·README 중 빠진 것이 있다"
 fi

@@ -214,6 +214,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | req-designer-ko (요구사항 이해 전문가) | opus · high | 데이터가 비거나 이상할 때의 규칙 빈칸은 계획·구현 리뷰를 지나 운영에서 드러난다 — 데이터를 다루는 spec 만 집중 검토 |
 | ui-designer-ko (화면·UX 전문가) | opus · high | 화면 spec 의 빈 상태(오류가 0건으로 보임·일부 실패·앞서 가는 화면 값)는 구현 리뷰나 운영에서야 드러난다 — 기능 화면을 만들거나 고친 spec 만 집중 검토 |
 | db-designer-ko (DB 설계 전문가) | opus · high | DB 결함은 구현·운영에서 비싸다 — DB 를 건드리는 계획만 집중 검토 |
+| arch-designer-ko (구조 설계 전문가) | opus · high | 모듈 경계·전역 상태·실행 중 산출물 같은 구조 결함은 긴 계획서에 묻혀 계획 리뷰를 통과한다 — 새 모듈·계층·도메인 개념을 만드는 계획만 집중 검토 |
 | api-designer-ko (API 계약 전문가) | opus · high | API 계약 결함은 소비자가 생긴 뒤 고치기 어렵다 — 엔드포인트를 바꾸는 계획만 집중 검토 |
 | security-designer-ko (보안 설계 전문가) | opus · high | 인가·신뢰 경계 결함은 코드 뒤 스캐너가 못 잡는다 — 인증·인가·입력 경계·개인정보를 다루는 계획만 집중 검토 |
 | test-designer-ko (테스트 설계 전문가) | opus · high | 계획 리뷰를 통과한 테스트가 틀린 구현도 통과시킨다 — 테스트를 만들거나 고치는 계획의 검증력을 집중 검토 |
@@ -272,7 +273,7 @@ specops-ko/
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
 ├── skills/             flat: skills/<name>/SKILL.md × 30
 │                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 Harness(원칙)
-├── agents/             ← 14건  implementer · req-designer · ui-designer · db-designer · api-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
+├── agents/             ← 15건  implementer · req-designer · ui-designer · db-designer · arch-designer · api-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
 │                              design-reviewer · red-team · blue-team · auditor
 ├── templates/          ← 37건 (lifecycle 20 + /init-project 산출 14 + 기타 3)
 ├── scripts/            doctor · release · gbrain · security-scan · dag/ · tests/ · _internal/

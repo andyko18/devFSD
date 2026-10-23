@@ -107,7 +107,7 @@ claude plugin install specops-ko@specops-ko
 | `/brainstorming` | (선택) 구현 전 아이디어 탐색 |
 | `/design-screen(s)` · `/design-interface(s)` | lifecycle 밖 화면·인터페이스 단발 설계 |
 
-**기본 동작**: `/start`·`/maintain`·`/start-lite`·`/maintain-lite` 와 자연어 진입은 질문을 최대 2회 묶음으로 받고 intent·설계·스펙·화면·IF·답변을 **한 번에 승인**받은 뒤 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 은 그대로 멈춘다). 지금까지처럼 단계마다 확인하려면 `--step` 을 붙인다 — 예: `/start --step CSV 줄 수 세기 CLI`.
+**기본 동작**: `/start`·`/maintain`·`/start-lite`·`/maintain-lite` 와 자연어 진입은 질문을 최대 2회 묶음으로 받고 intent·설계·스펙·화면·IF·답변을 **한 번에 승인**받은 뒤 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 은 그대로 멈춘다). 지금까지처럼 단계마다 확인하려면 `--step` 을 붙인다 — 예: `/start --step CSV 줄 수 세기 CLI`. `/start-all` 도 같다 — 질문은 체인 전·Phase 1 끝 묶음 2회, 승인은 설계 승인(2.5-E) 1회(`/start-all --step` 은 지금처럼).
 
 **어느 걸 고를까**
 

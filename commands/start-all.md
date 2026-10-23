@@ -20,6 +20,8 @@ reference_upstream: specops-ko 독자 추가
 
 ## Process
 
+0. **기본 동작과 `--step`** — 인자가 `--step` 으로 시작하면 그 낱말을 떼고 `--step` 모드(아래 각 Phase 의 기존 동작 — FR 마다 묻고 Phase 2·2.5-E 에서 승인)로 돈다. 없으면 `§일괄` 모드: 질문은 Phase 1a·1c 의 묶음 2회(회당 많아야 4개), 승인은 Phase 2.5-E 의 승인 묶음 1회이고 그 사이는 묻지 않는다(규칙 원본 `skills/specifying-ko/once-approval.md`). 모드는 Phase 0 의 queue.md 생성 직후 헤더에 `mode: 일괄` 또는 `mode: step` 1줄로 남기고, 재진입하면 그 줄을 읽어 같은 모드로 돈다 — 줄이 없는 기존 ACTIVE queue(이 변경 전 batch)는 `step` 으로 보고, 재진입 인자에 `--step` 이 있으면 줄을 `mode: step` 으로 바꾼다(인자가 이긴다 · 반대로는 바꾸지 않는다). 그래도 멈추는 곳: plan-review·design-review Critical cap · 2.5-C Critical 충돌 · 비가역(HELD) · 보안 Critical/High · Phase 3 미완 · batch PR. `/start-all-auto` 는 이 절과 무관하다(auto 변형 문단이 따로 있다). `§auto` 분기(모드 문단과 A2 의 best-guess 포함)는 `/start-all-auto` 로 들어왔을 때만 적용한다(그 queue 에는 `mode:` 줄이 없다) — `mode: 일괄` batch 에서는 FR spec 라벨로 판정하지 않는다.
+
 ### Phase 0 — 준비
 
 1. **batch-id 결정 — 재개 키는 날짜가 아니라 `ACTIVE` 마커다**
@@ -120,6 +122,14 @@ reference_upstream: specops-ko 독자 추가
    디렉토리가 겹치지 않으므로 남의 queue 를 물려받지 않는다(구 날짜-키 규약의 뭉갬 경로 제거).
    FID 칸은 Phase 1에서 `BATCH-PHASE1-DONE: <FID>` 수신 후 `queue-set-status.sh` 가 채운다(스텝 3). Phase 1 은 **PENDING 만** 처리하므로 SKIP 은 자연 제외.
 
+### Phase 1a — 질문 묶음 1회 (`§일괄`)
+
+`mode: 일괄` 이 아니면(`--step`·`/start-all-auto`) 건너뛴다. `questions.md` 에 `## 1a` 절이 이미 있으면(재진입) 건너뛴다.
+
+1. PENDING FR 전체 행과 `.specops/memory/*` 를 읽고(결정 원장 확정 주제는 `check-decisions-ledger.sh` 로 확인해 뺀다), 답에 따라 FR 의 설계·AC 가 달라지는 질문만 고른다.
+2. 많아야 4개를 한 메시지로 묻는다 — 질문마다 관련 FR · 선택지와 영향 1줄 · 추천과 근거 1줄을 맨 앞에(AskUserQuestion 이 있으면 그것으로). 넘는 것은 묻지 않고 Phase 1 체인이 ASSUMED 로 정한다. 물을 것이 없으면 건너뛴다.
+3. `.specops/<BATCH_ID>/questions.md` 의 `## 1a` 절에 질문 · 추천 · 답 · 관련 FR 을 적는다. 답은 Phase 1 args 의 `결정:` 줄로 그 FR 에 전한다.
+
 ### Phase 1 — 전 FR spec→decompose (대화형)
 
 각 FR에 대해 **순서대로** 반복 (queue.md PENDING 항목):
@@ -130,6 +140,7 @@ reference_upstream: specops-ko 독자 추가
    <!-- batch-id: <BATCH_ID> -->
    <FR 원문 — FR-N 행의 설명 부분>
    ```
+   - **`§일괄`**: 둘째 줄 다음에 `<!-- auto: true -->` 셋째 줄을 넣고(`/start-all-auto` 와 같은 형식) FR 원문 아래에 Phase 1a 의 그 FR 답을 `결정: <질문> → <답>` 줄로 붙인다 — 체인은 묻지 않고 BLOCKING 을 `status: ASSUMED` 로 적는다.
 2. specifying-ko → clarifying-ko → planning-ko → decomposing-ko 체인 자동 진행 (FID는 specifying-ko Step 0이 결정)
    - **HARD**: batch 분기에서 specifying **Step 5.5·5.6 SKIP** — 화면·인터페이스 상세는 Phase 2.5 전담(통상 순서: 화면 → 인터페이스). Phase 1은 예정 화면/엔드포인트·테이블 **이름만** §참조에 남긴다.
    - clarifying은 `.specops/memory/decisions.md` 확정 주제를 재묻지 않음 (init 원장 우선).
@@ -143,6 +154,17 @@ reference_upstream: specops-ko 독자 추가
 4. 다음 PENDING FR 반복
 
 > **HARD GATE**: clarifying-ko의 BLOCKING 질문은 사용자 응답 필수. Phase 1은 대화형이다. (원장에 이미 확정된 주제는 BLOCKING에서 제외)
+> (`§일괄` 이면 체인은 묻지 않는다 — 질문은 Phase 1a·1c 묶음으로 받는다 · 위 HARD GATE 는 `--step` 모드 몫이다)
+
+### Phase 1c — 확인 묶음 1회 (`§일괄`)
+
+`mode: 일괄` 이 아니면(`--step`·`/start-all-auto`) 건너뛴다. 전 FR 이 PLAN_DONE 일 때:
+
+1. 이 batch 의 전 FID `clarifications.md` 에서 머리줄에 `BLOCKING · ASSUMED` 가 있는 블록을 모은다(queue.md 의 FID 칸 기준 · clarifying-ko Q-block 형식과 같은 문자열).
+2. 영향이 큰 것(아키텍처·저장소·핵심 입출력 먼저)부터 많아야 4개를 한 메시지로 묻는다 — 추측값을 추천으로 맨 앞에. 0건이면 건너뛴다.
+3. 답이 추측과 같으면 그 블록의 `status` 를 `RESOLVED` 로 바꾼다. 머리줄의 ` · ASSUMED` 도 뗀다(재진입한 1c 가 다시 모으지 않게).
+4. 다르면 **그 FR 만** 다시 돈다: clarifications 블록을 답·`RESOLVED` 로 고침(머리줄의 ` · ASSUMED` 도 뗀다) → 답이 AC 를 바꾸면 acceptance-criteria.md 에 append → `specops-ko:planning-ko` 를 그 FID 로 호출(§batch 라 plan-reviewer DEFER) → decomposing → `BATCH-PHASE1-DONE` → `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <FID> order "1c 답 변경 → clarify·plan·decompose 재실행" "<질문>: <추측> → <답>"`. 재실행이 plan 에서 실패하면 그 FR 을 HELD 로 바꾸지 않고 queue 상태와 FID 칸을 그대로 두며(PENDING 으로 되돌리면 재진입이 FID 를 새로 만든다), Phase 2 에 들어가지 않고 사용자에게 1줄 보고한다 — 재진입하면 1c 4번부터 그 FR 을 다시 돈다.
+5. 묻지 못한 나머지는 ASSUMED 그대로 두고 `questions.md` 의 `## 1c` 절에 질문 · 추천(추측) · 답(또는 `미질문 — ASSUMED`)을 적는다.
 
 ### Phase 2 — batch plan-review + 일괄 게이트
 
@@ -157,7 +179,7 @@ reference_upstream: specops-ko 독자 추가
    - 각 FID `dispatch-log.md`에 deferred 해소 행: `| … | plan-reviewer | plan-reviewer-ko | PASS|FAIL | batch Phase 2 |`
    - **PASS** → 선택: 외부 critic 최대 1회(대표 plan 또는 전 경로) 또는 `CRITIC: SKIP (batch defer)` 기록 → 스텝 2
    - **FAIL** (1회차): 이슈 목록으로 관련 FID `plan.md` 수정 → 필요 시 해당 FID만 `decomposing-ko` 재실행 → plan-reviewer **재dispatch 1회**
-   - **FAIL** (재시도 후): 부모가 `.specops/<BATCH_ID>/plan-review.md` 에서 **`^Critical:[[:space:]]*[1-9]`** 를 본다(Phase 2.5-D 와 **동일 기계 판정** — plan-reviewer 도 `Critical: <N>건` 을 출력한다). **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: batch plan-reviewer cap — 사용자 개입` 후 **정지**(§auto 자동통과 금지). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE, **§auto**만 가역 자동통과 + queue/다이제스트 기록 — 단 `^Critical:[[:space:]]*0` 줄이 **있을 때만** Critical=0 이다. `Critical:` 줄이 아예 없으면(리뷰어 출력 형식 이탈) 정지한다: 줄이 없다고 통과시키면 무인에서 Critical plan 이 지나간다(`planning-ko` 의 단일 모드 판정과 같은 방향).
+   - **FAIL** (재시도 후): 부모가 `.specops/<BATCH_ID>/plan-review.md` 에서 **`^Critical:[[:space:]]*[1-9]`** 를 본다(Phase 2.5-D 와 **동일 기계 판정** — plan-reviewer 도 `Critical: <N>건` 을 출력한다). **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: batch plan-reviewer cap — 사용자 개입` 후 **정지**(§auto 자동통과 금지). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE(§일괄 은 아래 2.6), **§auto**만 가역 자동통과 + queue/다이제스트 기록 — 단 `^Critical:[[:space:]]*0` 줄이 **있을 때만** Critical=0 이다. `Critical:` 줄이 아예 없으면(리뷰어 출력 형식 이탈) 정지한다: 줄이 없다고 통과시키면 무인에서 Critical plan 이 지나간다(`planning-ko` 의 단일 모드 판정과 같은 방향).
      > 산문 판단 금지(20260806): 무인에서 Critical 을 눈으로 세면 오판 시 **Critical plan 이 자동통과**한다 — 사람이 없다. 두 리뷰 축이 같은 패턴을 쓰게 고정한다.
    - **금지**: Phase 2 plan-review 생략 · 부모 self-review 대체 · FR마다 plan-reviewer 재실행
 
@@ -169,6 +191,8 @@ reference_upstream: specops-ko 독자 추가
    이 시점의 `api-spec`·`data-model` cross-FR 검수는 **하지 않는다**(Phase 2.5-B).
 
 2.5. **[§auto 모드]**: digest 수행 후 일괄 리뷰 게이트 **자동 통과** → Phase 2.5 직행 (가역 — 가정은 batch PR 다이제스트 집계). plan-review FAIL Critical cap이면 자동통과 금지.
+
+2.6. **[§일괄 모드]**: 아래 3 을 묻지 않고 Phase 2.5 로 간다(digest 는 2.5-E 승인 묶음에 싣는다 — A·B 가 모두 SKIP 이라 D·E 를 생략하는 batch 도 E 4 의 승인 묶음은 생략하지 않고 F 앞에서 2 의 질문으로 묻는다). plan-review Critical cap 정지는 그대로다. Critical 0 · Important 만 남은 cap 은 §auto 와 같이 지나가고 그 Important 를 2.5-E 승인 묶음에 싣는다.
 
 3. 단일 게이트: **"화면·인터페이스 설계 후 구현 진행? [y/n]"**
    - `n` → **중단**. 아티팩트·`feat/<BATCH_ID>` 보존. 재진입 시 Phase 2.5부터 가능(plan-review.md PASS 있으면 digest/[y/n]만 재개 가능)
@@ -217,6 +241,7 @@ reference_upstream: specops-ko 독자 추가
      - `diff` 잔여 차집합은 queue 헤더 산문 줄로 기록 + 사용자 고지. **차단하지 않는다** — 정당한 불일치가 많다(다음 마일스톤 선등재·`/design-screen` 개별 생성분).
    - **init 미확정 해소**: 재사용하는 화면에 `<미확정 — 근거 필요>` 가 남아 있고 이번 batch FR 이 그 값을 확정했으면 **그 마커만** 채운다(나머지 본문 유지). 채운 뒤 그 화면의 `screens-overview.md` 행 **목적 칸**에 적힌 `init 보강 (미확정 N)` 의 N 을 남은 마커 수로 고친다(0 이면 한 줄 목적으로 바꾼다) — `sync` 는 행을 추가할 뿐 칸을 고치지 않는다
 5. **[§auto 모드]**: 화면별 대화형 승인 **없이** 자동 반영. 생성 화면 목록은 batch PR 다이제스트에 집계. **셸 불변은 §auto도 HARD**.
+6. **[§일괄 모드]**: §auto 와 같이 대화 승인 없이 반영하고 생성 화면 목록을 E 승인 묶음에 싣는다. 셸 불변은 HARD 그대로다.
 
 #### A2. 화면 전문가 패스 (A 가 기능 화면을 만들거나 고쳤을 때 · batch 당 1회)
 
@@ -249,6 +274,7 @@ reference_upstream: specops-ko 독자 추가
    - **init 미확정 해소**: 갱신하는 행에 `<미확정 — 근거 필요>` 가 남아 있고 이번 batch FR 이 그 값을 확정했으면 **그 마커만** 채운다(나머지 본문 유지 · `<!-- foundation-baseline -->` 마커 안은 제외).
 3. 각 FID spec.md §1에 반영 요약 1줄(`**자동 결정 인터페이스**` 또는 대화형 동등 요약) + §참조에 api-spec/data-model 경로.
 4. **[§auto 모드]**: 인터페이스 대화형 승인 없이 자동 append(가역 — PR 다이제스트 집계). **마커 안 불변은 §auto도 HARD**.
+5. **[§일괄 모드]**: 대화 승인 없이 반영한다. memory 문서가 없으면 템플릿(제공 `templates/api-spec.md` · 외부 소비 `templates/api-spec-consumer.md` · `templates/data-model.md`)으로 만들고 E 승인 묶음에 싣는다(§auto 의 생성 금지와 다르다 — 사람이 E 에서 본다). 마커 안 불변은 HARD 그대로다.
 
 #### C. cross-FR 계약 리뷰 (오케스트레이터 quick)
 
@@ -257,7 +283,7 @@ reference_upstream: specops-ko 독자 추가
 
 #### D. 무거운 설계 리뷰 (`design-reviewer-ko`)
 
-> A(화면) 또는 B(IF) 중 **하나라도 산출**되면 **항상** Evaluator를 돌린다. 둘 다 SKIP이면 D·E 생략 → F(커밋 없이 Phase 3) 또는 빈 design 커밋 생략 후 Phase 3.
+> A(화면) 또는 B(IF) 중 **하나라도 산출**되면 **항상** Evaluator를 돌린다. 둘 다 SKIP이면 D·E 생략 → F(커밋 없이 Phase 3) 또는 빈 design 커밋 생략 후 Phase 3. (`§일괄` 은 E 4 의 승인 묶음만은 묻는다)
 
 1. **dispatch** — `Agent` 도구, `subagent_type: "specops-ko:design-reviewer-ko"`. 컨텍스트: `BATCH_ID` · PLAN_DONE FID 목록 · `screens/` · `api-spec.md` · `data-model.md` · 각 FID `spec.md` 경로.
 2. 부모는 리뷰어 stdout을 `.specops/<BATCH_ID>/design-review.md`에 저장한다 (리뷰어는 Write 없음).
@@ -267,8 +293,9 @@ reference_upstream: specops-ko 독자 추가
    | `DESIGN-REVIEW-RESULT: PASS` | E로 진행 |
    | `DESIGN-REVIEW-RESULT: FAIL` (1회차) | 이슈 목록으로 A/B 수정 → **재dispatch 1회** |
    | `DESIGN-REVIEW-RESULT: FAIL` (재시도 후) | 부모가 `design-review.md`에서 `^Critical:[[:space:]]*[1-9]` 를 본다. **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: design-reviewer Critical cap — 사용자 결정` 후 **정지**(§auto 자동통과 금지, queue에 사유 기록). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE. **§auto**만 `Important-only cap → §auto 자동통과` 를 queue/다이제스트에 기록 후 E(가역) — `^Critical:[[:space:]]*0` 줄이 있을 때만이다(줄이 없으면 정지) |
-   | `DESIGN-REVIEW-RESULT: SKIP` | D 대상 아님 — E 생략 후 F/Phase 3 |
+   | `DESIGN-REVIEW-RESULT: SKIP` | D 대상 아님 — E 생략 후 F/Phase 3 (`§일괄` 은 E 4 의 승인 묶음만은 묻는다) |
 4. **Evaluator 모델 불가 fallback**: `design-reviewer-ko` 의 지정 모델(별칭 sonnet) 불가(한도 소진·접근 불가) 시 부모 self-review 금지 — 같은 `design-reviewer-ko`를 가용 모델 override로 재dispatch. queue 또는 design-review.md 헤더에 `모델 fallback: <지정 모델> 불가 → <모델>` 기록 (`implementing-ko` 동일 원칙). 직후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-metric.sh --fid <대표-FID-또는-BATCH_ID가-FID형식이면그값> --phase evaluator-degradation --fallback true --model <override-model>` 실행(식별자만; BATCH_ID가 FID 형식이 아니면 PLAN_DONE 중 대표 FID 1개 사용).
+5. **[§일괄 모드]**: Critical=0 · Important 만 남은 cap 은 §auto 와 같이 지나가고 그 Important 를 E 승인 묶음에 싣는다. Critical cap 정지는 그대로다.
 
 #### E. 설계 승인 게이트
 
@@ -279,6 +306,7 @@ reference_upstream: specops-ko 독자 추가
    - `n` → A/B 수정 후 D부터 재개 (리뷰 재실행)
    - `y` → F
 3. **[§auto 모드]**: D가 PASS(또는 Important-only cap 자동통과)면 본 게이트 **자동 통과**. Critical cap 정지 시 E에 도달하지 않는다. 화면·IF·design-review 결과는 batch PR 다이제스트에 집계.
+4. **[§일괄 모드] — 유일한 승인 묶음**: 1 의 항목에 더해 ① `.specops/<BATCH_ID>/questions.md` 의 1a·1c 답 ② 이 batch 의 PLAN_DONE FID 마다 `clarifications.md` 의 머리줄 `· ASSUMED` 또는 `status: ASSUMED` 인 블록과 spec `**자동 결정 …**` 줄을 직접 모은 목록(`collect-assumptions.sh` 는 IMPL_DONE FID 만 집계해 이 시점에는 0건이다 — batch PR 게이트에서 쓴다) ③ 승인 뒤 자동 진행(Phase 3 → 통합·E2E·성능 → batch PR) ④ 그래도 멈추는 곳(plan·design Critical cap · 보안 Critical/High · Phase 3 HELD·미완 · batch PR) ⑤ plan·design 리뷰가 Important 만 남긴 cap(§auto 와 같이 지나간 것)을 한 메시지에 싣고 2 의 질문으로 묻는다. 승인되면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <대표 FID> approval "batch 승인 묶음 승인" "<요지>"` 1줄. `n` 은 2 와 같다. 이 batch 의 FR spec 에 `**§auto**: true` 가 있어도(§일괄 이 셋째 줄로 넣은 것) 3 을 적용하지 않는다 — 판정은 queue.md 의 `mode:` 줄이다. D 가 SKIP 이어도(A·B 모두 SKIP) 이 묶음은 묻는다 — 1 의 design-review 요약·화면·IF 칸은 `해당 없음`.
 
 #### F. design 산출물 커밋 → Phase 3
 

@@ -720,6 +720,21 @@ else
   nope "화면·UX 전문가 에이전트" "파일·frontmatter·빈칸 증명·핵심 규칙·공통 원칙·README 중 빠진 것이 있다"
 fi
 
+# 구조 전문가 패턴 파일 5개 — 출처·라이선스 머리 주석 · 규칙 수 6·6·7·6·6 · 원문에 없는 규칙은 표시 (20261021-arch-designer-agent · 20261023-arch-expert-integrate 이식)
+_arp_bad=""
+for _en in backend-layered-clean:6 backend-distributed:6 backend-runtime:7 frontend-react:6 frontend-nextjs:6; do
+  _e=${_en%%:*}; _n=${_en#*:}
+  _f="skills/planning-ko/arch-expert/patterns/$_e.md"
+  if [ ! -f "$_f" ]; then _arp_bad="$_arp_bad $_e(없음)"; continue; fi
+  head -1 "$_f" | grep -q 'reference_upstream: wshobson/agents@0874a27' || _arp_bad="$_arp_bad $_e(출처 주석)"
+  head -1 "$_f" | grep -q 'MIT' || _arp_bad="$_arp_bad $_e(라이선스)"
+  [ "$(grep -cE '^- ' "$_f")" -eq "$_n" ] || _arp_bad="$_arp_bad $_e(규칙 수 $_n 아님)"
+done
+grep -q '멱등.*specops-ko 추가' skills/planning-ko/arch-expert/patterns/backend-distributed.md 2>/dev/null || _arp_bad="$_arp_bad distributed(추가 규칙 표시 누락)"
+grep -q '직렬화할 수 있는 값' skills/planning-ko/arch-expert/patterns/frontend-nextjs.md 2>/dev/null || _arp_bad="$_arp_bad nextjs(직렬화 규칙 방향)"
+grep -q '단순 CRUD 는 엔티티 단위 저장소' skills/planning-ko/arch-expert/patterns/backend-layered-clean.md 2>/dev/null || _arp_bad="$_arp_bad layered-clean(집합체 저장소는 DDD 조건부)"
+[ -z "$_arp_bad" ] && ok "구조 전문가 패턴 파일 5개 — 출처·라이선스 · 규칙 수 6·6·7·6·6 · 추가 규칙 표시" || nope "구조 전문가 패턴 파일" "$_arp_bad"
+
 # 테스트 설계 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 핵심 규칙 4(이름·본문·근거 같은 줄) · 공통 원칙 11(이름·본문·출처 같은 줄) · 설계표 변이 열 · 범위 경계 (20261022-test-designer-agent)
 _TDA=agents/test-designer-ko.md
 _tda_rules_ok() {

@@ -59,4 +59,14 @@ _n=$(printf '%s\n' "$_re" | grep -c .); _u=$(printf '%s\n' "$_re" | sort -u | gr
 { [ "$_n" = 5 ] && [ "$_u" = 1 ] && printf '**§일괄**: true\n' | grep -qE "$_r1" \
   && ! printf '**§일괄**: false\n' | grep -qE "$_r1" && ! printf '§일괄: true\n' | grep -qE "$_r1" && ! printf '**§auto**: true\n' | grep -qE "$_r1"; } \
   && ok "O8.a 라벨 정규식 5곳·1종 · 양성 1 음성 3 (AC-2·4·5)" || nope "O8.a" "n=$_n u=$_u re=$_r1"
+# ── 진입 명령 --step (Task 4) ──
+for c in start maintain start-lite maintain-lite; do
+  _has "O6.$c commands/$c.md Process 의 --step·기본 §일괄 (AC-1)" "$(_sec "$PLUGIN/commands/$c.md" '^## Process' '^## ')" '`--step`' '<!-- step: true -->' '`§일괄`' 'once-approval.md' '없으면 넣지 않는다'
+done
+_has "O6.pos.start step 줄은 args 맨 앞 (AC-1)" "$(_sec "$PLUGIN/commands/start.md" '^## Process' '^## ')" '`<!-- step: true -->` 줄을 args 맨 앞에'
+for c in maintain start-lite maintain-lite; do
+  _has "O6.pos.$c step 줄은 약속어 다음 (AC-1)" "$(_sec "$PLUGIN/commands/$c.md" '^## Process' '^## ')" '약속어 줄(`<!-- entry: … -->`) 바로 다음 줄에'
+done
+_has "O7.a using-specops-ko 기본 동작 안내 (AC-1)" "$(cat "$SK/using-specops-ko/SKILL.md")" '**기본 동작 `§일괄`**' '`--step` — 슬래시로만(자연어 추론 금지)'
+_has "O7.b README 진입로 --step (AC-1)" "$(_sec "$PLUGIN/README.md" '^## 진입로' '^## ')" '`--step`' '한 번에 승인'
 finish

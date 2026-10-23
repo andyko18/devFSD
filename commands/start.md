@@ -18,6 +18,8 @@ specops-ko 한국어 자율 Lifecycle의 **단일 진입 슬래시**. 자연어 
 
 ## Process
 
+0. **기본 동작과 `--step`** — 인자가 `--step` 으로 시작하면 그 낱말(과 뒤 공백)을 떼고 `<!-- step: true -->` 줄을 args 맨 앞에 넣는다(지금까지의 단계별 확인). 없으면 넣지 않는다 — 기본은 `§일괄`: 질문은 최대 2회 묶음, intent·설계·스펙·AC·화면·IF·답변을 한 번에 승인받고 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 등은 그대로 멈춘다 — `skills/specifying-ko/once-approval.md`).
+
 1. **메타 skill 활성 확인** — `skills/using-specops-ko/SKILL.md`가 세션 시작 시 이미 활성돼 있어야 함. 아니면 수동으로 `Skill` 도구 호출
 2. **즉시 `specops-ko:specifying-ko` 스킬 호출** — 전달된 `<기능 설명>`을 초기 맥락으로 제공
 3. **이후 chain** — 각 engine skill 본문의 `## 다음 skill` 섹션이 자동 강제 (specifying-ko → clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR). 본 command는 **specifying-ko 진입만** 책임.

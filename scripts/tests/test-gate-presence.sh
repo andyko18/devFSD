@@ -928,12 +928,16 @@ _par=""; { [ -n "$_l_par" ] && [ -n "$_l_db9" ]; } && _par=$(sed -n "$((_l_par+1
 _miss=""
 for _n in '**발동 판단**은 각 절 기준 그대로 먼저 끝내고' '발동한 패스는 **한 메시지에서 동시에 dispatch** 한다' '읽는 순서이지 실행 순서가 아니다' '`check-security-design.sh` 를 먼저 1회' \
   '모두 돌아오면 DB → 구조 → API → 보안 순서로 반영' '하나로 합쳐 쓰고 두 파일의 `## 반영` 에 같은 1줄' '그 패스만 각 절 규칙대로 다시 부른다' \
-  '`| <N> | <ISO-8601> | expert-parallel | - | 동시 dispatch | <발동한 패스 목록> |` 1행'; do
+  '`| <N> | <ISO-8601> | expert-parallel | - | 동시 dispatch | <발동한 패스 목록> |` 1행' \
+  '그 결과를 기다리지 않고 진행하고, 다시 부른 패스는 돌아온 뒤 맨 뒤에 반영한다' '한쪽을 `기각(근거)` 으로 적는다' \
+  '4-1. 재판단 — 반영으로 plan.md 가 바뀌었으면 `check-security-design.sh` 를 다시 1회 실행' '발동하지 않았던 절은 바뀐 plan 으로 발동 기준을 다시 본다'; do
   printf '%s' "$_par" | grep -qF -- "$_n" || _miss="$_miss [$_n]"
 done
 printf '%s\n' "$_par" | grep -qxF -- '5. 다음 — 반영을 모두 마친 뒤 테스트 전문가 패스(직렬 — 반영된 plan 의 테스트를 본다) → 사전검사·경계 대조 재실행 1회 → plan-reviewer. 순서는 그대로다.' || _miss="$_miss [5단계 줄 전체]"
 [ "$(printf '%s\n' "$_par" | grep -o '테스트 전문가' | wc -l | tr -d ' ')" = 1 ] || _miss="$_miss [테스트 전문가가 5단계 밖에 나옴]"
 printf '%s\n' "$_par" | grep -q 'test-designer' && _miss="$_miss [병렬 절에 test-designer]"
+_l41=$(printf '%s\n' "$_par" | grep -n '^4-1\. 재판단' | head -1 | cut -d: -f1); _l5s=$(printf '%s\n' "$_par" | grep -n '^5\. 다음' | head -1 | cut -d: -f1); _l4s=$(printf '%s\n' "$_par" | grep -n '^4\. 실패' | head -1 | cut -d: -f1)
+{ [ -n "$_l41" ] && [ -n "$_l4s" ] && [ -n "$_l5s" ] && [ "$_l4s" -lt "$_l41" ] && [ "$_l41" -lt "$_l5s" ]; } || _miss="$_miss [4-1 위치 4<4-1<5]"
 grep -qx '### 전문가 패스 병렬 실행 (DB·구조·API·보안 — 20261024)' "$_PL" || _miss="$_miss [제목 줄 전체]"
 printf '%s\n' "$_par" | grep -oE '`\| [^|`]* \| [^|`]* \| expert-parallel \|[^`]*`' | grep -qE 'DONE|IMPL' && _miss="$_miss [expert-parallel 행에 DONE·IMPL]"
 _l_dbe9=$(awk -v s="$_l_db9" 'NR>s && /^### /{print NR; exit}' "$_PL"); _l_tse9=$(awk -v s="$_l_ts9" 'NR>s && /^### /{print NR; exit}' "$_PL")

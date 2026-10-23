@@ -598,7 +598,9 @@ if [ -n "$_l_db3" ] && [ -n "$_l_apiend" ] && [ -n "$_l_sec3" ] && [ -n "$_l_tst
    && ! printf '%s\n' "$_api_body" | grep -E '^\| [^|]*\| [^|]*\| api-expert \|' | grep -qE 'DONE|IMPL' \
    && ! printf '%s\n' "$_api_body" | grep -oE '`\| [^|`]* \| [^|`]* \| api-expert \|[^`]*`' | grep -qE 'DONE|IMPL' \
    && sed -n "${_l_sec3},$((_l_tst3-1))p" "$_PL" | grep -q 'API 전문가 패스 뒤' && ! sed -n "${_l_sec3},$((_l_tst3-1))p" "$_PL" | grep -q 'DB 전문가 패스 뒤' \
-   && sed -n "${_l_db3},$((_l_api-1))p" "$_PL" | grep -qF '뒤의 전문가 패스(API·보안·테스트)'; then
+   && _l_dbend3=$(awk -v s="$_l_db3" 'NR>s && /^### /{print NR; exit}' "$_PL") && [ -n "$_l_dbend3" ] \
+   && sed -n "${_l_db3},$((_l_dbend3-1))p" "$_PL" | grep -qF '뒤의 전문가 패스(구조·API·보안·테스트)' \
+   && sed -n "$((_l_api+1)),$((_l_apiend-1))p" "$_PL" | grep -m1 -v '^$' | grep -q '^구조 전문가 패스 뒤, plan-reviewer 를 부르기'; then
   ok "planning-ko API 전문가 패스 — DB → API → 보안 → 테스트 순 · 절 범위 문구 · 재검사 한 번 · 기록 3종 · batch 제외 · 앞뒤 절 순서 문구"
 else
   nope "planning-ko API 전문가 패스" "위치(db=$_l_db3 api=$_l_api end=$_l_apiend sec=$_l_sec3 tst=$_l_tst3 pr=$_l_pr3) · 절 범위 문구 · 순서 문구 · DONE 행 중 문제"
@@ -877,6 +879,33 @@ if [ -n "$_l_pa" ] && [ -n "$_l_pa2" ] && [ -n "$_l_pb" ] && [ "$_l_pa" -lt "$_l
   ok "start-all Phase 2.5 A2 화면 전문가 — A < A2 < B · 절 범위 문구 · batch 당 1회 · SKIP·산출 없음 기록 · E 게이트 이관 · 통상 순서"
 else
   nope "start-all Phase 2.5 A2 화면 전문가" "위치(A=$_l_pa A2=$_l_pa2 end=$_a2_end B=$_l_pb) · 절 범위 문구 · 통상 순서 줄 중 문제"
+fi
+
+# planning-ko 구조 전문가 패스 — DB < 구조 < API < 보안 < 테스트 < plan-reviewer · 절 범위(다음 ### 앞) · 발동 3종 · 극성(발동·미발동·판단 불가 시 부른다·§auto 부른다) · dispatch 입력 · 반영 줄 산출 경로 · dispatch · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음 (20261023-arch-expert-integrate)
+_l_db6=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_ar=$(grep -n '^### 구조 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_api6=$(grep -n '^### API 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_sec6=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_tst6=$(grep -n '^### 테스트 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_pr6=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
+_l_arend=""; [ -n "$_l_ar" ] && _l_arend=$(awk -v s="$_l_ar" 'NR>s && /^### /{print NR; exit}' "$_PL")
+_ar_body=""; [ -n "$_l_arend" ] && _ar_body=$(sed -n "${_l_ar},$((_l_arend-1))p" "$_PL")
+_ar_has() { local p; for p in "$@"; do printf '%s\n' "$_ar_body" | grep -qE -- "$p" || return 1; done; return 0; }
+if [ -n "$_l_db6" ] && [ -n "$_l_ar" ] && [ -n "$_l_api6" ] && [ -n "$_l_sec6" ] && [ -n "$_l_tst6" ] && [ -n "$_l_pr6" ] \
+   && [ "$_l_db6" -lt "$_l_ar" ] && [ "$_l_ar" -lt "$_l_api6" ] && [ "$_l_api6" -lt "$_l_sec6" ] && [ "$_l_sec6" -lt "$_l_tst6" ] && [ "$_l_tst6" -lt "$_l_pr6" ] && [ "$_l_arend" = "$_l_api6" ] \
+   && _ar_has '^- \*\*dispatch\*\*: `Agent` 도구, `subagent_type: "specops-ko:arch-designer-ko"` · 입력은 경로만 — `\.specops/<FID>/spec\.md` · `plan\.md` · `\.specops/memory/backend-architecture\.md`·`frontend-architecture\.md`\(있으면\) · `\$\{CLAUDE_PLUGIN_ROOT\}/skills/planning-ko/arch-expert/patterns/`\.$' \
+        'plan §2 파일 구조가 \*\*새 폴더·새 모듈·새 계층\*\*을 만들거나, 경계 약속의 허용 의존에 \*\*새 의존 방향\*\*이 생기거나, spec 에 \*\*새 도메인 개념\*\*\(엔티티·상태\)이 생기면 발동한다\. 기존 파일 수정뿐이거나 문서·테스트만 바꾸면 발동하지 않는다\. 파일 구조·태스크로 판단이 서지 않으면 부른다\(' \
+        '`§batch` 는 이 패스 미적용\(기록 행도 남기지 않는다\) · `§auto` 는 그대로 부른다\.' \
+        '^- \*\*반영\*\*: `\.specops/<FID>/experts/arch\.md` 의 지적' '마지막 전문가 패스 뒤에 한 번만' \
+        '부모가 대신 검토하지 않는다\)\. `experts/arch\.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 ' \
+        '\| arch-expert \| arch-designer-ko \| 반영 \|' '\| arch-expert \| - \| SKIP \| 구조 표면 없음 \|' '\| arch-expert \| arch-designer-ko \| 산출 없음 \|' \
+   && printf '%s\n' "$_ar_body" | sed -n 3p | grep -q '^DB 전문가 패스 뒤, plan-reviewer 를 부르기' \
+   && [ "$(printf '%s\n' "$_ar_body" | sed 1d | grep -c '^ *#')" -eq 0 ] \
+   && ! printf '%s\n' "$_ar_body" | grep -E '^ *\| [^|]*\| [^|]*\| arch-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! printf '%s\n' "$_ar_body" | grep -oE '`\| [^|`]* \| [^|`]* \| arch-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+  ok "planning-ko 구조 전문가 패스 — DB < 구조 < API < 보안 < 테스트 · 절 범위 문구 · 발동 3종 · 재검사 한 번 · 기록 3종 · batch 제외"
+else
+  nope "planning-ko 구조 전문가 패스" "위치(db=$_l_db6 arch=$_l_ar end=$_l_arend api=$_l_api6 sec=$_l_sec6 tst=$_l_tst6 pr=$_l_pr6) · 절 범위 문구 · DONE 행 중 문제"
 fi
 
 finish

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.32.0] — 2026-10-24
+
 ### Added
 
 - scripts/prompt-kinds.sh — 사람 프롬프트 가운데 20자 이하를 단계승인·외부승인·결정위임·진행확인·다음단계·기타짧음으로 세는 관측 스크립트(본문 미출력). 소요 단축 전후 비교용.
@@ -3420,7 +3422,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.31.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.32.0...HEAD
+[2.32.0]: https://github.com/andyko18/specops-ko/compare/v2.31.0...v2.32.0
 [2.31.0]: https://github.com/andyko18/specops-ko/compare/v2.30.0...v2.31.0
 [2.30.0]: https://github.com/andyko18/specops-ko/compare/v2.29.0...v2.30.0
 [2.29.0]: https://github.com/andyko18/specops-ko/compare/v2.28.0...v2.29.0

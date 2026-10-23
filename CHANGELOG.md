@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- planning 에 구조 설계 전문가 패스를 더했다(`agents/arch-designer-ko.md` · opus · high). 새 폴더·모듈·계층·의존 방향·도메인 개념을 만드는 FID 에서 DB 전문가 패스 뒤·API 전문가 패스 앞(순서 DB → 구조 → API → 보안 → 테스트)에 dispatch 되어 모듈 경계·인터페이스·이음새·의존 방향·도메인 모델과 프로세스 전역 설정(핵심 규칙 1 · 공통 원칙 10)을 보고 지적과 고친 문안을 `experts/arch.md` 에 쓴다. Critical·Important 는 결함을 만드는 plan 원문을 `찾은 곳:` 으로 인용하고 `영향:` 을 적을 때만 내고, plan 이 정한 구조 결정에 대한 이견은 질문으로만 낸다(많아야 5건). plan 이 직접 적은 명령·호출이 그 도구의 문서화된 기본 동작 때문에 결함이 되면 실행하지 않아도 확인한 사실로 본다. 패턴 지식 파일 5개(`skills/planning-ko/arch-expert/patterns/` — 계층형·분산·런타임·React·Next.js)는 조건이 맞을 때만 읽는다. `§batch` 는 미적용. 출처는 mattpocock/skills · wshobson/agents · davila7/claude-code-templates(모두 MIT)이며 한국어로 재작성했다. 효과는 Argus 실제 계획 2건 × 3회로 쟀다 — plan-reviewer 0/6 → arch-designer 5/6, 결함 없는 대조군(e-18)에서 헛지적 0/3(인용형 채점). 「문서화된 기본 동작」 예외는 이전 측정의 실패를 보고 만든 규칙이라 그 사례에 유리할 수 있다 — 새 사례 확인은 후속. 측정 케이스는 `specifying-ko/evals.json` e-14~e-18 · e-29~e-32. 원 초안 #219 를 대신한다.
+
 ## [2.30.0] — 2026-10-23
 
 ### Added

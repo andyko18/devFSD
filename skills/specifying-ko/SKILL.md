@@ -279,6 +279,12 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
    - **반영**: `.specops/<FID>/experts/req.md` 의 지적은 spec·AC 에 반영하거나 기각하고 같은 파일 끝 `## 반영` 에 `반영(spec §/AC-N)` 또는 `기각(근거)` 1줄씩 적는다. `## 확인 필요` 질문은 spec §8 열린 질문으로 옮긴다(clarifying-ko 가 사용자에게 묻는다). `§auto` 면 질문을 best-guess 로 정해 §8 에 `(ASSUMED)` 로 남긴다.
    - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/req.md` 가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | req-expert | req-designer-ko | 산출 없음 | - |` 를 남기고 7 로 진행한다.
    - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | req-expert | req-designer-ko | 반영 | experts/req.md (지적 N · 반영 N · 기각 N · 질문 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | req-expert | - | SKIP | 데이터 표면 없음 |` 1행.
+6.6. **[기능 화면을 만들거나 고친 FID] 화면 전문가 패스** — 6.5 뒤, 자체 검토(7) 전에 부른다. 이번 FID 가 Step 5.5 에서 기능 화면 `screens/<name>.md` 를 만들거나 고쳤으면 발동한다(측정: 화면 상태 빈칸 결함을 design-reviewer 5/6 · 이 전문가 6/6 · 결함 없는 대조군 헛지적 0/3). spec·AC 가 있어야 하므로 화면 설계(5.5) 직후가 아니라 여기서 부른다.
+   - **제외**: `§batch`(`/start-all` Phase 2.5 A2 가 batch 당 1회 맡는다) · `§lite`(`/start-lite`·`/maintain-lite`) · `§유형: trivial` · foundation 셸 화면(`<!-- foundation-shell -->`)만 바꾼 경우는 부르지 않는다(기록 행도 남기지 않는다). 화면 변경이 없으면 부르지 않고 SKIP 행을 남긴다. 유지보수 분기와 `§auto` 는 부른다.
+   - **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:ui-designer-ko"` · 입력은 경로만 — 이번에 만든·고친 `screens/<name>.md`·`.html` · `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `DESIGN.md`(있으면).
+   - **반영**: `.specops/<FID>/experts/ui.md` 의 지적은 화면 파일에 반영하거나 기각하고 같은 파일 끝 `## 반영` 에 `반영(screens/<name>.md §)` 또는 `기각(근거)` 1줄씩 적는다. `## 확인 필요` 질문은 spec §8 열린 질문으로 옮긴다(clarifying-ko 가 사용자에게 묻는다). `§auto` 면 질문을 best-guess 로 정해 §8 에 `(ASSUMED)` 로 남긴다. 사용자 검토(8)에서 바뀐 화면 행을 함께 보여 준다.
+   - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/ui.md` 가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | ui-expert | ui-designer-ko | 산출 없음 | - |` 를 남기고 7 로 진행한다.
+   - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | ui-expert | ui-designer-ko | 반영 | experts/ui.md (지적 N · 반영 N · 기각 N · 질문 N) |`. 화면 변경이 없으면 `| <N> | <ISO-8601> | ui-expert | - | SKIP | 화면 변경 없음 |` 1행.
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
 8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기
 9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /specify 완료 "spec.md, AC.md" "<기능명>"` (첫 진입이라 신규 FID 섹션 생성)
@@ -339,6 +345,8 @@ screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 (참고용)
                               설계 문서 작성 (spec.md — §참조에 screens/ + api-spec/data-model 포함)
                                    ↓
                               데이터를 다루는 spec? ── yes ──▶ 요구사항 전문가 패스 (Step 6.5)
+                                   ↓
+                              화면을 만들거나 고쳤나? ── yes ──▶ 화면 전문가 패스 (Step 6.6)
                                    ↓
                               스펙 자체 검토 (인라인 수정)
                                    ↓

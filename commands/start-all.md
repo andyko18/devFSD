@@ -175,7 +175,7 @@ reference_upstream: specops-ko 독자 추가
    - `y` → Phase 2.5 진입
 
 ### Phase 2.5 — batch 통합 design-first (화면 → 인터페이스)
-> **왜 여기 통합 단계인가**: specifying Step 5.5·5.6은 batch에서 **SKIP**한다. FR마다 화면·IF를 돌리면 batch 이점을 깨뜨리므로, 구현 직전 **1회 통합**한다. 통상 순서: **A 화면 → B 인터페이스 → C cross-FR → D 무거운 설계 리뷰 → E 승인 → F 커밋**.
+> **왜 여기 통합 단계인가**: specifying Step 5.5·5.6은 batch에서 **SKIP**한다. FR마다 화면·IF를 돌리면 batch 이점을 깨뜨리므로, 구현 직전 **1회 통합**한다. 통상 순서: **A 화면 → A2 화면 전문가 → B 인터페이스 → C cross-FR → D 무거운 설계 리뷰 → E 승인 → F 커밋**.
 
 #### A. 통합 화면 설계 (UI 기능 시)
 
@@ -217,6 +217,16 @@ reference_upstream: specops-ko 독자 추가
      - `diff` 잔여 차집합은 queue 헤더 산문 줄로 기록 + 사용자 고지. **차단하지 않는다** — 정당한 불일치가 많다(다음 마일스톤 선등재·`/design-screen` 개별 생성분).
    - **init 미확정 해소**: 재사용하는 화면에 `<미확정 — 근거 필요>` 가 남아 있고 이번 batch FR 이 그 값을 확정했으면 **그 마커만** 채운다(나머지 본문 유지). 채운 뒤 그 화면의 `screens-overview.md` 행 **목적 칸**에 적힌 `init 보강 (미확정 N)` 의 N 을 남은 마커 수로 고친다(0 이면 한 줄 목적으로 바꾼다) — `sync` 는 행을 추가할 뿐 칸을 고치지 않는다
 5. **[§auto 모드]**: 화면별 대화형 승인 **없이** 자동 반영. 생성 화면 목록은 batch PR 다이제스트에 집계. **셸 불변은 §auto도 HARD**.
+
+#### A2. 화면 전문가 패스 (A 가 기능 화면을 만들거나 고쳤을 때 · batch 당 1회)
+
+> 단일 경로의 specifying Step 6.6 과 같은 에이전트다. batch 는 Step 6.6 을 건너뛰므로(§batch 제외) 여기서 한 번에 본다. D(`design-reviewer-ko`)의 독립 판정은 그대로다 — 전문가는 리뷰 앞에서 빈칸을 채우고 리뷰어는 따로 판정한다.
+
+1. **발동** — A 에서 기능 화면 `screens/<name>.md` 를 만들거나 고쳤으면 부른다. foundation 셸(`<!-- foundation-shell -->`)만 재사용했거나 A 가 SKIP 이면 `UI-EXPERT: SKIP — 화면 산출 없음` 을 `queue.md` 헤더 산문 줄로 기록하고 B 로 간다(`|` 로 시작 금지).
+2. **dispatch** — `Agent` 도구, `subagent_type: "specops-ko:ui-designer-ko"`, batch 당 1회. 입력은 경로만 — 이번 batch 가 만든·고친 `screens/<name>.md`·`.html` · PLAN_DONE FID 의 `spec.md`·`acceptance-criteria.md` · `DESIGN.md`(있으면) · `BATCH_ID` 와 산출 경로 `.specops/<BATCH_ID>/experts/ui.md`(산출 경로의 `<FID>` 자리에만 `<BATCH_ID>` 를 쓴다고 프롬프트에 적는다). 산출은 그 파일 하나다.
+3. **반영** — 지적은 화면 파일에 반영하거나 기각하고 `experts/ui.md` 끝 `## 반영` 에 1줄씩 적는다. `## 확인 필요` 질문은 E 설계 승인 게이트에서 함께 묻는다 — `§auto` 면 best-guess 로 정해 `(ASSUMED)` 로 queue 다이제스트에 남긴다.
+4. **모델 불가·산출 없음** — opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). 산출이 없으면 1회 다시 부르고, 그래도 없으면 `queue.md` 에 `UI-EXPERT: 산출 없음` 을 산문 줄로 남기고 B 로 간다.
+5. 반영 뒤 B 로 진행한다(인터페이스 도출은 반영된 화면의 Interactions 를 쓴다).
 
 #### B. 통합 인터페이스 설계 (API/스키마 기능 시 · 화면 직후)
 
@@ -264,6 +274,7 @@ reference_upstream: specops-ko 독자 추가
 
 1. `design-review.md` 요약(Critical/Important/Minor 건수 + 상위 이슈) + 화면 목록 + IF 변경 요약을 제시.
    - FR 별 intent 1줄 요약(문제 → 기대 결과) — `.specops/<FID>/intent.md` 에서 발췌
+   - A2 의 `experts/ui.md` `## 확인 필요` 질문(있으면) — 사용자가 답한 내용은 화면 파일에 반영한 뒤 F 로 간다
 2. 대화형: **"이 설계로 구현 진행? [y/n]"**
    - `n` → A/B 수정 후 D부터 재개 (리뷰 재실행)
    - `y` → F

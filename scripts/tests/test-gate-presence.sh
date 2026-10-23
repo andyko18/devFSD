@@ -494,9 +494,9 @@ if [ -f "$_DBA" ] && has "$_DBA" '^model: opus$' '^effort: high$' '쓰는 파일
      '\*\*커밋 경계\*\*' '\*\*인덱스 선두 컬럼\*\*' '\*\*문서와 구현 타입 일치\*\*' '\*\*fixture 대상 확인\*\*' '\*\*롤백·재전환 행 보존\*\*' \
      'plan\.md.*직접 수정하지 않는다' '^## 빈 출력 규칙' '\*\*Bash 행동계약\*\*' 'psql' '청크' 'migrations/' \
      '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '^## 확인 필요' '확인 필요 1> — 확인 결과' \
-   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 13건' README.md && grep -q '^| db-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_DBA" && ! grep -q '미대조' "$_DBA" && grep -q 'agents/ .*← 14건' README.md && grep -q '^| db-designer-ko' README.md \
    && _dba_body_ok; then
-  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 13건·모델 표"
+  ok "DB 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 사고 11규칙 · 확인 필요 절(심각도 없음) · 엔진 선택 · README 14건·모델 표"
 else
   nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
 fi
@@ -559,9 +559,9 @@ if [ -f "$_APA" ] && has "$_APA" '^model: opus$' '^effort: high$' '쓰는 파일
      '\*\*엇갈리는 규약\*\*.*한쪽을 강요하지 않는다\. api-spec 에 정한 규약과 plan 이 어긋날 때만 지적하고, 정하지 않았으면 `## 확인 필요` 로 묻는다' \
      'RFC 9457' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' 'plan\.md.*직접 수정하지 않는다' \
      '멱등 키 선점의 원자성\(유일 제약\)은 \*\*DB 전문가\*\* 몫이고, 인증·인가는 \*\*보안\*\* 분야, 타임아웃·재시도 정책\(횟수·백오프\)은 구조 분야다.*단 오류 응답의 입력값 반사는.*원칙 9' \
-   && ! grep -q '^role: evaluator' "$_APA" && grep -q 'agents/ .*← 13건' README.md && grep -q '^| api-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_APA" && grep -q 'agents/ .*← 14건' README.md && grep -q '^| api-designer-ko' README.md \
    && _apa_body_ok; then
-  ok "API 계약 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 공통 원칙 13(이름·본문·출처) · 엇갈리는 규약 · README 13건·모델 표"
+  ok "API 계약 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 공통 원칙 13(이름·본문·출처) · 엇갈리는 규약 · README 14건·모델 표"
 else
   nope "API 계약 전문가 에이전트" "파일·frontmatter·판정기 연계·원칙 13·범위 경계·README 중 빠진 것이 있다"
 fi
@@ -638,9 +638,9 @@ if [ -f "$_SDA" ] && has "$_SDA" '^model: opus$' '^effort: high$' '쓰는 파일
      'security-expert/patterns/oauth\.md` \| plan 이 OAuth·OIDC' \
      '^## 받는 컨텍스트' '^## 작업 순서' '^## 질문 틀' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
      '\*\*Bash 행동계약\*\*' \
-   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 13건' README.md && grep -q '^| security-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_SDA" && grep -q 'agents/ .*← 14건' README.md && grep -q '^| security-designer-ko' README.md \
    && _sda_order_ok && _sda_body_ok; then
-  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 13건·모델 표"
+  ok "보안 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 판정기 선실행 · 질문 틀(경계 먼저·STRIDE 는 이번 FID) · 원칙 16(이름·본문·출처) · 범위 경계 · README 14건·모델 표"
 else
   nope "보안 설계 전문가 에이전트" "파일·frontmatter·판정기 연계·질문 틀·원칙 16·범위 경계·패턴 표·README 중 빠진 것이 있다"
 fi
@@ -675,7 +675,7 @@ else
   nope "planning-ko 보안 전문가 패스" "위치(db=$_l_db4 sec=$_l_sec pr=$_l_pr4) · 필수 문구 · 하위 제목 · DONE 행 중 문제"
 fi
 
-# 요구사항 이해 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 빈칸 증명(찾은 곳·빈칸) · 핵심 규칙 12(이름·근거 같은 줄) · 공통 원칙 5(출처 같은 줄) · README 13건·모델 표 (20261023-req-expert-integrate)
+# 요구사항 이해 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 빈칸 증명(찾은 곳·빈칸) · 핵심 규칙 12(이름·근거 같은 줄) · 공통 원칙 5(출처 같은 줄) · README 14건·모델 표 (20261023-req-expert-integrate)
 _RQA=agents/req-designer-ko.md
 _rqa_rules_ok() {
   local name
@@ -691,11 +691,33 @@ _rqa_rules_ok() {
 if [ -f "$_RQA" ] && has "$_RQA" '^name: req-designer-ko$' '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/req\.md` 하나뿐이다' \
      '^## 받는 컨텍스트' '^## 작업 순서' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^### Important 의 자격 — 빈칸 증명' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
      '`찾은 곳:`' '`빈칸:`' 'Important 는 많아야 5건' '\*\*`## 확인 필요` 질문으로만\*\*' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' \
-   && ! grep -q '^role: evaluator' "$_RQA" && grep -q 'agents/ .*← 13건 .*req-designer' README.md && grep -qE '^\| req-designer-ko .*\| opus · high \|' README.md \
+   && ! grep -q '^role: evaluator' "$_RQA" && grep -q 'agents/ .*← 14건 .*req-designer' README.md && grep -qE '^\| req-designer-ko .*\| opus · high \|' README.md \
    && _rqa_rules_ok; then
-  ok "요구사항 이해 전문가 에이전트 — opus·high · 산출 파일 하나 · 빈칸 증명 · 핵심 규칙 12(근거) · 공통 원칙 5(출처) · README 13건·모델 표"
+  ok "요구사항 이해 전문가 에이전트 — opus·high · 산출 파일 하나 · 빈칸 증명 · 핵심 규칙 12(근거) · 공통 원칙 5(출처) · README 14건·모델 표"
 else
   nope "요구사항 이해 전문가 에이전트" "파일·frontmatter·빈칸 증명·핵심 규칙·공통 원칙·README 중 빠진 것이 있다"
+fi
+
+# 화면·UX 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 빈칸 증명(찾은 곳·빈칸) · 핵심 규칙 8(이름·근거 같은 줄) · 공통 원칙 4(출처 같은 줄) · Critical 없음 · README 14건·모델 표 (20261023-ui-expert-integrate)
+_UIA=agents/ui-designer-ko.md
+_uia_rules_ok() {
+  local name
+  for name in '로딩·오류·0건 구분' '일부 실패' '공통 컴포넌트 계약 대조' '색만으로 전달 금지' '알림 수준' '같은 목적 입력의 동작 통일' '근거 없는 라벨 금지' '앞서 가는 화면 값'; do
+    grep -F -- "- **$name**:" "$_UIA" | grep -qE '근거: Argus 2026[0-9]{4}-' || return 1
+  done
+  for name in '안내 문구의 실행 가능성' '디자인 토큰 밖 색' '포커스 이동' '부분 데이터가 없는 것보다 낫다'; do
+    grep -F -- "- **$name**:" "$_UIA" | grep -qE '출처: .*\((MIT|Apache-2\.0)\)' || return 1
+  done
+  [ "$(awk '/^## 핵심 규칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 8 ] && [ "$(awk '/^## 공통 원칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 4 ] || return 1
+}
+if [ -f "$_UIA" ] && has "$_UIA" '^name: ui-designer-ko$' '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/ui\.md` 하나뿐이다' \
+     '^## 받는 컨텍스트' '^## 작업 순서' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^### Important 의 자격 — 빈칸 증명' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
+     '`찾은 곳:`' '`빈칸:`' 'Important 는 많아야 5건' '\*\*`## 확인 필요` 질문으로만\*\*' 'Critical 은 쓰지 않는다' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' \
+   && ! grep -q '^role: evaluator' "$_UIA" && grep -q 'agents/ .*← 14건 .*ui-designer' README.md && grep -qE '^\| ui-designer-ko .*\| opus · high \|' README.md \
+   && _uia_rules_ok; then
+  ok "화면·UX 전문가 에이전트 — opus·high · 산출 파일 하나 · 빈칸 증명 · 핵심 규칙 8(근거) · 공통 원칙 4(출처) · Critical 없음 · README 14건·모델 표"
+else
+  nope "화면·UX 전문가 에이전트" "파일·frontmatter·빈칸 증명·핵심 규칙·공통 원칙·README 중 빠진 것이 있다"
 fi
 
 # 테스트 설계 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 핵심 규칙 4(이름·본문·근거 같은 줄) · 공통 원칙 11(이름·본문·출처 같은 줄) · 설계표 변이 열 · 범위 경계 (20261022-test-designer-agent)
@@ -720,9 +742,9 @@ if [ -f "$_TDA" ] && has "$_TDA" '^model: opus$' '^effort: high$' '^reference_up
      'acceptance-criteria\.md' 'test-strategy\.md' '^## 수용 기준별 테스트 설계$' '^## 지적$' '^## 확인 필요' '\| AC \| 테스트 \| 떨어뜨리는 잘못된 구현 \| 단언\(값까지\) \| 픽스처가 태우는 경계 \|' \
      '`must` AC 는 모두 한 행씩 쓴다' '^\*\*확인한 사실 위에서만 심각도를 매긴다\*\*:' '테스트 DB 환경.*\*\*DB 전문가\*\*' \
      '^- plan\.md·spec\.md·acceptance-criteria\.md 는 직접 수정하지 않는다' '\*\*Bash 행동계약\*\*' \
-   && ! grep -q '^role: evaluator' "$_TDA" && grep -q 'agents/ .*← 13건 .*test-designer' README.md && grep -q '^| test-designer-ko' README.md \
+   && ! grep -q '^role: evaluator' "$_TDA" && grep -q 'agents/ .*← 14건 .*test-designer' README.md && grep -q '^| test-designer-ko' README.md \
    && _tda_rules_ok; then
-  ok "테스트 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 핵심 규칙 4(근거) · 공통 원칙 11(출처) · 설계표 변이 열 · 범위 경계 · README 13건·모델 표"
+  ok "테스트 설계 전문가 에이전트 — opus·high · 산출 파일 하나 · 핵심 규칙 4(근거) · 공통 원칙 11(출처) · 설계표 변이 열 · 범위 경계 · README 14건·모델 표"
 else
   nope "테스트 설계 전문가 에이전트" "파일·frontmatter·산출 계약·핵심 규칙·공통 원칙·설계표·범위 경계·README 중 빠진 것이 있다"
 fi
@@ -750,8 +772,9 @@ _SPK=skills/specifying-ko/SKILL.md
 _l_s6=$(grep -n '^6\. \*\*설계 문서 작성\*\*' "$_SPK" | head -1 | cut -d: -f1)
 _l_s65=$(grep -n '^6\.5\. ' "$_SPK" | head -1 | cut -d: -f1)
 _l_s7=$(grep -n '^7\. \*\*스펙 자체 검토\*\*' "$_SPK" | head -1 | cut -d: -f1)
+_l_s65end=""; [ -n "$_l_s65" ] && _l_s65end=$(awk -v s="$_l_s65" 'NR>s && /^[0-9]+(\.[0-9]+)?\. /{print NR; exit}' "$_SPK")   # 6.5 다음 번호 항목(6.6 등) — 뒤 항목 문구로 통과하지 않게
 _s65_body=""
-[ -n "$_l_s65" ] && [ -n "$_l_s7" ] && [ "$_l_s65" -lt "$_l_s7" ] && _s65_body=$(sed -n "${_l_s65},$((_l_s7-1))p" "$_SPK")
+[ -n "$_l_s65" ] && [ -n "$_l_s7" ] && [ "$_l_s65" -lt "$_l_s7" ] && [ -n "$_l_s65end" ] && _s65_body=$(sed -n "${_l_s65},$((_l_s65end-1))p" "$_SPK")
 _s65_has() { local p; for p in "$@"; do printf '%s\n' "$_s65_body" | grep -qE -- "$p" || return 1; done; return 0; }
 _s65_ex=$(printf '%s\n' "$_s65_body" | grep -E '^   - \*\*제외\*\*:')
 if [ -n "$_l_s6" ] && [ -n "$_s65_body" ] && [ "$_l_s6" -lt "$_l_s65" ] \
@@ -768,6 +791,52 @@ if [ -n "$_l_s6" ] && [ -n "$_s65_body" ] && [ "$_l_s6" -lt "$_l_s65" ] \
   ok "specifying-ko Step 6.5 요구사항 전문가 — 6 < 6.5 < 7 · 절 범위 문구 · 제외 5종 · §8 이관 · 기록 3종 · DONE 없음"
 else
   nope "specifying-ko Step 6.5 요구사항 전문가" "위치(6=$_l_s6 6.5=$_l_s65 7=$_l_s7) · 절 범위 문구 · 하위 제목 · DONE 행 중 문제"
+fi
+
+# specifying-ko Step 6.6 화면 전문가 — 6.5 < 6.6 < 7 · 절 범위(6.6 줄 ~ 다음 번호 항목 앞) · 제외(무기록 4 · SKIP 1) · §8 이관 · 기록 3종(DONE 금지) (20261023-ui-expert-integrate)
+_l_s66=$(grep -n '^6\.6\. ' "$_SPK" | head -1 | cut -d: -f1)
+_l_s66end=""; [ -n "$_l_s66" ] && _l_s66end=$(awk -v s="$_l_s66" 'NR>s && /^[0-9]+(\.[0-9]+)?\. /{print NR; exit}' "$_SPK")
+_s66_body=""; [ -n "$_l_s66end" ] && _s66_body=$(sed -n "${_l_s66},$((_l_s66end-1))p" "$_SPK")
+_s66_has() { local p; for p in "$@"; do printf '%s\n' "$_s66_body" | grep -qE -- "$p" || return 1; done; return 0; }
+_s66_ex=$(printf '%s\n' "$_s66_body" | grep -E '^   - \*\*제외\*\*:')
+if [ -n "$_l_s65" ] && [ -n "$_l_s66" ] && [ -n "$_l_s7" ] && [ "$_l_s65" -lt "$_l_s66" ] && [ "$_l_s66" -lt "$_l_s7" ] && [ -n "$_s66_body" ] \
+   && _s66_has 'subagent_type: "specops-ko:ui-designer-ko"' 'experts/ui\.md' '기능 화면 `screens/<name>\.md` 를 만들거나 고쳤으면 발동한다' \
+        'spec §8 열린 질문으로 옮긴다' '`§auto` 면 질문을 best-guess 로 정해 §8 에 `\(ASSUMED\)` 로 남긴다' \
+        '이번에 만든·고친 `screens/<name>\.md`·`\.html` · `\.specops/<FID>/spec\.md` · `acceptance-criteria\.md` · `DESIGN\.md`\(있으면\)' '가용 모델 override 로 다시 dispatch' '부모가 대신 검토하지 않는다' \
+        '\| ui-expert \| ui-designer-ko \| 반영 \|' '\| ui-expert \| - \| SKIP \| 화면 변경 없음 \|' '\| ui-expert \| ui-designer-ko \| 산출 없음 \|' \
+   && printf '%s\n' "$_s66_ex" | grep -qE '^   - \*\*제외\*\*: `§batch`.*Phase 2\.5 A2.* · `§lite`.* · `§유형: trivial` · foundation 셸 화면\(`<!-- foundation-shell -->`\)만 바꾼 경우는 부르지 않는다' \
+   && printf '%s\n' "$_s66_ex" | grep -qF '화면 변경이 없으면 부르지 않고 SKIP 행을 남긴다' \
+   && printf '%s\n' "$_s66_ex" | grep -qF '유지보수 분기와 `§auto` 는 부른다' \
+   && ! printf '%s\n' "$_s66_body" | grep -vE '^   - \*\*제외\*\*:' | grep -E '(§batch|§lite|trivial|foundation)' | grep -q '부른다' \
+   && [ "$(printf '%s\n' "$_s66_body" | grep -c '^ *#')" -eq 0 ] \
+   && [ "$(awk '/^## 프로세스 흐름/{f=1;next} /^## /{f=0} f' "$_SPK" | grep -oE '(요구사항|화면) 전문가 패스 \(Step 6\.[56]\)|스펙 자체 검토' | tr '\n' ,)" = '요구사항 전문가 패스 (Step 6.5),화면 전문가 패스 (Step 6.6),스펙 자체 검토,' ] \
+   && ! printf '%s\n' "$_s66_body" | grep -E '^ *\| [^|]*\| [^|]*\| ui-expert \|' | grep -qE 'DONE|IMPL' \
+   && ! printf '%s\n' "$_s66_body" | grep -oE '`\| [^|`]* \| [^|`]* \| ui-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
+  ok "specifying-ko Step 6.6 화면 전문가 — 6.5 < 6.6 < 7 · 절 범위 문구 · 제외 · §8 이관 · 기록 3종 · DONE 없음"
+else
+  nope "specifying-ko Step 6.6 화면 전문가" "위치(6.5=$_l_s65 6.6=$_l_s66 end=$_l_s66end 7=$_l_s7) · 절 범위 문구 · 하위 제목 · DONE 행 중 문제"
+fi
+
+# /start-all Phase 2.5 A2 화면 전문가 — A < A2 < B · 절 범위(A2 ~ 다음 #### 앞) · batch 당 1회 · SKIP 기록 · 산출 경로 · E 게이트 이관 · 통상 순서 줄 (20261023-ui-expert-integrate)
+_SAL=commands/start-all.md
+_l_pa=$(grep -n '^#### A\. ' "$_SAL" | head -1 | cut -d: -f1)
+_l_pa2=$(grep -n '^#### A2\. ' "$_SAL" | head -1 | cut -d: -f1)
+_l_pb=$(grep -n '^#### B\. ' "$_SAL" | head -1 | cut -d: -f1)
+_a2_end=""; [ -n "$_l_pa2" ] && _a2_end=$(awk -v s="$_l_pa2" 'NR>s && /^#### /{print NR; exit}' "$_SAL")
+_a2_body=""; [ -n "$_a2_end" ] && _a2_body=$(sed -n "${_l_pa2},$((_a2_end-1))p" "$_SAL")
+_a2_has() { local p; for p in "$@"; do printf '%s\n' "$_a2_body" | grep -qE -- "$p" || return 1; done; return 0; }
+if [ -n "$_l_pa" ] && [ -n "$_l_pa2" ] && [ -n "$_l_pb" ] && [ "$_l_pa" -lt "$_l_pa2" ] && [ "$_l_pa2" -lt "$_l_pb" ] && [ "$_a2_end" = "$_l_pb" ] \
+   && _a2_has '`UI-EXPERT: SKIP — 화면 산출 없음`' '`\.specops/<BATCH_ID>/experts/ui\.md`' 'E 설계 승인 게이트에서 함께 묻는다' \
+        '`§auto` 면 best-guess 로 정해 `\(ASSUMED\)` 로 queue 다이제스트에 남긴다' '부모가 대신 검토하지 않는다' '`UI-EXPERT: 산출 없음`' \
+        'D\(`design-reviewer-ko`\)의 독립 판정은 그대로다' '`BATCH_ID` 와 산출 경로 `\.specops/<BATCH_ID>/experts/ui\.md`\(산출 경로의 `<FID>` 자리에만 `<BATCH_ID>` 를 쓴다고 프롬프트에 적는다\)' \
+   && printf '%s\n' "$_a2_body" | grep -F 'subagent_type: "specops-ko:ui-designer-ko"' | grep -qF 'batch 당 1회' \
+   && printf '%s\n' "$_a2_body" | grep -F '`UI-EXPERT: SKIP — 화면 산출 없음`' | grep -F 'foundation 셸(`<!-- foundation-shell -->`)만 재사용했거나 A 가 SKIP 이면' | grep -qF '(`|` 로 시작 금지)' \
+   && _l_pe=$(grep -n '^#### E\. ' "$_SAL" | head -1 | cut -d: -f1) && [ -n "$_l_pe" ] && _e_end=$(awk -v s="$_l_pe" 'NR>s && /^#### /{print NR; exit}' "$_SAL") && [ -n "$_e_end" ] \
+   && sed -n "${_l_pe},$((_e_end-1))p" "$_SAL" | grep -qF 'A2 의 `experts/ui.md` `## 확인 필요` 질문' \
+   && grep -qF '통상 순서: **A 화면 → A2 화면 전문가 → B 인터페이스 → C cross-FR → D 무거운 설계 리뷰 → E 승인 → F 커밋**' "$_SAL"; then
+  ok "start-all Phase 2.5 A2 화면 전문가 — A < A2 < B · 절 범위 문구 · batch 당 1회 · SKIP·산출 없음 기록 · E 게이트 이관 · 통상 순서"
+else
+  nope "start-all Phase 2.5 A2 화면 전문가" "위치(A=$_l_pa A2=$_l_pa2 end=$_a2_end B=$_l_pb) · 절 범위 문구 · 통상 순서 줄 중 문제"
 fi
 
 finish

@@ -87,14 +87,14 @@ for _k in 'clarifications 블록을 답·`RESOLVED` 로 고침' '`specops-ko:pla
   [ "$_pos" -gt "$_prev" ] || _bad="$_bad [순서:$_k]"; _prev=$_pos; done
 { [ "$(printf '%s\n' "$_p1c" | grep -cF '4. 다르면 **그 FR 만** 다시 돈다')" = 1 ] && [ -z "$_bad" ]; } && ok "O10.d2 1c 재실행 사슬 순서 (AC-2)" || nope "O10.d2" "$_bad"
 _p2=$(_sec "$SA" '^### Phase 2 — ' '^### Phase 2\.5 ')
-_has "O10.e Phase 2 게이트 생략·Critical cap 보존 (AC-3·AC-R-1)" "$_p2" '2.6. **[§일괄 모드]**: 아래 3 을 묻지 않고' 'Critical cap 정지는 그대로' 'Important 만 남은 cap 은 §auto 와 같이 지나가고' '3. 단일 게이트: **"화면·인터페이스 설계 후 구현 진행? [y/n]"**'
+_has "O10.e Phase 2 게이트 생략·Critical cap 보존 (AC-3·AC-R-1)" "$_p2" '2.6. **[§일괄 모드]**: 아래 3 을 묻지 않고' 'Critical cap 정지는 그대로' 'Important 만 남은 cap 은 §auto 와 같이 지나가고' 'Phase 2.5 로 간다' 'D·E 를 생략하는 batch 도 E 4 의 승인 묶음은 생략하지 않고' '3. 단일 게이트: **"화면·인터페이스 설계 후 구현 진행? [y/n]"**'
 _l1=$(printf '%s\n' "$_p2" | grep -nF '2.6. **[§일괄 모드]**' | head -1 | cut -d: -f1); _l2=$(printf '%s\n' "$_p2" | grep -nF '3. 단일 게이트' | head -1 | cut -d: -f1)
 { [ -n "$_l1" ] && [ -n "$_l2" ] && [ "$_l1" -lt "$_l2" ]; } && ok "O10.f Phase 2 §일괄 문단이 게이트 앞 (AC-3)" || nope "O10.f" "l1=$_l1 l2=$_l2"
 _has "O10.g 2.5-A §일괄 (AC-4)" "$(_sec "$SA" '^#### A\. ' '^#### A2\. ')" '6. **[§일괄 모드]**: §auto 와 같이 대화 승인 없이 반영' 'E 승인 묶음에 싣는다'
 _has "O10.h 2.5-B §일괄 · memory 부재 생성 (AC-4)" "$(_sec "$SA" '^#### B\. ' '^#### C\. ')" '5. **[§일괄 모드]**: 대화 승인 없이 반영한다' 'templates/data-model.md' '으로 만들고 E 승인 묶음에 싣는다' '§auto 의 생성 금지와 다르다'
 _e=$(_sec "$SA" '^#### E\. ' '^#### F\. '); _e4=$(printf '%s\n' "$_e" | grep -F '4. **[§일괄 모드] — 유일한 승인 묶음**')
 _has "O10.i 2.5-E 유일한 승인 묶음 — 4번 줄 안 (AC-4)" "$_e4" \
-  'questions.md' '머리줄 `· ASSUMED` 또는 `status: ASSUMED` 인 블록과 spec `**자동 결정' 'IMPL_DONE FID 만 집계해 이 시점에는 0건' '승인 뒤 자동 진행' '그래도 멈추는 곳' '한 메시지에 싣고 2 의 질문으로 묻는다' 'batch 승인 묶음 승인' '3 을 적용하지 않는다 — 판정은 queue.md 의 `mode:` 줄이다'
+  'questions.md' '머리줄 `· ASSUMED` 또는 `status: ASSUMED` 인 블록과 spec `**자동 결정' 'IMPL_DONE FID 만 집계해 이 시점에는 0건' '승인 뒤 자동 진행' '그래도 멈추는 곳' '한 메시지에 싣고 2 의 질문으로 묻는다' 'batch 승인 묶음 승인' '3 을 적용하지 않는다 — 판정은 queue.md 의 `mode:` 줄이다' 'D 가 SKIP 이어도(A·B 모두 SKIP) 이 묶음은 묻는다'
 _has "O10.i2 2.5-E --step 게이트 줄 보존 (AC-R-1)" "$_e" '2. 대화형: **"이 설계로 구현 진행? [y/n]"**'
 # 부재 단언 + 양성 대조: 4번 줄에 '자동 통과' 가 없고, 같은 검사가 3번 줄에서는 잡는다
 _e3=$(printf '%s\n' "$_e" | grep -F '3. **[§auto 모드]**')
@@ -109,6 +109,8 @@ for _h in '### Phase 0 ' '### Phase 1a ' '### Phase 1 — ' '### Phase 1c ' '###
   { [ "$_c" = 1 ] && [ "${_n:-0}" -gt "$_prev" ]; } || _bad="$_bad [$_h c=$_c n=$_n]"; _prev=${_n:-0}; done
 [ -z "$_bad" ] && ok "O10.m Phase 머리 순서 0<1a<1<1c<2<2.5 · 각 1개 (AC-2)" || nope "O10.m" "$_bad"
 _has "O10.o 2.5-D §일괄 Important-only cap (AC-3·AC-4)" "$(_sec "$SA" '^#### D\. ' '^#### E\. ')" '5. **[§일괄 모드]**: Critical=0 · Important 만 남은 cap 은 §auto 와 같이 지나가고'
+_has "O10.q D·E 생략 경로도 §일괄 승인 (AC-4)" "$(cat "$SA")" '(`§일괄` 은 E 4 의 승인 묶음만은 묻는다)'
+[ "$(grep -cF '(`§일괄` 은 E 4 의 승인 묶음만은 묻는다)' "$SA")" = 2 ] && ok "O10.q2 생략 경로 문장 정확히 2곳 (AC-4)" || nope "O10.q2" "$(grep -cF '(`§일괄` 은 E 4 의 승인 묶음만은 묻는다)' "$SA")"
 _has "O10.p Phase 2 스텝 1 이 2.6 을 가리킴 (AC-3)" "$_p2" '대화형은 HARD GATE(§일괄 은 아래 2.6)'
 # 쓰는 쪽(clarifying 형식)과 읽는 쪽(1c 수집 키)이 같은 문자열
 grep -qF '· BLOCKING · ASSUMED' "$SK/clarifying-ko/SKILL.md" && ok "O10.n 1c 수집 키 = clarifying Q-block 머리줄 형식 (AC-2)" || nope "O10.n"

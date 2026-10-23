@@ -20,7 +20,7 @@ reference_upstream: specops-ko 독자 추가
 
 ## Process
 
-0. **기본 동작과 `--step`** — 인자가 `--step` 으로 시작하면 그 낱말을 떼고 `--step` 모드(아래 각 Phase 의 기존 동작 — FR 마다 묻고 Phase 2·2.5-E 에서 승인)로 돈다. 없으면 `§일괄` 모드: 질문은 Phase 1a·1c 의 묶음 2회(회당 많아야 4개), 승인은 Phase 2.5-E 의 승인 묶음 1회이고 그 사이는 묻지 않는다(규칙 원본 `skills/specifying-ko/once-approval.md`). 모드는 Phase 0 의 queue.md 생성 직후 헤더에 `mode: 일괄` 또는 `mode: step` 1줄로 남기고, 재진입하면 그 줄을 읽어 같은 모드로 돈다 — 줄이 없는 기존 ACTIVE queue(이 변경 전 batch)는 `step` 으로 보고, 재진입 인자에 `--step` 이 있으면 줄을 `mode: step` 으로 바꾼다(인자가 이긴다 · 반대로는 바꾸지 않는다). 그래도 멈추는 곳: plan-review·design-review Critical cap · 2.5-C Critical 충돌 · 비가역(HELD) · 보안 Critical/High · Phase 3 미완 · batch PR. `/start-all-auto` 는 이 절과 무관하다(auto 변형 문단이 따로 있다). auto 변형 문단은 `/start-all-auto` 로 들어왔을 때만 적용한다(그 queue 에는 `mode:` 줄이 없다) — `mode: 일괄` batch 에서는 FR spec 라벨로 판정하지 않는다.
+0. **기본 동작과 `--step`** — 인자가 `--step` 으로 시작하면 그 낱말을 떼고 `--step` 모드(아래 각 Phase 의 기존 동작 — FR 마다 묻고 Phase 2·2.5-E 에서 승인)로 돈다. 없으면 `§일괄` 모드: 질문은 Phase 1a·1c 의 묶음 2회(회당 많아야 4개), 승인은 Phase 2.5-E 의 승인 묶음 1회이고 그 사이는 묻지 않는다(규칙 원본 `skills/specifying-ko/once-approval.md`). 모드는 Phase 0 의 queue.md 생성 직후 헤더에 `mode: 일괄` 또는 `mode: step` 1줄로 남기고, 재진입하면 그 줄을 읽어 같은 모드로 돈다 — 줄이 없는 기존 ACTIVE queue(이 변경 전 batch)는 `step` 으로 보고, 재진입 인자에 `--step` 이 있으면 줄을 `mode: step` 으로 바꾼다(인자가 이긴다 · 반대로는 바꾸지 않는다). 그래도 멈추는 곳: plan-review·design-review Critical cap · 2.5-C Critical 충돌 · 비가역(HELD) · 보안 Critical/High · Phase 3 미완 · batch PR. `/start-all-auto` 는 이 절과 무관하다(auto 변형 문단이 따로 있다). `§auto` 분기(모드 문단과 A2 의 best-guess 포함)는 `/start-all-auto` 로 들어왔을 때만 적용한다(그 queue 에는 `mode:` 줄이 없다) — `mode: 일괄` batch 에서는 FR spec 라벨로 판정하지 않는다.
 
 ### Phase 0 — 준비
 
@@ -192,7 +192,7 @@ reference_upstream: specops-ko 독자 추가
 
 2.5. **[§auto 모드]**: digest 수행 후 일괄 리뷰 게이트 **자동 통과** → Phase 2.5 직행 (가역 — 가정은 batch PR 다이제스트 집계). plan-review FAIL Critical cap이면 자동통과 금지.
 
-2.6. **[§일괄 모드]**: 아래 3 을 묻지 않고 Phase 2.5 로 간다(digest 는 2.5-E 승인 묶음에 싣는다). plan-review Critical cap 정지는 그대로다. Critical 0 · Important 만 남은 cap 은 §auto 와 같이 지나가고 그 Important 를 2.5-E 승인 묶음에 싣는다.
+2.6. **[§일괄 모드]**: 아래 3 을 묻지 않고 Phase 2.5 로 간다(digest 는 2.5-E 승인 묶음에 싣는다 — A·B 가 모두 SKIP 이라 D·E 를 생략하는 batch 도 E 4 의 승인 묶음은 생략하지 않고 F 앞에서 2 의 질문으로 묻는다). plan-review Critical cap 정지는 그대로다. Critical 0 · Important 만 남은 cap 은 §auto 와 같이 지나가고 그 Important 를 2.5-E 승인 묶음에 싣는다.
 
 3. 단일 게이트: **"화면·인터페이스 설계 후 구현 진행? [y/n]"**
    - `n` → **중단**. 아티팩트·`feat/<BATCH_ID>` 보존. 재진입 시 Phase 2.5부터 가능(plan-review.md PASS 있으면 digest/[y/n]만 재개 가능)
@@ -283,7 +283,7 @@ reference_upstream: specops-ko 독자 추가
 
 #### D. 무거운 설계 리뷰 (`design-reviewer-ko`)
 
-> A(화면) 또는 B(IF) 중 **하나라도 산출**되면 **항상** Evaluator를 돌린다. 둘 다 SKIP이면 D·E 생략 → F(커밋 없이 Phase 3) 또는 빈 design 커밋 생략 후 Phase 3.
+> A(화면) 또는 B(IF) 중 **하나라도 산출**되면 **항상** Evaluator를 돌린다. 둘 다 SKIP이면 D·E 생략 → F(커밋 없이 Phase 3) 또는 빈 design 커밋 생략 후 Phase 3. (`§일괄` 은 E 4 의 승인 묶음만은 묻는다)
 
 1. **dispatch** — `Agent` 도구, `subagent_type: "specops-ko:design-reviewer-ko"`. 컨텍스트: `BATCH_ID` · PLAN_DONE FID 목록 · `screens/` · `api-spec.md` · `data-model.md` · 각 FID `spec.md` 경로.
 2. 부모는 리뷰어 stdout을 `.specops/<BATCH_ID>/design-review.md`에 저장한다 (리뷰어는 Write 없음).
@@ -293,7 +293,7 @@ reference_upstream: specops-ko 독자 추가
    | `DESIGN-REVIEW-RESULT: PASS` | E로 진행 |
    | `DESIGN-REVIEW-RESULT: FAIL` (1회차) | 이슈 목록으로 A/B 수정 → **재dispatch 1회** |
    | `DESIGN-REVIEW-RESULT: FAIL` (재시도 후) | 부모가 `design-review.md`에서 `^Critical:[[:space:]]*[1-9]` 를 본다. **Critical≥1**: 대화형·**§auto 모두** `HARD-GATE: design-reviewer Critical cap — 사용자 결정` 후 **정지**(§auto 자동통과 금지, queue에 사유 기록). **Critical=0 이고 Important≥1**: 대화형은 HARD GATE. **§auto**만 `Important-only cap → §auto 자동통과` 를 queue/다이제스트에 기록 후 E(가역) — `^Critical:[[:space:]]*0` 줄이 있을 때만이다(줄이 없으면 정지) |
-   | `DESIGN-REVIEW-RESULT: SKIP` | D 대상 아님 — E 생략 후 F/Phase 3 |
+   | `DESIGN-REVIEW-RESULT: SKIP` | D 대상 아님 — E 생략 후 F/Phase 3 (`§일괄` 은 E 4 의 승인 묶음만은 묻는다) |
 4. **Evaluator 모델 불가 fallback**: `design-reviewer-ko` 의 지정 모델(별칭 sonnet) 불가(한도 소진·접근 불가) 시 부모 self-review 금지 — 같은 `design-reviewer-ko`를 가용 모델 override로 재dispatch. queue 또는 design-review.md 헤더에 `모델 fallback: <지정 모델> 불가 → <모델>` 기록 (`implementing-ko` 동일 원칙). 직후 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-metric.sh --fid <대표-FID-또는-BATCH_ID가-FID형식이면그값> --phase evaluator-degradation --fallback true --model <override-model>` 실행(식별자만; BATCH_ID가 FID 형식이 아니면 PLAN_DONE 중 대표 FID 1개 사용).
 5. **[§일괄 모드]**: Critical=0 · Important 만 남은 cap 은 §auto 와 같이 지나가고 그 Important 를 E 승인 묶음에 싣는다. Critical cap 정지는 그대로다.
 
@@ -306,7 +306,7 @@ reference_upstream: specops-ko 독자 추가
    - `n` → A/B 수정 후 D부터 재개 (리뷰 재실행)
    - `y` → F
 3. **[§auto 모드]**: D가 PASS(또는 Important-only cap 자동통과)면 본 게이트 **자동 통과**. Critical cap 정지 시 E에 도달하지 않는다. 화면·IF·design-review 결과는 batch PR 다이제스트에 집계.
-4. **[§일괄 모드] — 유일한 승인 묶음**: 1 의 항목에 더해 ① `.specops/<BATCH_ID>/questions.md` 의 1a·1c 답 ② 이 batch 의 PLAN_DONE FID 마다 `clarifications.md` 의 머리줄 `· ASSUMED` 또는 `status: ASSUMED` 인 블록과 spec `**자동 결정 …**` 줄을 직접 모은 목록(`collect-assumptions.sh` 는 IMPL_DONE FID 만 집계해 이 시점에는 0건이다 — batch PR 게이트에서 쓴다) ③ 승인 뒤 자동 진행(Phase 3 → 통합·E2E·성능 → batch PR) ④ 그래도 멈추는 곳(plan·design Critical cap · 보안 Critical/High · Phase 3 HELD·미완 · batch PR) ⑤ plan·design 리뷰가 Important 만 남긴 cap(§auto 와 같이 지나간 것)을 한 메시지에 싣고 2 의 질문으로 묻는다. 승인되면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <대표 FID> approval "batch 승인 묶음 승인" "<요지>"` 1줄. `n` 은 2 와 같다. 이 batch 의 FR spec 에 `**§auto**: true` 가 있어도(§일괄 이 셋째 줄로 넣은 것) 3 을 적용하지 않는다 — 판정은 queue.md 의 `mode:` 줄이다.
+4. **[§일괄 모드] — 유일한 승인 묶음**: 1 의 항목에 더해 ① `.specops/<BATCH_ID>/questions.md` 의 1a·1c 답 ② 이 batch 의 PLAN_DONE FID 마다 `clarifications.md` 의 머리줄 `· ASSUMED` 또는 `status: ASSUMED` 인 블록과 spec `**자동 결정 …**` 줄을 직접 모은 목록(`collect-assumptions.sh` 는 IMPL_DONE FID 만 집계해 이 시점에는 0건이다 — batch PR 게이트에서 쓴다) ③ 승인 뒤 자동 진행(Phase 3 → 통합·E2E·성능 → batch PR) ④ 그래도 멈추는 곳(plan·design Critical cap · 보안 Critical/High · Phase 3 HELD·미완 · batch PR) ⑤ plan·design 리뷰가 Important 만 남긴 cap(§auto 와 같이 지나간 것)을 한 메시지에 싣고 2 의 질문으로 묻는다. 승인되면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <대표 FID> approval "batch 승인 묶음 승인" "<요지>"` 1줄. `n` 은 2 와 같다. 이 batch 의 FR spec 에 `**§auto**: true` 가 있어도(§일괄 이 셋째 줄로 넣은 것) 3 을 적용하지 않는다 — 판정은 queue.md 의 `mode:` 줄이다. D 가 SKIP 이어도(A·B 모두 SKIP) 이 묶음은 묻는다 — 1 의 design-review 요약·화면·IF 칸은 `해당 없음`.
 
 #### F. design 산출물 커밋 → Phase 3
 

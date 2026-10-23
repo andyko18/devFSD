@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.33.0] — 2026-10-24
+
 ### Changed
 
 - planning 의 DB·구조·API·보안 전문가 패스를 동시에 dispatch 한다 — 발동 판단은 각 절 그대로 먼저 하고, 발동한 패스를 한 메시지로 함께 보낸 뒤 DB → 구조 → API → 보안 순서로 한 번에 반영한다(같은 자리 충돌은 합치고 두 파일에 같은 1줄 · 반영으로 plan 이 바뀌면 보안 판정기를 다시 돌려 발동하지 않았던 패스를 다시 판단). 테스트 전문가 → 사전검사 → plan-reviewer 는 반영 뒤 직렬 그대로. 전문가가 둘 이상 발동하는 FID 는 계획 단계의 전문가 대기가 직렬 합에서 가장 긴 패스 쪽으로 줄어들 것으로 본다(예상 — 실측은 단축 프로그램 판정에서).
@@ -3426,7 +3428,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.32.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.33.0...HEAD
+[2.33.0]: https://github.com/andyko18/specops-ko/compare/v2.32.0...v2.33.0
 [2.32.0]: https://github.com/andyko18/specops-ko/compare/v2.31.0...v2.32.0
 [2.31.0]: https://github.com/andyko18/specops-ko/compare/v2.30.0...v2.31.0
 [2.30.0]: https://github.com/andyko18/specops-ko/compare/v2.29.0...v2.30.0

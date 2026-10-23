@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- specifying 에 요구사항 이해 전문가 패스를 더했다(`agents/req-designer-ko.md` · opus · high · 체크리스트 Step 6.5). 입력 데이터를 저장·계산·판정하거나 외부 소스·배치를 다루는 spec 을 쓴 직후 spec·AC 에 데이터 규칙(필드 상태마다 뜻·결측이 섞인 계산·유효 범위·빈 결과의 원인·실패 단위·셈의 축·보장의 주체·기록 위치 등 핵심 규칙 12개)이 적혀 있는지 보고 지적과 고친 문안을 `experts/req.md` 에 쓴다 — 확인 필요 질문은 spec §8 을 거쳐 clarifying 이 묻는다. Important 는 그 경우를 정한 spec 문장이 없음을 `찾은 곳:`(인용)·`빈칸:` 두 줄로 보일 때만 내고, 정한 결정에 대한 이견은 질문으로만 낸다(많아야 5건). `§batch`·`§lite`·trivial·promote·foundation 은 부르지 않는다. 출처 3곳(mattpocock/skills · addyosmani/agent-skills · davila7/claude-code-templates)은 MIT 이며 한국어로 재작성했고, 핵심 규칙은 Argus 구현 단계 결함 사례에서 만들었다. 효과는 Argus 실제 spec 2건 × 3회로 쟀다 — plan-reviewer 0/6 → req-designer 6/6, 결함 없는 대조군(e-50)에서 헛지적 0/3(인용형 채점). 측정 케이스는 `specifying-ko/evals.json` e-46~e-50.
+
 ## [2.29.0] — 2026-10-23
 
 ### Added

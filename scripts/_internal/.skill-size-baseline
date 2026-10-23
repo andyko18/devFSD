@@ -6,11 +6,11 @@
 {"skill":"decomposing-ko","bytes":27395,"lines":372}
 {"skill":"dispatching-parallel-agents-ko","bytes":9672,"lines":199}
 {"skill":"e2e-test-ko","bytes":37023,"lines":823}
-{"skill":"file-based-communication-ko","bytes":4729,"lines":91}
+{"skill":"file-based-communication-ko","bytes":4917,"lines":91}
 {"skill":"finishing-a-development-branch-ko","bytes":7002,"lines":168}
 {"skill":"gbrain-ko","bytes":5598,"lines":142}
 {"skill":"generator-evaluator-ko","bytes":4698,"lines":57}
-{"skill":"implementing-ko","bytes":41939,"lines":490}
+{"skill":"implementing-ko","bytes":42658,"lines":490}
 {"skill":"improve-codebase-architecture-ko","bytes":5186,"lines":156}
 {"skill":"integration-test-ko","bytes":10353,"lines":230}
 {"skill":"karpathy-ko","bytes":4444,"lines":112}
@@ -28,4 +28,4 @@
 {"skill":"using-git-worktrees-ko","bytes":10417,"lines":294}
 {"skill":"using-specops-ko","bytes":11388,"lines":174}
 {"skill":"verifying-evidence-ko","bytes":31305,"lines":352}
-{"chain_bytes":287808,"chain_lines":3920}
+{"chain_bytes":288527,"chain_lines":3920}

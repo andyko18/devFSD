@@ -918,4 +918,34 @@ else
   nope "dev-autonomy 대기 중 턴 종료 규칙" "§2(${_l_da2}~${_l_da3}) 안에 규칙 문장 없음"
 fi
 
+# planning-ko 전문가 패스 병렬 실행 절 — 경계 대조 < 병렬 절 < DB < 테스트 < plan-reviewer · 동시 dispatch · 반영 순서 · 합침 · 실패 · 직렬 꼬리 · 기록(DONE 금지) · DB·보안·테스트 절 첫 줄 (20261024-speed-plan-parallel)
+_l_par=$(grep -n '^### 전문가 패스 병렬 실행' "$_PL" | head -1 | cut -d: -f1)
+_l_bd9=$(grep -n '^### 경계 대조 입력' "$_PL" | head -1 | cut -d: -f1)
+_l_db9=$(grep -n '^### DB 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_ts9=$(grep -n '^### 테스트 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
+_l_pr9=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
+_par=""; { [ -n "$_l_par" ] && [ -n "$_l_db9" ]; } && _par=$(sed -n "$((_l_par+1)),$((_l_db9-1))p" "$_PL")
+_miss=""
+for _n in '**발동 판단**은 각 절 기준 그대로 먼저 끝내고' '발동한 패스는 **한 메시지에서 동시에 dispatch** 한다' '읽는 순서이지 실행 순서가 아니다' '`check-security-design.sh` 를 먼저 1회' \
+  '모두 돌아오면 DB → 구조 → API → 보안 순서로 반영' '하나로 합쳐 쓰고 두 파일의 `## 반영` 에 같은 1줄' '그 패스만 각 절 규칙대로 다시 부른다' \
+  '`| <N> | <ISO-8601> | expert-parallel | - | 동시 dispatch | <발동한 패스 목록> |` 1행'; do
+  printf '%s' "$_par" | grep -qF -- "$_n" || _miss="$_miss [$_n]"
+done
+printf '%s\n' "$_par" | grep -qxF -- '5. 다음 — 반영을 모두 마친 뒤 테스트 전문가 패스(직렬 — 반영된 plan 의 테스트를 본다) → 사전검사·경계 대조 재실행 1회 → plan-reviewer. 순서는 그대로다.' || _miss="$_miss [5단계 줄 전체]"
+[ "$(printf '%s\n' "$_par" | grep -o '테스트 전문가' | wc -l | tr -d ' ')" = 1 ] || _miss="$_miss [테스트 전문가가 5단계 밖에 나옴]"
+printf '%s\n' "$_par" | grep -q 'test-designer' && _miss="$_miss [병렬 절에 test-designer]"
+grep -qx '### 전문가 패스 병렬 실행 (DB·구조·API·보안 — 20261024)' "$_PL" || _miss="$_miss [제목 줄 전체]"
+printf '%s\n' "$_par" | grep -oE '`\| [^|`]* \| [^|`]* \| expert-parallel \|[^`]*`' | grep -qE 'DONE|IMPL' && _miss="$_miss [expert-parallel 행에 DONE·IMPL]"
+_l_dbe9=$(awk -v s="$_l_db9" 'NR>s && /^### /{print NR; exit}' "$_PL"); _l_tse9=$(awk -v s="$_l_ts9" 'NR>s && /^### /{print NR; exit}' "$_PL")
+_l_sc9=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1); _l_sce9=$(awk -v s="$_l_sc9" 'NR>s && /^### /{print NR; exit}' "$_PL")
+sed -n "$((_l_sc9+1)),$((_l_sce9-1))p" "$_PL" | grep -m1 -v '^$' | grep -q '^API 전문가 패스 뒤, plan-reviewer 를 부르기 \*\*전에\*\* 판단한다' || _miss="$_miss [보안 절 첫 줄]"
+sed -n "$((_l_db9+1)),$((_l_dbe9-1))p" "$_PL" | grep -m1 -v '^$' | grep -q '^경계 대조 뒤, plan-reviewer 를 부르기 \*\*전에\*\* 판단한다' || _miss="$_miss [DB 절 첫 줄]"
+sed -n "$((_l_ts9+1)),$((_l_tse9-1))p" "$_PL" | grep -m1 -v '^$' | grep -q '^보안 전문가 패스 뒤, plan-reviewer 를 부르기 \*\*전에\*\* 판단한다' || _miss="$_miss [테스트 절 첫 줄]"
+if [ "$(grep -c '^### 전문가 패스 병렬 실행' "$_PL")" = 1 ] && [ -n "$_l_bd9" ] && [ -n "$_l_ts9" ] && [ -n "$_l_pr9" ] \
+   && [ "$_l_bd9" -lt "$_l_par" ] && [ "$_l_par" -lt "$_l_db9" ] && [ "$_l_db9" -lt "$_l_ts9" ] && [ "$_l_ts9" -lt "$_l_pr9" ] && [ -z "$_miss" ]; then
+  ok "planning-ko 전문가 패스 병렬 실행 — 동시 dispatch · 반영 순서 · 합침 · 실패 · 테스트 전문가·plan-reviewer 직렬 · 기록 · DB·보안·테스트 첫 줄"
+else
+  nope "planning-ko 전문가 패스 병렬 실행" "위치(bd=$_l_bd9 par=$_l_par db=$_l_db9 ts=$_l_ts9 pr=$_l_pr9) 또는 없음:$_miss"
+fi
+
 finish

@@ -304,6 +304,8 @@ cap 초과 시 리뷰어 반환 전문을 `.specops/<FID>/plan-review.md` 에 �
 
 ## 실행 전환
 
+**[§일괄 모드]** (`grep -qE '^\*\*§일괄\*\*:[[:space:]]*true' .specops/<FID>/spec.md`): 아래 질문을 하지 않는다 — 묻지 않고 서브에이전트 주도(`specops-ko:implementing-ko`)로 간다 — 승인 묶음이 이미 승인했다. 정한 사실은 handoff Decided 에 1줄 남긴다. 아래 질문은 `--step` 일 때만 한다.
+
 플랜 저장 후 실행 방식 선택 제시:
 
 > "플랜을 `.specops/<FID>/plan.md`에 저장했습니다. 두 가지 실행 옵션:

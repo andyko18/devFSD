@@ -3,7 +3,7 @@
 {"skill":"brainstorming-ko","bytes":15213,"lines":366}
 {"skill":"clarifying-ko","bytes":18494,"lines":235}
 {"skill":"context-resets-ko","bytes":3949,"lines":60}
-{"skill":"decomposing-ko","bytes":27395,"lines":372}
+{"skill":"decomposing-ko","bytes":27791,"lines":373}
 {"skill":"dispatching-parallel-agents-ko","bytes":9672,"lines":199}
 {"skill":"e2e-test-ko","bytes":37023,"lines":823}
 {"skill":"file-based-communication-ko","bytes":4917,"lines":91}
@@ -14,8 +14,8 @@
 {"skill":"improve-codebase-architecture-ko","bytes":5186,"lines":156}
 {"skill":"integration-test-ko","bytes":10353,"lines":230}
 {"skill":"karpathy-ko","bytes":4444,"lines":112}
-{"skill":"performance-test-ko","bytes":14425,"lines":355}
-{"skill":"planning-ko","bytes":36017,"lines":385}
+{"skill":"performance-test-ko","bytes":14837,"lines":357}
+{"skill":"planning-ko","bytes":36372,"lines":387}
 {"skill":"receiving-code-review-ko","bytes":9078,"lines":246}
 {"skill":"release-ko","bytes":3908,"lines":80}
 {"skill":"requesting-code-review-ko","bytes":8965,"lines":189}
@@ -25,7 +25,7 @@
 {"skill":"structured-artifacts-ko","bytes":6910,"lines":144}
 {"skill":"systematic-debugging-ko","bytes":11894,"lines":327}
 {"skill":"tdd-ko","bytes":13961,"lines":382}
-{"skill":"using-git-worktrees-ko","bytes":10417,"lines":294}
+{"skill":"using-git-worktrees-ko","bytes":10619,"lines":295}
 {"skill":"using-specops-ko","bytes":11388,"lines":174}
-{"skill":"verifying-evidence-ko","bytes":31305,"lines":352}
-{"chain_bytes":293692,"chain_lines":3940}
+{"skill":"verifying-evidence-ko","bytes":31644,"lines":354}
+{"chain_bytes":295194,"chain_lines":3947}

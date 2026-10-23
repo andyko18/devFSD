@@ -43,4 +43,20 @@ _has "O4.a clarifying §일괄 절 (AC-4)" "$(_sec "$CL" '^## §일괄 모드' '
 _has "O9.a 기존 게이트 문구 보존 (AC-R-1)" "$(cat "$SP" "$CL" "$AN")" \
   '**[§auto·trivial 이외 모드]** (기존 동작)' '**[§auto 이외 모드]** (기존 동작):' '**BLOCKING**: 한 번에 한 질문'
 [ "$(grep -cF '분析 결과 검토. 진행? [y/n]' "$AN")" = 2 ] && ok "O9.c analyzing 검토 게이트 문구 2곳 보존 (AC-R-1)" || nope "O9.c" "$(grep -cF '분析 결과 검토. 진행? [y/n]' "$AN")"
+# ── 승인 뒤 게이트 (Task 3) ──
+_pe=$(_sec "$SK/planning-ko/SKILL.md" '^## 실행 전환' '^## ')
+_has "O5.a planning 실행 전환 §일괄 (AC-5)" "$_pe" '**[§일괄 모드]**' '묻지 않고 서브에이전트 주도' '아래 질문은 `--step` 일 때만 한다' '어느 쪽으로 할까요?'
+_l1=$(printf '%s\n' "$_pe" | grep -nF '**[§일괄 모드]**' | head -1 | cut -d: -f1); _l2=$(printf '%s\n' "$_pe" | grep -nF '어느 쪽으로 할까요?' | head -1 | cut -d: -f1)
+{ [ -n "$_l1" ] && [ -n "$_l2" ] && [ "$_l1" -lt "$_l2" ]; } && ok "O5.f §일괄 문단이 실행 방식 질문 앞 (AC-5)" || nope "O5.f" "l1=$_l1 l2=$_l2"
+_has "O5.b worktree 동의 표 §일괄 행 (AC-5)" "$(_sec "$SK/using-git-worktrees-ko/SKILL.md" '^## 생성 동의 게이트' '^## ')" '| §일괄 | 승인 묶음이 동의' '§auto/batch/§일괄 면 해당 행 적용' '`§일괄` 은 `^\*\*§일괄\*\*:[[:space:]]*true`'
+_has "O5.c decomposing 규모 초과 §일괄 승격 (AC-5)" "$(_sec "$SK/decomposing-ko/SKILL.md" '^## trivial / §lite 단축 분기' '^## 체크리스트')" '**`§일괄`** 도 묻지 않고' 'dev-decision.sh add <FID> order' '정상 경로(clarify → plan)에 올리고'
+_has "O5.d verify 상한 §일괄 (AC-5)" "$(_sec "$SK/verifying-evidence-ko/SKILL.md" '^### \[§auto 모드\] fix_loop cap 초과 처리' '^### ')" '**`§일괄`**' '사용자에게 보이고 판단을 받는다' '`§auto` 또는 `§일괄` 로 읽는다' '전역 재시도 뒤에도 남으면'
+_has "O5.e PR 게이트 §일괄 ASSUMED (AC-5)" "$(_sec "$SK/performance-test-ko/SKILL.md" '^### 2\. 끝 보고' '^### 3\. ')" '`§일괄` 이면' "grep -n 'ASSUMED'" 'auto-state.md'
+[ "$(grep -cF 'PR을 생성하시겠습니까? [y/n]' "$SK/performance-test-ko/SKILL.md")" = 2 ] && ok "O9.b PR 게이트 문구 2곳 보존 (AC-R-1)" || nope "O9.b" "$(grep -cF 'PR을 생성하시겠습니까? [y/n]' "$SK/performance-test-ko/SKILL.md")"
+# 라벨 계약 — 쓰는 쪽(spec §1 `**§일괄**: true`)과 읽는 쪽 5곳의 정규식이 한 종류이고 실제로 맞는다
+_re=$(grep -ohE "grep -qE '[^']*§일괄[^']*' \.specops/<FID>/spec\.md" "$SK/specifying-ko/SKILL.md" "$SK/clarifying-ko/SKILL.md" "$SK/planning-ko/SKILL.md" "$SK/verifying-evidence-ko/SKILL.md" "$SK/performance-test-ko/SKILL.md" | sed -E "s/^grep -qE '([^']*)'.*/\1/")
+_n=$(printf '%s\n' "$_re" | grep -c .); _u=$(printf '%s\n' "$_re" | sort -u | grep -c .); _r1=$(printf '%s\n' "$_re" | head -1)
+{ [ "$_n" = 5 ] && [ "$_u" = 1 ] && printf '**§일괄**: true\n' | grep -qE "$_r1" \
+  && ! printf '**§일괄**: false\n' | grep -qE "$_r1" && ! printf '§일괄: true\n' | grep -qE "$_r1" && ! printf '**§auto**: true\n' | grep -qE "$_r1"; } \
+  && ok "O8.a 라벨 정규식 5곳·1종 · 양성 1 음성 3 (AC-2·4·5)" || nope "O8.a" "n=$_n u=$_u re=$_r1"
 finish

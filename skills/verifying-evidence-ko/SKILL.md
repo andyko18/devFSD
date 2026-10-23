@@ -288,6 +288,8 @@ FAIL 항목 존재?
 
 ### [§auto 모드] fix_loop cap 초과 처리
 
+**`§일괄`** (`grep -qE '^\*\*§일괄\*\*:[[:space:]]*true' .specops/<FID>/spec.md`)도 이 흐름을 탄다 — 아래 `§auto 감지?` 를 `§auto` 또는 `§일괄` 로 읽는다. 다만 전역 재시도 뒤에도 남으면 무인 종료가 아니라 같은 `AUTO-HARD-GATE` 내용을 사용자에게 보이고 판단을 받는다.
+
 fix_count > 3 **또는 `attempt-fp.sh check` rc 1(동일 실패 지문 연속)** 시 HARD GATE 대신 **systematic-debugging-ko → 전역 재시도** 흐름:
 
 ```

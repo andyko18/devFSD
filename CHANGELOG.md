@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Removed
+
+- 단일 무인 명령 4종 `/start-auto`·`/start-lite-auto`·`/maintain-auto`·`/maintain-lite-auto` 를 지웠다. 기본 진입(§일괄)이 질문 묶음 → 승인 1회 → PR 까지 멈추지 않게 된 뒤로 이 명령들이 더해 주는 것은 승인 1회 생략과 추측 답변(ASSUMED)뿐이었고 실사용도 거의 없었다. 대신 `/start`·`/start-lite`·`/maintain`·`/maintain-lite` 를 쓴다(승인 1회 뒤 무정지). 무인 일괄 `/start-all-auto` 는 그대로다. 그 명령만 쓰던 skill 분기(`<!-- entry: auto -->` · 둘째 줄 무인 표지 · 경량 무인의 자동 승격)도 함께 지웠고, `test-auto-variants.sh` 는 지운 것이 되살아나면 실패하는 잠금으로 바꿨다.
+
 ## [2.36.0] — 2026-10-24
 
 ### Fixed

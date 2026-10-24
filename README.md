@@ -99,10 +99,8 @@ claude plugin install specops-ko@specops-ko
 | `/start-foundation` | 공통부(라우팅·인증·레이아웃·공통 스키마) 먼저 개발 (1회) |
 | `/start` | 신규 기능 1건 — 표준 경로 (대화형) |
 | `/start-lite` | 신규 기능 경량 — clarify·plan 생략, 화면/IF·리뷰·verify 유지 |
-| `/start-auto` · `/start-lite-auto` | 신규 기능 무인 — 가역 게이트 자동 통과, PR만 확인 (`-lite-auto` 는 clarify·plan 도 생략, 고위험이면 풀 무인 경로로 자동 승격) |
-| `/start-all` · `/start-all-auto` | `requirements.md` FR 표 전체 일괄 구현 |
+| `/start-all` · `/start-all-auto` | `requirements.md` FR 표 전체 일괄 구현 (`-auto` 는 무인 — 가역 게이트 자동 통과, batch PR만 확인) |
 | `/maintain` · `/maintain-lite` | 기존 코드 수정 — 영향 분석 선행 + 회귀 AC 강제 |
-| `/maintain-auto` · `/maintain-lite-auto` | 기존 코드 수정 무인 — 분석 검토·설계 승인 자동 통과(분석·회귀 AC·리뷰는 그대로), PR만 확인 |
 | `/quick-fix` | 몇 줄짜리 수정 — 명세·분해 문서 없이 테스트 실행 + 코드 리뷰 1회. 크기 상한과 고위험 신호를 커밋 때 훅이 판정하고, 넘으면 `/maintain-lite` 로 간다 |
 | `/brainstorming` | (선택) 구현 전 아이디어 탐색 |
 | `/design-screen(s)` · `/design-interface(s)` | lifecycle 밖 화면·인터페이스 단발 설계 |
@@ -114,12 +112,12 @@ claude plugin install specops-ko@specops-ko
 ```
 새 프로젝트?  → /init-project → (필요 시) /start-foundation → /start-all 또는 기능마다 /start
 기존 코드를 고치나?
-  ├─ 아니오 (새 산출물) → /start        (무인: /start-auto · 경량: /start-lite · 경량 무인: /start-lite-auto)
-  └─ 예   (수정·제거)   → /maintain     (무인: /maintain-auto · 경량: /maintain-lite · 경량 무인: /maintain-lite-auto · 몇 줄짜리: /quick-fix)
+  ├─ 아니오 (새 산출물) → /start        (경량: /start-lite)
+  └─ 예   (수정·제거)   → /maintain     (경량: /maintain-lite · 몇 줄짜리: /quick-fix)
 ```
 
 > `-lite`·`-auto` 는 슬래시로만 진입한다. 자연어 "가볍게 해줘"·"알아서 다 해줘"를 lite·무인으로 추론하지 않는다.
-> 무인(`-auto`)은 사람의 확인만 줄인다 — 분석 산출물·회귀 AC·리뷰·verify 는 그대로고, 되돌릴 수 없는 작업·치명 결함·보안 Critical/High 에서는 멈춘다. 자동으로 지나간 것은 PR 직전의 가정 다이제스트에 전부 나온다. `-lite-auto` 는 사람의 검토가 가장 적은 경로라 작은 변경에만 쓴다.
+> 무인(`/start-all-auto`)은 사람의 확인만 줄인다 — 분석 산출물·회귀 AC·리뷰·verify 는 그대로고, 되돌릴 수 없는 작업·치명 결함·보안 Critical/High 에서는 멈춘다. 자동으로 지나간 것은 PR 직전의 가정 다이제스트에 전부 나온다.
 
 **공통부 · 일괄 진입 주의**
 
@@ -270,7 +268,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 ```
 specops-ko/
 ├── .claude-plugin/     plugin.json · marketplace.json
-├── commands/           슬래시 진입로 29건
+├── commands/           슬래시 진입로 25건
 ├── hooks/              SessionStart · PreToolUse · PostToolUse · Stop · Notification
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
 ├── skills/             flat: skills/<name>/SKILL.md × 30

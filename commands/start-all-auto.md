@@ -7,7 +7,7 @@ triggers:
 mode: ask
 specops_version: 2.18.0
 specops_layer: Lifecycle
-reference_upstream: specops-ko 독자 추가 (start-all + start-auto 결합)
+reference_upstream: specops-ko 독자 추가 (start-all 무인 변형)
 ---
 
 # /start-all-auto [<기능 설명>]
@@ -15,8 +15,6 @@ reference_upstream: specops-ko 독자 추가 (start-all + start-auto 결합)
 ## 목적
 
 `/start-all` 의 **무인 변형**. 한 번 진입하면 `requirements.md` FR 표 전체를 spec→clarify→plan→decompose→implement→verify→review→security→integration→performance 까지 **가역 게이트 자동 통과**, batch PR 직전 가정 다이제스트와 함께 1회만 확인.
-
-`/start` ↔ `/start-auto` 선례를 미러링한 `/start-all` ↔ `/start-all-auto` 대칭 진입점.
 
 **가역 게이트는 자동 통과, 비가역 행동(batch PR 생성, 파괴적/덮어쓰기 task, security Critical/High)에서만 정지.**
 
@@ -82,7 +80,6 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 ## 참조
 
 - `commands/start-all.md` — Phase 0~3 batch 오케스트레이션 본문 (동일 참조)
-- `commands/start-auto.md` — §auto 단일기능 선례(자체 독립 본문 패턴)
 - `skills/specifying-ko/SKILL.md` — batch+auto 라벨 동시기재 분기
 - `skills/clarifying-ko/SKILL.md` L20 — §auto best-guess 분기(spec 라벨 grep)
 

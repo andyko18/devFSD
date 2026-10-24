@@ -22,7 +22,7 @@ _has "O1.c 질문 묶음 규칙 (AC-3)" "$(_sec "$OA" '^## 1\. 질문 묶음' '^
 _has "O1.d 수정 요청·기록 (AC-3)" "$(_sec "$OA" '^## 3\. ' '^## 4\. ')" "다시 제시" "dev-decision.sh add <FID> approval" "Status: accepted" "/approve"
 SP="$SK/specifying-ko/SKILL.md"
 _has "O2.a specifying §일괄 판정 — Step 1 분기 검사 안 (AC-2)" "$(_sec "$SP" '진입 신호 검사' '^1\.5\. ')" \
-  '**§일괄 판정' '`<!-- step: true -->`·`<!-- auto: true -->` 가 없으면 `§일괄` 이다' '(`entry: auto`·`batch`·`foundation` 은 해당 없음)' 'Step 6 에서 spec §1 에 `**§일괄**: true` 를 적고' 'once-approval.md' '`<!-- step: true -->` 줄은 FID 슬러그·대상 설명에서 뺀다'
+  '**§일괄 판정' '`<!-- step: true -->` 가 없으면 `§일괄` 이다' '(`batch`·`foundation` 은 해당 없음)' 'Step 6 에서 spec §1 에 `**§일괄**: true` 를 적고' 'once-approval.md' '`<!-- step: true -->` 줄은 FID 슬러그·대상 설명에서 뺀다'
 _has "O2.b intent 표에 §일괄 행 (AC-4)" "$(_sec "$SP" '^1\.5\. ' '^2\. ')" '| §일괄' '승인 묶음'
 _has "O2.c Step 3~5 §일괄 (AC-4)" "$(_sec "$SP" '^2\. \*\*Visual' '^5\.5\. ')" '**§일괄**: 질문을 한 번에 묶어 1회' '**§일괄**: 고르게 하지 않고' '**§일괄**: 섹션별 승인 없이'
 _has "O2.d 화면 5.5 §일괄 (AC-4)" "$(_sec "$SP" '^5\.5\. ' '^5\.6\. ')" '**§일괄 이면 화면을 모두 만든 뒤**' '화면마다 하지 않고' '**[§auto 이외 모드]** (기존 동작):'

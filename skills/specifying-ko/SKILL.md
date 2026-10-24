@@ -6,7 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - skills/brainstorming-ko/SKILL.md
 specops_version: 2.17.0
-used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /start-foundation, /start-all, /start-all-auto, /maintain, /maintain-lite, /maintain-auto, /maintain-lite-auto, /promote
+used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /start-all-auto, /maintain, /maintain-lite, /promote
 ---
 
 # Engine 스킬 — 아이디어를 설계로 (specifying)
@@ -105,10 +105,9 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
      - args 첫 줄이 `<!-- entry: lite -->` HTML 주석이면 **[lite 분기]** 진입
      - args 첫 줄이 `<!-- entry: foundation -->` HTML 주석이면 **[foundation 분기]** 진입 — Step 5.5는 **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`). 기능 화면 금지. 공통부 컴포넌트(라우팅·레이아웃·인증·공통 UI·DB 스키마)를 spec.md §2 포함 항목으로 DAG 의도 추출(독립/의존 표기). **단 Step 5.6(인터페이스 설계)은 적용한다** — foundation 은 DB 스키마·공통 API 의 본진이므로 design-first 가 가장 중요: 공통부 DB 스키마는 `data-model.md`, 공통 제공 API 는 `api-spec.md` 에 **먼저 반영**. (**역할 분리**: §2 DAG 추출 = 구현 **태스크 분해** 단위 / Step 5.6 `data-model`·`api-spec` 갱신 = **설계 기준 계약** — 둘은 다른 산출물이며 **모두 수행**한다.) spec.md §참조에 `.specops/memory/frontend-architecture.md`·`backend-architecture.md`·`data-model.md`·`api-spec.md` 자동 인용(기존 memory 감지 표 재사용)
      - args 첫 줄이 `<!-- entry: batch -->` HTML 주석이면 **[batch 분기]** 진입 — Step 0 git-branch-create skip. **Step 5.5·5.6 SKIP**(화면·인터페이스 본설계는 `/start-all` Phase 2.5에서 **화면→인터페이스** 순으로 통합 1회). UI면 §참조에 예정 화면 이름만, API/스키마면 예정 엔드포인트·테이블 이름만 남기고 상세 생성·승인 루프는 하지 않는다. Step 6에서 spec.md §1에 `**§batch**: <batch-id>` 라벨 기재(둘째 줄 `<!-- batch-id: ... -->` 에서 추출). **추가로 셋째 줄이 `<!-- auto: true -->` 이면 spec.md §1에 `**§auto**: true` 도 동시 기재** (무인 batch — `/start-all-auto` 진입. 다운스트림 §auto 자동통과 전파).
-     - args 첫 줄이 `<!-- entry: auto -->` HTML 주석이면 **[auto 분기]** 진입 — git-branch-create.sh **호출 유지** (§auto는 단독 기능, 자체 브랜치 필요). Step 6에서 spec.md §1에 `**§auto**: true` 라벨 기재. 이후 `[신규 분기]` 동작 계속 (DESIGN.md·screens/ 점검 동일)
      - 그렇지 않으면 [신규 분기] (현재 동작 — DESIGN.md / screens/ 점검)
        - **★ 유지보수 오분류 백스톱** (soft — 하드강제 아님, 5원칙4 주권): [신규 분기]로 왔으나 요청이 **이미 구현된 코드·동작의 수정**(버그 수정·리팩터·기존 기능 변경)이면, 메타스킬 유지보수 분류나 `<!-- entry: maintain -->` 라벨이 누락됐을 수 있다(라벨은 모델-prepend 프로즈라 훅 강제 없음). 신규로 계속하기 전 사용자에게 **1회 확인**: "이 요청이 기존 코드 수정이면 `analyzing-ko` 선행이 회귀 안전망(current-state·impact-analysis + 회귀 AC-R 데이터/동작 보존)을 켭니다 — [신규 진행 / 유지보수 전환]?". `유지보수 전환` 응답 시 `analyzing-ko` 부터(★ HARD GATE) 재진입. **오탐 방지 계약**: 순수 신규 창작이 "개선·변경" 어휘를 포함하는 건 흔하므로, **기존 산출물(코드·스키마·API)을 실제로 건드리는 경우에만** 확인한다 — 신규 창작이면 묻지 말 것. 근거: 라벨 누락 시 analyzing HARD GATE 통째 skip → 유지보수가 신규로 처리돼 회귀 AC 미적용(커맨드 감사 20260719 [MED] — 관찰 실패 0의 백스톱).
-     - **§일괄 판정 (기본 — 20261023)**: 신규·유지보수·lite·maintain-lite 분기에서 args 앞쪽 주석 줄에 `<!-- step: true -->`·`<!-- auto: true -->` 가 없으면 `§일괄` 이다(`entry: auto`·`batch`·`foundation` 은 해당 없음). Step 6 에서 spec §1 에 `**§일괄**: true` 를 적고, spec 이전(Step 1~5.6)과 `analyzing-ko` 는 이 args 판정을 쓴다. `§일괄` 이면 이 skill 의 사람 확인 — 명확화 질문 · 접근 선택 · intent 게이트 · 설계 섹션 승인 · 화면별 승인 · IF 확인 · 계약 칸 질문 · 유지보수 오분류 확인 · trivial 축약 제안 · 스펙 검토 — 은 같은 디렉터리 `once-approval.md` 를 Read 해 따른다(질문은 Step 3 에서 묶음 1회, 나머지는 승인 묶음). `<!-- step: true -->` 면 각 절의 기존 동작 그대로다. `<!-- step: true -->` 줄은 FID 슬러그·대상 설명에서 뺀다(주석 줄).
+     - **§일괄 판정 (기본 — 20261023)**: 신규·유지보수·lite·maintain-lite 분기에서 args 앞쪽 주석 줄에 `<!-- step: true -->` 가 없으면 `§일괄` 이다(`batch`·`foundation` 은 해당 없음). Step 6 에서 spec §1 에 `**§일괄**: true` 를 적고, spec 이전(Step 1~5.6)과 `analyzing-ko` 는 이 args 판정을 쓴다. `§일괄` 이면 이 skill 의 사람 확인 — 명확화 질문 · 접근 선택 · intent 게이트 · 설계 섹션 승인 · 화면별 승인 · IF 확인 · 계약 칸 질문 · 유지보수 오분류 확인 · trivial 축약 제안 · 스펙 검토 — 은 같은 디렉터리 `once-approval.md` 를 Read 해 따른다(질문은 Step 3 에서 묶음 1회, 나머지는 승인 묶음). `<!-- step: true -->` 면 각 절의 기존 동작 그대로다. `<!-- step: true -->` 줄은 FID 슬러그·대상 설명에서 뺀다(주석 줄).
 
    **[유지보수 분기]** (Phase C 적용 — 본문 축약, analyzing-ko 결과 참조):
      - `analyzing-ko` 가 이미 호출되어 `.specops/<FID>/current-state.md` + `.specops/<FID>/impact-analysis.md` 가 산출되어 있어야 함
@@ -129,7 +128,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
 
    **[lite 분기]** (`/start-lite` — clarify·plan ceremony 축약, 화면/IF·teeth 유지):
      - FID·브랜치 생성은 [신규 분기] Step 0과 동일
-     - **★ strict 승격 가드** (진입 직후·설계 전): 요청/변경 표면에 auth·oauth·jwt·rbac·credential·migration·ALTER/DROP TABLE·결제/PII·파괴적 스키마·public API 신설 등 **strict 신호**가 보이면 lite 진행 **금지**. 사용자에게 "`/start-lite` 범위 밖(고위험) — `/start`로 진행하세요" 안내 후 **중단**(강제 다운그레이드 금지). 무인 표지가 있으면 중단 대신 승격한다 — 아래 `[무인 표지 (둘째 줄)]`.
+     - **★ strict 승격 가드** (진입 직후·설계 전): 요청/변경 표면에 auth·oauth·jwt·rbac·credential·migration·ALTER/DROP TABLE·결제/PII·파괴적 스키마·public API 신설 등 **strict 신호**가 보이면 lite 진행 **금지**. 사용자에게 "`/start-lite` 범위 밖(고위험) — `/start`로 진행하세요" 안내 후 **중단**(강제 다운그레이드 금지).
        > 본 가드는 조기 차단(설계 전)이지만 **모델 판단**이다. 놓쳐도 `decomposing-ko` Step 10c 의 `risk-profile.sh` 가 `LITE-STRICT-GUARD` rc=3 으로 기계 탐지한다(승격 강제). 이중 안전망 — 여기서 잡는 게 손실이 가장 적다.
      - Step 6에서 `**§lite**: true` + `**§유형**: trivial` **질문 없이 강제**(슬래시 진입=축약 승인). "축약할까요?" 제안 **하지 않음**.
      - Step 3~4(명확화 질문·2~3 접근)는 **경량화**: 블로킹 모호점만 0~2문장으로 확인하거나 명백하면 skip — **clarifying-ko·planning-ko 스킬은 호출하지 않음**.
@@ -139,18 +138,10 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
 
    **[maintain-lite 분기]** (`/maintain-lite` — analyzing-mini 산출물 참조 + clarify·plan 축약):
      - `analyzing-ko` [lite-mini]가 남긴 `current-state.md` + `impact-analysis.md` **참조만**
-     - **★ strict 승격 가드**: strict 신호면 "`/maintain`으로 진행" 안내 후 중단 (무인 표지가 있으면 중단 대신 승격 — 아래 `[무인 표지 (둘째 줄)]`)
+     - **★ strict 승격 가드**: strict 신호면 "`/maintain`으로 진행" 안내 후 중단
      - Step 6: `**§유형**: 유지보수` + `**§lite**: true` 강제. acceptance-criteria **AC-R-1** 필수(DB·스키마면 AC-R-2)
      - Step 5.5·5.6: [유지보수 분기]와 동일(기존 API/스키마 수정 시 5.6 등) — **제외 금지**
      - clarifying-ko·planning-ko **호출 금지** — 승인 후 §lite 단축으로 decomposing-ko 직행
-
-   **[무인 표지 (둘째 줄)]** (`/maintain-auto`·`/maintain-lite-auto`·`/start-lite-auto` — 위 분기 중 하나에 **겹친다**):
-     - **판정**: 첫 줄이 `maintain`·`maintain-lite`·`lite` 약속어이고 **둘째 줄이 `<!-- auto: true -->`** 일 때. 슬래시가 붙인 표지만 인정한다 — 자연어로 추론하지 않는다. FID 슬러그·gbrain 조회는 주석 줄(약속어·무인 표지·승격 표지)을 뺀 나머지로 한다
-     - **무인 판정은 이 표지로 한다** — Step 5.5·5.6·사용자 검토 게이트의 `[§auto 모드]` 는 spec.md 가 아직 없어도(Step 6 이전) 이 표지가 있으면 무인이다
-     - **묻지 않는다**: Step 3~4 의 명확화 질문·접근 제안, intent·설계 승인(Step 5)·스펙 검토 게이트를 전부 사용자 응답 없이 지난다. 모호한 점은 best-guess 로 정하고 intent·spec 에 `(ASSUMED)` 로 적는다 — lite 계열은 뒤에 clarifying-ko 가 없으므로 **여기서 적지 않으면 어디에도 남지 않는다**
-     - **라벨**: 그 분기의 라벨에 `**§auto**: true` 를 **함께** 적고, 유지보수 계열은 `**자동 결정 분석**: current-state.md · impact-analysis.md — <변경 대상·보존할 동작 1줄> (사용자 미검토)` 를 적는다(분석 검토가 자동 통과됐다는 표시)
-     - **★ strict 는 중단하지 않고 승격한다** (lite 계열의 `★ strict 승격 가드` 대신): strict 신호가 보이면 풀 무인 경로로 올린다. 승격하면 **`§lite` 를 적지 않고 `§유형` 은 `신규`(`/start-lite-auto`) 또는 `유지보수`(`/maintain-lite-auto`)** 로 적는다 — `trivial` 로 적으면 trivial 단축 경로가 clarify·plan 을 다시 건너뛰고, `§lite` 가 없어 `LITE-STRICT-GUARD` 도 걸리지 않는다. spec §1 에 `**자동 승격**: lite → 풀 경로 (<신호>)` 를 적고, 다음 skill 은 정상 경로(`clarifying-ko`)다
-     - **analyzing 이 이미 승격한 경우**: args 셋째 줄이 `<!-- promoted: lite -->` 면(analyzing-ko 가 mini 대신 풀 분석을 돌렸다) [유지보수 분기]로 진행하되 spec §1 에 같은 `**자동 승격**` 줄을 적는다 — 이 줄이 없으면 승격이 PR 게이트 다이제스트에서 빠진다
 
 1.5. **Intent 캡처 (spec 이전)** — 요청을 요청자의 말로 옮긴 `.specops/<FID>/intent.md` 를 먼저 남긴다. 5절: 문제(요청 원문 인용) · 기대 결과 · 영향 사용자·시스템 · 제약 · 열린 질문(IQ-n · 없으면 `- 없음`). 템플릿 `templates/intent.md`. **판정 SoT = `scripts/_internal/check-intent.sh`** (구현 직전 emit-context 가 존재·채움 재검 — 도입 전 FID·비날짜 FID 는 SKIP). 승인된 intent 는 **커밋해 공유한다**(PR 에서 보이고 git 이력이 감사 추적이 된다): `git check-ignore -q .specops/<FID>/intent.md` 가 rc 1(추적 대상)일 때만 `git add .specops/<FID>/intent.md` → 별도 호출로 `git commit -m "docs(intent): <FID>"`. 무시되는 프로젝트(구 `.specops/.gitignore`)는 건너뛴다.
 
@@ -160,7 +151,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-lite-auto, /start-auto, /
    | 유지보수 · maintain-lite | 문제는 요청 + `current-state.md` §4·§5 | Step 5 설계 제시에 intent 동봉 → **설계 승인과 통합**(게이트 1회) |
    | lite | 5절 각 1~2줄 | 설계 승인과 통합 |
    | batch | **FR 행** + PRD §1·§3 에서 도출 · `Status: draft` | per-FR 게이트 없음 → `/start-all` Phase 2.5-E 일괄 확인 |
-   | auto (무인 표지 포함) | 추정 항목에 `(ASSUMED)` · spec §1 에 `**자동 결정 intent**` 1줄 | 자동 통과(PR 게이트 다이제스트로 집계) |
+   | auto (`/start-all-auto` batch) | 추정 항목에 `(ASSUMED)` · spec §1 에 `**자동 결정 intent**` 1줄 | 자동 통과(PR 게이트 다이제스트로 집계) |
    | §일괄 (기본 · 신규·유지보수·lite) | 분기별 내용 그대로 | 독립 게이트·설계 승인 통합 없음 → 승인 묶음에 싣는다(`once-approval.md`) · 승인되면 `Status: accepted` |
 
 2. **Visual Companion 제안** (시각 질문이 예상되면) — 자체 메시지로만. 명확화 질문과 섞지 말 것. 아래 Visual Companion 섹션 참조

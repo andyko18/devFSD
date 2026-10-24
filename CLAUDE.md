@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/start-lite`, `/maintain`, `/maintain-lite` 와 각각의 무인 변형 `-auto`) 또는 자연어 진입 후 메타 스킬이 spec → (clarify → plan) → TDD implement → verify → review → security → integration-test → performance-test → PR 전 단계를 자동 chain한다. `/start-lite`·`/maintain-lite`는 clarify·plan ceremony만 생략하고 화면/IF·Phase B/C·verify는 유지한다(NL로 lite 추론 금지). 몇 줄짜리 수정은 `/quick-fix` 가 chain 밖에서 받는다 — 문서 없이 테스트 실행 + 코드 리뷰 1회이고, 범위 상한은 커밋 때 훅이 판정한다(아래 거버넌스 엔진의 quick 경로). Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
+specops-ko는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/start-lite`, `/maintain`, `/maintain-lite` · 무인 일괄 `/start-all-auto`) 또는 자연어 진입 후 메타 스킬이 spec → (clarify → plan) → TDD implement → verify → review → security → integration-test → performance-test → PR 전 단계를 자동 chain한다. `/start-lite`·`/maintain-lite`는 clarify·plan ceremony만 생략하고 화면/IF·Phase B/C·verify는 유지한다(NL로 lite 추론 금지). 몇 줄짜리 수정은 `/quick-fix` 가 chain 밖에서 받는다 — 문서 없이 테스트 실행 + 코드 리뷰 1회이고, 범위 상한은 커밋 때 훅이 판정한다(아래 거버넌스 엔진의 quick 경로). Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
 
 ## 테스트 명령
 
@@ -91,7 +91,7 @@ R-1/R-2 는 **pretool=강제 차단 / posttool=감사** 로 역할이 분리된�
 
 > **면제 조회 — "이 커밋은 면제됩니까"를 미리 묻는다**: `bash scripts/_internal/scope-explain.sh '<커밋 명령>'`(인자, 또는 stdin 파이프)이 훅과 **같은 판정 함수**를 불러 `SCOPE=staged|conservative EXEMPT=yes|no REASON=<class>(<N> files)` 1줄로 답한다. rc 계약: **0=판정 성공 · 2=입력 없음/읽기 불가 · 3=판정기 로드 불가** — 판정 불가를 그럴듯한 1줄로 위장하지 않는다. 훅 경로에서 묻고 싶으면 `SPECOPS_DRYRUN=1`(env 또는 **명령 선두 인라인**)을 붙인다: 같은 1줄을 stderr 로 내고 **deny 한다** — 조회이므로 커밋을 실행하지 않는다(allow 를 한 건도 늘리지 않는 deny 전용 경로). 커밋 명령 **앞의** `cd <repo 내부 경로>`·bare `VAR=값` 선행 줄은 **최대 8줄까지** 안전 prelude 로 인정해 그 뒤 커밋을 판정한다(그 밖의 선행 줄 — `cd ..`·`cd -`·타 repo 절대경로·명령치환·`git add -A` 등 — 은 보수 판정). 명령이 다른 작업 트리로 옮겨(`cd`·`-C`·`GIT_DIR=`) 커밋하면 문서 면제를 주지 않는다 — 같은 작업 트리일 때만 면제. ⚠️ **DRYRUN 의 관할 경계**: `.specops/` 부재 repo 와 **사유를 병기한** `SPECOPS_GOVERNANCE_BYPASS=1`(무사유는 deny 라 실행되지 않는다) 사용 시에는 훅이 **그 앞 분기에서 이미 빠져나가** DRYRUN 이 무시되고 커밋이 **실제로 실행된다**(실측: 두 경우 모두 `{"continue":true}`) — 조회 의도였다면 커밋이 나간 뒤에야 알게 되므로, 그 두 상황에서는 `scope-explain.sh` 를 쓴다. (근거·이력: docs/governance-history.md §2)
 
-**실행-근거 gate** (v1.45.0, `governance-lib.sh:_verify_exec_evidence`): R-1/R-2 의 verify 면제는 **자기보고만으로 열리지 않는다**. transcript 가용 시, 자기보고 면제 3경로 — session-progress 의 `/verify PASS` 줄 · evidence.md 의 `RUN-VERIFICATION-RESULT` 스탬프 · `verifying-evidence-ko` Skill 호출 — 는 **무엇이 있든** transcript 의 `tool_use` ↔ `tool_result` 를 `tool_use_id` 로 join 해 검증 러너가 **실제로 실행되어 `VERIFY: PASS` 를 출력했는지** 확인한 뒤에만 면제된다 (`VERIFY: PARTIAL`·`FAIL`·`is_error` 는 불인정). 모델이 spec.md 에 스스로 쓰는 `§auto: true` 라벨의 **무조건 면제는 제거됐다** — 자기발급 면제표였기 때문이다. 무인 모드(`/start-auto`)도 chain 에 verify 가 있어 실제 실행하므로 정직한 흐름은 그대로 통과한다. 판정 불가(transcript 부재·tool_use 이벤트 0건(rc=2)·jq 실패)는 fail-open.
+**실행-근거 gate** (v1.45.0, `governance-lib.sh:_verify_exec_evidence`): R-1/R-2 의 verify 면제는 **자기보고만으로 열리지 않는다**. transcript 가용 시, 자기보고 면제 3경로 — session-progress 의 `/verify PASS` 줄 · evidence.md 의 `RUN-VERIFICATION-RESULT` 스탬프 · `verifying-evidence-ko` Skill 호출 — 는 **무엇이 있든** transcript 의 `tool_use` ↔ `tool_result` 를 `tool_use_id` 로 join 해 검증 러너가 **실제로 실행되어 `VERIFY: PASS` 를 출력했는지** 확인한 뒤에만 면제된다 (`VERIFY: PARTIAL`·`FAIL`·`is_error` 는 불인정). 모델이 spec.md 에 스스로 쓰는 `§auto: true` 라벨의 **무조건 면제는 제거됐다** — 자기발급 면제표였기 때문이다. 무인 모드(`/start-all-auto`)도 chain 에 verify 가 있어 실제 실행하므로 정직한 흐름은 그대로 통과한다. 판정 불가(transcript 부재·tool_use 이벤트 0건(rc=2)·jq 실패)는 fail-open.
 
 > **실행 증거는 그 FID 의 것이어야 하고, 검증 뒤 코드가 바뀌면 닫힌다** (20261009): 러너 명령에 FID 가 글자로 적혀 있는데(`run-verification.sh <FID>`) 그것이 활성 FID 가 아니면 실행 증거로 치지 않는다 — 한 세션에서 FID 여럿을 다루면 앞 FID 의 PASS 가 뒤 FID 의 커밋을 열었다(실기록 커밋 919건 중 12건). FID 가 변수거나 `run-all.sh` 면 판단하지 않는다. 그리고 판정 SoT(`verification-state.sh current`)가 `STALE` 이면 진행 기록·스탬프가 있어도 R-1 은 열리지 않는다 — 종전에는 transcript 의 Edit/Write 이벤트로만 무효화를 봐서, 셸 명령·포매터·코드 생성기·서브에이전트가 고친 코드는 검증 없이 커밋됐다. `STALE` 이어도 막지 않는 경우는 둘이다(`_vs_stale_blocks`) — 전체 스위트가 **지금 이 트리**에서 통과했거나(`full-suite-fresh.sh` rc 0 — `run-all.sh` 는 판정 상태를 갱신하지 않는다), 달라진 것이 추적하지 않는 파일뿐일 때(`verification-state.sh stale-scope` = `untracked-only` — 기록의 `tracked_nondoc_hash` 와 대조 · 커밋만 실행하는 명령(`git commit [-a] -m …` 한 줄 — `_commit_scope_is_staged`)일 때만 · compound·파이프·경로 인자는 조회용 명령과 함께여도 제외). (근거·이력: docs/governance-history.md §3)
 
@@ -167,15 +167,13 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 ### maintenance flag
 
 진입 분기 약속어 — args 첫 줄에 HTML 주석을 prepend하여 분기를 구분한다.
-매칭 순서(specifying-ko): maintain-lite → maintain → lite → foundation → batch → auto → (신규 기본).
+매칭 순서(specifying-ko): maintain-lite → maintain → lite → foundation → batch → (신규 기본).
 
 - `<!-- entry: maintain-lite -->` — 경량 유지보수. `analyzing-ko` `[lite-mini 분기]` → `specifying-ko` `[maintain-lite 분기]`. `maintain`보다 **먼저** 매칭.
 - `<!-- entry: maintain -->` — 유지보수 진입. `specifying-ko`의 `[유지보수 분기]`가 감지.
 - `<!-- entry: lite -->` — 경량 신규. `specifying-ko` `[lite 분기]` — clarify/plan skip, §lite+trivial, 화면/IF·B/C 유지.
 - `<!-- entry: foundation -->` — 공통부 먼저 개발 진입. `specifying-ko`의 `[foundation 분기]`가 감지. Step 5.5 **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`, 기능 화면 금지), Step 5.6 적용, §유형=`foundation` 자동 라벨.
 - `<!-- entry: batch -->` — `/start-all` FR 루프. Step 0 git-branch skip, Step 5.5·5.6 skip(Phase 2.5로 이관). 셋째 줄 `<!-- auto: true -->`면 `§auto` 동시 기재.
-- `<!-- entry: auto -->` — 무인 단독(`§auto: true`). git-branch 유지, clarify/plan 수행.
-- **무인 표지 (둘째 줄)** `<!-- auto: true -->` — `maintain`·`maintain-lite`·`lite` 약속어 **다음 줄**에 붙으면 그 분기에 무인을 겹친다(`/maintain-auto`·`/maintain-lite-auto`·`/start-lite-auto`). `analyzing-ko` 는 검토 게이트를 자동 통과하고(분석 산출물은 그대로), `specifying-ko` 는 `§auto: true` 를 함께 적는다 — 뒤 단계는 그 라벨만 본다. lite 계열의 strict 신호는 중단 대신 풀 무인 경로로 자동 승격한다. batch 의 셋째 줄 `<!-- auto: true -->` 와 같은 표지다.
 
 ### `hooks/governance-lib.sh` 는 800줄 규칙 예외다
 

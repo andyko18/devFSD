@@ -4,7 +4,7 @@ description: 유지보수 진입 시 specifying-ko 앞에서 호출 — 변경 �
 layer: 2
 reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패턴 분석 결과)
 specops_version: 2.14.0
-used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-lite, /maintain-auto, /maintain-lite-auto, /promote (promote-fid 분기)
+used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-lite, /promote (promote-fid 분기)
 ---
 
 # Engine 스킬 — 분석 (analyzing)
@@ -15,10 +15,9 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
 
 - **`entry: maintain`** → 아래 **풀 체크리스트** (Step 0~8)
 - **`entry: maintain-lite`** → **[lite-mini 분기]** (토큰 절감 — 대상·호출자·회귀 요약만)
-- **무인 표지** — args **둘째 줄**이 `<!-- auto: true -->` 면(`/maintain-auto`·`/maintain-lite-auto`) 아래 `## 무인 표지` 를 따른다. 슬래시가 붙인 표지일 때만이다 — 자연어로 추론하지 않는다
 
 <HARD-GATE>
-두 산출물 (`current-state.md` + `impact-analysis.md`) 사용자 검토 통과 전 specifying-ko 호출 금지. (무인 표지 진입은 검토만 자동 통과한다 — 산출물 2종은 똑같이 요구된다: 아래 `## 무인 표지`)
+두 산출물 (`current-state.md` + `impact-analysis.md`) 사용자 검토 통과 전 specifying-ko 호출 금지.
 
 **판정 분리 (20260806)**:
 - **산출물 존재·채움** → 기계 판정. SoT = `scripts/_internal/check-maintain-baseline.sh` (구현 직전 `emit-context.sh` 가 자동 호출 — 부재·placeholder 잔존 시 dispatch 가 열리지 않는다).
@@ -27,22 +26,12 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
 > 종전엔 둘 다 산문이라 유지보수 FID 가 **analyzing 산출물 0개로 구현까지** 갔다(실측). 2차 피해가 크다 — `check-regression-ac` 의 **스키마 override 판정이 `current-state.md` 를 읽으므로**, 파일이 없으면 파괴적 스키마 변경에도 **AC-R-2(데이터 보존)가 요구되지 않는다**(안전망 무음 해제). AC-R-1 도 baseline 없이는 "무엇을 보존하는지" 근거가 없다.
 </HARD-GATE>
 
-## 무인 표지 (`<!-- auto: true -->` 둘째 줄)
-
-분석은 **그대로 하고 사람의 검토만 건너뛴다.** 아래는 본 skill 의 다른 절보다 우선한다(HARD-GATE 의 "사용자 검토 통과 전 호출 금지"·Step 7·lite-mini 2번·5번).
-
-- 대상 설명·FID 슬러그는 주석 줄(약속어·무인 표지)을 **모두** 뺀 나머지에서 뽑는다 — Step 0 과 lite-mini 1번의 "첫 줄 제거"는 무인에서 "주석 줄 제거"다.
-- 검토 ★ HARD GATE(풀 Step 7 · lite-mini 5번)는 `[y/n]` 을 **묻지 않고 통과**한다. 대신 한 줄을 출력한다: `분석 검토 자동 통과(무인) — current-state.md · impact-analysis.md 는 PR 게이트 다이제스트에 실린다`.
-- **분석 산출물은 줄이지 않는다** — 두 파일의 존재·채움 기계 판정(`check-maintain-baseline.sh`)은 무인에서도 그대로고, 없으면 구현 dispatch 가 열리지 않는다.
-- **lite-mini 의 strict 승격 가드는 중단하지 않고 승격한다**: strict 신호가 보이면 mini 대신 **풀 체크리스트**(Step 1~6)를 돌린다. specifying 에 넘기는 args 는 첫 줄을 `<!-- entry: maintain -->` 로 바꾸고, 무인 표지 다음(셋째 줄)에 **`<!-- promoted: lite -->`** 를 더한다 — specifying 이 그 줄을 보고 spec 에 `**자동 승격**` 을 적는다(`/maintain-auto` 와 같은 경로가 되지만 승격 사실은 남는다). `impact-analysis.md` `## 4. Advisor 협의 기록` 아래에도 승격 1줄을 남긴다.
-- 승격하지 않았으면 specifying-ko 로 넘기는 args 는 받은 그대로다 — **무인 표지 줄을 지우지 않는다**. specifying 이 그 줄을 보고 `**§auto**: true` 와 `**자동 결정 분석**` 을 spec 에 적는다.
-
 ## [lite-mini 분기] (`<!-- entry: maintain-lite -->`)
 
 풀 Step 1~6 대신 아래만 수행한다. Step 0 FID 생성·브랜치는 동일.
 
 1. **args**: `<!-- entry: maintain-lite -->` 첫 줄 제거 후 대상 설명 추출 (`<!-- step: true -->` 줄도 뺀다) (FID slug 규칙은 Step 0과 동일).
-2. **★ strict 승격 가드**: auth·oauth·jwt·rbac·credential·migration·ALTER/DROP·결제/PII·파괴적 스키마·public API 등 strict 신호가 보이면 lite-mini **중단** — "`/maintain`으로 진행하세요" 안내 (강제 진행 금지). 무인 표지가 있으면 중단 대신 승격한다 — 위 `## 무인 표지`.
+2. **★ strict 승격 가드**: auth·oauth·jwt·rbac·credential·migration·ALTER/DROP·결제/PII·파괴적 스키마·public API 등 strict 신호가 보이면 lite-mini **중단** — "`/maintain`으로 진행하세요" 안내 (강제 진행 금지).
 3. **current-state.md (mini)**:
    - §1 변경 대상 파일·심볼·라인 범위(합산 명시) — grep/`wc -l` 실측
    - §2 직접 호출자만(1-hop, `grep -rn` head 제한) — 광역 의존 맵 생략
@@ -263,7 +252,7 @@ git log --oneline --grep="<symbol>" -n 5
 
 ### Step 7: ★ HARD GATE (AC-7, AC-8)
 
-**[§일괄]** (args 앞쪽 주석 줄에 `<!-- step: true -->`·`<!-- auto: true -->` 가 없을 때 — `../specifying-ko/SKILL.md` 의 §일괄 판정과 같다): [y/n] 을 묻지 않고 Step 8 로 간다. 분석 요약(변경 대상 · 보존할 동작 · 회귀 위험)은 승인 묶음에 실린다(`../specifying-ko/once-approval.md`) — 한 줄 출력: `분석 검토는 승인 묶음으로 넘깁니다(§일괄)`. 아래는 `--step` 일 때의 동작이다.
+**[§일괄]** (args 앞쪽 주석 줄에 `<!-- step: true -->` 가 없을 때 — `../specifying-ko/SKILL.md` 의 §일괄 판정과 같다): [y/n] 을 묻지 않고 Step 8 로 간다. 분석 요약(변경 대상 · 보존할 동작 · 회귀 위험)은 승인 묶음에 실린다(`../specifying-ko/once-approval.md`) — 한 줄 출력: `분석 검토는 승인 묶음으로 넘깁니다(§일괄)`. 아래는 `--step` 일 때의 동작이다.
 
 두 산출물 경로를 명시하고 사용자 응답 대기:
 

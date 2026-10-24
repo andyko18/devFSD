@@ -85,7 +85,7 @@ done
 
 # ── 가정 다이제스트 "자동 결정 인터페이스" 수집 3-소비처 (P1-3 audit 20260710) ──
 # specifying §auto Step 5.6 이 spec.md 에 기록하는 라벨을 다이제스트 소비처가 실제 수집하는지.
-for f in skills/performance-test-ko/SKILL.md commands/start-auto.md commands/start-all-auto.md; do
+for f in skills/performance-test-ko/SKILL.md commands/start-all-auto.md; do
   if grep -q '자동 결정 인터페이스' "$f"; then
     ok "다이제스트 인터페이스 수집 존재 ($f)"
   else
@@ -231,7 +231,7 @@ if has templates/dispatch-context.md '## 7\. 실행 모드'; then ok "fable-tips
 #   (실측 `/context`: specops skill 행 54→32, ~870 tok 절감 — `claude plugin details` 투영값은 이 플래그를 반영하지 않는다).
 #   모델이 부를 수 있어야 하는 init-project(메타 skill 이 y 응답 시 호출)·status(재개 조회)는 켜 두지 않는다.
 _dmi_ok=ok; _dmi_n=0
-for c in brainstorming design-interface design-interfaces design-screen design-screens doctor e2e-test gbrain improve-arch log maintain-lite maintain promote release security-scan start-all-auto start-all start-auto start-foundation start-lite start statusline-install; do
+for c in brainstorming design-interface design-interfaces design-screen design-screens doctor e2e-test gbrain improve-arch log maintain-lite maintain promote release security-scan start-all-auto start-all start-foundation start-lite start statusline-install; do
   _dmi_n=$((_dmi_n+1))
   awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$PLUGIN/commands/$c.md" | grep -qx 'disable-model-invocation: true' || { _dmi_ok=no; echo "  (플래그 누락: commands/$c.md)"; }
 done
@@ -240,7 +240,7 @@ for c in init-project status; do
 done
 [ "$_dmi_ok" = ok ] && ok "dmi: 사용자 전용 command ${_dmi_n}종 disable-model-invocation · init-project·status 는 제외" || nope "dmi: command 플래그 계약 위반"
 # 비활성 command 를 skill 호출 문법(specops-ko:<cmd>)으로 부르는 본문이 없다 — 있으면 모델이 못 불러 체인이 끊긴다
-_dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'specops-ko:(brainstorming|design-interfaces?|design-screens?|doctor|e2e-test|gbrain|improve-arch|log|maintain-lite|maintain|promote|release|security-scan|start-all-auto|start-all|start-auto|start-foundation|start-lite|start|statusline-install)([^-a-z]|$)' -- skills agents hooks 2>/dev/null | head -3)
+_dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'specops-ko:(brainstorming|design-interfaces?|design-screens?|doctor|e2e-test|gbrain|improve-arch|log|maintain-lite|maintain|promote|release|security-scan|start-all-auto|start-all|start-foundation|start-lite|start|statusline-install)([^-a-z]|$)' -- skills agents hooks 2>/dev/null | head -3)
 [ -z "$_dmi_ref" ] && ok "dmi: 비활성 command 를 모델이 skill 로 호출하는 본문 0건" || nope "dmi: 비활성 command 호출 참조" "$_dmi_ref"
 
 # ── implementer-ko 가 karpathy-ko 를 프리로드한다 (공식 sub-agents: `skills` frontmatter = 시작 시 전체 내용 주입) ──
@@ -420,11 +420,9 @@ fi
 # 무인 모드의 plan 리뷰 한도 초과: 진입 경로와 무관하게 Critical 이 남으면 정지
 if has skills/planning-ko/SKILL.md 'Critical≥1 이면 무인이라도 `HARD-GATE: plan-reviewer Critical cap' 'Critical=0\(Important 만 남음\)' \
    && grep -qF "grep -qE '^Critical:[[:space:]]*0([^0-9]|\$)' .specops/<FID>/plan-review.md" skills/planning-ko/SKILL.md \
-   && has commands/start-auto.md 'plan-reviewer cap 초과 \|.*Critical 이 남으면 정지' \
-   && has commands/maintain-auto.md 'plan-reviewer cap 초과 \|.*Critical 이 남으면 정지' \
    && has commands/start-all.md 'Critical≥1.*§auto 모두' \
    && [ "$(grep -cE '\^Critical:\[\[:space:\]\]\*0`? 줄이 (\*\*)?있을 때만' commands/start-all.md)" -ge 2 ]; then
-  ok "무인 plan 리뷰 한도 초과 — 단일(/start-auto·/maintain-auto)·batch 모두 Critical 이면 정지"
+  ok "무인 plan 리뷰 한도 초과 — planning·batch(/start-all·/start-all-auto) 모두 Critical 이면 정지"
 else
   nope "무인 plan 리뷰 한도 초과" "진입 경로마다 답이 다르다"
 fi

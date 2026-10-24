@@ -122,6 +122,69 @@ else
     && ok "D7b 다른 FID 섹션의 같은 문구에 속지 않고 경고" || nope "D7b" "rc=$rc err=$(cat "$TD/f.err")"
 fi
 
+# D7c: 접두가 겹친 FID(`<FID>-x`) 섹션의 줄은 세지 않는다(AC-1) — append 대역이 그 섹션에 줄을 쓰면 경고해야 한다
+#   대역은 진짜 append 와 같은 계약(rc 0 · 성공 문구)을 지키고 줄만 겹친 FID 섹션에 넣는다 — 끝 공백 없는 접두 일치 `_cnt` 를 떨어뜨린다
+_setup "$TD/f2" "$FID"
+printf '\n## %s-x\n- 2026-10-01 10:00 /tasks 완료 (tasks.md)\n' "$FID" >> "$TD/f2/.specops/session-progress.md"
+mkdir -p "$TD/plug" && cp -R "$PLUGIN/scripts" "$TD/plug/" && cp -R "$PLUGIN/templates" "$TD/plug/" 2>/dev/null
+cat > "$TD/plug/scripts/session-progress-append.sh" <<'STUB'
+#!/usr/bin/env bash
+# 대역: 진짜 append 와 같은 rc 0 · 같은 성공 문구 — 다만 줄을 `## <FID>-x` 섹션에 넣는다(잘못된 귀속)
+f=.specops/session-progress.md; awk -v h="## $1-x" -v l="- 2026-10-24 10:00 $2 $3 ($4)" '{print} $0==h{print l}' "$f" > "$f.t" && mv "$f.t" "$f"
+echo "appended to existing section"
+STUB
+out=$(cd "$TD/f2" && bash "$TD/plug/scripts/_internal/record-task-done.sh" "$FID" T1 2>"$TD/f2.err"); rc=$?
+{ [ "$rc" = 0 ] && grep -qF '경고 — session-progress 기록 실패' "$TD/f2.err" && grep -qF "/implement 진행 (T1 완료)" "$TD/f2/.specops/session-progress.md"; } \
+  && ok "D7c 겹친 FID 섹션에 들어간 줄은 세지 않고 경고" || nope "D7c" "rc=$rc err=$(cat "$TD/f2.err")"
+
+# D9: 요약에 백슬래시가 있어도 그대로 센다 — FID·문구를 ENVIRON 으로 넘긴다(`awk -v` 는 `\n`·`\t` 를 해석해 거짓 경고)
+_setup "$TD/g" "$FID"
+err=$(cd "$TD/g" && bash "$DONE" "$FID" T1 'C:\new\tab' 2>&1 >/dev/null)
+{ ! printf '%s' "$err" | grep -qF '경고 — session-progress 기록 실패'; } \
+  && _first "$TD/g/.specops/session-progress.md" "$FID" | grep -qF '/implement 진행 (T1 완료 — C:\new\tab)' \
+  && ok "D9 백슬래시 든 요약 — 경고 없음 · 원문 그대로 기록" || nope "D9" "err=$err first=$(_first "$TD/g/.specops/session-progress.md" "$FID")"
+
+# D8: 헤더 판정 공통 규칙 — 판독기 5곳이 같은 섹션을 고른다 (20261024-quality-gate-fixes · AC-1·AC-2)
+#   규칙(쓰는 쪽 session-progress-append 와 같다): `## <FID>` 정확 일치 또는 `## <FID> ` 로 시작. 접두가 겹친 FID·메모 속 `## <FID>` 는 아니다.
+#   한 판독기라도 규칙을 바꾸면 그 판독기의 줄이 FAIL 한다(record-task-done 은 정확 일치만 보던 이탈 — 접미 헤더에서 거짓 경고).
+_d8_fix() { # $1=dir $2=헤더 줄 — 섹션 첫 줄은 종결 줄(freework NEW 판정용) · 둘째 줄은 /specify(reconcile 기록 단계용)
+  _setup "$1" "$FID"
+  { printf '%s\n- 2026-10-24 10:01 /lifecycle DONE (PR #1 머지)\n- 2026-10-24 10:00 /specify 완료 (spec.md)\n' "$2"
+    printf '\n## 20261001-other\n- 2026-10-01 10:00 /tasks 완료 — 메모 ## %s 참고\n- 2026-10-01 09:00 /finishing 완료 (PR #2)\n' "$FID"; } > "$1/.specops/session-progress.md"
+  cp "$1/.specops/session-progress.md" "$1/sp.orig"
+}
+_d8_reset() { cp "$1/sp.orig" "$1/.specops/session-progress.md"; }
+_d8() { # $1=id $2=헤더 줄 $3=yes(이 FID 섹션) | no(다른 FID 섹션)
+  local id="$1" hdr="$2" want="$3" d="$TD/d8-$1" o
+  _d8_fix "$d" "$hdr"
+  o=$(cd "$d" && bash "$PLUGIN/scripts/session-progress-append.sh" "$FID" /probe 진행 m 2>&1)
+  if [ "$want" = yes ]; then printf '%s' "$o" | grep -q '^appended to existing section' ; else printf '%s' "$o" | grep -q '^created new section'; fi \
+    && ok "$id.a session-progress-append ($want)" || nope "$id.a session-progress-append ($want)" "$o"
+  _d8_reset "$d"
+  o=$(cd "$d" && bash "$PLUGIN/scripts/show-fid-status.sh" "$FID" 2>&1)
+  if [ "$want" = yes ]; then printf '%s' "$o" | grep -qF '/lifecycle DONE (PR #1 머지)'; else printf '%s' "$o" | grep -qF '(진행 이력 없음)'; fi \
+    && ok "$id.b show-fid-status ($want)" || nope "$id.b show-fid-status ($want)" "$(printf '%s' "$o" | sed -n '/진행 이력/,+2p' | tr '\n' '|')"
+  o=$(cd "$d" && bash "$PLUGIN/scripts/freework-resolve-fid.sh" "$FID" 2>&1)
+  if [ "$want" = yes ]; then [ "$o" = NEW ]; else [ "$o" = "ATTACH:$FID" ]; fi \
+    && ok "$id.c freework-resolve-fid ($want)" || nope "$id.c freework-resolve-fid ($want)" "$o"
+  o=$(cd "$d" && bash "$PLUGIN/scripts/_internal/reconcile-check.sh" "$FID" 2>&1)
+  if [ "$want" = yes ]; then printf '%s' "$o" | grep -qF '기록(finishing)'; else ! printf '%s' "$o" | grep -qF '기록(finishing)'; fi \
+    && ok "$id.d reconcile-check ($want)" || nope "$id.d reconcile-check ($want)" "$(printf '%s' "$o" | grep -m1 '기록' )"
+  local memo=d8   # record-task-done 이 남기는 줄 = `/implement 진행 (T1 완료 — <요약>)`
+  o=$(cd "$d" && bash "$DONE" "$FID" T1 "$memo" 2>&1 >/dev/null)
+  if [ "$want" = yes ]; then
+    { ! printf '%s' "$o" | grep -qF '경고 — session-progress 기록 실패'; } \
+      && awk -v h="$hdr" '$0==h{getline; print; exit}' "$d/.specops/session-progress.md" | grep -qF "/implement 진행 (T1 완료 — $memo)"
+  else
+    { ! printf '%s' "$o" | grep -qF '경고 — session-progress 기록 실패'; } \
+      && awk -v h="$hdr" '$0==h{getline; print; exit}' "$d/.specops/session-progress.md" | grep -qF '/lifecycle DONE (PR #1 머지)'
+  fi && ok "$id.e record-task-done ($want)" || nope "$id.e record-task-done ($want)" "err=$o"
+}
+_d8 D8.1 "## $FID" yes
+_d8 D8.2 "## $FID · 기능 이름" yes
+_d8 D8.3 "## $FID-x" no
+_d8 D8.4 "## $FID-x-y" no
+
 # D5: implementing-ko 가 이 스크립트를 가리킨다
 grep -qF 'record-task-done.sh <FID> <task-id>' "$PLUGIN/skills/implementing-ko/SKILL.md" && ok "D5 implementing-ko 커밋 직전 절이 record-task-done.sh 를 안내" || nope "D5"
 

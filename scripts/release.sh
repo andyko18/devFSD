@@ -77,6 +77,7 @@ else
   # 같은 커밋 트리가 이미 전체 스위트를 통과했으면(다른 worktree 의 통과 기록 포함) 재실행하지 않는다 —
   #   판정은 full-suite-fresh.sh --release(HEAD 트리 해시 == 마커 둘째 줄 · 문서 포함 · 추적하지 않는 파일 무시) 하나 ·
   #   헬퍼 부재·STALE·판정 불가는 지금처럼 전체 실행(20261024-speed-release-fresh-task-record).
+  #   무시 목록(.gitignore) 파일에 기댄 통과는 판정이 보지 못한다 — 깨끗한 checkout 의 PR CI(merge 필수)가 막고 main push CI 가 사후에 본다.
   #   테스트 오버라이드(RELEASE_PREFLIGHT_CMD)보다 앞에서 본다 — 마커 없는 픽스처는 STALE 이다.
   _fresh=""
   _fresh_sh="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/full-suite-fresh.sh"

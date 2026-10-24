@@ -6,6 +6,8 @@
 #   --release: 발행 판정 — 추적 파일이 커밋 그대로일 때 HEAD 트리 해시와 같은 통과 기록(마커 둘째 줄 `tree:<해시>`)을
 #     같은 저장소의 어느 worktree(자기 포함)에서든 찾는다. 문서까지 포함하고 추적하지 않는 파일은 보지 않는다
 #     (소비자: release.sh pre-flight · 20261024-speed-release-fresh-task-record). 옵션 없는 판정은 그대로다.
+#     한계: 무시 목록(.gitignore) 파일에 기댄 통과는 이 판정이 보지 못한다 — 깨끗한 checkout 으로 도는 PR CI(merge 필수)가
+#     merge 전에 막고 main push CI 가 사후에 한 번 더 본다(20261024-quality-gate-fixes).
 # Exit:  0 FRESH — stdout 1줄 `full-suite FRESH (fp=지문 앞 12자)` · --release 는 `full-suite FRESH (tree=앞 12자, worktree=<경로>)`
 #        1 STALE — stdout 1줄 `full-suite STALE (사유)`
 #

@@ -624,6 +624,13 @@ git -C "$_p" config status.showUntrackedFiles no
   && ok "T20.n3 status.showUntrackedFiles=no 설정이어도 추적하지 않는 파일을 본다" || nope "T20.n3" "$(cat "$_p/.specops/.full-suite-pass" 2>/dev/null | tr '\n' '|')"
 git -C "$_p" config --unset status.showUntrackedFiles
 rm -f "$_p/untracked-helper.txt"
+# git status 실패(index 손상 rc 128) → 첫 줄(지문)만 · 둘째 줄 없음 — 지문은 격리 index 라 손상과 무관하다(20261024-quality-gate-fixes · AC-3)
+cp "$_p/.git/index" "$_p/.git/index.t20o"; printf 'garbage' > "$_p/.git/index"
+rm -f "$_p/.specops/.full-suite-pass"   # 앞 케이스의 1줄 마커를 읽지 않게 — 이번 실행이 쓴 마커만 본다
+( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
+{ [ "$(awk 'END{print NR}' "$_p/.specops/.full-suite-pass" 2>/dev/null)" = 1 ] && [ "$(head -1 "$_p/.specops/.full-suite-pass")" = "$(_p_fp)" ]; } \
+  && ok "T20.o git status 실패 → 둘째 줄 없음(첫 줄 지문은 남는다)" || nope "T20.o" "$(cat "$_p/.specops/.full-suite-pass" 2>/dev/null | tr '\n' '|')"
+mv -f "$_p/.git/index.t20o" "$_p/.git/index"
 ( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
 [ "$(sed -n 2p "$_p/.specops/.full-suite-pass" 2>/dev/null)" = "tree:$(git -C "$_p" rev-parse 'HEAD^{tree}')" ] \
   && ok "T20.n2 다시 깨끗해지면 둘째 줄 재기록 (양성 대조)" || nope "T20.n2" "$(cat "$_p/.specops/.full-suite-pass" 2>/dev/null | tr '\n' '|')"

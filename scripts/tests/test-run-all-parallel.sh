@@ -51,8 +51,8 @@ _suite "$S" c 'sleep 0.6; echo "FAIL c1"; echo "PASS=0 FAIL=1"; exit 1'
 _suite "$S" d 'sleep 0.3; echo "SKIP d1"; echo "SKIP d2"; echo "PASS=1 FAIL=0 SKIP=2"; exit 0'
 _suite "$S" e 'echo "PASS=1 FAIL=0"; exit 0'
 o1=$(SPECOPS_RUN_ALL_JOBS=5 bash "$S/scripts/tests/run-all.sh" --quiet 2>&1); rc1=$?
-o2=$(SPECOPS_RUN_ALL_JOBS=5 bash "$S/scripts/tests/run-all.sh" --quiet 2>&1)
-o3=$(SPECOPS_RUN_ALL_JOBS=5 bash "$S/scripts/tests/run-all.sh" --quiet 2>&1)
+o2=$(SPECOPS_RUN_ALL_JOBS=5 bash "$S/scripts/tests/run-all.sh" --quiet 2>&1); rc2=$?
+o3=$(SPECOPS_RUN_ALL_JOBS=5 bash "$S/scripts/tests/run-all.sh" --quiet 2>&1); rc3=$?
 printf '%s\n' "$o1" | grep -qx '==== run-all: suites PASS=4 FAIL=2 (total=6) ====' \
   && ok "T1.a 요약 수치 (PASS=4 FAIL=2 total=6)" || nope "T1.a 요약" "$(printf '%s' "$o1" | grep '====')"
 printf '%s\n' "$o1" | grep -q 'SKIP된 케이스 3건' \
@@ -63,8 +63,42 @@ _fl=$(printf '%s\n' "$o1" | grep '^FAIL ' | tr '\n' '|')
 printf '%s\n' "$o1" | grep -qx 'FAILED: scripts/tests/test-a.sh' \
   && [ "$(printf '%s\n' "$o1" | grep '^FAILED:' | tr '\n' '|')" = "FAILED: scripts/tests/test-a.sh|FAILED: scripts/tests/test-c.sh|" ] \
   && ok "T1.d FAILED 목록 원래 순서" || nope "T1.d FAILED 순서" "$(printf '%s' "$o1" | grep '^FAILED')"
+# T1.e 실패 진단 (20261024-quality-gate-fixes · AC-4) — CI 로그에는 실패 스위트의 `^FAIL` 줄만 남는다(run-all 집계 `grep '^FAIL' | head -5`).
+#   그래서 rc 3개와 처음 달라진 실행 쌍·줄 번호·양쪽 줄(각 80바이트)을 nope 상세 **한 줄**에 넣는다.
+_first_diff() { # $1 $2 = 출력 두 개 → `L<n>: [<앞>] ≠ [<뒤>]` (같으면 빈 문자열 · 줄 수가 다르면 없는 쪽은 [])
+#   80바이트로 자르면 멀티바이트 문자가 쪼개진다 — iconv -c 로 유효 UTF-8 만 남긴다(깨진 줄은 UTF-8 로케일 grep 이 `binary file matches` 로 가린다)
+  A="$1" B="$2" awk 'BEGIN { na = split(ENVIRON["A"], a, "\n"); nb = split(ENVIRON["B"], b, "\n"); n = (na > nb ? na : nb)
+    for (i = 1; i <= n; i++) if ((i > na) != (i > nb) || a[i] != b[i]) { printf "L%d: [%s] ≠ [%s]", i, substr(a[i], 1, 80), substr(b[i], 1, 80); exit } }' \
+    | if command -v iconv >/dev/null 2>&1; then iconv -c -f UTF-8 -t UTF-8 2>/dev/null; else LC_ALL=C tr -c '\n\040-\176' '?'; fi
+  return 0   # glibc iconv -c 는 문자를 버리면 rc 1 — rc 로 대체 경로를 고르면 이미 읽힌 입력이 비어 진단이 사라진다
+}
+_t1e_detail() {
+  local d="rc=$rc1/$rc2/$rc3"
+  if [ "$o1" != "$o2" ]; then d="$d o1≠o2 $(_first_diff "$o1" "$o2")"
+  elif [ "$o2" != "$o3" ]; then d="$d o2≠o3 $(_first_diff "$o2" "$o3")"; fi
+  printf '%s' "$d"
+}
 { [ "$o1" = "$o2" ] && [ "$o2" = "$o3" ] && [ "$rc1" -eq 1 ]; } \
-  && ok "T1.e 3회 실행 출력 바이트 동일 + rc=1" || nope "T1.e 결정성" "rc=$rc1"
+  && ok "T1.e 3회 실행 출력 바이트 동일 + rc=1" || nope "T1.e 결정성" "$(_t1e_detail)"
+# 진단 함수 자체 — 달라진 줄 · 같은 출력 · 줄 수 차이 · 한 줄 보장
+[ "$(_first_diff "$(printf 'a\nb\nc')" "$(printf 'a\nX\nc')")" = "L2: [b] ≠ [X]" ] \
+  && ok "T1.f 진단 — 처음 달라진 줄 번호와 양쪽 줄" || nope "T1.f" "$(_first_diff "$(printf 'a\nb\nc')" "$(printf 'a\nX\nc')")"
+{ [ -z "$(_first_diff "$(printf 'a\nb')" "$(printf 'a\nb')")" ] && [ "$(_first_diff "$(printf 'a\nb')" a)" = "L2: [b] ≠ []" ] \
+    && [ "$(_first_diff "$(printf 'x\ny')" "$(printf 'x\ny\n\nz')")" = "L3: [] ≠ []" ]; } \
+  && ok "T1.g 진단 — 같으면 빈 문자열 · 줄 수가 다르면 없는 쪽 []" || nope "T1.g" "$(_first_diff "$(printf 'a\nb')" a)"
+_long=$(printf '%0100d' 0)
+o1="$(printf 'x\n%s' "$_long")" o2="$(printf 'x\ny')" o3="$o2" rc1=1 rc2=0 rc3=2
+_d=$(_t1e_detail)
+{ [ "$(printf '%s\n' "$_d" | awk 'END{print NR}')" = 1 ] && printf '%s' "$_d" | grep -qF 'rc=1/0/2 o1≠o2 L2: [' && printf '%s' "$_d" | grep -qF "[$(printf '%080d' 0)] ≠ [y]"; } \
+  && ok "T1.h 진단은 한 줄 · rc 3개 · 80바이트로 자른다" || nope "T1.h" "$_d"
+o1=a o2=a o3="$(printf 'a\nb')" rc1=1 rc2=1 rc3=1
+[ "$(_t1e_detail)" = "rc=1/1/1 o2≠o3 L2: [] ≠ [b]" ] \
+  && ok "T1.i 진단 — o1=o2 이면 o2≠o3 쌍을 낸다" || nope "T1.i" "$(_t1e_detail)"
+# 100자 — 바이트 단위 awk(BSD·mawk)도 문자 단위 awk(gawk UTF-8)도 자른다
+_kr=$(printf '가%.0s' $(seq 1 100)); o1="$_kr" o2=b o3=b
+_d=$(_t1e_detail)
+{ printf '%s' "$_d" | iconv -f UTF-8 -t UTF-8 >/dev/null 2>&1 && [ "$(printf '%s' "$_d" | LC_ALL=C grep -c '^rc=1/1/1 o1≠o2 L1: \[가')" = 1 ]; } \
+  && ok "T1.j 진단 — 멀티바이트 줄을 잘라도 유효 UTF-8" || nope "T1.j" "$(printf '%s' "$_d" | LC_ALL=C tr -c '\040-\176' '?')"
 
 # ── T2: 병렬 모드의 VERIFY 토큰·rc·마커·TIMEOUT (AC-2) ──
 S=$(_sb)

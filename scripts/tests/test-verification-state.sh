@@ -361,6 +361,11 @@ git -C "$TF" restore app.sh
 printf 'junk\n' > "$TF/junk.js"
 _fa_case S19.f "추적하지 않는 파일이 있어도 FRESH(메인 worktree 의 미추적 폴더)" 0 "^full-suite FRESH \(tree=${_ht:0:12}, worktree="
 rm -f "$TF/junk.js"
+# git status 실패(index 손상 rc 128) → STALE — 상태를 모르면 생략하지 않는다(20261024-quality-gate-fixes · AC-3)
+#   마커는 HEAD 트리와 일치하는 상태로 둔다 — 가드가 없으면 FRESH 로 새는 것을 이 케이스가 잡는다
+cp "$TF/.git/index" "$TF/.git/index.s19k"; printf 'garbage' > "$TF/.git/index"
+_fa_case S19.k "git status 실패(index 손상) → STALE(판정 불가)" 1 "^full-suite STALE \(git status 실패 — 판정 불가\)$"
+mv -f "$TF/.git/index.s19k" "$TF/.git/index"
 # 역방향 — linked worktree 셸에서 메인 worktree 마커를 본다(자기 포함 · 첫 항목을 건너뛰지 않는다)
 rm -f "$WM"; printf '%s\ntree:%s\n' "$_fp" "$_ht" > "$MK"
 _rv=$( cd "$TW" && env -u SPECOPS_FORCE_FULL bash "$FRESH" --release ); _rv_rc=$?

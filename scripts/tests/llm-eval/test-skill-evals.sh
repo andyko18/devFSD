@@ -294,10 +294,11 @@ _run '{"skills":["karpathy-ko"]}' LLM_EVAL_TIMEOUT="$WTO" -- --trigger
 sleep 1
 # 워치독 서브셸은 부모 러너의 argv 를 물려받는다(실측) — 러너 경로로 잔존을 센다. 고정 sleep 대신 기한부 대기(병렬 run-all 경합)
 _wd=0; _n=0
-while :; do _wd=$(pgrep -f "$LE/run-skill-evals.sh" | grep -c .); [ "$_wd" -eq 0 ] || [ "$_n" -ge 6 ] && break; sleep 1; _n=$((_n + 1)); done
+#   상한 30s — 서브셸은 정상이면 1~2s 안에 끝나 일찍 빠진다. 6s 는 병렬 run-all·리뷰 에이전트 경합에서 모자랐다(실측 20261024 · 6s 뒤 1개 잔존)
+while :; do _wd=$(pgrep -f "$LE/run-skill-evals.sh" | grep -c .); [ "$_wd" -eq 0 ] || [ "$_n" -ge 30 ] && break; sleep 1; _n=$((_n + 1)); done
 _orph=$(pgrep -fx "sleep $WTO" | grep -c .)
-if [ "$_orph" -eq 0 ] && [ "$_wd" -eq 0 ]; then ok "T5.o 정상 종료 후 워치독 sleep 고아 0 · 워치독 서브셸 잔존 0 (≤6s)"
-else nope "T5.o" "고아 sleep $WTO ${_orph}개 · 워치독 서브셸 ${_wd}개 (6s 후)"
+if [ "$_orph" -eq 0 ] && [ "$_wd" -eq 0 ]; then ok "T5.o 정상 종료 후 워치독 sleep 고아 0 · 워치독 서브셸 잔존 0 (≤30s · ${_n}s)"
+else nope "T5.o" "고아 sleep $WTO ${_orph}개 · 워치독 서브셸 ${_wd}개 (30s 후)"
   pkill -fx "sleep $WTO"; pkill -f "$LE/run-skill-evals.sh"; fi
 mkdir -p "$TMP/data2/karpathy-ko"
 jq -n '{skill:"karpathy-ko",should_trigger:[{id:"pos-1",query:"a\\b\tc"}],should_not_trigger:[{id:"neg-1",query:"q"}]}' > "$TMP/data2/karpathy-ko/trigger-queries.json"

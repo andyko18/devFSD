@@ -109,6 +109,7 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
   부모 머지 (R11): output count 적은 leaf 먼저 · git apply --index · 부모 commit
     - **커밋 직전 receipt (필수)**: `record-task-receipt.sh <FID> <task-id>`
       end-loaded: **Phase A DONE + 태스크 테스트 통과 후** (B/C 전). per-task: Phase C PASS 후.
+      한 번에 남기기: `record-task-done.sh <FID> <task-id> [요약]` — receipt · dispatch-log 구현 행(`IMPL_DONE`) · session-progress 줄을 함께 쓴다(receipt 실패면 아무것도 쓰지 않는다). 이것을 쓰면 그 태스크의 receipt·Phase A 행·진행 줄을 따로 쓰지 않는다.
     - **커밋 분리**: `git add`와 `git commit` 별도 Bash (compound 금지)
     - **위험 프로파일**: effective를 dispatch-log 1줄. B/C **생략**·TDD/verify/receipt 면제 금지.
       end-loaded의 B/C 지연은 생략이 아님.

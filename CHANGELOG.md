@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.34.0] — 2026-10-24
+
 ### Changed
 
 - `release.sh` pre-flight 가 같은 커밋 트리의 전체 스위트 통과 기록을 재사용한다 — `run-all.sh` 가 추적하지 않는 파일 없이 커밋 그대로일 때 통과 마커 둘째 줄에 `tree:<커밋 트리 해시>` 를 남기고, `full-suite-fresh.sh --release` 가 HEAD 트리 해시와 같은 기록을 자기 포함 어느 worktree 에서든 찾는다(문서 포함 · 추적하지 않는 파일 무시 — PR 을 돌린 worktree 와 발행하는 메인 worktree 가 달라도 된다). 기록 없음·불일치·`SPECOPS_FORCE_FULL` 은 종전대로 전체 실행.
@@ -3433,7 +3435,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.33.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.34.0...HEAD
+[2.34.0]: https://github.com/andyko18/specops-ko/compare/v2.33.0...v2.34.0
 [2.33.0]: https://github.com/andyko18/specops-ko/compare/v2.32.0...v2.33.0
 [2.32.0]: https://github.com/andyko18/specops-ko/compare/v2.31.0...v2.32.0
 [2.31.0]: https://github.com/andyko18/specops-ko/compare/v2.30.0...v2.31.0

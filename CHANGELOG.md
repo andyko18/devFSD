@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.37.1] — 2026-10-24
+
 ### Changed
 
 - specifying-ko 에서 어떤 진입 경로로도 읽히지 않게 된 `§auto` 문단을 지웠다 — Step 5.5·5.6 의 `[§auto 모드]`, 계약 칸 점검의 §auto 절, 요구사항·화면 전문가 패스(6.5·6.6)의 §auto 언급, 스펙 검토 게이트의 §lite 단축 경로 구절. 2.37.0 에서 단일 무인 명령을 지운 뒤 `§auto` 는 `/start-all-auto` 만 달고, 그 경로는 이 자리들을 지나지 않는다. 동작 변경 없음(PR #242).
@@ -3463,7 +3465,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.37.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.37.1...HEAD
+[2.37.1]: https://github.com/andyko18/specops-ko/compare/v2.37.0...v2.37.1
 [2.37.0]: https://github.com/andyko18/specops-ko/compare/v2.36.0...v2.37.0
 [2.36.0]: https://github.com/andyko18/specops-ko/compare/v2.35.0...v2.36.0
 [2.35.0]: https://github.com/andyko18/specops-ko/compare/v2.34.0...v2.35.0

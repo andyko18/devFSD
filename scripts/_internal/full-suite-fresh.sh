@@ -2,8 +2,11 @@
 # full-suite-fresh.sh — 직전 전체 스위트 통과 마커가 현재 비문서 트리와 같은지 판정 (read-only)
 #   FID 20261005-dedupe-test-runs
 #
-# Usage: full-suite-fresh.sh        (cwd = 대상 repo 안)
-# Exit:  0 FRESH — stdout 1줄 `full-suite FRESH (fp=지문 앞 12자)`
+# Usage: full-suite-fresh.sh [--release]   (cwd = 대상 repo 안)
+#   --release: 발행 판정 — 추적 파일이 커밋 그대로일 때 HEAD 트리 해시와 같은 통과 기록(마커 둘째 줄 `tree:<해시>`)을
+#     같은 저장소의 어느 worktree(자기 포함)에서든 찾는다. 문서까지 포함하고 추적하지 않는 파일은 보지 않는다
+#     (소비자: release.sh pre-flight · 20261024-speed-release-fresh-task-record). 옵션 없는 판정은 그대로다.
+# Exit:  0 FRESH — stdout 1줄 `full-suite FRESH (fp=지문 앞 12자)` · --release 는 `full-suite FRESH (tree=앞 12자, worktree=<경로>)`
 #        1 STALE — stdout 1줄 `full-suite STALE (사유)`
 #
 # 소비자: .githooks/pre-push(push 전 스위트 skip) · verifying-evidence-ko(verify 의 전체 스위트 생략).
@@ -15,6 +18,13 @@ set -u
 
 _stale() { printf 'full-suite STALE (%s)\n' "$1"; exit 1; }
 
+MODE=nondoc
+case "${1:-}" in
+  --release) MODE=release ;;
+  "") ;;
+  *) _stale "알 수 없는 인자: $1" ;;
+esac
+
 [ -z "${SPECOPS_FORCE_FULL:-}" ] || _stale "SPECOPS_FORCE_FULL 지정"
 
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) || _stale "경로 해석 실패"
@@ -23,6 +33,23 @@ VS_LIB="$HERE/verification-state.sh"
 
 ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || _stale "git repo 아님"
 MARKER="$ROOT/${SPECOPS_ROOT:-.specops}/.full-suite-pass"
+
+if [ "$MODE" = release ]; then
+  # 발행되는 것은 커밋 트리다 — 추적 파일이 커밋과 다르면 그 트리를 판정할 수 없다
+  _st=$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null) || _stale "git status 실패 — 판정 불가"
+  [ -z "$_st" ] || _stale "추적 파일 변경 — 커밋 트리 판정 불가"
+  head_tree=$(git -C "$ROOT" rev-parse -q --verify 'HEAD^{tree}' 2>/dev/null) || _stale "HEAD 트리 없음"
+  [ -n "$head_tree" ] || _stale "HEAD 트리 없음"
+  while IFS= read -r _wt; do
+    [ -n "$_wt" ] || continue
+    _m="$_wt/${SPECOPS_ROOT:-.specops}/.full-suite-pass"
+    [ -f "$_m" ] || continue
+    [ "$(sed -n 2p "$_m" 2>/dev/null)" = "tree:$head_tree" ] || continue
+    printf 'full-suite FRESH (tree=%s, worktree=%s)\n' "$(printf '%s' "$head_tree" | cut -c1-12)" "$_wt"
+    exit 0
+  done <<< "$(git -C "$ROOT" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p')"
+  _stale "같은 커밋 트리의 통과 기록 없음"
+fi
 [ -f "$MARKER" ] || _stale "마커 부재"
 
 rec=$(head -1 "$MARKER" 2>/dev/null || printf '')

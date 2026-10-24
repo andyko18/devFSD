@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `release.sh` pre-flight 가 같은 커밋 트리의 전체 스위트 통과 기록을 재사용한다 — `run-all.sh` 가 추적하지 않는 파일 없이 커밋 그대로일 때 통과 마커 둘째 줄에 `tree:<커밋 트리 해시>` 를 남기고, `full-suite-fresh.sh --release` 가 HEAD 트리 해시와 같은 기록을 자기 포함 어느 worktree 에서든 찾는다(문서 포함 · 추적하지 않는 파일 무시 — PR 을 돌린 worktree 와 발행하는 메인 worktree 가 달라도 된다). 기록 없음·불일치·`SPECOPS_FORCE_FULL` 은 종전대로 전체 실행.
+- `scripts/_internal/record-task-done.sh <FID> <task-id> [요약]` — receipt · dispatch-log 구현 행 · session-progress 줄을 한 번에 남긴다(receipt 실패면 아무것도 쓰지 않는다 · 진행 줄이 실제로 남았는지 파일로 확인한다). implementing-ko 커밋 직전 절이 안내한다.
+
 ## [2.33.0] — 2026-10-24
 
 ### Changed

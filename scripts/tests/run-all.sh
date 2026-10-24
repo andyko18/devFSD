@@ -23,6 +23,7 @@ _FSP_MARKER="$PLUGIN/${SPECOPS_ROOT:-.specops}/.full-suite-pass"
 #   run-bounded 부재와 달리 WARN 하지 않는 이유: 이 경로의 degradation 은 fail-**closed** 라
 #   "보호받고 있다" 는 착각을 만들지 않는다(스위트 상한 부재와 방향이 반대다).
 _FSP_TREE=NO_GIT
+_FSP_COMMIT=""
 if [ -f "$PLUGIN/scripts/_internal/verification-state.sh" ]; then
   # shellcheck source=/dev/null
   . "$PLUGIN/scripts/_internal/verification-state.sh"
@@ -30,6 +31,12 @@ if [ -f "$PLUGIN/scripts/_internal/verification-state.sh" ]; then
   #   "이 **비문서** 트리가 통과했다" 로 바뀐다. 문서 한 줄이 전체 스위트 재실행을
   #   강요하던 경로를 없앤다. fail-closed(부재·NO_GIT·불일치 = 전체 실행)는 그대로다.
   _FSP_TREE=$( cd "$PLUGIN" && vs::nondoc_fingerprint )
+  # 발행 판정용 둘째 줄(20261024-speed-release-fresh-task-record) — 추적 파일이 커밋 그대로면 커밋 트리 해시를 남긴다.
+  #   full-suite-fresh.sh --release 만 읽는다(첫 줄만 보는 pre-push·verify 는 그대로). 추적 변경이 있으면 남기지 않는다(그 트리는 커밋이 아니다).
+  #   추적하지 않는 파일(무시 목록 제외)이 있어도 남기지 않는다 — 통과가 그 파일에 기댔을 수 있다 · status 실패도 남기지 않는다.
+  if _fsp_st=$(git -C "$PLUGIN" status --porcelain --untracked-files=normal 2>/dev/null) && [ -z "$_fsp_st" ]; then
+    _FSP_COMMIT=$(git -C "$PLUGIN" rev-parse -q --verify 'HEAD^{tree}' 2>/dev/null) || _FSP_COMMIT=""
+  fi
 fi
 # 네트워크 금지 계약 (20260828-sast-timeout): 스위트는 **네트워크에 의존하는** SAST 를 부르지 않는다.
 #   왜: test-security-scan·test-self-config-collect 가 실 semgrep 을 종전 배선(레지스트리 자동
@@ -255,7 +262,11 @@ fi
 #   (CLAUDE.md "디렉토리는 관할을 여는 쪽만 만든다" · 20261021 실측: 새로 clone 한 클라우드 세션에서 run-all 이 관할을 열었다).
 #   기록이 없으면 pre-push 가 전체 스위트를 다시 돈다(안전한 쪽).
 if [ "$_FSP_TREE" != "NO_GIT" ] && [ "$_FSP_TREE" != "UNHASHABLE" ] && [ -d "$(dirname "$_FSP_MARKER")" ]; then
-  printf '%s\n' "$_FSP_TREE" > "$_FSP_MARKER" 2>/dev/null || true
+  if [ -n "$_FSP_COMMIT" ]; then
+    printf '%s\ntree:%s\n' "$_FSP_TREE" "$_FSP_COMMIT" > "$_FSP_MARKER" 2>/dev/null || true
+  else
+    printf '%s\n' "$_FSP_TREE" > "$_FSP_MARKER" 2>/dev/null || true
+  fi
 fi
 
 echo "VERIFY: PASS"

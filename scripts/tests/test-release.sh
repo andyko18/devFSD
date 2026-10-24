@@ -465,60 +465,57 @@ hook_runner=$(grep -oE 'RUN_ALL="[^"]*"' "$PREPUSH" | head -1 | sed 's/.*"\(.*\)
   && ok "T20.d pre-flight/pre-push 동일 러너 ($rel_runner)" \
   || fail "T20.d 러너 불일치 (release='$rel_runner' pre-push='$hook_runner')"
 
-# T21: pre-flight 신선도 생략 (20261024-speed-release-fresh-task-record)
-#   같은 비문서 트리의 통과 마커가 있으면 오버라이드(=false · 돌면 실패)조차 부르지 않고 지나간다. 마커가 없거나 FORCE_FULL 이면 종전대로 돈다.
+# T21: pre-flight 생략 — 같은 커밋 트리의 통과 기록 (20261024-speed-release-fresh-task-record)
+#   기록이 있으면 오버라이드(=false · 돌면 실패)조차 부르지 않고 지나간다. 없거나 다르거나 FORCE_FULL 이면 종전대로 돈다.
 TF21=$(mktemp -d) || exit 1
 _make_git_fixture "$TF21"
 printf '.specops/\n' >> "$TF21/.git/info/exclude"
 mkdir -p "$TF21/.specops"
-_fp21=$( cd "$TF21" && bash -c ". \"$PLUGIN/scripts/_internal/verification-state.sh\"; vs::nondoc_fingerprint" )
+_ht21=$(git -C "$TF21" rev-parse 'HEAD^{tree}')
 _r21() { ( cd "$TF21" && env -u SPECOPS_FORCE_FULL -u SPECOPS_RUN_ALL "$@" RELEASE_PLUGIN_ROOT="$TF21" RELEASE_PREFLIGHT_CMD=false bash "$RELEASE" 1.10.0 --dry-run 2>&1 ); }
 out=$(_r21); rc=$?
-{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T21.a 마커 없음 → 종전대로 실행(실패 전파)" || fail "T21.a (rc=$rc)"
-printf '%s\n' "$_fp21" > "$TF21/.specops/.full-suite-pass"
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T21.a 기록 없음 → 종전대로 실행(실패 전파)" || fail "T21.a (rc=$rc)"
+printf 'x\ntree:%s\n' "$_ht21" > "$TF21/.specops/.full-suite-pass"
 out=$(_r21); rc=$?
-{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF -- '-> pre-flight skip (full-suite FRESH (fp=' && ! printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } \
-  && ok "T21.b 마커 == 지문 → pre-flight skip · 오버라이드 미호출" || fail "T21.b (rc=$rc out=$(printf '%s' "$out" | head -3))"
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF -- "-> pre-flight skip (full-suite FRESH (tree=${_ht21:0:12}, worktree=" && ! printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } \
+  && ok "T21.b 커밋 트리 기록 일치 → pre-flight skip · 오버라이드 미호출" || fail "T21.b (rc=$rc out=$(printf '%s' "$out" | head -3))"
 out=$(_r21 SPECOPS_FORCE_FULL=1); rc=$?
-{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T21.c FORCE_FULL → 마커가 있어도 실행" || fail "T21.c (rc=$rc)"
-printf 'stale\n' > "$TF21/.specops/.full-suite-pass"
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T21.c FORCE_FULL → 기록이 있어도 실행" || fail "T21.c (rc=$rc)"
+printf 'junk\n' > "$TF21/junk.js"
 out=$(_r21); rc=$?
-{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T21.d 지문 불일치 → 실행" || fail "T21.d (rc=$rc)"
-# T21.f: cwd 가 FRESH 인 다른 트리여도 판정은 PLUGIN_ROOT 기준(cd "$PLUGIN_ROOT" 누락 금지) — T21.e 앞에 둔다
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF -- '-> pre-flight skip (full-suite FRESH (tree='; } && ok "T21.h 추적하지 않는 파일이 있어도 skip(발행 대상은 커밋 트리)" || fail "T21.h (rc=$rc)"
+rm -f "$TF21/junk.js"
+printf 'x\ntree:deadbeef\n' > "$TF21/.specops/.full-suite-pass"
+out=$(_r21); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T21.d 트리 해시 불일치 → 실행" || fail "T21.d (rc=$rc)"
+# T21.f: cwd 가 FRESH 인 다른 저장소여도 판정은 PLUGIN_ROOT 기준(cd "$PLUGIN_ROOT" 누락 금지) — 내용이 같아 트리 해시도 같다
 TF21o=$(mktemp -d) || exit 1
 _make_git_fixture "$TF21o"
 printf '.specops/\n' >> "$TF21o/.git/info/exclude"; mkdir -p "$TF21o/.specops"
-printf '%s\n' "$_fp21" > "$TF21o/.specops/.full-suite-pass"
-printf 'stale\n' > "$TF21/.specops/.full-suite-pass"
+printf 'x\ntree:%s\n' "$(git -C "$TF21o" rev-parse 'HEAD^{tree}')" > "$TF21o/.specops/.full-suite-pass"
 out=$( cd "$TF21o" && env -u SPECOPS_FORCE_FULL -u SPECOPS_RUN_ALL RELEASE_PLUGIN_ROOT="$TF21" RELEASE_PREFLIGHT_CMD=false bash "$RELEASE" 1.10.0 --dry-run 2>&1 ); rc=$?
-{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T21.f cwd 가 FRESH 인 다른 트리여도 PLUGIN_ROOT 기준으로 판정" || fail "T21.f (rc=$rc)"
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T21.f cwd 가 FRESH 인 다른 저장소여도 PLUGIN_ROOT 기준으로 판정" || fail "T21.f (rc=$rc)"
 rm -rf "$TF21o"
-# T21.e: 자기 마커 없음 + 다른 worktree 마커 == 지문 → skip (release 가 --any-worktree 로 부른다)
+# T21.e: 자기 기록 없음 + 다른 worktree 의 같은 커밋 트리 기록 → skip (PR 을 돌린 worktree → 메인에서 발행)
 TW21=$(mktemp -d) || exit 1; rmdir "$TW21"
 if git -C "$TF21" worktree add -q -b t21-wt "$TW21" 2>/dev/null; then
   mkdir -p "$TW21/.specops"
   rm -f "$TF21/.specops/.full-suite-pass"
-  printf '%s\n' "$_fp21" > "$TW21/.specops/.full-suite-pass"
+  printf 'x\ntree:%s\n' "$_ht21" > "$TW21/.specops/.full-suite-pass"
   out=$(_r21); rc=$?
-  { [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF -- "-> pre-flight skip (full-suite FRESH (fp=${_fp21:0:12}, worktree=" \
+  { [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF -- "-> pre-flight skip (full-suite FRESH (tree=${_ht21:0:12}, worktree=" \
       && printf '%s' "$out" | grep -qF "$(basename "$TW21")" && ! printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } \
-    && ok "T21.e 자기 마커 없음 + 다른 worktree 마커 == 지문 → skip(--any-worktree)" || fail "T21.e (rc=$rc out=$(printf '%s' "$out" | head -3))"
+    && ok "T21.e 다른 worktree 의 같은 커밋 트리 기록 → skip" || fail "T21.e (rc=$rc out=$(printf '%s' "$out" | head -3))"
+  # T21.i: 문서만 커밋해도 트리가 바뀐다 — 옛 기록으로 생략하지 않는다
+  printf 'doc\n' >> "$TF21/README.md"
+  git -C "$TF21" add README.md && git -C "$TF21" -c user.name=T -c user.email=t@t.com commit -qm doc
+  out=$(_r21); rc=$?
+  { [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T21.i 문서만 바뀐 커밋 → 옛 기록으로 생략하지 않음" || fail "T21.i (rc=$rc)"
   git -C "$TF21" worktree remove --force "$TW21" 2>/dev/null
 else
   fail "T21.e worktree 픽스처 생성 실패"
 fi
 rm -rf "$TW21" "$TF21"
-# T21.g: 생략해도 문서 수치·구조 검사는 돈다 — 문서만 바뀐 트리도 비문서 지문은 같다(release 는 main 에 직접 push)
-TF21g=$(mktemp -d) || exit 1
-_make_git_fixture "$TF21g"
-printf '.specops/\n' >> "$TF21g/.git/info/exclude"; mkdir -p "$TF21g/.specops" "$TF21g/scripts/_internal"
-printf 'exit 1\n' > "$TF21g/scripts/_internal/check-doc-numbers.sh"
-git -C "$TF21g" add scripts && git -C "$TF21g" -c user.name=T -c user.email=t@t.com commit -qm stub
-( cd "$TF21g" && bash -c ". \"$PLUGIN/scripts/_internal/verification-state.sh\"; vs::nondoc_fingerprint" ) > "$TF21g/.specops/.full-suite-pass"
-out=$( cd "$TF21g" && env -u SPECOPS_FORCE_FULL -u SPECOPS_RUN_ALL RELEASE_PLUGIN_ROOT="$TF21g" RELEASE_PREFLIGHT_CMD=true bash "$RELEASE" 1.10.0 --dry-run 2>&1 ); rc=$?
-{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qF -- '-> pre-flight skip (full-suite FRESH' && printf '%s' "$out" | grep -qF 'pre-flight 검증 실패 (scripts/_internal/check-doc-numbers.sh)'; } \
-  && ok "T21.g 생략 뒤에도 문서 수치 검사를 돌려 실패를 전파" || fail "T21.g (rc=$rc)"
-rm -rf "$TF21g"
 
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"

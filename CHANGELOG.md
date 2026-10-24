@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.37.0] — 2026-10-24
+
 ### Removed
 
 - 단일 무인 명령 4종 `/start-auto`·`/start-lite-auto`·`/maintain-auto`·`/maintain-lite-auto` 를 지웠다. 기본 진입(§일괄)이 질문 묶음 → 승인 1회 → PR 까지 멈추지 않게 된 뒤로 이 명령들이 더해 주는 것은 승인 1회 생략과 추측 답변(ASSUMED)뿐이었고 실사용도 거의 없었다. 대신 `/start`·`/start-lite`·`/maintain`·`/maintain-lite` 를 쓴다(승인 1회 뒤 무정지). 무인 일괄 `/start-all-auto` 는 그대로다. 그 명령만 쓰던 skill 분기(`<!-- entry: auto -->` · 둘째 줄 무인 표지 · 경량 무인의 자동 승격)도 함께 지웠고, `test-auto-variants.sh` 는 지운 것이 되살아나면 실패하는 잠금으로 바꿨다.
@@ -3457,7 +3459,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.36.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.37.0...HEAD
+[2.37.0]: https://github.com/andyko18/specops-ko/compare/v2.36.0...v2.37.0
 [2.36.0]: https://github.com/andyko18/specops-ko/compare/v2.35.0...v2.36.0
 [2.35.0]: https://github.com/andyko18/specops-ko/compare/v2.34.0...v2.35.0
 [2.34.0]: https://github.com/andyko18/specops-ko/compare/v2.33.0...v2.34.0

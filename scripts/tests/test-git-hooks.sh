@@ -613,6 +613,15 @@ printf 'dirty\n' >> "$_p/scripts/tests/test-dummy.sh"
 ( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
 [ "$(awk 'END{print NR}' "$_p/.specops/.full-suite-pass" 2>/dev/null)" = 1 ] \
   && ok "T20.m 추적 파일 변경 → 둘째 줄 없음(그 트리는 커밋이 아니다)" || nope "T20.m" "$(cat "$_p/.specops/.full-suite-pass" 2>/dev/null | tr '\n' '|')"
+git -C "$_p" checkout -q -- scripts/tests/test-dummy.sh
+printf 'helper\n' > "$_p/untracked-helper.txt"
+( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
+[ "$(awk 'END{print NR}' "$_p/.specops/.full-suite-pass" 2>/dev/null)" = 1 ] \
+  && ok "T20.n 추적하지 않는 파일이 있으면 둘째 줄 없음(통과가 그 파일에 기댔을 수 있다)" || nope "T20.n" "$(cat "$_p/.specops/.full-suite-pass" 2>/dev/null | tr '\n' '|')"
+rm -f "$_p/untracked-helper.txt"
+( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
+[ "$(sed -n 2p "$_p/.specops/.full-suite-pass" 2>/dev/null)" = "tree:$(git -C "$_p" rev-parse 'HEAD^{tree}')" ] \
+  && ok "T20.n2 다시 깨끗해지면 둘째 줄 재기록 (양성 대조)" || nope "T20.n2" "$(cat "$_p/.specops/.full-suite-pass" 2>/dev/null | tr '\n' '|')"
 
 fi
 rm -rf "$_p"; trap - EXIT

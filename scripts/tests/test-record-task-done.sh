@@ -122,4 +122,7 @@ else
     && ok "D7b 다른 FID 섹션의 같은 문구에 속지 않고 경고" || nope "D7b" "rc=$rc err=$(cat "$TD/f.err")"
 fi
 
+# D5: implementing-ko 가 이 스크립트를 가리킨다
+grep -qF 'record-task-done.sh <FID> <task-id>' "$PLUGIN/skills/implementing-ko/SKILL.md" && ok "D5 implementing-ko 커밋 직전 절이 record-task-done.sh 를 안내" || nope "D5"
+
 finish

@@ -26,7 +26,7 @@ miss=""; for c in $GONE; do [ -e "commands/$c.md" ] && miss="$miss $c"; done
 
 # R2: 런타임·안내 문서에 이름 0건 (hooks·docs·CHANGELOG 의 과거 서술은 범위 밖)
 #   대상 목록이 읽히지 않으면 0건과 구별되지 않으므로, 같은 대상에서 start-all-auto 가 보이는지 먼저 본다(양성 대조)
-R2_T="commands agents templates README.md CLAUDE.md CONTRIBUTING.md scripts/_internal/propagation-matrix.jsonl"   # T2 에서 skills 를 더한다
+R2_T="skills commands agents templates README.md CLAUDE.md CONTRIBUTING.md scripts/_internal/propagation-matrix.jsonl"
 # shellcheck disable=SC2086
 _pos=$(grep -rlF 'start-all-auto' $R2_T 2>/dev/null | grep -c .)
 # shellcheck disable=SC2086
@@ -44,5 +44,37 @@ _rd=$(grep -oE '슬래시 진입로 [0-9]+건' README.md | head -1 | grep -oE '[
 _ar=$(grep -E '^\| 슬래시 커맨드 \| [0-9]+건' docs/architecture.md | head -1 | grep -oE '[0-9]+')
 [ -n "$_bl" ] && [ "$_ac" = "$_bl" ] && [ "$_ac" = "$_rd" ] && [ "$_ac" = "$_ar" ] \
   && ok "R3 commands 실제 $_ac = baseline $_bl = README $_rd = architecture $_ar" || nope "R3" "actual=$_ac baseline=$_bl readme=$_rd architecture=$_ar"
+
+# R4: skill 의 단일 무인 전용 분기 0건 — 지운 명령만 쓰던 표지 해석
+#   파일이 없으면 grep rc 2 가 "없음"으로 읽히므로 존재를 먼저 본다
+SK4="skills/specifying-ko/SKILL.md skills/analyzing-ko/SKILL.md skills/decomposing-ko/SKILL.md skills/performance-test-ko/SKILL.md"
+r4=""
+for f in $SK4; do [ -s "$f" ] || r4="$r4 [부재:$f]"; done
+for p in 'entry: auto' '[무인 표지 (둘째 줄)]' '## 무인 표지' 'promoted: lite' '자동 결정 분석' '자동 승격' '위 `§auto` 와 같은 승격 절차'; do
+  # shellcheck disable=SC2086
+  grep -qF -- "$p" $SK4 && r4="$r4 [$p]"
+done
+[ -z "$r4" ] && ok "R4 skill 4종에 단일 무인 전용 분기 0건" || nope "R4" "잔존:$r4"
+# R4b: 둘째 줄 무인 표지 해석 0 — analyzing 은 무인 표지를 읽지 않고, specifying 의 `auto: true` 는 batch 셋째 줄 문장뿐
+BATCH_AUTO='셋째 줄이 `<!-- auto: true -->` 이면 spec.md §1에 `**§auto**: true` 도 동시 기재'
+! grep -qF '<!-- auto: true -->' skills/analyzing-ko/SKILL.md \
+  && [ "$(grep -F '<!-- auto: true -->' skills/specifying-ko/SKILL.md | grep -vcF "$BATCH_AUTO")" = 0 ] \
+  && ok "R4b 무인 표지는 batch 셋째 줄 문장만" || nope "R4b" "batch 셋째 줄 밖의 auto: true 해석 잔존"
+# R4c: entry: auto 약속어가 안내 문서·명령·skill 어디에도 없다 (지운 명령 이름이 없는 잔재 — CLAUDE.md 약속어 절 등)
+r4c=$(grep -rnF 'entry: auto' skills commands CLAUDE.md README.md CONTRIBUTING.md 2>/dev/null | head -3)
+[ -z "$r4c" ] && ok "R4c entry: auto 약속어 잔존 0" || nope "R4c" "$r4c"
+# R4d: decomposing 의 §일괄 승격 문장이 지운 §auto 문장을 가리키지 않고 스스로 절차를 말한다
+grep -qF '> **`§일괄`** 도 묻지 않고 정상 경로(clarify → plan)에 올리고(유지보수면' skills/decomposing-ko/SKILL.md \
+  && ok "R4d decomposing §일괄 승격 문장 자족" || nope "R4d" "§일괄 승격 문장이 바뀌지 않음"
+
+# R5: batch 무인 보존 — /start-all-auto 진입 표지 · specifying batch 의 §auto 기재 · PR 다이제스트의 수집 grep·절 제목
+PF=skills/performance-test-ko/SKILL.md
+grep -qxF '   <!-- entry: batch -->' commands/start-all-auto.md && grep -qxF '   <!-- auto: true -->' commands/start-all-auto.md \
+  && grep -qF "$BATCH_AUTO" skills/specifying-ko/SKILL.md \
+  && grep -qxF 'grep -E "자동 결정 화면|자동 결정 인터페이스|자동 결정 intent" .specops/<FID>/spec.md' "$PF" \
+  && grep -qxF '### 자동 결정 intent (Step 1.5)' "$PF" && grep -qxF '### 자동 생성된 화면 (Step 5.5)' "$PF" \
+  && grep -qxF '### 자동 결정된 인터페이스 (Step 5.6)' "$PF" \
+  && grep -qxF '<spec.md "자동 결정 인터페이스" 목록 — 엔드포인트/테이블. 없으면 "(없음)">' "$PF" \
+  && ok "R5 batch 무인 경로 보존(진입 표지·§auto 기재·다이제스트 수집·절 3개)" || nope "R5" "batch 무인 표지·기재·다이제스트 중 소실"
 
 finish

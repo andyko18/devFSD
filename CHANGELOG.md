@@ -6,7 +6,7 @@
 
 ### Fixed
 
-- `session-progress-append.sh` 가 쓰기에 실패하면(권한·디스크) `error: session-progress 기록 실패 …` 1줄과 rc 1 로 끝난다 — 종전에는 성공 문구와 rc 0 이라 rc 를 믿는 호출자(quick-fix·review-skip-pass)가 기록 누락을 몰랐다. 구분선(`---`)이 없는 파일에서는 새 섹션이 조용히 버려졌다 — 이제 파일 끝에 붙인다.
+- `session-progress-append.sh` 가 쓰기에 실패하면(권한·디스크) `error: session-progress 기록 실패 …` 1줄과 rc 1 로 끝난다 — 종전에는 성공 문구와 rc 0 이라 rc 를 믿는 호출자(quick-fix·review-skip-pass)가 기록 누락을 몰랐다. 구분선(`---`)이 없는 파일에서는 새 섹션이 조용히 버려졌다 — 이제 파일 끝에 붙인다. 섹션 판정도 헤더 줄 정확 일치로 바꿔, 접두가 겹치는 FID(`-x` vs `-x-y`)나 메모 안 `## FID` 때문에 한 줄도 쓰지 않고 성공을 말하던 경로를 닫았다.
 - 병렬 run-all 의 간헐 실패 3건 — 대용량 성능 단언(test-agent-spans T7.d · test-stage-timing-split T7.c)을 벽시계 대신 CPU 시간으로 재고, test-skill-evals T5.o 의 워치독 잔존 대기 상한을 6s → 30s 로(정상이면 바로 빠진다).
 
 ## [2.34.0] — 2026-10-24

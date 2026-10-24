@@ -474,5 +474,59 @@ else
 fi
 rm -rf "$_sp_lock"
 
+# ── T-wr: 쓰기 실패는 rc ≠ 0 · 구분선 없는 파일은 끝에 섹션 (20261024-flaky-suites-spa-false-ok) ──
+#   종전: awk > tmp && mv 가 실패해도 마지막 echo 가 "appended"/"created" 를 내고 rc 0 — 호출자(quick-fix·review-skip-pass·record-task-done)가 기록 누락을 몰랐다.
+_wr=$(mktemp -d); mkdir -p "$_wr/.specops"; make_progress "$_wr/.specops/session-progress.md"
+chmod 444 "$_wr/.specops/session-progress.md"; chmod 555 "$_wr/.specops"
+if [ "$(id -u)" = "0" ] || ( : >> "$_wr/.specops/session-progress.md" ) 2>/dev/null; then
+  chmod 755 "$_wr/.specops"; chmod 644 "$_wr/.specops/session-progress.md"
+  skip "T-wr.a~b 쓰기 실패 경로 (root·chmod 무효 환경)"
+else
+  _o=$(cd "$_wr" && bash "$SCRIPT" "$EXISTING_FID" /plan 완료 "x" 2>"$_wr/err"); _rc=$?
+  { [ "$_rc" -ne 0 ] && [ "$(cat "$_wr/err")" = 'error: session-progress 기록 실패 (.specops/session-progress.md) — 쓰기 권한·디스크를 확인하세요' ] && ! printf '%s' "$_o" | grep -q 'appended'; } \
+    && ok "T-wr.a 기존 섹션 쓰기 실패 → rc ≠ 0 · 오류 1줄 · appended 미출력" || nope "T-wr.a" "rc=$_rc out=$_o err=$(cat "$_wr/err")"
+  _o=$(cd "$_wr" && bash "$SCRIPT" 20261024-new-fid /specify 완료 "x" 2>"$_wr/err"); _rc=$?
+  { [ "$_rc" -ne 0 ] && [ "$(cat "$_wr/err")" = 'error: session-progress 기록 실패 (.specops/session-progress.md) — 쓰기 권한·디스크를 확인하세요' ] && ! printf '%s' "$_o" | grep -q 'created'; } \
+    && ok "T-wr.b 새 섹션 쓰기 실패 → rc ≠ 0 · 오류 1줄 · created 미출력" || nope "T-wr.b" "rc=$_rc out=$_o err=$(cat "$_wr/err")"
+  chmod 755 "$_wr/.specops"; chmod 644 "$_wr/.specops/session-progress.md"
+fi
+rm -rf "$_wr"
+_wr=$(mktemp -d); mkdir -p "$_wr/.specops"; printf '# sp\n\n## 20260101-old\n\n- 2026-01-01 10:00 /a 완료\n' > "$_wr/.specops/session-progress.md"
+_o=$(cd "$_wr" && bash "$SCRIPT" 20261024-nodash /specify 완료 "y" 2>&1); _rc=$?
+_f="$_wr/.specops/session-progress.md"
+_exp=$(printf '%s\n' '- 2026-01-01 10:00 /a 완료' '' '## 20261024-nodash' '' '- TS /specify 완료 (y)')
+_got=$(tail -n 5 "$_f" | sed -E '$s/^- [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} /- TS /')
+{ [ "$_rc" -eq 0 ] && [ "$_got" = "$_exp" ] && [ "$(grep -c '^## 20261024-nodash$' "$_f")" = 1 ] \
+    && printf '%s\n' "$_o" | grep -qx 'created new section: ## 20261024-nodash' \
+    && grep -qx '## 20260101-old' "$_f"; } \
+  && ok "T-wr.c 구분선(---) 없는 파일 → 파일 끝에 새 섹션 1개 · 기존 줄 보존 · rc 0" || nope "T-wr.c" "rc=$_rc out=$_o $(tr '\n' '|' < "$_f")"
+rm -rf "$_wr"
+# T-wr.d: awk 실패 가지(원본 읽기 불가) — 진행 기록을 비거나 잘린 임시 파일로 덮어쓰지 않는다
+_wr=$(mktemp -d); mkdir -p "$_wr/.specops"; make_progress "$_wr/.specops/session-progress.md"; cp "$_wr/.specops/session-progress.md" "$_wr/orig"
+chmod 000 "$_wr/.specops/session-progress.md"
+if [ "$(id -u)" = "0" ] || cat "$_wr/.specops/session-progress.md" >/dev/null 2>&1; then
+  skip "T-wr.d 읽기 불가 경로 (root·chmod 무효 환경)"
+else
+  _o=$(cd "$_wr" && bash "$SCRIPT" 20261024-unread /specify 완료 "z" 2>"$_wr/err"); _rc=$?
+  chmod 644 "$_wr/.specops/session-progress.md"
+  { [ "$_rc" -ne 0 ] && grep -qxF 'error: session-progress 기록 실패 (.specops/session-progress.md) — 쓰기 권한·디스크를 확인하세요' "$_wr/err" \
+      && [ "$(grep -c '^error: ' "$_wr/err")" = 1 ] && cmp -s "$_wr/orig" "$_wr/.specops/session-progress.md" \
+      && ! printf '%s' "$_o" | grep -q 'created'; } \
+    && ok "T-wr.d awk 실패(원본 읽기 불가) → rc ≠ 0 · 오류 1줄 · 원본 바이트 보존" || nope "T-wr.d" "rc=$_rc out=$_o err=$(cat "$_wr/err")"
+fi
+chmod 644 "$_wr/.specops/session-progress.md" 2>/dev/null; rm -rf "$_wr"
+
+# T-wr.e: 앞부분이 겹치는 FID(`-x` 와 `-x-y`)·메모 안 `## FID` 는 기존 섹션으로 오진입하지 않는다 — 종전엔 한 줄도 안 쓰고 appended · rc 0
+_wr=$(mktemp -d); mkdir -p "$_wr/.specops"; printf '# sp\n\n---\n\n## 20261024-x-y\n\n- 2026-10-24 10:00 /a 완료\n' > "$_wr/.specops/session-progress.md"
+_o=$(cd "$_wr" && bash "$SCRIPT" 20261024-x /specify 완료 "m" 2>&1); _rc=$?
+{ [ "$_rc" -eq 0 ] && [ "$(grep -c '^## 20261024-x$' "$_wr/.specops/session-progress.md")" = 1 ] \
+    && grep -qE '^- [0-9-]+ [0-9:]+ /specify 완료 \(m\)$' "$_wr/.specops/session-progress.md" && printf '%s' "$_o" | grep -q '^created new section'; } \
+  && ok "T-wr.e 접두가 겹치는 FID → 새 섹션 · 줄 기록" || nope "T-wr.e" "rc=$_rc out=$_o $(tr '\n' '|' < "$_wr/.specops/session-progress.md")"
+printf '\n## 20261024-z1\n\n- 2026-10-24 10:00 /a 완료 (## 20261024-z 언급)\n' >> "$_wr/.specops/session-progress.md"
+_o=$(cd "$_wr" && bash "$SCRIPT" 20261024-z /plan 완료 "n" 2>&1); _rc=$?
+{ [ "$_rc" -eq 0 ] && [ "$(grep -c '^## 20261024-z$' "$_wr/.specops/session-progress.md")" = 1 ] && grep -qE '/plan 완료 \(n\)$' "$_wr/.specops/session-progress.md"; } \
+  && ok "T-wr.e2 메모 안 '## FID' 문자열 → 새 섹션 · 줄 기록" || nope "T-wr.e2" "rc=$_rc out=$_o"
+rm -rf "$_wr"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

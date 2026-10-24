@@ -57,6 +57,10 @@ fi
 
 TARGET=".specops/session-progress.md"
 
+# 기록 쓰기 실패 — 오류 1줄과 rc 1 (20261024-flaky-suites-spa-false-ok). 종전에는 `awk > tmp && mv` 가 실패해도
+#   뒤의 echo 가 "appended"/"created" 를 내고 rc 0 이라 호출자가 기록 누락을 몰랐다.
+_write_fail() { [ -z "${TMP:-}" ] || rm -f "$TMP"; echo "error: session-progress 기록 실패 ($TARGET) — 쓰기 권한·디스크를 확인하세요" >&2; exit 1; }
+
 # ── active-fid 마커 upsert (FID 20260809-active-fid-marker-producer) ──
 # 왜 필요한가: hooks/governance-lib.sh 의 detect_fid() 가 이 마커를 **1순위**로 읽는데
 #   (주석의 U8 — 다중 FID 환경 first-only 회피) 갱신하는 층이 **0곳**이었다. 소비자만
@@ -134,8 +138,9 @@ if [ -n "$MEMO" ]; then
 fi
 
 # FID 섹션 존재 여부 확인
-SECTION_HEADER="## $FID"
-if grep -qF "$SECTION_HEADER" "$TARGET"; then
+# 섹션 판정은 헤더 줄 정확 일치(아래 awk 와 같은 규칙) — 부분 일치는 접두가 겹치는 FID(`-x` vs `-x-y`)·메모 안 `## FID` 에서
+#   기존 섹션 경로로 잘못 들어가 한 줄도 쓰지 않고 appended · rc 0 을 냈다(20261024-flaky-suites-spa-false-ok · C 리뷰)
+if FID="$FID" awk '$0 == "## " ENVIRON["FID"] || index($0, "## " ENVIRON["FID"] " ") == 1 { f = 1; exit } END { exit !f }' "$TARGET"; then
   # 섹션 존재 — 섹션 직후 첫 빈 줄 다음에 LINE prepend (멱등 체크 후)
   # 멱등 — 섹션 전체 스캔 (AC-5): FID 섹션 내 동일 line 존재 시 추가 skip
   already=$(LINE="$LINE" FID="$FID" awk '
@@ -148,7 +153,7 @@ if grep -qF "$SECTION_HEADER" "$TARGET"; then
     exit 0
   fi
   # awk로 처리: ## <FID> 이후 첫 빈 줄 만나면 LINE 추가, 그 다음 기존 줄들
-  TMP=$(mktemp) || exit 1
+  TMP=$(mktemp) || _write_fail
   LINE="$LINE" FID="$FID" awk '
     BEGIN { added = 0; in_section = 0 }
     /^## / {
@@ -171,16 +176,16 @@ if grep -qF "$SECTION_HEADER" "$TARGET"; then
     END {
       if (in_section && !added) print ENVIRON["LINE"]
     }
-  ' "$TARGET" > "$TMP" && mv "$TMP" "$TARGET"
+  ' "$TARGET" > "$TMP" && mv -f "$TMP" "$TARGET" 2>/dev/null || _write_fail
   _upsert_active_fid "$FID" "$TARGET"
   echo "appended to existing section: $FID"
 else
-  # 섹션 없음 — 파일 상단 (구분선 --- 다음 첫 ## 자리) 에 신규 섹션 prepend
+  # 섹션 없음 — 파일 상단 (구분선 --- 다음 첫 ## 자리) 에 신규 섹션 prepend · `---` 가 없으면 파일 끝에 붙인다
   HEADER="## $FID"
   if [ -n "$FEATURE" ]; then
     HEADER="$HEADER · $FEATURE"
   fi
-  TMP=$(mktemp) || exit 1
+  TMP=$(mktemp) || _write_fail
   HEADER="$HEADER" LINE="$LINE" awk '
     BEGIN { added = 0 }
     /^---$/ && !added {
@@ -194,7 +199,9 @@ else
       next
     }
     { print }
-  ' "$TARGET" > "$TMP" && mv "$TMP" "$TARGET"
+    # 구분선(---)이 없는 파일 — 종전에는 섹션이 조용히 버려졌다. 파일 끝에 붙인다
+    END { if (!added) { print ""; print ENVIRON["HEADER"]; print ""; print ENVIRON["LINE"] } }
+  ' "$TARGET" > "$TMP" && mv -f "$TMP" "$TARGET" 2>/dev/null || _write_fail
   _upsert_active_fid "$FID" "$TARGET"
   echo "created new section: $HEADER"
 fi

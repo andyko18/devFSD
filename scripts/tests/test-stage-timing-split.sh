@@ -437,8 +437,10 @@ ledger lbig <<'EOF'
 - 2026-10-01 23:59 /z 완료 (x)
 - 2026-10-01 10:00 /a 완료 (x)
 EOF
-T0=$(date +%s); runs lbig --split --transcript-dir "$SB/tdbig" --gap-cap-min 2000; T1=$(date +%s)
-ck "T7.c 합성 6만 줄 transcript 3개 --split rc=0 · 20초 이내(CPU 경합 여유 — 실측 수 초)" "$RC|$(dd "$T1" "$T0" | awk '{ print ($1 <= 20) ? 1 : 0 }')" "0|1"
+# 벽시계가 아니라 CPU 시간(user+sys · 자식 포함)으로 잰다 — 병렬 run-all·리뷰 에이전트 경합에 흔들리지 않는다(20261024-flaky-suites-spa-false-ok · 실측 단독 수 초)
+TIMEFORMAT='%3U %3S'; { time runs lbig --split --transcript-dir "$SB/tdbig" --gap-cap-min 2000; } 2>"$SB/cpu"; unset TIMEFORMAT
+_cl=$(tail -1 "$SB/cpu" | tr ',' '.'); CPU=$(printf '%s' "$_cl" | awk '{ printf "%.1f", $1 + $2 }')
+ck "T7.c 합성 6만 줄 transcript 3개 --split rc=0 · CPU 20초 이내(실측 수 초 · cpu=${CPU}s)" "$RC|$(printf '%s' "$_cl" | grep -qE '^[0-9]+\.[0-9]{3} [0-9]+\.[0-9]{3}$' && awk -v c="$CPU" 'BEGIN{ print (c + 0 > 0 && c + 0 <= 20) ? 1 : 0 }' || echo bad)" "0|1"
 
 # ══ AC-9: 열 합 = wall 불변식(겹침 없는 행) · 이름 ══
 mktr "$SB/td9/s1.jsonl" <<'EOF'

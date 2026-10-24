@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.36.0] — 2026-10-24
+
 ### Fixed
 
 - `record-task-done.sh` 가 진행 기록의 `## <FID> · <기능명>` 헤더를 FID 섹션으로 읽는다 — 종전에는 정확 일치만 봐서 줄을 남기고도 "기록 실패" 경고를 냈다. 요약에 백슬래시가 있을 때(`awk -v` 가 `\n`·`\t` 를 해석) 나던 같은 거짓 경고도 닫았다. 판정은 쓰는 쪽(`session-progress-append.sh`)과 같은 규칙이고, 쓰는 쪽이 만드는 헤더(`## <FID>` · `## <FID> · <기능명>`)에서 판독기 5곳(append · show-fid-status · freework-resolve-fid · reconcile-check · record-task-done)이 같은 섹션을 고르는지 테스트로 잠갔다. 나머지 판독기(governance-lib · batch-state · stage-timing · review-cost · doctor)는 같은 헤더에서 같은 답을 내는 규칙이라 코드를 바꾸지 않았다(탭·CR 헤더 처리는 판독기마다 다르다 — 쓰는 쪽이 만들지 않는다).
@@ -3451,7 +3453,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.35.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.36.0...HEAD
+[2.36.0]: https://github.com/andyko18/specops-ko/compare/v2.35.0...v2.36.0
 [2.35.0]: https://github.com/andyko18/specops-ko/compare/v2.34.0...v2.35.0
 [2.34.0]: https://github.com/andyko18/specops-ko/compare/v2.33.0...v2.34.0
 [2.33.0]: https://github.com/andyko18/specops-ko/compare/v2.32.0...v2.33.0

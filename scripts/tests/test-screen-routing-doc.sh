@@ -26,7 +26,7 @@ awk '/^5\.5\./,/^6\. /' "$SP" | grep -qE '/design-screen' && ok "AC-4 Step5.5 cr
 # AC-R-1: Step5.5 기존 로직 보존
 awk '/^5\.5\./,/^6\. /' "$SP" | grep -q 'ui-ux-pro-max' && nope "AC-R-1" "외부 디자인 플러그인 호출 잔존" \
   || { awk '/^5\.5\./,/^6\. /' "$SP" | grep -q 'DESIGN.md' && ok "AC-R-1 Step5.5 DESIGN.md 단일 출처" || nope "AC-R-1" "DESIGN.md 지시 소실"; }
-awk '/^5\.5\./,/^6\. /' "$SP" | grep -q '§auto' && ok "AC-R-1b §auto 분기 보존" || nope "AC-R-1b" "§auto 소실"
+! awk '/^5\.5\./,/^6\. /' "$SP" | grep -q '§auto' && ok "AC-R-1b Step 5.5~6 에 도달 불가 §auto 문단 없음 (20261024)" || nope "AC-R-1b" "5.5~6 구간에 §auto 잔존"
 # AC-R-2: design-screen Process 보존
 grep -q '^## Process' "$DS" && grep -q 'design-screen.sh' "$DS" && ok "AC-R-2 Process 보존" || nope "AC-R-2" "Process 소실"
 

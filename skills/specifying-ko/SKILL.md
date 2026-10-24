@@ -182,14 +182,6 @@ used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /
    - **입력 접근성**: 입력(input·select·textarea)마다 label 의 for 속성과 입력 id 를 같은 값으로 짝지어 연결한다(label 이 입력을 감싸거나 aria-label 도 허용 — for 없이 형제로만 둔 label 은 연결이 아니다). 라디오·체크박스는 선택지마다 자기 label 을 두고 그룹 이름은 fieldset 과 legend 로 둔다. 템플릿 html 의 주석 속 입력 예시를 복사해 쓴다.
    - **저장 시 껍데기 마커 줄을 삭제**한다 (`.md`·`.html` 양쪽). 마커가 남으면 verify backstop 이 껍데기로 경고한다.
 
-   **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
-   - 화면 목록을 자동 판단하여 **즉시 생성·수락** (수정 루프 없음):
-     1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성
-     2. **자동 수락** — 사용자 응답 대기 없이 `screens/{name}.md` + `screens/{name}.html` 저장
-     3. spec.md §1에 "**자동 결정 화면**: {name1}, {name2}, ..." 한 줄 기록 (투명성·PR 게이트 가정 다이제스트 용)
-   - 모든 화면 저장 완료 후 **Step 5.6 진행** (인터페이스 설계도 거친다 — Step 6 직행 금지)
-
-   **[§auto 이외 모드]** (기존 동작):
    - **§일괄 이면 화면을 모두 만든 뒤** 경로 목록만 승인 묶음에 싣는다 — 아래 2(보여 주고 수정 요청 수렴)·3(승인)을 화면마다 하지 않고 1 로 만든 화면을 바로 저장한다. 수정 요청은 승인 묶음에서 받는다.
    - 이 기능에 필요한 화면 목록을 자동 판단하여 명시:
      > "이 기능에 필요한 화면은 N개입니다: {name1}({설명}), {name2}({설명}) ..."
@@ -218,16 +210,6 @@ used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /
    - 공통 IF를 실제로 안 건드린 foundation(순수 모듈·프론트 셸만)은 마커 0 허용 → 이후 Phase 2.5 검사는 SKIP.
    - 의도적 baseline 변경은 batch가 아니라 `/start-foundation` 또는 `/design-interface`로만.
 
-   **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
-   - **부재 가드**: `api-spec.md`·`data-model.md` 가 없으면(KIND 1/3/5 init 또는 8f skip) 무인 모드는 **마스터 문서를 신규 생성하지 않는다** (안전 — 무인이 cross-feature 전역 문서를 임의 생성 금지). spec.md §1 에 "**인터페이스 미반영**: memory 부재" 한 줄 기록 후 Step 6 진행.
-   - **클라이언트 스토리지 도출**: 화면 영속화 Interaction(FR-9 류) → `data-model.md` 엔티티 자동 append (존재 시). 부재 시 무인은 신규 생성 안 함(기존 부재 가드 계승)
-   - 존재 시 — 이번 기능이 추가·변경하는 엔드포인트/테이블을 자동 판단해 **append**(섹션 **덮어쓰기 금지** — `/start-all-auto` batch 의 다수 기능이 같은 마스터 문서를 순차 기록할 때 충돌·오염 방지):
-     1. `api-spec.md` 의 **채택된 정의방식 섹션**(§1 표 또는 OpenAPI/GraphQL/RPC 중 선택분)에 신규 행 **추가** (동일 메서드+경로/테이블 행이 이미 있으면 신규 추가 대신 **해당 행 갱신** — 중복 행 금지)
-     2. `data-model.md` §3(핵심 엔티티)·§2(ERD)에 신규 테이블/필드 **추가**
-     3. spec.md §1 에 "**자동 결정 인터페이스**: {엔드포인트/테이블 요약}" 한 줄 기록 (투명성·PR 게이트 가정 다이제스트 용)
-   - 반영 완료 후 Step 6 진행
-
-   **[§auto 이외 모드]**:
    - **§일괄 이면 바꾸는 인터페이스를** 명시하고 확인을 묻지 않은 채 아래대로 memory 문서를 갱신한다 — 바꾼 행은 승인 묶음에 싣는다. memory 문서가 없어 생성 여부를 물어야 하는 경우와 계약 칸 점검 `WARN` 도 승인 묶음에 싣는다.
    - 이번 기능이 건드리는 인터페이스/스키마를 명시:
      > "이 기능은 다음 인터페이스를 추가/변경합니다: {POST /orders — 주문 생성}, {orders 테이블 — id·user_id·status ...}"
@@ -237,7 +219,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /
      - **클라이언트 스토리지**(localStorage·IndexedDB): `data-model.md` §1 유형=해당 스토리지(localStorage/IndexedDB)로 §3 엔티티·저장 키 반영 (기존 서버 DB 유형이 있으면 §1 에 `+` 복수 표기 — 덮어쓰기 금지) (HTTP api-spec 아님). 부재 시 생성 확인
    - memory 문서가 **부재**하면(예: UI-only 로 init 되어 api-spec 미생성) → 생성 여부를 사용자에게 확인 (제공 API 인지 외부 소비 인지 구분 — 제공이면 `templates/api-spec.md`, 외부 소비면 `templates/api-spec-consumer.md` 기반 생성)
    - 반영 완료 후 Step 6 진행
-   **[계약 칸 점검 — 두 모드 공통 · 경고 전용 (20261021)]**: `api-spec.md` 를 고쳤으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-api-contract.sh <FID>` 를 한 번 실행한다(바꾼 행만 · Status 열·오류 형식·오류 코드·목록 정책·멱등 정책·rate limit·버전 전략). `WARN` 줄이 있으면 대화형은 사용자에게 보여 주고 지금 채울지 묻는다 · §auto 는 채울 수 있는 칸만 채우고 나머지는 spec.md §1 "자동 결정 인터페이스" 줄 뒤에 남긴다. 막지 않는다 — 종료 코드와 무관하게 Step 6 진행(같은 판정을 검증 러너가 evidence.md `### api-contract` 에 다시 남긴다). **보안 칸**: `api-spec.md` 또는 `data-model.md` 를 고쳤으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-security-design.sh <FID>` 를 한 번 실행한다(바꾼 행의 Auth 칸·URL 민감정보·응답 민감 필드 · 인증 방식·권한 모델·CORS·CSRF·개인정보 분류·보존·삭제 칸 · 위험 기능 결정) — `WARN` 은 위와 같이 다루고, 이것도 막지 않는다(같은 판정을 검증 러너가 evidence.md `### security-design` 에 다시 남긴다).
+   **[계약 칸 점검 — 경고 전용 (20261021)]**: `api-spec.md` 를 고쳤으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-api-contract.sh <FID>` 를 한 번 실행한다(바꾼 행만 · Status 열·오류 형식·오류 코드·목록 정책·멱등 정책·rate limit·버전 전략). `WARN` 줄이 있으면 대화형은 사용자에게 보여 주고 지금 채울지 묻는다. 막지 않는다 — 종료 코드와 무관하게 Step 6 진행(같은 판정을 검증 러너가 evidence.md `### api-contract` 에 다시 남긴다). **보안 칸**: `api-spec.md` 또는 `data-model.md` 를 고쳤으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-security-design.sh <FID>` 를 한 번 실행한다(바꾼 행의 Auth 칸·URL 민감정보·응답 민감 필드 · 인증 방식·권한 모델·CORS·CSRF·개인정보 분류·보존·삭제 칸 · 위험 기능 결정) — `WARN` 은 위와 같이 다루고, 이것도 막지 않는다(같은 판정을 검증 러너가 evidence.md `### security-design` 에 다시 남긴다).
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
    - **AC 필수 필드 (기계 검증)** — AC 블록마다 `### AC-<n>: <제목>` 헤더 + **Given·When·Then·우선순위** 를 반드시 채운다. `**우선순위**` 값은 `must`·`should`·`nice-to-have` 중 하나. 판정 SoT = `scripts/_internal/check-ac-format.sh` (구현 직전 `emit-context.sh` 가 자동 호출 — 미충족 시 dispatch 가 열리지 않는다). **`**우선순위**` 는 서식이 아니라 스위치다** — 없으면 `emit-context` 의 must AC 역방향 커버리지 검사가 그 AC 를 보지 못해, 필수 AC 가 태스크 매핑 없이 통과하고 영영 구현되지 않는다. 쓰지 않는 템플릿 골격 AC(`<...>`·`...`)는 **남기지 말고 삭제**한다(골격 잔존도 차단 대상).
    - **AC 개수 상한 (should — 하드 게이트가 아니다)** — 코드 변경이 **50줄 미만이면 AC 6건**을 넘기지 않는 것을 권고한다. 넘어간다면 **계약이 아니라 설명을 쓰고 있는지** 의심하라. AC 가 늘면 plan·tasks·리뷰 대상이 함께 늘어 **비용이 곱으로 번진다** (실측 20260808: 코드 **18줄** 변경에 AC **12건** → plan 558줄·tasks 468줄·plan-reviewer 2회 dispatch). `check-ac-format.sh` 는 개수를 **검사하지 않는다** — 계약이 진짜로 필요하면 6건을 넘겨도 된다. 이 상한은 **되묻는 장치**지 금지가 아니다. (반대 방향 주의: 상한을 지키려고 **must AC 를 빠뜨리면** `emit-context` 의 역방향 커버리지가 막는다 — 줄일 것은 AC 개수가 아니라 **설명으로 쓴 AC** 다.)
@@ -271,15 +253,15 @@ used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /
 
    - **성공지표 작성 유도 (권장 — should)**: §유형이 `trivial`이 아니면 spec.md §1 개요 하위 `### 성공지표` 서브섹션에 measurable target을 작성한다(정량 우선, 불가 시 정성+검증방법). **권장 — 미작성이 evaluator FAIL은 아니나**, 기능 가치 입증·learning-loop 추적을 위해 작성 강력 권고. trivial FID는 면제.
 6.5. **[데이터를 다루는 spec] 요구사항 전문가 패스** — spec.md·AC 를 저장한 직후, 자체 검토(7) 전에 부른다. spec 이 입력 데이터를 받아 저장·계산·판정하거나 외부 소스·배치를 다루면 발동한다. 화면 문구·설정·문서만 바꾸는 spec 은 부르지 않는다. 판단이 서지 않으면 부른다(측정: 데이터 규칙 빈칸 결함을 plan-reviewer 0/6 · 이 전문가 6/6 · 결함 없는 대조군 헛지적 0/3).
-   - **제외**: `§batch` · `§lite`(`/start-lite`·`/maintain-lite`) · `§유형: trivial` · promote(`promote-fid`) · foundation 은 부르지 않는다(기록 행도 남기지 않는다). 유지보수 분기와 `§auto` 는 부른다.
+   - **제외**: `§batch` · `§lite`(`/start-lite`·`/maintain-lite`) · `§유형: trivial` · promote(`promote-fid`) · foundation 은 부르지 않는다(기록 행도 남기지 않는다). 유지보수 분기는 부른다.
    - **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:req-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `intent.md` · `.specops/memory/requirements.md`·`data-model.md`·`api-spec.md`(있으면).
-   - **반영**: `.specops/<FID>/experts/req.md` 의 지적은 spec·AC 에 반영하거나 기각하고 같은 파일 끝 `## 반영` 에 `반영(spec §/AC-N)` 또는 `기각(근거)` 1줄씩 적는다. `## 확인 필요` 질문은 spec §8 열린 질문으로 옮긴다(clarifying-ko 가 사용자에게 묻는다). `§auto` 면 질문을 best-guess 로 정해 §8 에 `(ASSUMED)` 로 남긴다.
+   - **반영**: `.specops/<FID>/experts/req.md` 의 지적은 spec·AC 에 반영하거나 기각하고 같은 파일 끝 `## 반영` 에 `반영(spec §/AC-N)` 또는 `기각(근거)` 1줄씩 적는다. `## 확인 필요` 질문은 spec §8 열린 질문으로 옮긴다(clarifying-ko 가 사용자에게 묻는다).
    - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/req.md` 가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | req-expert | req-designer-ko | 산출 없음 | - |` 를 남기고 7 로 진행한다.
    - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | req-expert | req-designer-ko | 반영 | experts/req.md (지적 N · 반영 N · 기각 N · 질문 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | req-expert | - | SKIP | 데이터 표면 없음 |` 1행.
 6.6. **[기능 화면을 만들거나 고친 FID] 화면 전문가 패스** — 6.5 뒤, 자체 검토(7) 전에 부른다. 이번 FID 가 Step 5.5 에서 기능 화면 `screens/<name>.md` 를 만들거나 고쳤으면 발동한다(측정: 화면 상태 빈칸 결함을 design-reviewer 5/6 · 이 전문가 6/6 · 결함 없는 대조군 헛지적 0/3). spec·AC 가 있어야 하므로 화면 설계(5.5) 직후가 아니라 여기서 부른다.
-   - **제외**: `§batch`(`/start-all` Phase 2.5 A2 가 batch 당 1회 맡는다) · `§lite`(`/start-lite`·`/maintain-lite`) · `§유형: trivial` · foundation 셸 화면(`<!-- foundation-shell -->`)만 바꾼 경우는 부르지 않는다(기록 행도 남기지 않는다). 화면 변경이 없으면 부르지 않고 SKIP 행을 남긴다. 유지보수 분기와 `§auto` 는 부른다.
+   - **제외**: `§batch`(`/start-all` Phase 2.5 A2 가 batch 당 1회 맡는다) · `§lite`(`/start-lite`·`/maintain-lite`) · `§유형: trivial` · foundation 셸 화면(`<!-- foundation-shell -->`)만 바꾼 경우는 부르지 않는다(기록 행도 남기지 않는다). 화면 변경이 없으면 부르지 않고 SKIP 행을 남긴다. 유지보수 분기는 부른다.
    - **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:ui-designer-ko"` · 입력은 경로만 — 이번에 만든·고친 `screens/<name>.md`·`.html` · `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `DESIGN.md`(있으면).
-   - **반영**: `.specops/<FID>/experts/ui.md` 의 지적은 화면 파일에 반영하거나 기각하고 같은 파일 끝 `## 반영` 에 `반영(screens/<name>.md §)` 또는 `기각(근거)` 1줄씩 적는다. `## 확인 필요` 질문은 spec §8 열린 질문으로 옮긴다(clarifying-ko 가 사용자에게 묻는다). `§auto` 면 질문을 best-guess 로 정해 §8 에 `(ASSUMED)` 로 남긴다. 사용자 검토(8)에서 바뀐 화면 행을 함께 보여 준다.
+   - **반영**: `.specops/<FID>/experts/ui.md` 의 지적은 화면 파일에 반영하거나 기각하고 같은 파일 끝 `## 반영` 에 `반영(screens/<name>.md §)` 또는 `기각(근거)` 1줄씩 적는다. `## 확인 필요` 질문은 spec §8 열린 질문으로 옮긴다(clarifying-ko 가 사용자에게 묻는다). 사용자 검토(8)에서 바뀐 화면 행을 함께 보여 준다.
    - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/ui.md` 가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | ui-expert | ui-designer-ko | 산출 없음 | - |` 를 남기고 7 로 진행한다.
    - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | ui-expert | ui-designer-ko | 반영 | experts/ui.md (지적 N · 반영 N · 기각 N · 질문 N) |`. 화면 변경이 없으면 `| <N> | <ISO-8601> | ui-expert | - | SKIP | 화면 변경 없음 |` 1행.
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
@@ -459,7 +441,7 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 
 **[§auto 모드]** (`grep -qE '^\*\*§auto\*\*:[[:space:]]*true' .specops/<FID>/spec.md`):
 
-자체 검토 완료 즉시 **자동 통과** — 사용자 응답 대기 없이 다음 단계로 간다(정상 경로는 clarifying-ko · `§lite` 는 `## 다음 skill` 의 §lite 단축 경로로 decomposing-ko). handoff/dispatch-log에 "spec auto-approved (§auto mode)" 기록.
+자체 검토 완료 즉시 **자동 통과** — 사용자 응답 대기 없이 다음 단계로 간다(clarifying-ko). handoff/dispatch-log에 "spec auto-approved (§auto mode)" 기록.
 
 **[trivial 게이트 통합]** (`§유형: trivial` + 신규 trivial 단축 경로 — 20260716 dogfood 관찰 A): 사용자는 직전에 **설계 승인 + trivial 축약 승인** 2회를 이미 응답했다. spec.md 가 승인된 설계와 **내용 동일**하면(자체 검토에서 신규 논점·범위 변화 없음 확인) 본 게이트를 **통합 통과** — 별도 스펙 승인 응답을 요구하지 않고 "스펙 저장 완료(설계 승인 내용과 동일) — decomposing 진행" 1줄 고지 후 진행한다. **단** spec 작성 중 설계 제시에 없던 결정·범위 변화가 생겼으면 게이트를 **유지**한다(동일 내용일 때만 통합 — 주권 불변). trivial 4연속 게이트(포맷Q·설계승인·축약승인·스펙승인)의 마지막 중복 1개를 제거해 단축 경로의 완주율 이득을 보전한다.
 

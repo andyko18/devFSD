@@ -1,7 +1,7 @@
 {
   "name": "specops-ko",
   "metadata": {
-    "description": "specops-ko 마켓플레이스 (v2.34.0 — Claude Code 전용)"
+    "description": "specops-ko 마켓플레이스 (v2.35.0 — Claude Code 전용)"
   },
   "owner": {
     "name": "andyko18",
@@ -11,7 +11,7 @@
     {
       "name": "specops-ko",
       "description": "한국어 자율 Lifecycle 플러그인 — 메타 skill 기반",
-      "version": "2.34.0",
+      "version": "2.35.0",
       "source": "./",
       "author": {
         "name": "andyko18",

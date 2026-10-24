@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.35.0] — 2026-10-24
+
 ### Fixed
 
 - `session-progress-append.sh` 가 쓰기에 실패하면(권한·디스크) `error: session-progress 기록 실패 …` 1줄과 rc 1 로 끝난다 — 종전에는 성공 문구와 rc 0 이라 rc 를 믿는 호출자(quick-fix·review-skip-pass)가 기록 누락을 몰랐다. 구분선(`---`)이 없는 파일에서는 새 섹션이 조용히 버려졌다 — 이제 파일 끝에 붙인다. 섹션 판정도 헤더 줄 정확 일치로 바꿔, 접두가 겹치는 FID(`-x` vs `-x-y`)나 메모 안 `## FID` 때문에 한 줄도 쓰지 않고 성공을 말하던 경로를 닫았다.
@@ -3440,7 +3442,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.34.0...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.35.0...HEAD
+[2.35.0]: https://github.com/andyko18/specops-ko/compare/v2.34.0...v2.35.0
 [2.34.0]: https://github.com/andyko18/specops-ko/compare/v2.33.0...v2.34.0
 [2.33.0]: https://github.com/andyko18/specops-ko/compare/v2.32.0...v2.33.0
 [2.32.0]: https://github.com/andyko18/specops-ko/compare/v2.31.0...v2.32.0

@@ -516,5 +516,17 @@ else
 fi
 chmod 644 "$_wr/.specops/session-progress.md" 2>/dev/null; rm -rf "$_wr"
 
+# T-wr.e: 앞부분이 겹치는 FID(`-x` 와 `-x-y`)·메모 안 `## FID` 는 기존 섹션으로 오진입하지 않는다 — 종전엔 한 줄도 안 쓰고 appended · rc 0
+_wr=$(mktemp -d); mkdir -p "$_wr/.specops"; printf '# sp\n\n---\n\n## 20261024-x-y\n\n- 2026-10-24 10:00 /a 완료\n' > "$_wr/.specops/session-progress.md"
+_o=$(cd "$_wr" && bash "$SCRIPT" 20261024-x /specify 완료 "m" 2>&1); _rc=$?
+{ [ "$_rc" -eq 0 ] && [ "$(grep -c '^## 20261024-x$' "$_wr/.specops/session-progress.md")" = 1 ] \
+    && grep -qE '^- [0-9-]+ [0-9:]+ /specify 완료 \(m\)$' "$_wr/.specops/session-progress.md" && printf '%s' "$_o" | grep -q '^created new section'; } \
+  && ok "T-wr.e 접두가 겹치는 FID → 새 섹션 · 줄 기록" || nope "T-wr.e" "rc=$_rc out=$_o $(tr '\n' '|' < "$_wr/.specops/session-progress.md")"
+printf '\n## 20261024-z1\n\n- 2026-10-24 10:00 /a 완료 (## 20261024-z 언급)\n' >> "$_wr/.specops/session-progress.md"
+_o=$(cd "$_wr" && bash "$SCRIPT" 20261024-z /plan 완료 "n" 2>&1); _rc=$?
+{ [ "$_rc" -eq 0 ] && [ "$(grep -c '^## 20261024-z$' "$_wr/.specops/session-progress.md")" = 1 ] && grep -qE '/plan 완료 \(n\)$' "$_wr/.specops/session-progress.md"; } \
+  && ok "T-wr.e2 메모 안 '## FID' 문자열 → 새 섹션 · 줄 기록" || nope "T-wr.e2" "rc=$_rc out=$_o"
+rm -rf "$_wr"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

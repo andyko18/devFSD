@@ -138,8 +138,9 @@ if [ -n "$MEMO" ]; then
 fi
 
 # FID 섹션 존재 여부 확인
-SECTION_HEADER="## $FID"
-if grep -qF "$SECTION_HEADER" "$TARGET"; then
+# 섹션 판정은 헤더 줄 정확 일치(아래 awk 와 같은 규칙) — 부분 일치는 접두가 겹치는 FID(`-x` vs `-x-y`)·메모 안 `## FID` 에서
+#   기존 섹션 경로로 잘못 들어가 한 줄도 쓰지 않고 appended · rc 0 을 냈다(20261024-flaky-suites-spa-false-ok · C 리뷰)
+if FID="$FID" awk '$0 == "## " ENVIRON["FID"] || index($0, "## " ENVIRON["FID"] " ") == 1 { f = 1; exit } END { exit !f }' "$TARGET"; then
   # 섹션 존재 — 섹션 직후 첫 빈 줄 다음에 LINE prepend (멱등 체크 후)
   # 멱등 — 섹션 전체 스캔 (AC-5): FID 섹션 내 동일 line 존재 시 추가 skip
   already=$(LINE="$LINE" FID="$FID" awk '

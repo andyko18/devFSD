@@ -14,20 +14,20 @@ trap 'rm -f "$SEC"' EXIT
 awk '/^## 진입로/{f=1; next} f && /^## /{exit} f' "$R" > "$SEC"
 [ -s "$SEC" ] && ok "AC-0 진입로 절 존재" || nope "AC-0" "## 진입로 절을 찾지 못함"
 
-# AC-1: /start-auto 등장
-grep -q '/start-auto' "$R" && ok "AC-1 start-auto 등장" || nope "AC-1" "start-auto 누락"
-# AC-2: 10종 모두 등장 (lite·maintain-lite·start-all-auto 포함)
+# AC-1: 단일 무인 /start-auto 는 폐지됐다 (20261024)
+! grep -qE '(^|[^a-z-])/start-auto([^a-z-]|$)' "$R" && ok "AC-1 start-auto 폐지 반영" || nope "AC-1" "start-auto 잔존"
+# AC-2: 9종 모두 등장 (lite·maintain-lite·start-all-auto 포함)
 miss=""
-for s in '/start ' '/start-lite' '/start-auto' '/start-foundation' '/start-all' '/start-all-auto' '/init-project' '/maintain' '/maintain-lite' '/brainstorming'; do
+for s in '/start ' '/start-lite' '/start-foundation' '/start-all' '/start-all-auto' '/init-project' '/maintain' '/maintain-lite' '/brainstorming'; do
   grep -q -- "$s" "$R" || miss="$miss $s"
 done
-[ -z "$miss" ] && ok "AC-2 10종 진입로 등장" || nope "AC-2" "누락:$miss"
-# AC-2b: 무인 변형 3종 (20261008-auto-variants) — 진입로 표와 결정 트리 양쪽
+[ -z "$miss" ] && ok "AC-2 9종 진입로 등장" || nope "AC-2" "누락:$miss"
+# AC-2b: 단일 무인 변형 3종은 진입로 절에 없다 (20261024 폐지)
 miss=""
 for s in '/maintain-auto' '/start-lite-auto' '/maintain-lite-auto'; do
-  [ "$(grep -c -- "$s" "$SEC")" -ge 2 ] || miss="$miss $s"
+  grep -q -- "$s" "$SEC" && miss="$miss $s"
 done
-[ -z "$miss" ] && ok "AC-2b 무인 변형 3종 — 표·결정 트리" || nope "AC-2b" "누락(2곳 미만):$miss"
+[ -z "$miss" ] && ok "AC-2b 단일 무인 변형 3종 — 진입로에 없음" || nope "AC-2b" "잔존:$miss"
 # AC-3: start↔maintain 판단 기준 (신규/기존 키워드)
 grep -q '기존 코드를 고치나' "$SEC" && grep -q '새 산출물' "$SEC" && ok "AC-3 판단 기준" || nope "AC-3" "결정 트리의 신규/기존 판단 기준 없음"
 # AC-4: project→foundation→batch 순서 표현 (한 줄 요약 라인 매칭 — grep 줄단위)

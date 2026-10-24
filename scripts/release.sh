@@ -74,9 +74,26 @@ _run_check() {
 if [ "${SPECOPS_RUN_ALL:-}" = "1" ] && [ -z "$PREFLIGHT_CMD" ]; then
   echo "-> pre-flight skip (run-all 내부 — 재귀 방지)"
 else
-  echo "-> pre-flight 검증 시작 (전체 테스트 aggregator)..."
-  _run_check "scripts/tests/run-all.sh"
-  echo "-> pre-flight PASS"
+  # 같은 비문서 트리가 이미 전체 스위트를 통과했으면(다른 worktree 의 통과 기록 포함) 재실행하지 않는다 —
+  #   판정은 full-suite-fresh.sh 하나(생략 방향 오판 경로 없음 계약) · 헬퍼 부재·STALE·판정 불가는 지금처럼 전체 실행
+  #   (20261024-speed-release-fresh-task-record). 테스트 오버라이드(RELEASE_PREFLIGHT_CMD)보다 앞에서 본다 — 마커 없는 픽스처는 STALE 이다.
+  _fresh=""
+  _fresh_sh="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/full-suite-fresh.sh"
+  if [ -f "$_fresh_sh" ]; then
+    _fresh=$(cd "$PLUGIN_ROOT" && bash "$_fresh_sh" --any-worktree 2>/dev/null) || _fresh=""
+  fi
+  if [ -n "$_fresh" ]; then
+    echo "-> pre-flight skip ($_fresh — 같은 비문서 트리가 이미 전체 스위트를 통과했다)"
+    # 지문은 비문서 기준이라 문서만 바뀐 트리도 생략된다 — 문서 수치·구조 검사(수 초)는 그래도 돌린다(release 는 main 에 직접 push 한다)
+    for _cheap in scripts/_internal/check-doc-numbers.sh scripts/_internal/validate-structure.sh; do
+      [ -f "$PLUGIN_ROOT/$_cheap" ] || continue
+      ( cd "$PLUGIN_ROOT" && bash "$_cheap" ) > /dev/null 2>&1 || { echo "Error: pre-flight 검증 실패 ($_cheap)" >&2; exit 1; }
+    done
+  else
+    echo "-> pre-flight 검증 시작 (전체 테스트 aggregator)..."
+    _run_check "scripts/tests/run-all.sh"
+    echo "-> pre-flight PASS"
+  fi
 fi
 
 # B층: llm-eval staleness soft 경고 (비차단 — LLM chain 은 run-all 밖이라 별도 신호)
@@ -289,7 +306,7 @@ _partial_release() {  # <실패 단계>
 }
 
 echo "-> 원격 push..."
-# pre-flight 가 방금 동일한 run-all.sh 전체를 통과했다. SPECOPS_RUN_ALL=1 은 pre-push
+# pre-flight 가 방금 동일한 run-all.sh 전체를 통과했다(또는 같은 비문서 트리의 통과 기록으로 생략했다). SPECOPS_RUN_ALL=1 은 pre-push
 # 재귀 가드(.githooks/pre-push 의 SPECOPS_RUN_ALL 분기)를 켜 같은 스위트의 중복 실행을 막는다.
 # ★ 반드시 명령 prefix 로 둘 것 — 스크립트 전역으로 export 하면 release.sh:65 가
 #   pre-flight 자체를 skip 해 게이트가 전면 상실된다 (T20.b 가 잠그는 유일 teeth —

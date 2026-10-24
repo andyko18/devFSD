@@ -34,7 +34,7 @@ if [ -f "$PLUGIN/scripts/_internal/verification-state.sh" ]; then
   # 발행 판정용 둘째 줄(20261024-speed-release-fresh-task-record) — 추적 파일이 커밋 그대로면 커밋 트리 해시를 남긴다.
   #   full-suite-fresh.sh --release 만 읽는다(첫 줄만 보는 pre-push·verify 는 그대로). 추적 변경이 있으면 남기지 않는다(그 트리는 커밋이 아니다).
   #   추적하지 않는 파일(무시 목록 제외)이 있어도 남기지 않는다 — 통과가 그 파일에 기댔을 수 있다 · status 실패도 남기지 않는다.
-  if _fsp_st=$(git -C "$PLUGIN" status --porcelain 2>/dev/null) && [ -z "$_fsp_st" ]; then
+  if _fsp_st=$(git -C "$PLUGIN" status --porcelain --untracked-files=normal 2>/dev/null) && [ -z "$_fsp_st" ]; then
     _FSP_COMMIT=$(git -C "$PLUGIN" rev-parse -q --verify 'HEAD^{tree}' 2>/dev/null) || _FSP_COMMIT=""
   fi
 fi

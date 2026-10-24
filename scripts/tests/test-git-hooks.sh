@@ -618,6 +618,11 @@ printf 'helper\n' > "$_p/untracked-helper.txt"
 ( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
 [ "$(awk 'END{print NR}' "$_p/.specops/.full-suite-pass" 2>/dev/null)" = 1 ] \
   && ok "T20.n 추적하지 않는 파일이 있으면 둘째 줄 없음(통과가 그 파일에 기댔을 수 있다)" || nope "T20.n" "$(cat "$_p/.specops/.full-suite-pass" 2>/dev/null | tr '\n' '|')"
+git -C "$_p" config status.showUntrackedFiles no
+( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
+[ "$(awk 'END{print NR}' "$_p/.specops/.full-suite-pass" 2>/dev/null)" = 1 ] \
+  && ok "T20.n3 status.showUntrackedFiles=no 설정이어도 추적하지 않는 파일을 본다" || nope "T20.n3" "$(cat "$_p/.specops/.full-suite-pass" 2>/dev/null | tr '\n' '|')"
+git -C "$_p" config --unset status.showUntrackedFiles
 rm -f "$_p/untracked-helper.txt"
 ( cd "$_p" && DUMMY_RC=0 bash scripts/tests/run-all.sh >/dev/null 2>&1 )
 [ "$(sed -n 2p "$_p/.specops/.full-suite-pass" 2>/dev/null)" = "tree:$(git -C "$_p" rev-parse 'HEAD^{tree}')" ] \

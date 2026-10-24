@@ -222,8 +222,10 @@ BIG="$SB/tbig"; newtd tbig
 for i in 1 2 3; do
   awk 'BEGIN { for (k = 1; k <= 20000; k++) printf "{\"type\":\"assistant\",\"timestamp\":\"2026-10-01T10:%02d:%02d.000Z\",\"message\":{\"content\":\"x\"}}\n", int(k / 60) % 60, k % 60 }' | mkag "$BIG/s1/subagents" "h$i" "$META_IMPL"
 done
-T0=$(date +%s); runs la --by-agent --transcript-dir "$BIG"; T1=$(date +%s)
-ck "T7.d 합성 6만 줄 서브에이전트 3개 --by-agent rc=0 · 20초 이내(CPU 경합 여유 — 실측 수 초)" "$RC|$(awk -v a="$T1" -v b="$T0" 'BEGIN{ print (a - b <= 20) ? 1 : 0 }')|$(arow 'specops-ko:implementer-ko' | awk '{print $3}')" "0|1|3"
+# 벽시계가 아니라 CPU 시간(user+sys · 자식 포함)으로 잰다 — 병렬 run-all·리뷰 에이전트 경합에 흔들리지 않는다(20261024-flaky-suites-spa-false-ok · 실측 단독 수 초)
+TIMEFORMAT='%3U %3S'; { time runs la --by-agent --transcript-dir "$BIG"; } 2>"$SB/cpu"; unset TIMEFORMAT
+_cl=$(tail -1 "$SB/cpu" | tr ',' '.'); CPU=$(printf '%s' "$_cl" | awk '{ printf "%.1f", $1 + $2 }')
+ck "T7.d 합성 6만 줄 서브에이전트 3개 --by-agent rc=0 · CPU 20초 이내(실측 수 초 · cpu=${CPU}s)" "$RC|$(printf '%s' "$_cl" | grep -qE '^[0-9]+\.[0-9]{3} [0-9]+\.[0-9]{3}$' && awk -v c="$CPU" 'BEGIN{ print (c + 0 > 0 && c + 0 <= 20) ? 1 : 0 }' || echo bad)|$(arow 'specops-ko:implementer-ko' | awk '{print $3}')" "0|1|3"
 
 # ══ AC-9: --min-n 무관·초→분 반올림·동률 정렬 ══
 T9="$SB/t9"; newtd t9; S9="$T9/s1/subagents"

@@ -36,7 +36,8 @@ MARKER="$ROOT/${SPECOPS_ROOT:-.specops}/.full-suite-pass"
 
 if [ "$MODE" = release ]; then
   # 발행되는 것은 커밋 트리다 — 추적 파일이 커밋과 다르면 그 트리를 판정할 수 없다
-  [ -z "$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ] || _stale "추적 파일 변경 — 커밋 트리 판정 불가"
+  _st=$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null) || _stale "git status 실패 — 판정 불가"
+  [ -z "$_st" ] || _stale "추적 파일 변경 — 커밋 트리 판정 불가"
   head_tree=$(git -C "$ROOT" rev-parse -q --verify 'HEAD^{tree}' 2>/dev/null) || _stale "HEAD 트리 없음"
   [ -n "$head_tree" ] || _stale "HEAD 트리 없음"
   while IFS= read -r _wt; do

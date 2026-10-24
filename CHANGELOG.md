@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- `release.sh` pre-flight 가 같은 비문서 트리의 전체 스위트 통과 기록을 재사용한다 — `full-suite-fresh.sh --any-worktree` 가 다른 worktree 의 마커도 지문이 완전히 같을 때만 인정한다(PR 을 돌린 worktree 와 발행하는 메인 worktree 가 달라도 된다). 생략해도 문서 수치·구조 검사는 돈다. STALE·판정 불가·`SPECOPS_FORCE_FULL` 은 종전대로 전체 실행.
+- `scripts/_internal/record-task-done.sh <FID> <task-id> [요약]` — receipt · dispatch-log 구현 행 · session-progress 줄을 한 번에 남긴다(receipt 실패면 아무것도 쓰지 않는다 · 진행 줄이 실제로 남았는지 파일로 확인한다). implementing-ko 커밋 직전 절이 안내한다.
+
 ## [2.33.0] — 2026-10-24
 
 ### Changed

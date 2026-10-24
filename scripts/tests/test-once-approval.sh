@@ -25,11 +25,12 @@ _has "O2.a specifying §일괄 판정 — Step 1 분기 검사 안 (AC-2)" "$(_s
   '**§일괄 판정' '`<!-- step: true -->` 가 없으면 `§일괄` 이다' '(`batch`·`foundation` 은 해당 없음)' 'Step 6 에서 spec §1 에 `**§일괄**: true` 를 적고' 'once-approval.md' '`<!-- step: true -->` 줄은 FID 슬러그·대상 설명에서 뺀다'
 _has "O2.b intent 표에 §일괄 행 (AC-4)" "$(_sec "$SP" '^1\.5\. ' '^2\. ')" '| §일괄' '승인 묶음'
 _has "O2.c Step 3~5 §일괄 (AC-4)" "$(_sec "$SP" '^2\. \*\*Visual' '^5\.5\. ')" '**§일괄**: 질문을 한 번에 묶어 1회' '**§일괄**: 고르게 하지 않고' '**§일괄**: 섹션별 승인 없이'
-_has "O2.d 화면 5.5 §일괄 (AC-4)" "$(_sec "$SP" '^5\.5\. ' '^5\.6\. ')" '**§일괄 이면 화면을 모두 만든 뒤**' '화면마다 하지 않고' '**[§auto 이외 모드]** (기존 동작):'
+_has "O2.d 화면 5.5 §일괄 (AC-4)" "$(_sec "$SP" '^5\.5\. ' '^5\.6\. ')" '**§일괄 이면 화면을 모두 만든 뒤**' '화면마다 하지 않고'
 _has "O2.e IF 5.6 §일괄 (AC-4)" "$(_sec "$SP" '^5\.6\. ' '^6\. ')" '**§일괄 이면 바꾸는 인터페이스를**' '확인을 묻지 않은 채'
 _has "O2.h Step 6 §일괄 라벨 (AC-2)" "$(_sec "$SP" '^6\. \*\*설계 문서 작성' '^7\. ')" '**§일괄 라벨**' '`**§일괄**: true`'
 _g=$(_sec "$SP" '^### 사용자 검토 게이트' '^## ')
 _has "O2.f 스펙 검토 게이트 §일괄 — 위치 lite·trivial = 여기 · 정상 = clarifying 끝 (AC-4)" "$_g" '**[§일괄 모드]**' '승인 묶음은 clarifying-ko 끝에서' '정상 경로는 묻지 않고 clarifying-ko 를 호출한다' '아래 기존 동작은 `--step`(`<!-- step: true -->`)일 때만 적용한다' '위 trivial 통합 규칙(설계 승인 + 축약 승인 2회 전제)은 `§일괄` 에 적용하지 않는다' '**[§auto·trivial 이외 모드]** (기존 동작)'
+printf '%s\n' "$_g" | grep -F '**[§auto 모드]**' -A3 | grep -q '§lite' && nope "O2.k 검토 게이트 [§auto 모드] 에 §lite 단축 경로 잔존 (20261024)" || ok "O2.k 검토 게이트 [§auto 모드] 에 §lite 언급 없음 (20261024)"
 _has "O2.i lite 승인·스펙 검토·슬러그 줄 (AC-4)" "$(cat "$SP")" '(**§일괄**: 여기서 묻지 않는다 — 이 1회는 Step 8 자리의 승인 묶음으로' '(**§일괄**: `### 사용자 검토 게이트` 의 [§일괄 모드])' '#   args 의 주석 줄(`<!-- step: true -->` 등)은 슬러그에서 뺀다'
 _l1=$(printf '%s\n' "$_g" | grep -nF '**[§일괄 모드]**' | head -1 | cut -d: -f1); _l2=$(printf '%s\n' "$_g" | grep -nF '**[§auto·trivial 이외 모드]** (기존 동작)' | head -1 | cut -d: -f1)
 { [ -n "$_l1" ] && [ -n "$_l2" ] && [ "$_l1" -lt "$_l2" ]; } && ok "O2.g §일괄 문단이 기존 동작 앞 (AC-4)" || nope "O2.g" "l1=$_l1 l2=$_l2"
@@ -41,7 +42,7 @@ CL="$SK/clarifying-ko/SKILL.md"
 _has "O4.a clarifying §일괄 절 (AC-4)" "$(_sec "$CL" '^## §일괄 모드' '^## ')" '질문 묶음 2회째' '많아야 4개' 'once-approval.md' '승인 전에는 planning-ko 를 호출하지 않는다' '`status: ASSUMED`'
 # AC-R-1 — --step 경로의 기존 게이트 문구 보존 (개수까지)
 _has "O9.a 기존 게이트 문구 보존 (AC-R-1)" "$(cat "$SP" "$CL" "$AN")" \
-  '**[§auto·trivial 이외 모드]** (기존 동작)' '**[§auto 이외 모드]** (기존 동작):' '**BLOCKING**: 한 번에 한 질문'
+  '**[§auto·trivial 이외 모드]** (기존 동작)' '**BLOCKING**: 한 번에 한 질문'
 [ "$(grep -cF '분析 결과 검토. 진행? [y/n]' "$AN")" = 2 ] && ok "O9.c analyzing 검토 게이트 문구 2곳 보존 (AC-R-1)" || nope "O9.c" "$(grep -cF '분析 결과 검토. 진행? [y/n]' "$AN")"
 # ── 승인 뒤 게이트 (Task 3) ──
 _pe=$(_sec "$SK/planning-ko/SKILL.md" '^## 실행 전환' '^## ')

@@ -819,11 +819,12 @@ _s65_has() { local p; for p in "$@"; do printf '%s\n' "$_s65_body" | grep -qE --
 _s65_ex=$(printf '%s\n' "$_s65_body" | grep -E '^   - \*\*제외\*\*:')
 if [ -n "$_l_s6" ] && [ -n "$_s65_body" ] && [ "$_l_s6" -lt "$_l_s65" ] \
    && _s65_has 'subagent_type: "specops-ko:req-designer-ko"' 'experts/req\.md' '저장·계산·판정' '판단이 서지 않으면 부른다' \
-        'spec §8 열린 질문으로 옮긴다' '`§auto` 면 질문을 best-guess 로 정해 §8 에 `\(ASSUMED\)` 로 남긴다' \
+        'spec §8 열린 질문으로 옮긴다' \
         '`acceptance-criteria\.md` · `intent\.md`' '가용 모델 override 로 다시 dispatch' '부모가 대신 검토하지 않는다' \
         '\| req-expert \| req-designer-ko \| 반영 \|' '\| req-expert \| - \| SKIP \| 데이터 표면 없음 \|' '\| req-expert \| req-designer-ko \| 산출 없음 \|' \
    && printf '%s\n' "$_s65_ex" | grep -qE '^   - \*\*제외\*\*: `§batch` · `§lite`.* · `§유형: trivial` · promote\(`promote-fid`\) · foundation 은 부르지 않는다' \
-   && printf '%s\n' "$_s65_ex" | grep -qF '유지보수 분기와 `§auto` 는 부른다' \
+   && printf '%s\n' "$_s65_ex" | grep -qF '유지보수 분기는 부른다' \
+   && ! printf '%s\n' "$_s65_body" | grep -q '§auto' \
    && ! printf '%s\n' "$_s65_body" | grep -vE '^   - \*\*제외\*\*:' | grep -E '(§batch|§lite|trivial|promote|foundation)' | grep -q '부른다' \
    && [ "$(printf '%s\n' "$_s65_body" | grep -c '^ *#')" -eq 0 ] \
    && ! printf '%s\n' "$_s65_body" | grep -E '^ *\| [^|]*\| [^|]*\| req-expert \|' | grep -qE 'DONE|IMPL' \
@@ -841,12 +842,13 @@ _s66_has() { local p; for p in "$@"; do printf '%s\n' "$_s66_body" | grep -qE --
 _s66_ex=$(printf '%s\n' "$_s66_body" | grep -E '^   - \*\*제외\*\*:')
 if [ -n "$_l_s65" ] && [ -n "$_l_s66" ] && [ -n "$_l_s7" ] && [ "$_l_s65" -lt "$_l_s66" ] && [ "$_l_s66" -lt "$_l_s7" ] && [ -n "$_s66_body" ] \
    && _s66_has 'subagent_type: "specops-ko:ui-designer-ko"' 'experts/ui\.md' '기능 화면 `screens/<name>\.md` 를 만들거나 고쳤으면 발동한다' \
-        'spec §8 열린 질문으로 옮긴다' '`§auto` 면 질문을 best-guess 로 정해 §8 에 `\(ASSUMED\)` 로 남긴다' \
+        'spec §8 열린 질문으로 옮긴다' \
         '이번에 만든·고친 `screens/<name>\.md`·`\.html` · `\.specops/<FID>/spec\.md` · `acceptance-criteria\.md` · `DESIGN\.md`\(있으면\)' '가용 모델 override 로 다시 dispatch' '부모가 대신 검토하지 않는다' \
         '\| ui-expert \| ui-designer-ko \| 반영 \|' '\| ui-expert \| - \| SKIP \| 화면 변경 없음 \|' '\| ui-expert \| ui-designer-ko \| 산출 없음 \|' \
    && printf '%s\n' "$_s66_ex" | grep -qE '^   - \*\*제외\*\*: `§batch`.*Phase 2\.5 A2.* · `§lite`.* · `§유형: trivial` · foundation 셸 화면\(`<!-- foundation-shell -->`\)만 바꾼 경우는 부르지 않는다' \
    && printf '%s\n' "$_s66_ex" | grep -qF '화면 변경이 없으면 부르지 않고 SKIP 행을 남긴다' \
-   && printf '%s\n' "$_s66_ex" | grep -qF '유지보수 분기와 `§auto` 는 부른다' \
+   && printf '%s\n' "$_s66_ex" | grep -qF '유지보수 분기는 부른다' \
+   && ! printf '%s\n' "$_s66_body" | grep -q '§auto' \
    && ! printf '%s\n' "$_s66_body" | grep -vE '^   - \*\*제외\*\*:' | grep -E '(§batch|§lite|trivial|foundation)' | grep -q '부른다' \
    && [ "$(printf '%s\n' "$_s66_body" | grep -c '^ *#')" -eq 0 ] \
    && [ "$(awk '/^## 프로세스 흐름/{f=1;next} /^## /{f=0} f' "$_SPK" | grep -oE '(요구사항|화면) 전문가 패스 \(Step 6\.[56]\)|스펙 자체 검토' | tr '\n' ,)" = '요구사항 전문가 패스 (Step 6.5),화면 전문가 패스 (Step 6.6),스펙 자체 검토,' ] \

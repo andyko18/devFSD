@@ -172,7 +172,8 @@ _verify_passed_in_progress() {
   # I-2: 행 선두 앵커(`^- YYYY-MM-DD HH:MM /command`) — memo 자유텍스트 명령 언급 무매칭 → false-block 차단.
   # YYYY-MM-DD HH:MM 전체 비교: 사전순 = 연대순, 날짜경계(23:59→00:00) 자동 처리.
   # sort -r|head-1 로 max 추출: 줄 순서(prepend 불변식)가 아닌 타임스탬프 값 기준 → writer 순서 오류 무관.
-  # 동률(same-minute) → 안전측 = return 2(stale/deny). evidence-stamp 구제 없음(T39b 불변식 보존).
+  # 동률(same-minute) → 작성 순서가 아니라 판정 SoT(verification-state current)로 가린다: 정확히 PASS 면 0, 그 밖·조회 실패는 2(20261025).
+  #   affirmative-stale(implement 가 더 늦은 분)은 그대로 2 — evidence-stamp 구제 없음(T39b 불변식 보존).
   local vts cts
   vts=$(printf '%s\n' "$section" \
     | grep -E '^- [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} /verify PASS' \
@@ -184,7 +185,13 @@ _verify_passed_in_progress() {
     | sed 's/^- //' | sort -r | head -1)
   [ -z "$vts" ] && return 1              # verify 없음
   [ -z "$cts" ] && return 0             # 코드변경 없음 → verify 유효
-  [[ "$vts" > "$cts" ]] && return 0 || return 2   # 0=유효 / 2=affirmative-stale(implement최신 or 동률)
+  [[ "$vts" > "$cts" ]] && return 0      # verify 가 더 늦은 분 → 유효
+  [[ "$vts" < "$cts" ]] && return 2      # implement 가 더 늦은 분 → affirmative-stale
+  # 동률: 구조화 기록이 없으면 SoT 가 지문 없이 evidence 스탬프만으로 PASS 를 낸다 → 닫힘
+  #   경로는 verification-state.sh 의 저장 위치와 같아야 한다(_verify_evidence_stamp 와 같은 경로)
+  [ -f ".specops/$fid/verification-state.json" ] || return 2
+  _vs_verdict_cached "$fid" >/dev/null || return 2
+  [ "${_VS_VERDICT_CACHE:-}" = "PASS" ] && return 0 || return 2
 }
 
 # evidence.md 의 run-verification PASS stamp (honest-scaffold — 실제 테스트 실행 증거).

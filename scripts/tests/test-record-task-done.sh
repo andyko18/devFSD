@@ -107,7 +107,19 @@ else
     && ok "D7 진행 기록 실패 → 경고 · rc 0 · dispatch-log 는 남음" || nope "D7" "rc=$rc err=$(cat "$TD/e.err")"
 fi
 
-# D5: implementing-ko 가 이 스크립트를 가리킨다
-grep -qF 'record-task-done.sh <FID> <task-id>' "$PLUGIN/skills/implementing-ko/SKILL.md" && ok "D5 implementing-ko 커밋 직전 절이 record-task-done.sh 를 안내" || nope "D5"
+# D7b: 다른 FID 섹션에 같은 문구가 있어도 이 FID 섹션에 줄이 안 남으면 경고한다(파일 전체 grep 금지)
+_setup "$TD/f" "$FID"
+printf '\n## 20261001-other\n- 2026-10-01 10:00 /implement 진행 (T1 완료)\n' >> "$TD/f/.specops/session-progress.md"
+SPF="$TD/f/.specops/session-progress.md"
+chmod 444 "$SPF"; chmod 555 "$TD/f/.specops"
+if [ "$(id -u)" = "0" ] || ( : >> "$SPF" ) 2>/dev/null; then
+  chmod 755 "$TD/f/.specops"; chmod 644 "$SPF"
+  skip "D7b 다른 섹션 같은 문구 (root·chmod 무효 환경)"
+else
+  out=$(cd "$TD/f" && bash "$DONE" "$FID" T1 2>"$TD/f.err"); rc=$?
+  chmod 755 "$TD/f/.specops"; chmod 644 "$SPF"
+  { [ "$rc" = 0 ] && grep -qF '경고 — session-progress 기록 실패' "$TD/f.err"; } \
+    && ok "D7b 다른 FID 섹션의 같은 문구에 속지 않고 경고" || nope "D7b" "rc=$rc err=$(cat "$TD/f.err")"
+fi
 
 finish

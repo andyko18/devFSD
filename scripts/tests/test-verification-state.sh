@@ -327,50 +327,56 @@ else
   _fr_case S17.j "마커 읽기 불가 → STALE" 1 "^full-suite STALE"
 fi
 chmod 644 "$MK" 2>/dev/null
-# ── S19 --any-worktree (20261024-speed-release-fresh-task-record) ─────────
-# 자기 마커가 없어도 같은 저장소의 다른 worktree 마커 **첫 줄이 지금 지문과 완전히 같을 때만** FRESH.
-#   옵션 없는 호출은 종전 그대로(STALE) — pre-push·verify·거버넌스 소비가 바뀌지 않는다.
+# ── S19 --release (20261024-speed-release-fresh-task-record) ─────────
+# 발행 판정 — 추적 파일이 커밋 그대로일 때 HEAD 트리 해시와 같은 통과 기록(마커 둘째 줄 `tree:<해시>`)을
+#   자기 포함 어느 worktree 에서든 찾는다. 문서 포함 · 추적하지 않는 파일 무시. 옵션 없는 호출은 종전 그대로.
 TW=$(mktemp -d) || exit 1
 rmdir "$TW"
 git -C "$TF" worktree add -q -b s19-wt "$TW" 2>/dev/null
 mkdir -p "$TW/.specops"
 WM="$TW/.specops/.full-suite-pass"
-_fa() { ( cd "$TF" && env -u SPECOPS_FORCE_FULL "$@" bash "$FRESH" --any-worktree ); }
+_ht=$(git -C "$TF" rev-parse 'HEAD^{tree}')
+_fa() { ( cd "$TF" && env -u SPECOPS_FORCE_FULL "$@" bash "$FRESH" --release ); }
 _fa_case() { # $1=id $2=설명 $3=기대 rc $4=stdout 정규식 $5...=추가 env
   local _id="$1" _d="$2" _rc="$3" _re="$4" _out _got; shift 4
   _out=$(_fa "$@"); _got=$?
   if [ "$_got" = "$_rc" ] && printf '%s' "$_out" | grep -qE "$_re"; then ok "$_id $_d"; else nope "$_id $_d" "rc=$_got out=$_out"; fi
 }
+_twb=$(basename "$(cd "$TW" && pwd -P)"); _tfb=$(basename "$(cd "$TF" && pwd -P)")
 rm -f "$MK"
-printf '%s\n' "$_fp" > "$WM"
-_twb=$(basename "$(cd "$TW" && pwd -P)")
-_fa_case S19.a "자기 마커 부재 + 다른 worktree 마커 == 지문 → FRESH(worktree 경로)" 0 "^full-suite FRESH \(fp=${_fp:0:12}, worktree=.*${_twb}\)$"
+printf '%s\ntree:%s\n' "$_fp" "$_ht" > "$WM"
+_fa_case S19.a "자기 마커 부재 + 다른 worktree 마커 둘째 줄 == HEAD 트리 → FRESH(worktree 경로)" 0 "^full-suite FRESH \(tree=${_ht:0:12}, worktree=.*${_twb}\)$"
 _fr_case S19.b "같은 상황 · 옵션 없음 → STALE(종전 동작 · 사유 그대로)" 1 "^full-suite STALE \(마커 부재\)$"
-printf 'not-a-tree-hash\n' > "$WM"
-_fa_case S19.c "다른 worktree 마커 지문 불일치 → STALE" 1 "^full-suite STALE"
-printf '%sX\n' "$_fp" > "$WM"
-_fa_case S19.c2 "다른 worktree 마커 = 지문+접미 → STALE(포함 일치 금지)" 1 "^full-suite STALE"
-printf '%s\n' "${_fp:0:12}" > "$WM"
-_fa_case S19.c3 "다른 worktree 마커 = 지문 앞 12자 → STALE(접두 일치 금지)" 1 "^full-suite STALE"
-printf 'junk\n%s\n' "$_fp" > "$WM"
-_fa_case S19.c4 "다른 worktree 마커 둘째 줄만 지문 → STALE(첫 줄만 본다)" 1 "^full-suite STALE"
-printf '%s\n' "$_fp" > "$WM"
+printf '%s\ntree:deadbeef\n' "$_fp" > "$WM"
+_fa_case S19.c "다른 트리 해시 → STALE" 1 "^full-suite STALE \(같은 커밋 트리의 통과 기록 없음\)$"
+printf '%s\ntree:%s\n' "$_fp" "${_ht:0:12}" > "$WM"
+_fa_case S19.c2 "해시 앞 12자만 → STALE(접두 일치 금지)" 1 "^full-suite STALE"
+printf 'tree:%s\n' "$_ht" > "$WM"
+_fa_case S19.c3 "첫 줄에만 tree: → STALE(둘째 줄만 본다)" 1 "^full-suite STALE"
+printf '%s\ntree:%s\n' "$_fp" "$_ht" > "$WM"
 _fa_case S19.d "FORCE_FULL 은 옵션이 있어도 STALE" 1 "^full-suite STALE" SPECOPS_FORCE_FULL=1
-printf 'NO_GIT\n' > "$WM"
-_fa_case S19.d2 "옵션 + 지문 NO_GIT + 다른 worktree 마커 NO_GIT → STALE" 1 "^full-suite STALE \(현재 지문 산출 불가\)$" TMPDIR=/nonexistent/zz
-printf '%s\n' "$_fp" > "$WM"
 printf 'changed\n' >> "$TF/app.sh"
-_fa_case S19.e "지금 트리 비문서 변경 → 다른 worktree 마커가 옛 지문이라 STALE" 1 "^full-suite STALE"
+_fa_case S19.e "추적 파일 변경 → STALE" 1 "^full-suite STALE \(추적 파일 변경 — 커밋 트리 판정 불가\)$"
 git -C "$TF" restore app.sh
-# 역방향 — linked worktree 셸에서 메인 worktree 마커를 본다(porcelain 첫 항목을 self 로 건너뛰지 않는다)
-rm -f "$WM"; printf '%s\n' "$_fp" > "$MK"
-_rv=$( cd "$TW" && env -u SPECOPS_FORCE_FULL bash "$FRESH" --any-worktree ); _rv_rc=$?
-{ [ "$_rv_rc" = 0 ] && printf '%s' "$_rv" | grep -qE "^full-suite FRESH \(fp=${_fp:0:12}, worktree=.*$(basename "$(cd "$TF" && pwd -P)")\)$"; } \
-  && ok "S19.f 역방향 — worktree 셸 + 메인 마커 == 지문 → FRESH(메인 경로)" || nope "S19.f" "rc=$_rv_rc out=$_rv"
-_fa_case S19.g "자기 마커 FRESH 면 종전 출력 그대로(worktree 표기 없음)" 0 "^full-suite FRESH \(fp=${_fp:0:12}\)$"
+printf 'junk\n' > "$TF/junk.js"
+_fa_case S19.f "추적하지 않는 파일이 있어도 FRESH(메인 worktree 의 미추적 폴더)" 0 "^full-suite FRESH \(tree=${_ht:0:12}, worktree="
+rm -f "$TF/junk.js"
+# 역방향 — linked worktree 셸에서 메인 worktree 마커를 본다(자기 포함 · 첫 항목을 건너뛰지 않는다)
+rm -f "$WM"; printf '%s\ntree:%s\n' "$_fp" "$_ht" > "$MK"
+_rv=$( cd "$TW" && env -u SPECOPS_FORCE_FULL bash "$FRESH" --release ); _rv_rc=$?
+{ [ "$_rv_rc" = 0 ] && printf '%s' "$_rv" | grep -qE "^full-suite FRESH \(tree=${_ht:0:12}, worktree=.*${_tfb}\)$"; } \
+  && ok "S19.g 역방향 — worktree 셸 + 메인 마커 → FRESH(메인 경로)" || nope "S19.g" "rc=$_rv_rc out=$_rv"
+_fa_case S19.h "자기 마커 둘째 줄 일치 → FRESH(자기 경로)" 0 "^full-suite FRESH \(tree=${_ht:0:12}, worktree=.*${_tfb}\)$"
+_fr_case S19.h2 "같은 마커 · 옵션 없음 → 첫 줄 지문 판정 그대로 FRESH" 0 "^full-suite FRESH \(fp=${_fp:0:12}\)$"
 _ar_out=$( cd "$TF" && env -u SPECOPS_FORCE_FULL bash "$FRESH" --bogus ); _ar_rc=$?
-{ [ "$_ar_rc" = 1 ] && printf '%s' "$_ar_out" | grep -q '^full-suite STALE' && printf '%s' "$_ar_out" | grep -qF '알 수 없는 인자' && printf '%s' "$_ar_out" | grep -qF -- '--bogus'; } && ok "S19.h 알 수 없는 인자 → STALE" || nope "S19.h" "rc=$_ar_rc out=$_ar_out"
-git -C "$TF" worktree remove --force "$TW" 2>/dev/null; rm -rf "$TW"
+{ [ "$_ar_rc" = 1 ] && printf '%s' "$_ar_out" | grep -q '^full-suite STALE' && printf '%s' "$_ar_out" | grep -qF '알 수 없는 인자' && printf '%s' "$_ar_out" | grep -qF -- '--bogus'; } && ok "S19.i 알 수 없는 인자 → STALE" || nope "S19.i" "rc=$_ar_rc out=$_ar_out"
+# 문서만 커밋해도 커밋 트리가 바뀐다 — 문서 검사 스위트가 실패할 수 있는 트리를 생략하지 않는다
+printf 'doc\n' > "$TF/NOTES.md"
+git -C "$TF" add NOTES.md && git -C "$TF" -c user.name=test -c user.email=test@example.com commit -qm doc
+_fa_case S19.j "문서만 바뀐 커밋 → 옛 기록으로 STALE" 1 "^full-suite STALE \(같은 커밋 트리의 통과 기록 없음\)$"
+git -C "$TF" reset -q --hard HEAD~1
+git -C "$TF" worktree remove --force "$TW" 2>/dev/null; rm -rf "$TW"; git -C "$TF" branch -q -D s19-wt 2>/dev/null
+printf '%s\n' "$_fp" > "$MK"
 
 # 읽을 수 없는 untracked 파일 — git add -A 가 통째로 실패해 지문이 HEAD 로 퇴행한다(vs 공유 SoT 의 기존 한계).
 # 이때 비문서 변경이 있어도 마커와 일치해 FRESH 가 되는 생략 방향 오판을 헬퍼가 따로 막는다.

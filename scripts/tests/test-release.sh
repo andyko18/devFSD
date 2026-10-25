@@ -257,7 +257,133 @@ grep -q "release create" "$GH_LOG" && grep -q -- "--verify-tag" "$GH_LOG" && gre
   && ok "T14.c gh release create --verify-tag --latest 호출" || fail "T14.c (gh_log='$(cat "$GH_LOG")')"
 grep -q -- "--notes-file" "$GH_LOG" \
   && ok "T14.d CHANGELOG 노트 --notes-file 전달" || fail "T14.d (gh_log='$(cat "$GH_LOG")')"
+! echo "$out" | grep -q "worktree 모드" \
+  && ok "T14.e 같은 이름 upstream → 종전 git push 경로(worktree 모드 아님)" || fail "T14.e (out='$out')"
 rm -rf "$TD" "$BARE" "$FAKEBIN" "$GH_LOG"
+
+# T14w (20261025): 같은 이름 upstream 이 없는 브랜치·detached(worktree 모드 — main 을 다른 worktree 가 점유)
+#   gh 는 모든 케이스에서 대역 — 보호 조건이 깨진 회귀에서도 실제 GitHub 을 부르지 않는다.
+_wt_fixture() {  # <dir> <bare> — origin main 을 만들고 이름이 다른 브랜치 release/w(upstream origin/main)로 옮긴다
+  _make_git_fixture "$1"; git init --bare -q "$2"
+  git -C "$2" symbolic-ref HEAD refs/heads/main   # 기본 브랜치가 master 인 환경(CI)에서도 clone 이 main 을 받게
+  git -C "$1" remote add origin "$2"
+  git -C "$1" push -q origin HEAD:main
+  git -C "$1" fetch -q origin
+  git -C "$1" checkout -q -b release/w origin/main
+  FAKEBIN=$(mktemp -d); GH_LOG=$(mktemp)
+  printf '#!/usr/bin/env bash\necho "$@" >> "%s"\nexit 0\n' "$GH_LOG" > "$FAKEBIN/gh"; chmod +x "$FAKEBIN/gh"
+}
+_wt_run() { RELEASE_PLUGIN_ROOT="$TD" RELEASE_PREFLIGHT_CMD=true PATH="$FAKEBIN:$PATH" bash "$RELEASE" "$@" 2>&1; }
+_wt_clean() { rm -rf "$TD" "$BARE" "$FAKEBIN" "$GH_LOG" ${OTHER:+"$OTHER"}; OTHER=""; }
+_wt_untouched() {  # <head-before> <bare-main-before> — 로컬 변경 전에 멈췄는가(롤백으로 되돌린 것과 구별: 변환 단계 출력 부재)
+  ! echo "$out" | grep -q "파일 변환 완료" && ! echo "$out" | grep -q "롤백" \
+    && [ "$(git -C "$TD" rev-parse HEAD)" = "$1" ] && [ -z "$(git -C "$TD" status --porcelain --untracked-files=no)" ] \
+    && [ -z "$(git -C "$TD" tag -l v1.11.0)" ] && grep -q '"version": "1.9.0"' "$TD/.claude-plugin/plugin.json" \
+    && [ "$(git -C "$BARE" rev-parse main)" = "$2" ]
+}
+
+# a~c: 이름 다른 브랜치 + CHANGELOG 만 → HEAD:main 으로 main·태그·Release
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+printf -- '- worktree 메모\n' >> "$TD/CHANGELOG.md"; git -C "$TD" commit -qam "docs(changelog): 메모"
+out=$(_wt_run 1.11.0 --dry-run); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q "7. git push (worktree 모드): HEAD:main + v1.11.0 태그" \
+  && ok "T14w.a0 dry-run 7번 줄 — worktree 모드 HEAD:main" || fail "T14w.a0 (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+out=$(_wt_run 1.11.0); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q -- "-> worktree 모드: " && echo "$out" | grep -q "파일 변환 완료" && echo "$out" | grep -q "릴리즈 발행 완료" \
+  && ok "T14w.a 이름 다른 브랜치 + CHANGELOG 만 → worktree 모드 발행 rc 0" || fail "T14w.a (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+[ "$(git -C "$BARE" rev-parse main)" = "$(git -C "$TD" rev-parse HEAD)" ] \
+  && ok "T14w.b origin main = 로컬 릴리즈 커밋 (HEAD:main)" || fail "T14w.b (bare main=$(git -C "$BARE" rev-parse --short main 2>/dev/null) local=$(git -C "$TD" rev-parse --short HEAD))"
+[ "$(git -C "$BARE" rev-parse 'v1.11.0^{commit}' 2>/dev/null)" = "$(git -C "$TD" rev-parse HEAD)" ] && grep -q "release create v1.11.0" "$GH_LOG" \
+  && ok "T14w.c 태그가 릴리즈 커밋을 가리킴 · gh release create v1.11.0" || fail "T14w.c (gh='$(cat "$GH_LOG")')"
+_wt_clean
+
+# d: 리뷰 안 된 코드 커밋 뒤에 CHANGELOG 커밋(여러 커밋 — 마지막 커밋만 보면 놓친다) → 로컬 변경 전 rc 1
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+printf 'x\n' >> "$TD/commands/cmd.md"; git -C "$TD" commit -qam "feat: 리뷰 안 된 변경"
+printf -- '- 메모\n' >> "$TD/CHANGELOG.md"; git -C "$TD" commit -qam "docs(changelog): 메모"
+_h=$(git -C "$TD" rev-parse HEAD); _b=$(git -C "$BARE" rev-parse main)
+out=$(_wt_run 1.11.0); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q "CHANGELOG.md 밖의 변경" && echo "$out" | grep -q "commands/cmd.md" && _wt_untouched "$_h" "$_b" \
+  && ok "T14w.d 리뷰 안 된 커밋 섞임(2커밋) → 로컬 변경 전 rc 1 · origin main 그대로" || fail "T14w.d (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+_wt_clean
+
+# d2: 이름만 비슷한 docs/CHANGELOG.md — 경로 정확 일치로 거른다
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+mkdir -p "$TD/docs"; printf 'x\n' > "$TD/docs/CHANGELOG.md"; printf -- '- 메모\n' >> "$TD/CHANGELOG.md"
+git -C "$TD" add -A; git -C "$TD" commit -qm "docs: 두 CHANGELOG"
+_h=$(git -C "$TD" rev-parse HEAD); _b=$(git -C "$BARE" rev-parse main)
+out=$(_wt_run 1.11.0); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q "docs/CHANGELOG.md" && _wt_untouched "$_h" "$_b" \
+  && ok "T14w.d2 docs/CHANGELOG.md 는 허용 안 됨 → rc 1" || fail "T14w.d2 (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+_wt_clean
+
+# e: 다른 클론이 main 에 먼저 push(로컬 추적 ref 는 낡음) → fetch 뒤 조상 아님 → rc 1
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+OTHER=$(mktemp -d); git clone -q "$BARE" "$OTHER/c"
+git -C "$OTHER/c" -c user.name=o -c user.email=o@o -c commit.gpgsign=false commit -q --allow-empty -m "main 에 먼저 들어간 커밋"
+git -C "$OTHER/c" push -q origin HEAD:main
+printf -- '- 메모\n' >> "$TD/CHANGELOG.md"; git -C "$TD" commit -qam "docs(changelog): 메모"
+_h=$(git -C "$TD" rev-parse HEAD); _b=$(git -C "$BARE" rev-parse main)
+out=$(_wt_run 1.11.0); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q "조상이 아닙니다" && _wt_untouched "$_h" "$_b" \
+  && ok "T14w.e 다른 클론이 main 을 앞서감 → fetch 후 rc 1 · origin main 그대로" || fail "T14w.e (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+_wt_clean
+
+# f: dry-run 은 검사하지 않는다 — 코드 변경 있는 upstream 없는 브랜치(CI·T10.b 와 같은 조건)에서도 rc 0
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+printf 'x\n' >> "$TD/commands/cmd.md"; git -C "$TD" commit -qam "feat: 작업 중 코드"
+_ref=$(git -C "$TD" rev-parse refs/remotes/origin/main)
+out=$(_wt_run 1.11.0 --dry-run); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q "worktree 모드(dry-run)" && ! echo "$out" | grep -q "CHANGELOG.md 밖의 변경" \
+  && [ "$(git -C "$TD" rev-parse refs/remotes/origin/main)" = "$_ref" ] \
+  && ok "T14w.f dry-run 은 fetch·검사 없이 모드만 알림(rc 0)" || fail "T14w.f (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+_wt_clean
+
+# g: origin 에 main 이 없음(fetch 실패) → 판정 불가를 통과로 보지 않는다
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+printf -- '- 메모\n' >> "$TD/CHANGELOG.md"; git -C "$TD" commit -qam "docs(changelog): 메모"
+git -C "$BARE" update-ref -d refs/heads/main
+_h=$(git -C "$TD" rev-parse HEAD)
+out=$(_wt_run 1.11.0); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q "origin/main 을 가져오지 못했습니다" && ! echo "$out" | grep -q "파일 변환 완료" \
+  && [ "$(git -C "$TD" rev-parse HEAD)" = "$_h" ] && [ -z "$(git -C "$TD" tag -l v1.11.0)" ] \
+  && ok "T14w.g fetch 실패 → rc 1 · 로컬 그대로" || fail "T14w.g (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+_wt_clean
+
+# h: main 이 아닌 브랜치라도 같은 이름 upstream 이면 종전 git push 경로 — main 은 건드리지 않는다
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+git -C "$TD" checkout -q -b dev; git -C "$TD" push -q -u origin dev
+_b=$(git -C "$BARE" rev-parse main)
+out=$(_wt_run 1.11.0); rc=$?
+[ "$rc" -eq 0 ] && ! echo "$out" | grep -q "worktree 모드" && [ "$(git -C "$BARE" rev-parse dev)" = "$(git -C "$TD" rev-parse HEAD)" ] \
+  && [ "$(git -C "$BARE" rev-parse main)" = "$_b" ] \
+  && ok "T14w.h 같은 이름 upstream(dev) → 종전 경로 · origin dev 갱신 · main 그대로" || fail "T14w.h (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+_wt_clean
+
+# i: detached HEAD + CHANGELOG 만 → worktree 모드 발행
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+git -C "$TD" checkout -q --detach origin/main
+printf -- '- 메모\n' >> "$TD/CHANGELOG.md"; git -C "$TD" commit -qam "docs(changelog): 메모"
+out=$(_wt_run 1.11.0); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q -- "-> worktree 모드: " && [ "$(git -C "$BARE" rev-parse main)" = "$(git -C "$TD" rev-parse HEAD)" ] \
+  && ok "T14w.i detached HEAD + CHANGELOG 만 → HEAD:main 발행" || fail "T14w.i (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+_wt_clean
+
+# j: origin/main 과 같은 HEAD(빈 변경) → 발행 (경계값 0)
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+out=$(_wt_run 1.11.0); rc=$?
+[ "$rc" -eq 0 ] && [ "$(git -C "$BARE" rev-parse main)" = "$(git -C "$TD" rev-parse HEAD)" ] \
+  && ok "T14w.j 빈 변경(HEAD = origin/main) → 발행" || fail "T14w.j (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+_wt_clean
+
+# k: worktree 모드에서 main push 가 거부되면 수동 안내가 HEAD:main 이다
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+printf '#!/usr/bin/env bash\nwhile read -r _o _n ref; do case "$ref" in refs/heads/main) echo "main denied" >&2; exit 1 ;; esac; done\nexit 0\n' > "$BARE/hooks/pre-receive"; chmod +x "$BARE/hooks/pre-receive"
+printf -- '- 메모\n' >> "$TD/CHANGELOG.md"; git -C "$TD" commit -qam "docs(changelog): 메모"
+out=$(_wt_run 1.11.0); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q "부분 릴리즈 — 'main push'" && echo "$out" | grep -q "수동: git push origin HEAD:main && git push origin v1.11.0" \
+  && ok "T14w.k worktree 모드 main push 거부 → 수동 안내 HEAD:main" || fail "T14w.k (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+_wt_clean
 
 # T14p: 부분 릴리즈 — main push 는 되고 태그 push 가 거부되면(20261021 클라우드 403 재현) 어디까지 됐는지·마무리 방법을 알리고 rc 1
 TD=$(mktemp -d); _make_git_fixture "$TD"
@@ -429,9 +555,9 @@ PREPUSH="$PLUGIN/.githooks/pre-push"
 # T20.a: push 2줄 모두 SPECOPS_RUN_ALL=1 prefix (AC-1)
 push_lines=$(grep -cE '^[[:space:]]*SPECOPS_RUN_ALL=1[[:space:]]+git[[:space:]]+-C[[:space:]]+"\$PLUGIN_ROOT"[[:space:]]+push' "$RELEASE")
 bare_push=$(grep -cE '^[[:space:]]*git[[:space:]]+-C[[:space:]]+"\$PLUGIN_ROOT"[[:space:]]+push' "$RELEASE")
-[ "$push_lines" -eq 2 ] && [ "$bare_push" -eq 0 ] \
-  && ok "T20.a push 2줄 SPECOPS_RUN_ALL=1 prefix (guarded=$push_lines bare=$bare_push)" \
-  || fail "T20.a (guarded=$push_lines bare=$bare_push — 둘 다 prefix 필요)"
+[ "$push_lines" -eq 3 ] && [ "$bare_push" -eq 0 ] \
+  && ok "T20.a push 3줄(main 2갈래 + 태그) SPECOPS_RUN_ALL=1 prefix (guarded=$push_lines bare=$bare_push)" \
+  || fail "T20.a (guarded=$push_lines bare=$bare_push — 3줄 모두 prefix 필요)"
 
 # T20.b: 전역 대입 금지 — standalone 대입/export 는 0건이어야 한다 (AC-2)
 #         전역 설정 시 release.sh:65 가 pre-flight 자체를 skip 해 게이트가 전면 상실된다.

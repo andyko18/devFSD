@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [2.37.2] — 2026-10-25
+
 ### Fixed
 
 - 커밋·PR 게이트(R-1·R-2)가 진행 기록의 `/verify PASS` 와 `/implement` 가 **같은 분**에 찍히면 검증을 구현 뒤에 했어도 "검증 뒤 코드 변경" 으로 막던 오판을 고쳤다. 같은 분일 때는 판정 SoT(`verification-state.sh current`)가 정확히 `PASS` 일 때만 유효로 본다 — 검증 뒤 코드가 바뀌었거나(STALE) 구조화 기록이 없거나(evidence 스탬프만) WAIVED·FAIL·PARTIAL·조회 실패면 지금처럼 막는다.
@@ -3471,7 +3473,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.37.1...HEAD
+[Unreleased]: https://github.com/andyko18/specops-ko/compare/v2.37.2...HEAD
+[2.37.2]: https://github.com/andyko18/specops-ko/compare/v2.37.1...v2.37.2
 [2.37.1]: https://github.com/andyko18/specops-ko/compare/v2.37.0...v2.37.1
 [2.37.0]: https://github.com/andyko18/specops-ko/compare/v2.36.0...v2.37.0
 [2.36.0]: https://github.com/andyko18/specops-ko/compare/v2.35.0...v2.36.0

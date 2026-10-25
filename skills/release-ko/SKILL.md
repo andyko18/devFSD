@@ -49,7 +49,7 @@ bash scripts/release.sh <X.Y.Z> --dry-run
 - `CHANGELOG.md`에 `## [Unreleased]` 헤딩 존재 (없으면 경고 + CHANGELOG 갱신 skip)
 - `README.md`에 `(vX.Y.Z)` 패턴 1곳 존재
 - `commands/*.md` frontmatter에 `specops_version:` 필드 존재
-- main 브랜치에서 실행
+- main 브랜치에서 실행 — 아니면 worktree 모드(FR-13): origin/main 위 CHANGELOG 만 바뀐 상태여야 하고, dry-run 은 이 검사를 하지 않는다
 
 ## 파일 구조
 

@@ -54,6 +54,41 @@ if [ -f "$PLUGIN_JSON" ]; then
   fi
 fi
 
+# FR-13 (20261025): push 대상 — 현재 브랜치에 같은 이름 upstream 이 없으면(임시 브랜치·detached — main 을 다른 worktree 가
+#   점유한 경우) worktree 모드로 main 에 HEAD:main 을 올린다. 리뷰 안 된 커밋이 main 으로 가지 않게, **로컬을 바꾸기 전에**
+#   origin/main 이 HEAD 의 조상이고 그 뒤 바뀐 파일이 CHANGELOG.md 뿐인지 확인한다. 같은 이름 upstream(main 체크아웃)은 종전 그대로.
+#   dry-run 은 모드만 알린다 — fetch·검사를 하지 않는다(CI 의 detached 체크아웃에서 실제 저장소를 대상으로 dry-run 이 돈다: T10.b).
+PUSH_MODE=upstream
+if git -C "$PLUGIN_ROOT" remote get-url origin > /dev/null 2>&1; then
+  _cur_branch=$(git -C "$PLUGIN_ROOT" symbolic-ref --short -q HEAD || true)
+  _upstream=$(git -C "$PLUGIN_ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)
+  if [ -z "$_cur_branch" ] || [ "$_upstream" != "origin/$_cur_branch" ]; then
+    PUSH_MODE=head-to-main
+    if $DRY_RUN; then
+      echo "-> worktree 모드(dry-run): 같은 이름 upstream 없음 — 실제 실행에서 origin/main 위 CHANGELOG 변경만인지 검사한 뒤 HEAD:main 으로 push"
+    else
+      if ! git -C "$PLUGIN_ROOT" fetch -q origin +refs/heads/main:refs/remotes/origin/main 2>/dev/null; then  # refspec 명시 — single-branch clone 에서도 추적 ref 갱신
+        echo "Error: worktree 모드 — origin/main 을 가져오지 못했습니다(origin 에 main 이 없거나 네트워크 실패)." >&2
+        exit 1
+      fi
+      if ! git -C "$PLUGIN_ROOT" merge-base --is-ancestor origin/main HEAD; then
+        echo "Error: worktree 모드 — origin/main 이 HEAD 의 조상이 아닙니다(뒤처짐·갈라짐). origin/main 에서 다시 시작하세요." >&2
+        exit 1
+      fi
+      if ! _changed=$(git -C "$PLUGIN_ROOT" diff --name-only origin/main...HEAD); then
+        echo "Error: worktree 모드 — origin/main 이후 변경 목록을 읽지 못했습니다." >&2
+        exit 1
+      fi
+      _extra=$(printf '%s\n' "$_changed" | grep -Fvx 'CHANGELOG.md' | grep -v '^$' || true)
+      if [ -n "$_extra" ]; then
+        echo "Error: worktree 모드 — origin/main 이후 CHANGELOG.md 밖의 변경이 있습니다(코드는 PR 로 main 에 넣으세요): $(printf '%s' "$_extra" | tr '\n' ' ')" >&2
+        exit 1
+      fi
+      echo "-> worktree 모드: 같은 이름 upstream 없음 — origin/main 위 CHANGELOG 변경만 확인, main 은 HEAD:main 으로 push"
+    fi
+  fi
+fi
+
 _run_check() {
   local label="$1"
   if [ -n "$PREFLIGHT_CMD" ]; then
@@ -171,7 +206,11 @@ if $DRY_RUN; then
   echo "4. .claude-plugin/plugin.json + marketplace.json: 버전 bump"
   echo "5. git commit: chore: release v${VERSION}"
   echo "6. git tag: v${VERSION}"
-  echo "7. git push (origin 존재 시): main + v${VERSION} 태그"
+  if [ "$PUSH_MODE" = head-to-main ]; then
+    echo "7. git push (worktree 모드): HEAD:main + v${VERSION} 태그"
+  else
+    echo "7. git push (origin 존재 시): main + v${VERSION} 태그"
+  fi
   echo "8. gh release create v${VERSION} (gh 설치 시): CHANGELOG [${VERSION}] 노트 + --latest"
   echo "--- DRY-RUN 완료 (변경 없음) ---"
   trap - EXIT
@@ -291,7 +330,11 @@ _partial_release() {  # <실패 단계>
   echo "Error: 부분 릴리즈 — '$1' 단계에서 실패했다 (로컬 커밋 ${sha} · 로컬 태그 v${VERSION} 는 있다)." >&2
   case "$1" in
     "main push")
-      echo "  원격에는 아무것도 올라가지 않았다. 수동: git push && git push origin v${VERSION}" >&2 ;;
+      if [ "${PUSH_MODE:-upstream}" = head-to-main ]; then
+        echo "  원격에는 아무것도 올라가지 않았다. 수동: git push origin HEAD:main && git push origin v${VERSION}" >&2
+      else
+        echo "  원격에는 아무것도 올라가지 않았다. 수동: git push && git push origin v${VERSION}" >&2
+      fi ;;
     "태그 push")
       echo "  main 은 이미 push 됐다(${sha}). 태그만 원격에 없다. 수동 중 하나:" >&2
       echo "    git push origin v${VERSION}" >&2
@@ -308,7 +351,11 @@ echo "-> 원격 push..."
 # ★ 반드시 명령 prefix 로 둘 것 — 스크립트 전역으로 export 하면 release.sh:65 가
 #   pre-flight 자체를 skip 해 게이트가 전면 상실된다 (T20.b 가 잠그는 유일 teeth —
 #   T11.a 는 RELEASE_PREFLIGHT_CMD=true 로 도는 탓에 이 회귀에 발화하지 않는다).
-SPECOPS_RUN_ALL=1 git -C "$PLUGIN_ROOT" push || _partial_release "main push"
+if [ "$PUSH_MODE" = head-to-main ]; then
+  SPECOPS_RUN_ALL=1 git -C "$PLUGIN_ROOT" push origin HEAD:main || _partial_release "main push"
+else
+  SPECOPS_RUN_ALL=1 git -C "$PLUGIN_ROOT" push || _partial_release "main push"
+fi
 SPECOPS_RUN_ALL=1 git -C "$PLUGIN_ROOT" push origin "v${VERSION}" || _partial_release "태그 push"
 
 # gh CLI 미설치 시 release 만 graceful skip (push 는 이미 성공)

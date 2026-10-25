@@ -110,14 +110,53 @@ EOF
 _verify_passed_in_progress 20260701-h2b; vp=$?
 [ "$vp" -eq 2 ] && { PASS=$((PASS+1)); echo "PASS T-H2b verify물리적위+implement타임스탬프최신→deny(stale)"; } || { FAIL=$((FAIL+1)); echo "FAIL T-H2b (vp=$vp, 줄순서 우선 false-allow 회귀)"; }
 
-# T-H2c: 동일 타임스탬프 → deny (tie = safe-side stale)
+# T-H2c: 동일 타임스탬프 + 판정 SoT 기록 없음(git 없는 $TMP → current=NOT_RUN) → stale
 cat > "$sp" <<'EOF'
 ## 20260701-h2c
 - 2026-07-01 10:05 /verify PASS (AC 5/5)
 - 2026-07-01 10:05 /implement DONE (T1)
 EOF
 _verify_passed_in_progress 20260701-h2c; vp=$?
-[ "$vp" -eq 2 ] && { PASS=$((PASS+1)); echo "PASS T-H2c 동일타임스탬프→deny(tie=safe-side)"; } || { FAIL=$((FAIL+1)); echo "FAIL T-H2c (vp=$vp, tie 동률 안전측 deny 실패)"; }
+[ "$vp" -eq 2 ] && { PASS=$((PASS+1)); echo "PASS T-H2c 동률+SoT 기록없음→stale"; } || { FAIL=$((FAIL+1)); echo "FAIL T-H2c (vp=$vp, 동률+SoT 없음이 열림)"; }
+
+# T-H2d~m (20261025): 동률은 작성 순서가 아니라 판정 SoT 로 가린다 — 구조화 기록(verification-state.json)이 있고
+#   current 가 정확히 PASS 일 때만 유효. 실 git 픽스처에 실제 record 로 상태를 만들고, 각 케이스 앞에서 current 를 선검사한다.
+TIE_GIT="$TMP/tie-git"; VS="$PLUGIN/scripts/_internal/verification-state.sh"
+mkdir -p "$TIE_GIT/.specops"; git -C "$TIE_GIT" init -q
+printf 'base\n' > "$TIE_GIT/app.sh"
+git -C "$TIE_GIT" add app.sh
+git -C "$TIE_GIT" -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false commit -qm init
+_tie_sec() { printf '## %s\n- 2026-10-24 23:14 /verify PASS (AC 3/3)\n- 2026-10-24 23:14 /implement DONE (T1)\n\n' "$1"; }
+{ for _f in 20261025-tie 20261025-tie-stale 20261025-tie-none 20261025-tie-stamp 20261025-tie-waived 20261025-tie-fail 20261025-tie-partial; do _tie_sec "$_f"; done
+  printf '## 20261025-tie-rev\n- 2026-10-24 23:14 /implement DONE (T1)\n- 2026-10-24 23:14 /verify PASS (AC 3/3)\n\n'
+  printf '## 20261025-late-impl\n- 2026-10-24 23:15 /implement DONE (T1)\n- 2026-10-24 23:14 /verify PASS (AC 3/3)\n\n'
+} > "$TIE_GIT/.specops/session-progress.md"
+_tie_cur() { (cd "$TIE_GIT" && SPECOPS_ROOT=.specops bash "$VS" current "$1" 2>/dev/null); }
+_tie_rec() { mkdir -p "$TIE_GIT/.specops/$1"; (cd "$TIE_GIT" && bash "$VS" record "$@" >/dev/null 2>&1); }
+_tie_chk() {  # <이름> <기대 current> <기대 rc> <FID> — 선검사(current)가 어긋나면 픽스처가 규칙을 태우지 못한 것이라 FAIL
+  local name="$1" want_cur="$2" want_rc="$3" fid="$4" cur vp
+  cur=$(_tie_cur "$fid"); (cd "$TIE_GIT" && _verify_passed_in_progress "$fid"); vp=$?
+  if [ "$cur" = "$want_cur" ] && [ "$vp" -eq "$want_rc" ]; then PASS=$((PASS+1)); echo "PASS $name"
+  else FAIL=$((FAIL+1)); echo "FAIL $name (current=$cur want=$want_cur · vp=$vp want=$want_rc)"; fi
+}
+for _f in 20261025-tie 20261025-tie-rev 20261025-tie-stale 20261025-late-impl; do _tie_rec "$_f" PASS; done
+_tie_chk "T-H2d 동률+SoT PASS→유효" PASS 0 20261025-tie
+_tie_chk "T-H2m 동률(implement 줄이 위)+SoT PASS→유효 — 작성 순서 무관" PASS 0 20261025-tie-rev
+_tie_chk "T-H2l implement 가 한 분 늦음+SoT PASS→stale(시각 우선)" PASS 2 20261025-late-impl
+# T-H2k: 같은 셸의 캐시에 다른 FID 의 PASS 가 남은 채 이 FID 의 SoT 조회가 실패해도 열리지 않는다
+( cd "$TIE_GIT" && _verify_passed_in_progress 20261025-tie >/dev/null; _VERIFICATION_STATE_SH=/nonexistent; _verify_passed_in_progress 20261025-tie-stale ); vp=$?
+[ "$vp" -eq 2 ] && { PASS=$((PASS+1)); echo "PASS T-H2k 캐시 잔여 PASS+조회 실패→stale"; } || { FAIL=$((FAIL+1)); echo "FAIL T-H2k (vp=$vp, 다른 FID 캐시로 열림)"; }
+printf 'changed\n' >> "$TIE_GIT/app.sh"
+_tie_chk "T-H2e 동률+SoT STALE(검증 뒤 코드 변경)→stale" STALE 2 20261025-tie-stale
+_tie_chk "T-H2f 동률+SoT 기록없음(실 git)→stale" NOT_RUN 2 20261025-tie-none
+mkdir -p "$TIE_GIT/.specops/20261025-tie-stamp"; printf 'RUN-VERIFICATION-RESULT: PASS\n' > "$TIE_GIT/.specops/20261025-tie-stamp/evidence.md"
+_tie_chk "T-H2g 동률+evidence 스탬프만(state 없음 — SoT 는 지문 없이 PASS)→stale" PASS 2 20261025-tie-stamp
+_tie_rec 20261025-tie-waived WAIVED --waiver-reason r --waiver-approved-by me --waiver-expires-at 2099-01-01T00:00:00Z
+_tie_chk "T-H2h 동률+SoT WAIVED→stale" WAIVED 2 20261025-tie-waived
+_tie_rec 20261025-tie-fail FAIL
+_tie_chk "T-H2i 동률+SoT FAIL→stale" FAIL 2 20261025-tie-fail
+_tie_rec 20261025-tie-partial PARTIAL
+_tie_chk "T-H2j 동률+SoT PARTIAL→stale" PARTIAL 2 20261025-tie-partial
 
 # === R6: log_friction_sev 대칭화 (AC-1~3) ===
 # T8: log_friction_sev 잘못된 fid 형식 → 거부(non-zero) (AC-2)

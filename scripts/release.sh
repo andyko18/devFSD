@@ -79,7 +79,7 @@ if git -C "$PLUGIN_ROOT" remote get-url origin > /dev/null 2>&1; then
         echo "Error: worktree 모드 — origin/main 이후 변경 목록을 읽지 못했습니다." >&2
         exit 1
       fi
-      _extra=$(printf '%s\n' "$_changed" | grep -vx 'CHANGELOG.md' | grep -v '^$' || true)
+      _extra=$(printf '%s\n' "$_changed" | grep -Fvx 'CHANGELOG.md' | grep -v '^$' || true)
       if [ -n "$_extra" ]; then
         echo "Error: worktree 모드 — origin/main 이후 CHANGELOG.md 밖의 변경이 있습니다(코드는 PR 로 main 에 넣으세요): $(printf '%s' "$_extra" | tr '\n' ' ')" >&2
         exit 1

@@ -317,6 +317,16 @@ out=$(_wt_run 1.11.0); rc=$?
   && ok "T14w.d2 docs/CHANGELOG.md 는 허용 안 됨 → rc 1" || fail "T14w.d2 (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
 _wt_clean
 
+# d3: 정규식 메타문자로 CHANGELOG.md 와 매칭되는 이름(CHANGELOGxmd) — 고정 문자열 비교여야 한다
+TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
+printf 'x\n' > "$TD/CHANGELOGxmd"; printf -- '- 메모\n' >> "$TD/CHANGELOG.md"
+git -C "$TD" add -A; git -C "$TD" commit -qm "docs: 메타문자 파일명"
+_h=$(git -C "$TD" rev-parse HEAD); _b=$(git -C "$BARE" rev-parse main)
+out=$(_wt_run 1.11.0); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q "CHANGELOG.md 밖의 변경" && echo "$out" | grep -q "CHANGELOGxmd" && _wt_untouched "$_h" "$_b" \
+  && ok "T14w.d3 정규식 메타문자 파일명(CHANGELOGxmd)도 거부 — 로컬 무변경" || fail "T14w.d3 (rc=$rc out='$(printf '%s' "$out" | tail -3)')"
+_wt_clean
+
 # e: 다른 클론이 main 에 먼저 push(로컬 추적 ref 는 낡음) → fetch 뒤 조상 아님 → rc 1
 TD=$(mktemp -d); BARE=$(mktemp -d); _wt_fixture "$TD" "$BARE"
 OTHER=$(mktemp -d); git clone -q "$BARE" "$OTHER/c"

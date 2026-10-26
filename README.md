@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="specops-ko 의 자율 Lifecycle: 명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 순서와 HARD GATE 표시" width="100%">
+  <img src="docs/assets/hero.svg" alt="specops-ko 의 자율 Lifecycle: 명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 까지의 단계 흐름" width="100%">
 </p>
 
 # specops-ko
@@ -23,11 +23,13 @@ LLM 에이전트에게 개발을 맡길 때 반복되는 실패를, 프롬프트
 | 🔁 단계마다 다음 지시를 다시 해야 한다 | 🔗 **자율 chain** — 각 스킬 본문의 `## 다음 skill` 이 다음 단계를 강제한다. 단계마다 지시할 필요가 없다 |
 | 🧠 세션이 끊기면 맥락이 사라진다 | 📁 **파일이 기억한다** — 모든 산출물은 `.specops/<FID>/` 에 남는다. 세션이 끊겨도 파일만 읽고 이어간다 |
 | 🙈 검증하지 않고 "다 됐다"고 말한다 | ✅ **주장은 증거로만** — verify 없이 `git commit`·`gh pr create` 하면 훅이 실행 전에 차단한다 (`.specops/` 가 있는 repo 에서) |
+| 🔍 한 사람(한 리뷰어)이 모든 분야를 놓치지 않고 보기 어렵다 | 🧑‍🔬 **분야 전문가 7종** — 요구사항·화면·DB·구조·API·보안·테스트를 그 분야만 보는 별도 패스가 다시 본다. [전문가 패스](#전문가-패스) 참조 |
+| 🙋 확인 요청이 너무 잦다 | 🗳️ **질문 묶음 최대 2회 + 승인 1회** — 설계가 끝나면 한 번에 승인받고 PR 직전까지 멈추지 않는다. 단계마다 확인하려면 `--step` 을 붙인다 |
 
 ```mermaid
 flowchart LR
     A["/start · /maintain<br/>또는 자연어"] --> B["using-specops-ko<br/>신호 감지"]
-    B --> C["명세 → 명확화 → 계획<br/>★ HARD GATE"]
+    B --> C["명세 → 명확화 → 계획<br/>질문 묶음 최대 2회 · 승인 1회"]
     C --> D["분해 → TDD 구현<br/>태스크별 fresh 서브에이전트"]
     D --> E["검증 → 리뷰 → 보안·통합·성능"]
     E --> F["★ PR 생성? y/n"]
@@ -43,11 +45,12 @@ flowchart LR
 | 구현자와 평가자는 다른 서브에이전트이고, 평가자는 Write/Edit 가 박탈된다 | 기록의 진실성은 검사하지 못한다 — 리뷰 기록이 존재하는지만 대조한다 |
 | 산출물이 파일로 남아 세션이 끊겨도 이어갈 수 있다 | 토큰 비용이 든다 — 단계마다 서브에이전트를 띄워 "그냥 시키기"보다 비싸다 |
 | 자동으로 지나간 결정은 PR 직전의 가정 다이제스트에 전부 나온다 (무인 모드) | Claude Code 전용이다 · 테스트할 코드가 없는 산출물(PPT·기획서)에는 맞지 않는다 |
+| 분야 전문가 패스가 해당 분야의 빈칸을 따로 한 번 더 짚는다 | 전문가 패스는 지적을 늘리지만 놓친 결함이 없다고 보장하지 않는다 |
 
-수치는 저자가 쓰는 6개 repo 의 `.specops/` 실측이다(대조군 없음 — 효과가 아니라 **비용**을 보여 주는 숫자다). FID 1건(spec → verify)의 **중앙값 약 2시간, p90 약 7.6시간**(`metrics.jsonl` 기록이 있는 48건)이고, 변경이 작아도 비용은 고정비에 가깝다([10회차 평가](docs/audit/2026-10-09-plugin-evaluation-10th.md)).
+수치는 저자가 쓰는 6개 repo 의 `.specops/` 실측이다(대조군 없음 — 효과가 아니라 **비용**을 보여 주는 숫자다). FID 1건(spec → verify)의 **중앙값 약 2시간, p90 약 7.6시간**(`metrics.jsonl` 기록이 있는 48건)이고, 변경이 작아도 비용은 고정비에 가깝다([10회차 평가](docs/audit/2026-10-09-plugin-evaluation-10th.md)). 이 수치는 **속도 개선(v2.32~2.36: 승인 1회·리뷰 병렬·전문가 동시 실행) 전** 측정이다. 개선 뒤 수치는 아직 재지 않았다.
 
 > **도입을 검토 중이라면** → [docs/architecture.md](docs/architecture.md) — 무엇을 보장하고, **어떤 장치로** 보장하며, 무엇을 보장하지 **않는지**를 실측 수치와 함께 정리했다.
-> 이 도구가 **자기 결함을 어떻게 다루는가**가 궁금하다면 → [docs/audit/](docs/audit/) — 저자가 동일 루브릭으로 반복 측정한 평가서(최신 9회차 6.6/10 — 8회차 6.3 은 독립 감사 5건으로 방법이 달라지며 새로 드러난 결함이 점수를 깎은 것이고, 9회차는 그 수정 직후의 정적 확인 델타다)와 개선 제안·이후 경과.
+> 이 도구가 **자기 결함을 어떻게 다루는지는** [docs/audit/](docs/audit/) 의 자기 평가서에 있다.
 
 ---
 
@@ -80,18 +83,8 @@ claude plugin install specops-ko@specops-ko
 
 ---
 
-## 알아둘 것
-
-도입 전에 읽어 두면 시행착오가 줄어드는 사실 4가지다. 전체(필요한 도구 · 소요 · 적용 범위 · 저장소에 생기는 변화 · 끄는 법 · 로컬 산출물 · 설계 한 화면 · 프라이버시 · 업그레이드·삭제)는 **[docs/adoption-notes.md](docs/adoption-notes.md)** 에 있다.
-
-- **`jq` 가 없으면 훅이 전면 fail-open** — 에러 없이 R-1~R-5 차단·감사가 꺼진다. 설치 직후 `/doctor` 의 `deps` 항목으로 확인한다.
-- **기본 설치(`user` 범위)는 모든 repo 의 세션 시작에 메타 스킬을 주입한다** — 일부 repo 에서만 쓰려면 `claude plugin install specops-ko@specops-ko --scope project`(또는 `local`)로 설치한다.
-- **산출물은 기본적으로 로컬이다** — `intent.md` 만 커밋되고 spec·plan·evidence·리뷰는 저장소에 올라가지 않아 PR 리뷰어가 볼 수 없다.
-- **한 건에 걸리는 시간** — FID 1건(spec → verify)은 중앙값 약 2시간, p90 약 7.6시간이다. 경량 경로(`/maintain-lite`)도 승인 3~4회·서브에이전트 3종을 거치고 줄어드는 것은 clarify·plan 뿐이다.
-
----
-
 ## 진입로
+
 
 | 슬래시 | 용도 |
 |---|---|
@@ -134,12 +127,15 @@ claude plugin install specops-ko@specops-ko
 ```mermaid
 flowchart TD
     IN["/start 기능 · /maintain 대상 · 자연어"] --> META["using-specops-ko (메타)<br/>신호 감지 → 신규 / 유지보수"]
-    META -- 유지보수 --> ANA["analyzing-ko (분석)<br/>current-state.md · impact-analysis.md"]:::gate
+    META -- 유지보수 --> ANA["analyzing-ko (분석)<br/>current-state.md · impact-analysis.md"]
     META -- 신규 --> SPEC
-    ANA --> SPEC["specifying-ko (명세)<br/>spec.md · acceptance-criteria.md<br/>화면 설계 · 인터페이스 설계"]:::gate
-    SPEC --> CLA["clarifying-ko (명확화)<br/>clarifications.md"]:::gate
-    CLA --> PLAN["planning-ko (계획)<br/>plan.md ← plan-reviewer-ko"]:::gate
-    PLAN --> DEC["decomposing-ko (분해)<br/>tasks.md + YAML DAG"]
+    ANA --> SPEC["specifying-ko (명세)<br/>spec.md · acceptance-criteria.md<br/>화면 설계 · 인터페이스 설계"]
+    SPEC --> REQUI["req·ui 전문가<br/>(해당할 때만)"]
+    REQUI --> CLA["clarifying-ko (명확화)<br/>clarifications.md"]
+    CLA --> APP["승인 묶음 (1회)<br/>intent · 설계 · spec · 화면 · IF · 답"]:::gate
+    APP --> PLAN["planning-ko (계획)<br/>plan.md"]
+    PLAN --> EXP["DB·구조·API·보안 → 테스트 전문가<br/>(해당할 때만) → plan-reviewer-ko"]
+    EXP --> DEC["decomposing-ko (분해)<br/>tasks.md + YAML DAG"]
     DEC --> IMP["implementing-ko (구현)<br/>태스크별 fresh dispatch · DAG 병렬<br/>Phase B spec-reviewer-ko · Phase C code-reviewer-ko"]
     IMP --> VER["verifying-evidence-ko (검증)<br/>evidence.md"]
     VER --> REV["requesting-code-review-ko → receiving-code-review-ko"]
@@ -148,11 +144,58 @@ flowchart TD
     classDef gate fill:#ddf4ff,stroke:#0969da,color:#0b3d91
 ```
 
-**HARD GATE** 는 되돌리기 비싼 지점(analyzing 분석 · specifying 명세 승인 · clarifying 명확화 · planning 계획 · PR)에서만 멈춘다. 나머지는 자동 통과한다.
+사람이 개입하는 곳은 질문 묶음(최대 2회)·승인 묶음(1회)·PR 이다. `--step` 이면 단계마다 확인한다.
+
+**전체 흐름에서 그래도 멈추는 곳**
+
+- 비가역 작업(`irreversible`·NEEDS_APPROVAL)
+- 보안 Critical/High
+- plan-reviewer Critical
+- B/C 한도 초과 뒤 남은 Critical
+- NEEDS_DISCUSSION
+- 실행 환경 없는 게이트
+- FID 10태스크 이상 분할
+- verify 재시도 뒤 남은 실패
+- PR
+
 
 **질문은 설계에서, 개발은 묻지 않고** — 구현부터 PR 직전까지는 사용자에게 묻지 않는다. 실 DB 적재·외부 API 호출처럼 미리 알 수 있는 작업은 구현 시작 전에 **한 번에** 승인받고, 리뷰 지적은 승인받은 계약(AC·spec) 안이면 고치고 밖이면 다음 작업으로 넘긴다. 묻지 않고 정한 것은 전부 `.specops/<FID>/dev-decisions.md` 에 남아 PR 질문 직전에 한 번에 보고된다(넘긴 것은 PR 본문에도 실린다). 그래도 멈추는 것은 예상 못 한 비가역 작업 · 재시도 뒤에도 남은 치명 결함 · 리뷰어가 절충 선택을 요구한 경우뿐이다 — `skills/implementing-ko/dev-autonomy.md`.
 
 **Generator ↔ Evaluator 분리** — 구현체(`implementer-ko`)와 평가자(`spec-reviewer-ko` · `code-reviewer-ko`)를 다른 서브에이전트로 나눠 자기평가 편향을 막는다. Evaluator 는 `role: evaluator` 로 Write/Edit 가 박탈된다. 기본 `review_mode: end-loaded` (FID 단위 B×1 + C×1), 레거시는 `per-task`.
+
+---
+
+## 전문가 패스
+
+긴 명세·계획서 속에 숨은 분야별 결함을 일반 리뷰어는 놓치기 쉽다. 그래서 해당 분야만 보는 별도 에이전트가 한 번 더 본다. 해당 분야를 건드릴 때만 돈다.
+
+| 분야 | 에이전트 | 단계 | 언제 도는가 | 무엇을 잡나 | 측정 (기존 리뷰어 → 전문가) | 결함 없는 대조군 헛지적 |
+|---|---|---|---|---|---|---|
+| 요구사항 | `req-designer-ko` | 명세 | spec 이 데이터를 저장·계산·판정하거나 외부 소스·배치를 다룰 때 | 결측·0·모름의 의미, 빈 결과의 원인, 실패 단위, 셈의 축 | plan-reviewer 0/6 → 6/6 | 0/3 |
+| 화면 | `ui-designer-ko` | 명세 | 기능 화면을 만들거나 고쳤을 때(`/start-all` 은 Phase 2.5 에서 batch 당 1회) | 로딩·오류·0건 구분, 일부 실패, 색 단독 전달, 앞서 가는 화면 값 | design-reviewer 5/6 → 6/6 | 0/3 |
+| DB | `db-designer-ko` | 계획 | 마이그레이션·스키마·`data-model.md` 를 건드릴 때 | 인덱스·제약·마이그레이션·적재·테스트 DB | plan-reviewer 1/6 → 5/5 | 1/3 |
+| 구조 | `arch-designer-ko` | 계획 | 새 모듈·계층·도메인 개념을 만들 때 | 모듈 경계·의존 방향·전역 상태·실행 중 산출물 | plan-reviewer 0/6 → 5/6 | 0/3 |
+| API | `api-designer-ko` | 계획 | 엔드포인트를 바꿀 때 | 호환성·메서드 의미·오류·목록·멱등 | plan-reviewer 0/6 → 4/6 | 0/3 |
+| 보안 | `security-designer-ko` | 계획 | 인증·인가·입력 경계·개인정보를 다룰 때 | 신뢰 경계·인가 누락·위험 기능 | plan-reviewer 0/6 → 6/6 | 0/3 |
+| 테스트 | `test-designer-ko` | 계획 | 테스트 파일을 만들거나 고칠 때 | 틀린 구현도 통과하는 테스트(값 단언·변이·픽스처 경계·실패 경로) | plan-reviewer 0/6 → 6/6 | 0/3 |
+
+계획 단계의 순서는 아래와 같다.
+
+```mermaid
+flowchart LR
+    P["plan 초안"] --> X["DB·구조·API·보안<br/>(발동한 것만 동시)"]
+    X --> R["반영"]
+    R --> T["테스트 전문가"]
+    T --> C["사전검사"]
+    C --> PR["plan-reviewer"]
+```
+
+- 발동하지 않으면 부르지 않는다.
+- 지적은 반영 또는 기각을 `experts/<분야>.md` 끝에 1줄씩 적는다.
+- `§lite`·trivial 은 부르지 않는다.
+- `/start-all`(batch) 에서는 계획 단계 5종이 돌지 않고 화면 전문가만 Phase 2.5 에서 batch 당 1회 돈다. 요구사항 전문가는 batch·promote·foundation 에서도 부르지 않는다.
+
+**측정의 한계** — 실제 하류 프로젝트의 계획·명세 2건 × 3회, 결함 없는 대조군 3회, 에이전트 본문만 주입해 잰 소표본이다. DB 는 시간 초과 1회를 빼 5회 분모이고, 대조군은 결함을 채워 보강한 뒤 2/3 통과했다. 수치의 출처는 `CHANGELOG.md` 의 각 전문가 항목이다.
 
 ---
 
@@ -247,6 +290,17 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 
 ---
 
+## 알아둘 것
+
+도입 전에 읽어 두면 시행착오가 줄어드는 사실 4가지다. 전체(필요한 도구 · 소요 · 적용 범위 · 저장소에 생기는 변화 · 끄는 법 · 로컬 산출물 · 설계 한 화면 · 프라이버시 · 업그레이드·삭제)는 **[docs/adoption-notes.md](docs/adoption-notes.md)** 에 있다.
+
+- **`jq` 가 없으면 훅이 전면 fail-open** — 에러 없이 R-1~R-5 차단·감사가 꺼진다. 설치 직후 `/doctor` 의 `deps` 항목으로 확인한다.
+- **기본 설치(`user` 범위)는 모든 repo 의 세션 시작에 메타 스킬을 주입한다** — 일부 repo 에서만 쓰려면 `claude plugin install specops-ko@specops-ko --scope project`(또는 `local`)로 설치한다.
+- **산출물은 기본적으로 로컬이다** — `intent.md` 만 커밋되고 spec·plan·evidence·리뷰는 저장소에 올라가지 않아 PR 리뷰어가 볼 수 없다.
+- **한 건에 걸리는 시간** — FID 1건(spec → verify) 중앙값 약 2시간, p90 약 7.6시간 — **속도 개선(v2.32~2.36: 승인 1회·리뷰 병렬·전문가 동시 실행) 전** 측정이다. 개선 뒤 수치는 아직 재지 않았다.
+
+---
+
 ## 운영 슬래시
 
 | 슬래시 | 용도 |
@@ -300,11 +354,10 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 ### 릴리즈 주기
 
 - **대상은 행동 변경뿐이다** — `skills/`·`commands/`·`agents/`·`hooks/`·`templates/`·`scripts/`(테스트 제외)의 동작이 바뀐 것. 테스트·문서·주석·CHANGELOG 만 바뀐 PR 은 `[Unreleased]` 에 두고 릴리즈하지 않는다(판정 기준은 거버넌스 훅의 플러그인 런타임 예외와 같다 — `CLAUDE.md` `## 거버넌스 엔진`).
-- **발행 시점은 사용자가 정한다** — 주기 상한은 두지 않는다(20261011 의 "주 1회 상한"은 20261015 폐지). 훅이 정상 커밋·PR 을 막거나 설치본이 깨지는 오류는 즉시 패치 릴리즈.
-- 발행 절차는 그대로다(`scripts/release.sh` · 독립 clone 에서 · 사용자 승인).
+- **발행 시점은 사용자가 정한다** — 주기 상한은 두지 않는다. 훅이 정상 커밋·PR 을 막거나 설치본이 깨지는 오류는 즉시 패치 릴리즈.
+- **발행은 `scripts/release.sh`(사용자 승인)로 한다.** 현재 브랜치에 같은 이름 upstream 이 없으면(main 을 다른 worktree 가 쥔 경우의 임시 브랜치·detached) worktree 모드로 `HEAD:main` 을 올린다 — origin/main 위 `CHANGELOG.md` 변경만 허용.
 
-**검증 현황** — lifecycle dogfood 5회 완주 · 전체 suite PASS · 거버넌스 p95 69ms (AC-8 < 200ms).
-테스트 37,307줄 / 운영 스크립트 13,862줄 = **2.7 : 1** · mutation score 60% (기준 55%) · 구조 검사기 27종.
+최신 자기 평가는 [docs/audit/](docs/audit/) 에 있다.
 
 ---
 

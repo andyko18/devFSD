@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-labelledby="t d">
   <title id="t">specops-ko — 명세에서 PR 까지 이어지는 자율 Lifecycle</title>
-  <desc id="d">명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 순서로 이어지는 단계. 명세·명확화·계획·PR 은 HARD GATE 다(유지보수 진입은 분석 단계도).</desc>
+  <desc id="d">명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 순서로 이어지는 단계. 사람이 확인하는 곳은 명확화 끝의 승인 묶음 1회와 PR 이다(--step 이면 단계마다).</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop class="a1" offset="0"/><stop class="a2" offset="1"/></linearGradient>
     <linearGradient id="strip" x1="0" y1="0" x2="1" y2="0"><stop class="c0" offset="0"/><stop class="c1" offset="0.35"/><stop class="c2" offset="0.7"/><stop class="c3" offset="1"/></linearGradient>
@@ -29,17 +29,17 @@
   <rect x="1" y="1" width="1278" height="8" fill="url(#strip)" clip-path="url(#card)"/>
   <text class="name" x="640" y="108" font-size="66" font-weight="800" text-anchor="middle">specops-ko</text>
   <text class="tag" x="640" y="150" font-size="22" text-anchor="middle">Claude Code 전용 한국어 자율 Lifecycle 플러그인</text>
-  <rect class="gate" x="45" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>
+  <rect class="chip" x="45" y="190" width="118" height="48" rx="12"/>
   <rect class="bar0" x="55" y="190" width="98" height="5" rx="2.5"/>
-  <text class="gl" x="104" y="220" font-size="17" text-anchor="middle">★ 명세</text>
+  <text class="lbl" x="104" y="220" font-size="17" text-anchor="middle">명세</text>
   <path class="arrow" d="M163 214H179" fill="none" stroke-width="2.5" stroke-linecap="round"/>
   <rect class="gate" x="179" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>
   <rect class="bar0" x="189" y="190" width="98" height="5" rx="2.5"/>
   <text class="gl" x="238" y="220" font-size="17" text-anchor="middle">★ 명확화</text>
   <path class="arrow" d="M297 214H313" fill="none" stroke-width="2.5" stroke-linecap="round"/>
-  <rect class="gate" x="313" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>
+  <rect class="chip" x="313" y="190" width="118" height="48" rx="12"/>
   <rect class="bar0" x="323" y="190" width="98" height="5" rx="2.5"/>
-  <text class="gl" x="372" y="220" font-size="17" text-anchor="middle">★ 계획</text>
+  <text class="lbl" x="372" y="220" font-size="17" text-anchor="middle">계획</text>
   <path class="arrow" d="M431 214H447" fill="none" stroke-width="2.5" stroke-linecap="round"/>
   <rect class="chip" x="447" y="190" width="118" height="48" rx="12"/>
   <rect class="bar1" x="457" y="190" width="98" height="5" rx="2.5"/>
@@ -64,6 +64,6 @@
   <rect class="gate" x="1117" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>
   <rect class="bar3" x="1127" y="190" width="98" height="5" rx="2.5"/>
   <text class="gl" x="1176" y="220" font-size="17" text-anchor="middle">★ PR</text>
-  <text class="note" x="640" y="266" font-size="16" text-anchor="middle">★ = HARD GATE — 되돌리기 비싼 지점에서만 멈춘다</text>
+  <text class="note" x="640" y="266" font-size="16" text-anchor="middle">★ = 사람이 확인하는 곳 — 승인 묶음 1회와 PR (--step 이면 단계마다)</text>
   <text class="note" x="640" y="294" font-size="16" text-anchor="middle">verify 없이 git commit·gh pr create 하면 훅이 실행 전에 차단한다 (.specops/ 가 있는 repo)</text>
 </svg>

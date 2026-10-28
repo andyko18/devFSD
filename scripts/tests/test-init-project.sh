@@ -1484,7 +1484,7 @@ teardown_fixture
 
 # T36.c 문서가 실제 동작을 말한다 (낡은 문구 잠금)
 _d=0
-grep -q '후속 릴리즈' "$PLUGIN/skills/using-specops-ko/SKILL.md" && { _d=1; echo "  using-devfsd: --resume 을 '후속 릴리즈'라 적음"; }
+grep -q '후속 릴리즈' "$PLUGIN/skills/using-specops-ko/SKILL.md" && { _d=1; echo "  using-specops-ko: --resume 을 '후속 릴리즈'라 적음"; }
 grep -q 'sync` 로 상태 셀' "$PLUGIN/commands/start-all.md" && { _d=1; echo "  start-all: sync 가 칸을 고친다고 적음(sync 는 행만 추가한다)"; }
 grep -q '상태 셀' "$PLUGIN/commands/init-project.md" && { _d=1; echo "  init-project: 표에 없는 '상태 셀'을 가리킴(실제는 목적 칸)"; }
 grep -q '다시 게이트' "$PLUGIN/commands/init-project.md" || { _d=1; echo "  init-project: 수정 뒤 재승인 지시 없음"; }

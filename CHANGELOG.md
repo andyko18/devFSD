@@ -4,6 +4,22 @@
 
 ## [Unreleased]
 
+### Changed (breaking)
+
+- 플러그인 이름을 `specops-ko` 에서 `devfsd` 로 바꿨다. 제품 표기는 **devFSD**(개발 자율주행 · 감독형 — 설계 승인부터 PR 병합까지 사람이 지켜본다)다. 설치 id 는 `devfsd@devfsd`, skill·agent 호출은 `devfsd:<이름>` 이다.
+- 3.x 동안 훅은 옛 접두사 `specops-ko:` 도 함께 인정한다(기록·transcript 호환). 4.0 에서 제거한다.
+- 그대로인 것: `.specops/` 폴더, `SPECOPS_*` 환경변수, skill 이름(`*-ko`), repo 주소(`andyko18/specops-ko`).
+- 재설치 순서 (기존 설치가 있으면 이 순서로):
+
+  ```bash
+  claude plugin uninstall specops-ko@specops-ko
+  claude plugin marketplace remove specops-ko
+  claude plugin marketplace add andyko18/specops-ko
+  claude plugin install devfsd@devfsd
+  ```
+
+  주의: 옛 플러그인을 먼저 지우지 않으면 훅이 두 번 발화한다(옛 설치와 새 설치가 각각 같은 훅을 등록한다).
+
 ### Changed
 
 - tests: 권한 거부(`chmod 000`·`444`·`555`·`a-w`)를 전제로 한 나머지 케이스도 root 로 실행하면 FAIL 대신 `SKIP` 으로 보고한다 — test-reconcile-check R21 · test-plan-boundary B12(디렉터리 절반) · test-init-finalize F12·F13 · test-session-progress-backup T2.d · test-guard-map T5.ro · test-meter-tokens T6.h · test-fr-foundation-scope T9.k(PASS 로 적던 건너뜀을 SKIP 으로). test-rules T4.d2 · test-find-tree-writes 는 2.27.0 에서 이미 처리됐다. 근거: root 는 권한 비트를 무시해 이 케이스들이 거부가 일어나지 않은 채 공허하게 PASS 였다. 비-root 판정은 그대로다.

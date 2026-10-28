@@ -15,7 +15,8 @@ ALLOW_PATHS=(CHANGELOG.md docs/audit docs/case-studies docs/governance-history.m
   hooks/rules.jsonl hooks/governance-lib.sh hooks/posttool-governance.sh hooks/hooks.json hooks/save-review-report.sh
   scripts/tests/governance/test-rules.sh scripts/tests/governance/test-pretool.sh scripts/tests/governance/test-hooks.sh scripts/tests/test-save-review-report.sh
   scripts/tests/test-plugin-name.sh)
-OLD_RE='specops-ko[[:space:]]*:[a-z*]|specops-ko@|plugins/cache/specops-ko|SPECOPS-KO:'
+# 앞에 이름 글자가 붙은 경우(using-specops-ko: 같은 skill 이름 라벨)는 namespace 가 아니다 — 대소문자는 git grep -i 가 맡는다
+OLD_RE='(^|[^a-z0-9_-])specops-ko[[:space:]]*:|specops-ko@|plugins/cache/specops-ko'
 scan_old_ns() {  # $1 = repo 루트 · stdout = 위반 줄 · rc 0=스캔 성공(위반 유무 무관) 2=스캔 실패
   local d="$1" ex=() p out rc
   for p in "${ALLOW_PATHS[@]}"; do ex+=(":!$p"); done
@@ -36,4 +37,13 @@ rd="$ROOT/README.md"
 { grep -q 'devFSD' "$ROOT/CONTRIBUTING.md" && grep -q 'devFSD' "$ROOT/CLAUDE.md" \
   && grep -q '^title="devFSD"' "$ROOT/hooks/notify.sh" && grep -q '^FALLBACK="◆ devFSD"' "$ROOT/scripts/statusline.sh"; } \
   && ok "PN3b CONTRIBUTING·CLAUDE.md·알림·statusline 표기" || nope PN3b "표기"
+# PN5 (AC-5) CHANGELOG — 헤딩·순서·경고. 발행 뒤 항목이 [3.0.0] 으로 옮겨도 깨지지 않게 CHANGELOG 전체에서 첫 출현을 본다
+_c=$(mktemp); cp "$ROOT/CHANGELOG.md" "$_c"
+ln() { grep -n -F "$1" "$_c" | head -1 | cut -d: -f1; }
+a=$(ln 'claude plugin uninstall specops-ko@specops-ko'); b=$(ln 'claude plugin marketplace remove specops-ko')
+c=$(ln 'claude plugin marketplace add'); d=$(ln 'claude plugin install devfsd@devfsd')
+{ grep -q '^### Changed (breaking)' "$_c" && [ -n "$a" ] && [ -n "$b" ] && [ -n "$c" ] && [ -n "$d" ] \
+  && [ "$a" -lt "$b" ] && [ "$b" -lt "$c" ] && [ "$c" -lt "$d" ] && grep -q '두 번 발화' "$_c"; } \
+  && ok "PN5 CHANGELOG breaking·재설치 순서·경고" || nope PN5 "줄 $a/$b/$c/$d"
+rm -f "$_c"
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="; [ "$FAIL" -eq 0 ]

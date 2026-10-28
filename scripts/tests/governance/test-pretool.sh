@@ -51,6 +51,21 @@ allowsandbox=$(mktemp -d) || exit 1
 trap 'rm -rf "$codesandbox" "$allowsandbox"' EXIT
 out=$(mkstdin "git commit -m x" "$(_tr_for "$allowsandbox" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$allowsandbox" bash "$HOOK" 2>/dev/null)
 check "T2 commit with-verify(+exec) → allow" '"continue":true' "$out"
+# TC.5a/5b/5n (AC-2) R-1 pretool Skill 앵커 — 진행기록 앵커가 없는 전용 sandbox: Skill 호출 접두사가 열림을 가른다
+#   (T2 의 allowsandbox 는 /verify PASS 줄이 있어 접두사와 무관하게 열린다). 옛·other 접두사 픽스처는 런타임 sed.
+skillsandbox=$(mktemp -d) || exit 1
+( cd "$skillsandbox" && git init -q && echo "echo x" > a.sh && git add a.sh && mkdir -p .specops/20260101-t2allow )
+trap 'rm -rf "$codesandbox" "$allowsandbox" "$skillsandbox"' EXIT
+_tc5_base=$(_tr_for "$skillsandbox" "$FIX/pretool-with-verify-exec.jsonl")
+_tc5_old=$(printf 'specops-%s' ko)
+sed "s/devfsd:/$_tc5_old:/g" "$_tc5_base" > "$_TRF_DIR/tc5b.jsonl"
+sed "s/devfsd:/other:/g" "$_tc5_base" > "$_TRF_DIR/tc5n.jsonl"
+out=$(mkstdin "git commit -m x" "$_tc5_base" | CLAUDE_PROJECT_DIR="$skillsandbox" bash "$HOOK" 2>/dev/null)
+check "TC.5a R-1 pretool 새 접두사 Skill+exec → allow" '"continue":true' "$out"
+out=$(mkstdin "git commit -m x" "$_TRF_DIR/tc5b.jsonl" | CLAUDE_PROJECT_DIR="$skillsandbox" bash "$HOOK" 2>/dev/null)
+check "TC.5b R-1 pretool 옛 접두사 Skill+exec → allow" '"continue":true' "$out"
+out=$(mkstdin "git commit -m x" "$_TRF_DIR/tc5n.jsonl" | CLAUDE_PROJECT_DIR="$skillsandbox" bash "$HOOK" 2>/dev/null)
+check "TC.5n R-1 pretool other 접두사 Skill+exec → deny(양성 대조)" '"permissionDecision":"deny"' "$out"
 # T2b ★ 조임 — Skill 호출만(실행증거 없음) → deny (구 T2 가 allow 하던 것)
 out=$(mkstdin "git commit -m x" "$FIX/pretool-with-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T2b ★ Skill 호출만(실행증거 없음) → deny" '"permissionDecision":"deny"' "$out"

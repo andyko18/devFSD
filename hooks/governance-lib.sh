@@ -1403,8 +1403,9 @@ apply_skill_declaration_rule() {
   local transcript="$1" skill_full="$2"
   [ -f "$transcript" ] || return 0
   local short="${skill_full#devfsd:}"
+  short="${short#specops-ko:}"   # 3.x 호환 — 4.0 에서 specops-ko 제거
   # full name = devfsd:<short>, short name = <short> — 둘 다 허용
-  local name_re="(devfsd:)?${short}"
+  local name_re="((devfsd|specops-ko):)?${short}"   # 3.x 호환 — 4.0 에서 specops-ko 제거
   local decl_re="([Uu]sing[[:space:]]+${name_re}|[Ii]nvoking[[:space:]]+${name_re}|[Cc]alling[[:space:]]+${name_re}|[Ss]witching[[:space:]]+to[[:space:]]+${name_re}|${short}[[:space:]]*(을|를|로|으로)?[[:space:]]*(사용|호출|진입|이동|넘어감|시작|진행|발동|들어감|넘어가|개시))"
   # user turn 첫 진입 예외 트리거 (사용자 입력에 이 패턴이 있으면 첫 Skill 호출은 면제)
   local trigger_re='(/start|/quick|/free|만들[고어]|구현|추가|수정|fix|feature)'
@@ -1417,7 +1418,7 @@ apply_skill_declaration_rule() {
     def utext: [.message.content // "" | if type == "string" then . else (.[]? | select(.type == "text") | .text) end] | first // "";
     def atext: [.message.content[]? | select(.type == "text") | .text] | join("\n");
     def has_target($s): [.message.content[]? | select(.type == "tool_use" and .name == "Skill" and .input.skill == $s)] | length > 0;
-    def lc_skill: [.message.content[]? | select(.type == "tool_use" and .name == "Skill") | (.input.skill // "") | select(startswith("devfsd:"))] | first // "";
+    def lc_skill: [.message.content[]? | select(.type == "tool_use" and .name == "Skill") | (.input.skill // "") | select(test("^(devfsd|specops-ko):"))] | first // "";
     [inputs] as $all
     | reduce range(0; $all | length) as $i (
         {p1: "", p2: "", p3: "", lu: "", plc: "", matched: false, done: false, offset: 0};

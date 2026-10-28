@@ -249,6 +249,25 @@ else
 fi
 cd "$PLUGIN"; rm -rf "$tmp"
 
+# TC.8a/TC.8n (AC-2) R-3 디스패처 경유(trigger_skill_pattern) — 옛 접두사 Skill 도 R-3 판정 대상, other 는 대상 아님.
+#   has_target 이 .input.skill 정확 비교라 transcript 도 입력과 같은 접두사로 변환한다. 접두사는 런타임 sed 로 만든다.
+_tc8_old=$(printf 'specops-%s' ko)
+for _p in "$_tc8_old" other; do
+  tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
+  cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
+  sed "s/devfsd:/$_p:/g" "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" > transcript.jsonl
+  _o=$(_post Skill "$_p:planning-ko")
+  _has=0; printf '%s' "$_o" | jq -e '.additionalContext | contains("R-3")' >/dev/null 2>&1 && _has=1
+  if [ "$_p" = other ]; then
+    if [ "$_has" = 0 ]; then PASS=$((PASS+1)); echo "PASS TC.8n other 접두사 Skill → R-3 기록 없음"
+    else FAIL=$((FAIL+1)); echo "FAIL TC.8n (out=$_o)"; fi
+  else
+    if [ "$_has" = 1 ]; then PASS=$((PASS+1)); echo "PASS TC.8a 옛 접두사 Skill 선언 부재 → R-3 기록"
+    else FAIL=$((FAIL+1)); echo "FAIL TC.8a (out=$_o)"; fi
+  fi
+  cd "$PLUGIN"; rm -rf "$tmp"
+done
+
 STOP_HOOK="$PLUGIN/hooks/stop-governance.sh"
 
 # T11.a stop_hook_active=true → 즉시 exit 0, append 없음

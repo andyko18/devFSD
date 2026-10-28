@@ -47,14 +47,19 @@ else FAIL=$((FAIL+1)); echo "FAIL T2.c (rc=$rc)"; fi
 rm -rf "$TD4"
 
 # T2.d AC-2: 백업 cp 실패(readonly .bak 덮어쓰기 거부) → append exit 0 prepend (진짜 비차단)
-TD5=$(mktemp -d); mkdir -p "$TD5/.specops"
-printf '## 20260615-w · t\n- line\n' > "$TD5/.specops/session-progress.md"
-: > "$TD5/.specops/session-progress.md.bak"; chmod 444 "$TD5/.specops/session-progress.md.bak"
-( cd "$TD5" && bash "$APPEND" 20260615-w /verify PASS "m" >/dev/null 2>&1 ); rc=$?
-if [ $rc -eq 0 ] && grep -q "/verify PASS" "$TD5/.specops/session-progress.md"; then
-  PASS=$((PASS+1)); echo "PASS T2.d AC-2 cp 실패(readonly .bak)해도 prepend·exit 0(진짜 비차단)"
-else FAIL=$((FAIL+1)); echo "FAIL T2.d (rc=$rc)"; fi
-chmod 644 "$TD5/.specops/session-progress.md.bak" 2>/dev/null; rm -rf "$TD5"
+#   root 는 444 파일도 덮어써 cp 가 실패하지 않는다 — 실패 경로를 못 타 통과가 공허하므로 SKIP
+if [ "$(id -u)" -eq 0 ]; then
+  echo "SKIP T2.d AC-2 cp 실패(readonly .bak) — root 로 실행 중(권한 검사 무의미)"
+else
+  TD5=$(mktemp -d); mkdir -p "$TD5/.specops"
+  printf '## 20260615-w · t\n- line\n' > "$TD5/.specops/session-progress.md"
+  : > "$TD5/.specops/session-progress.md.bak"; chmod 444 "$TD5/.specops/session-progress.md.bak"
+  ( cd "$TD5" && bash "$APPEND" 20260615-w /verify PASS "m" >/dev/null 2>&1 ); rc=$?
+  if [ $rc -eq 0 ] && grep -q "/verify PASS" "$TD5/.specops/session-progress.md"; then
+    PASS=$((PASS+1)); echo "PASS T2.d AC-2 cp 실패(readonly .bak)해도 prepend·exit 0(진짜 비차단)"
+  else FAIL=$((FAIL+1)); echo "FAIL T2.d (rc=$rc)"; fi
+  chmod 644 "$TD5/.specops/session-progress.md.bak" 2>/dev/null; rm -rf "$TD5"
+fi
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

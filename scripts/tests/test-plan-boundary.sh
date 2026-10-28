@@ -229,12 +229,18 @@ out=$(bash "$CPB" --plan "$P" --constitution "$NOC" 2>&1); rc=$?
 # B12 (AC-2 · FR-6): 확인할 수 없는 plan 은 "부재 SKIP" 이 아니라 판정 불가 rc 2 — 끊어진 링크 · 들어갈 수 없는 디렉터리
 ln -s "$ROOT/no-such-dir/plan.md" "$ROOT/dangling.md"
 out1=$(bash "$CPB" --plan "$ROOT/dangling.md" --constitution "$NOC" 2>&1); rc1=$?
-mkdir -p "$ROOT/locked" && cp "$ROOT/b1.md" "$ROOT/locked/plan.md" && chmod 000 "$ROOT/locked"
-out2=$(bash "$CPB" --plan "$ROOT/locked/plan.md" --constitution "$NOC" 2>&1); rc2=$?
-chmod 755 "$ROOT/locked"
-{ [ "$rc1" -eq 2 ] && printf '%s\n' "$out1" | grep -q '\[판정 불가\] plan' && ! printf '%s\n' "$out1" | grep -q 'SKIP' \
-  && { [ "$(id -u)" = 0 ] || { [ "$rc2" -eq 2 ] && printf '%s\n' "$out2" | grep -q '\[판정 불가\] plan'; }; }; } \
-  && ok "B12 끊어진 링크·들어갈 수 없는 디렉터리는 판정 불가 rc 2" || nope "B12" "rc=$rc1/$rc2 out1=$out1 out2=$out2"
+if [ "$(id -u)" -eq 0 ]; then  # root 는 chmod 000 디렉터리에도 들어간다 — 그 절반은 판정하지 않고 SKIP 으로 드러낸다
+  { [ "$rc1" -eq 2 ] && printf '%s\n' "$out1" | grep -q '\[판정 불가\] plan' && ! printf '%s\n' "$out1" | grep -q 'SKIP'; } \
+    && ok "B12 끊어진 링크는 판정 불가 rc 2" || nope "B12" "rc=$rc1 out1=$out1"
+  skip "B12 들어갈 수 없는 디렉터리 — root 로 실행 중(권한 검사 무의미)"
+else
+  mkdir -p "$ROOT/locked" && cp "$ROOT/b1.md" "$ROOT/locked/plan.md" && chmod 000 "$ROOT/locked"
+  out2=$(bash "$CPB" --plan "$ROOT/locked/plan.md" --constitution "$NOC" 2>&1); rc2=$?
+  chmod 755 "$ROOT/locked"
+  { [ "$rc1" -eq 2 ] && printf '%s\n' "$out1" | grep -q '\[판정 불가\] plan' && ! printf '%s\n' "$out1" | grep -q 'SKIP' \
+    && [ "$rc2" -eq 2 ] && printf '%s\n' "$out2" | grep -q '\[판정 불가\] plan'; } \
+    && ok "B12 끊어진 링크·들어갈 수 없는 디렉터리는 판정 불가 rc 2" || nope "B12" "rc=$rc1/$rc2 out1=$out1 out2=$out2"
+fi
 
 # B13: `.specops/` 아래 FID 작업 파일(상대·절대)은 제품 코드가 아니라 소유 밖으로 대조하지 않는다 — 이름만 비슷한 `.specopsx/` 는 그대로 잡는다
 #   (Argus 20261018-status-date-index: 측정 도구 `.specops/<FID>/tools/` 가 [소유 밖] 으로 WARN 된 오탐)

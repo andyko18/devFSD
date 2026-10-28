@@ -271,7 +271,7 @@ _hdr5='| ID | 요구사항 | 마일스톤 | 우선순위 | 관련 spec |\n|---|-
 TD=$(mktemp -d); mkdir -p "$TD/.specops/memory"; R="$TD/.specops/memory/requirements.md"
 printf "${_hdr5}| FR-4 | [공통] a | M1 | must | (TBD) |\n" > "$R"; cp "$R" "$TD/pre.md"; chmod 444 "$R"
 out=$(cd "$TD" && bash "$SET" 20260806-fnd FR-4 2>&1); rc=$?
-if [ -w "$R" ]; then ok "T9.k (건너뜀 — 이 환경은 읽기 전용 파일에도 쓸 수 있다)"
+if [ -w "$R" ]; then skip "T9.k 읽기 전용 → rc 1 — 이 환경은 읽기 전용 파일에도 쓸 수 있다(root 등)"
 else [ "$rc" -eq 1 ] && cmp -s "$TD/pre.md" "$R" && ! printf '%s' "$out" | grep -q '←' \
   && ok "T9.k 읽기 전용 → rc 1 · 성공 메시지 없음 · 파일 불변" || nope "T9.k" "rc=$rc out=$out"; fi
 chmod 644 "$R"; rm -rf "$TD"

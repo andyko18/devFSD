@@ -260,11 +260,16 @@ d=$(mk_env t6g)
 [ "$ec" -eq 2 ] && ok "T6.g FID 검증 exit 2" || nope "T6.g" "ec=$ec"
 
 # T6.h(AC-8 테스트 격리) fid-start 없음 + 읽을 수 없는 CLAUDE_CONFIG_DIR → 에러·출력·기록 없음·3초 이내
+#   읽을 수 없는 디렉터리가 접근 시도를 드러내는 덫이다 — root 는 그대로 읽어 덫이 무력하므로 SKIP
+if [ "$(id -u)" -eq 0 ]; then
+  skip "T6.h fid-start 부재 → 접근 시도 없음 — root 로 실행 중(권한 검사 무의미)"
+else
 d=$(mk_env t6h); : > "$d/work/.specops/$FID/metrics.jsonl"; mkdir -p "$TD/noread"; chmod 000 "$TD/noread"
 t0=$(date +%s)
 out=$( cd "$d/work" && HOME=/nonexistent CLAUDE_CONFIG_DIR="$TD/noread" CLAUDE_CODE_SESSION_ID="$SID" bash "$METER" "$FID" 2>&1 ); ec=$?
 t1=$(date +%s); chmod 755 "$TD/noread"
 [ "$ec" -eq 0 ] && [ -z "$out" ] && [ ! -e "$(TOK "$d")" ] && [ $((t1 - t0)) -le 3 ] && ok "T6.h fid-start 부재 → 접근 시도 없음(출력·에러·기록 0)" || nope "T6.h" "ec=$ec out='$out' dt=$((t1 - t0)) rec=$(cat "$(TOK "$d")" 2>/dev/null)"
+fi
 
 # T6.i 기준점 파싱 실패(--since 비 ISO) → exit 0·무출력·unmeasured(bad-baseline)
 d=$(mk_env t6i); mk_core "$d"

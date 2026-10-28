@@ -3,7 +3,7 @@
 # stdin: Claude Code statusLine JSON ({cwd,...}). stdout: 상태줄 1줄. 항상 exit 0.
 set -uo pipefail
 
-FALLBACK="◆ specops-ko"
+FALLBACK="◆ devFSD"
 
 command -v jq >/dev/null 2>&1 || { printf '%s\n' "$FALLBACK"; exit 0; }
 

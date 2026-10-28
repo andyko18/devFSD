@@ -1,10 +1,12 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="specops-ko 의 자율 Lifecycle: 명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 까지의 단계 흐름" width="100%">
+  <img src="docs/assets/hero.svg" alt="devFSD 의 자율 Lifecycle: 명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 까지의 단계 흐름" width="100%">
 </p>
 
-# specops-ko
+# devFSD
 
-**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v2.37.2)
+**개발 자율주행(devFSD) — Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v2.37.2)
+
+> 감독형 자율주행이다 — 설계 승인과 PR 병합은 사람이 한다. (이전 이름 specops-ko)
 
 [![release](https://img.shields.io/github/v/release/andyko18/specops-ko?label=release&color=0969da)](https://github.com/andyko18/specops-ko/releases)
 [![tests](https://github.com/andyko18/specops-ko/actions/workflows/test.yml/badge.svg)](https://github.com/andyko18/specops-ko/actions/workflows/test.yml)
@@ -18,7 +20,7 @@
 
 LLM 에이전트에게 개발을 맡길 때 반복되는 실패를, 프롬프트가 아니라 런타임의 장치로 막는다.
 
-| 이런 일이 반복된다 | specops-ko 의 답 |
+| 이런 일이 반복된다 | devFSD 의 답 |
 |---|---|
 | 🔁 단계마다 다음 지시를 다시 해야 한다 | 🔗 **자율 chain** — 각 스킬 본문의 `## 다음 skill` 이 다음 단계를 강제한다. 단계마다 지시할 필요가 없다 |
 | 🧠 세션이 끊기면 맥락이 사라진다 | 📁 **파일이 기억한다** — 모든 산출물은 `.specops/<FID>/` 에 남는다. 세션이 끊겨도 파일만 읽고 이어간다 |

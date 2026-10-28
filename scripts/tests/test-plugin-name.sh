@@ -29,4 +29,11 @@ left=$(scan_old_ns "$ROOT"); src=$?
 _t=$(mktemp -d); ( cd "$_t" && git init -q && printf 'Skill: specops-ko:planning-ko\nx specops-ko@specops-ko\n~/.claude/plugins/cache/specops-ko/\nok devfsd:planning-ko\n' > a.md && git add a.md ) >/dev/null 2>&1
 n=$(scan_old_ns "$_t" | grep -c .); rm -rf "$_t"
 [ "$n" = 3 ] && ok "PN2.self 스캐너가 위반 3변형을 잡음" || nope PN2.self "잡은 줄 $n (기대 3)"
+# PN3 (AC-4) 표기 — README 제목·감독형 설명·설치 id
+rd="$ROOT/README.md"
+{ grep -q '^# devFSD' "$rd" && grep -q '개발 자율주행' "$rd" && grep -qE '감독형.*설계 승인.*PR 병합' "$rd" \
+  && grep -q 'claude plugin install devfsd@devfsd' "$rd"; } && ok "PN3 README devFSD·감독형·설치 id" || nope PN3 "README 표기"
+{ grep -q 'devFSD' "$ROOT/CONTRIBUTING.md" && grep -q 'devFSD' "$ROOT/CLAUDE.md" \
+  && grep -q '^title="devFSD"' "$ROOT/hooks/notify.sh" && grep -q '^FALLBACK="◆ devFSD"' "$ROOT/scripts/statusline.sh"; } \
+  && ok "PN3b CONTRIBUTING·CLAUDE.md·알림·statusline 표기" || nope PN3b "표기"
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="; [ "$FAIL" -eq 0 ]

@@ -1,4 +1,4 @@
-# 기여 가이드 — specops-ko
+# 기여 가이드 — devFSD
 
 Claude Code 한국어 자율 Lifecycle 플러그인에 기여 환영. 본 가이드는 PR/skill 추가 시 최소 요건을 정의한다.
 
@@ -171,4 +171,4 @@ PR 본문: `.specops/<FID>/spec.md` + `acceptance-criteria.md` + `evidence.md` �
 
 - `CLAUDE.md` — 프로젝트 컨텍스트 (Claude Code 전용)
 - `README.md` — 사용자 진입 가이드
-- `docs/case-studies/` (specops-ko 본 저장소) — 설계 근거
+- `docs/case-studies/` (devFSD 본 저장소) — 설계 근거

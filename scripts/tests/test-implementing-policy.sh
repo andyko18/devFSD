@@ -23,7 +23,7 @@ grep -qE "HARD-GATE.*Phase C" "$F" \
   || { FAIL=$((FAIL+1)); echo "FAIL T1.c Phase C HARD GATE 부재"; }
 
 # T1.d: implementer-ko subagent_type 명시
-grep -q "specops-ko:implementer-ko" "$F" \
+grep -q "devfsd:implementer-ko" "$F" \
   && { PASS=$((PASS+1)); echo "PASS T1.d implementer-ko subagent_type"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T1.d implementer-ko subagent_type 부재"; }
 

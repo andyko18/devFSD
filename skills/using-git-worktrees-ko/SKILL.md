@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.1.0 skills/using-git-worktrees/SKILL.md
 specops_version: 1.0.0
 used_by: specifying-ko (Phase 4 — 설계 승인 후 구현 직전), implementing-ko (모든 태스크 실행 전), planning-ko (참조)
-integrates_with: specops-ko:finishing-a-development-branch-ko
+integrates_with: devfsd:finishing-a-development-branch-ko
 ---
 
 # Engine 스킬 — Git Worktree 격리 작업
@@ -16,7 +16,7 @@ git worktree는 동일 저장소를 공유하는 격리 워크스페이스를 �
 
 **핵심 원칙**: 체계적 디렉터리 선택 + 안전 검증 = 신뢰 가능한 격리.
 
-**시작 시 선언**: "specops-ko:using-git-worktrees-ko 스킬을 사용해 격리 워크스페이스를 설정합니다."
+**시작 시 선언**: "devfsd:using-git-worktrees-ko 스킬을 사용해 격리 워크스페이스를 설정합니다."
 
 **Provenance 규약 (v5.1.0 PRI-974)**: `.worktrees/` 내부 경로 = 플러그인 생성분 — finishing 의 정리 대상. 그 외 위치의 worktree = 사용자 소유 — **불가침** (정리·삭제 금지).
 
@@ -225,7 +225,7 @@ Worktree 준비됨: <full-path>
 ## 예시 워크플로
 
 ```
-You: specops-ko:using-git-worktrees-ko 스킬을 사용해 격리 워크스페이스를 설정합니다.
+You: devfsd:using-git-worktrees-ko 스킬을 사용해 격리 워크스페이스를 설정합니다.
 
 [.worktrees/ 확인 — 존재]
 [ignore 검증 — git check-ignore 가 .worktrees/ 가 ignore됨 확인]
@@ -262,13 +262,13 @@ auth 기능 구현 준비 완료
 ## 통합
 
 **호출자**:
-- `specops-ko:specifying-ko` (Phase 4) — 설계 승인 후 구현 단계 진입 시 의무
-- `specops-ko:implementing-ko` — 어떤 태스크 실행 전에도 의무
-- `specops-ko:planning-ko` — 플랜 §2 "파일 구조" 작성 시 worktree 위치 가정
-- `specops-ko:dispatching-parallel-agents-ko` (v0.4a) — DAG-aware 모드에서 leaf 별 worktree 생성 (`.worktrees/<FID>-<task-id>/`)
+- `devfsd:specifying-ko` (Phase 4) — 설계 승인 후 구현 단계 진입 시 의무
+- `devfsd:implementing-ko` — 어떤 태스크 실행 전에도 의무
+- `devfsd:planning-ko` — 플랜 §2 "파일 구조" 작성 시 worktree 위치 가정
+- `devfsd:dispatching-parallel-agents-ko` (v0.4a) — DAG-aware 모드에서 leaf 별 worktree 생성 (`.worktrees/<FID>-<task-id>/`)
 
 **짝**:
-- `specops-ko:finishing-a-development-branch-ko` — 작업 완료 후 정리 의무
+- `devfsd:finishing-a-development-branch-ko` — 작업 완료 후 정리 의무
 
 ## v0.4a — leaf-per-worktree 모드 (R11 git race 차단)
 
@@ -283,12 +283,12 @@ auth 기능 구현 준비 완료
 ## 다음 skill
 
 worktree 준비 완료 후:
-- `specops-ko:implementing-ko` — 격리 환경에서 태스크 실행
+- `devfsd:implementing-ko` — 격리 환경에서 태스크 실행
 
 ## 참조
 
-- 짝: `specops-ko:finishing-a-development-branch-ko`
-- 호출 위치: `specops-ko:specifying-ko`, `specops-ko:implementing-ko`
+- 짝: `devfsd:finishing-a-development-branch-ko`
+- 호출 위치: `devfsd:specifying-ko`, `devfsd:implementing-ko`
 
 ---
 

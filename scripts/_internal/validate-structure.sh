@@ -288,7 +288,7 @@ else
 fi
 
 # 11) xref_resolve — skills/·commands/ 본문의 skill/agent 참조 토큰이 skills/·commands/·agents/ 에 실재
-#     ① prefix 형: specops-ko:<name>  ② bare 형: <name>-ko (FID 20260713-ghost-agent-drift)
+#     ① prefix 형: devfsd:<name>  ② bare 형: <name>-ko (FID 20260713-ghost-agent-drift)
 #     bare 확장 배경: prefix 토큰만 수집하던 탓에 bare 로 서술된 유령 에이전트(analyzer-ko·planner-ko 등)가
 #     검사망 밖이었다 — 문서가 존재하지 않는 에이전트를 서술해도 전 테스트가 통과했다.
 #     allowlist: 플러그인명 자체(specops-ko) · 구 플러그인명(specops-auto-ko — 케이스 스터디 파일명 참조)
@@ -298,16 +298,16 @@ XREF_ALLOW=" specops-ko specops-auto-ko writing-plans-ko subagent-driven-develop
 xr=()
 while IFS= read -r tok; do
   [ -z "$tok" ] && continue
-  short="${tok#specops-ko:}"
+  short="${tok#devfsd:}"
   case "$XREF_ALLOW" in *" $short "*) continue ;; esac
   [ -f "skills/$short/SKILL.md" ] || [ -f "commands/$short.md" ] || [ -f "agents/$short.md" ] || xr+=("$tok")
-done < <({ grep -rhoE 'specops-ko:[a-z0-9][a-z0-9-]*' skills commands templates --include='*.md' 2>/dev/null
+done < <({ grep -rhoE 'devfsd:[a-z0-9][a-z0-9-]*' skills commands templates --include='*.md' 2>/dev/null
            grep -rhoE '[a-z][a-z0-9-]*-ko' skills commands templates --include='*.md' 2>/dev/null; } | sort -u)
 if [ ${#xr[@]} -eq 0 ]; then emit xref_resolve OK; else emit xref_resolve FAIL "미해석: ${xr[*]}"; fi
 
 # 12) used_by_fmt — skill used_by 는 short name 규약 (CLAUDE.md): skill 참조는 <name>-ko, command 는 /<name>.
-#     full `specops-ko:` prefix 금지 (used_by 역참조·기계 파싱 일관성). 본문 토큰(xref_resolve 대상)은 무관.
-ubf=$(grep -rlE '^used_by:.*specops-ko:' skills --include='SKILL.md' 2>/dev/null \
+#     full `devfsd:` prefix 금지 (used_by 역참조·기계 파싱 일관성). 본문 토큰(xref_resolve 대상)은 무관.
+ubf=$(grep -rlE '^used_by:.*devfsd:' skills --include='SKILL.md' 2>/dev/null \
   | sed 's#.*/skills/##; s#/SKILL.md##' | tr '\n' ' ')
 if [ -z "$ubf" ]; then emit used_by_fmt OK; else emit used_by_fmt FAIL "full-prefix 위반: $ubf"; fi
 
@@ -381,7 +381,7 @@ for path in glob.glob('skills/*/SKILL.md'):
             in_sec = True; continue
         if in_sec and line.startswith('## '):
             in_sec = False; continue  # 섹션 종료 리셋 — 후속 섹션 Skill: 라인 오수집 방지
-        m = re.match(r'^Skill: specops-ko:([a-z-]+)\s*$', line)
+        m = re.match(r'^Skill: devfsd:([a-z-]+)\s*$', line)
         if in_sec and m:
             actual.add((name, m.group(1)))
 

@@ -241,7 +241,7 @@ fi
 tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
 cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
 cp "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" transcript.jsonl
-_o=$(_post Skill "specops-ko:planning-ko")
+_o=$(_post Skill "devfsd:planning-ko")
 if printf '%s' "$_o" | jq -e '.additionalContext | contains("R-3")' >/dev/null 2>&1; then
   PASS=$((PASS+1)); echo "PASS T8.k Skill 선언 부재 → R-3 기록 유지"
 else

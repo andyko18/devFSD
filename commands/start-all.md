@@ -134,7 +134,7 @@ reference_upstream: specops-ko 독자 추가
 
 각 FR에 대해 **순서대로** 반복 (queue.md PENDING 항목):
 
-1. `specops-ko:specifying-ko` 호출 — args 정확히 아래 형식:
+1. `devfsd:specifying-ko` 호출 — args 정확히 아래 형식:
    ```
    <!-- entry: batch -->
    <!-- batch-id: <BATCH_ID> -->
@@ -163,7 +163,7 @@ reference_upstream: specops-ko 독자 추가
 1. 이 batch 의 전 FID `clarifications.md` 에서 머리줄에 `BLOCKING · ASSUMED` 가 있는 블록을 모은다(queue.md 의 FID 칸 기준 · clarifying-ko Q-block 형식과 같은 문자열).
 2. 영향이 큰 것(아키텍처·저장소·핵심 입출력 먼저)부터 많아야 4개를 한 메시지로 묻는다 — 추측값을 추천으로 맨 앞에. 0건이면 건너뛴다.
 3. 답이 추측과 같으면 그 블록의 `status` 를 `RESOLVED` 로 바꾼다. 머리줄의 ` · ASSUMED` 도 뗀다(재진입한 1c 가 다시 모으지 않게).
-4. 다르면 **그 FR 만** 다시 돈다: clarifications 블록을 답·`RESOLVED` 로 고침(머리줄의 ` · ASSUMED` 도 뗀다) → 답이 AC 를 바꾸면 acceptance-criteria.md 에 append → `specops-ko:planning-ko` 를 그 FID 로 호출(§batch 라 plan-reviewer DEFER) → decomposing → `BATCH-PHASE1-DONE` → `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <FID> order "1c 답 변경 → clarify·plan·decompose 재실행" "<질문>: <추측> → <답>"`. 재실행이 plan 에서 실패하면 그 FR 을 HELD 로 바꾸지 않고 queue 상태와 FID 칸을 그대로 두며(PENDING 으로 되돌리면 재진입이 FID 를 새로 만든다), Phase 2 에 들어가지 않고 사용자에게 1줄 보고한다 — 재진입하면 1c 4번부터 그 FR 을 다시 돈다.
+4. 다르면 **그 FR 만** 다시 돈다: clarifications 블록을 답·`RESOLVED` 로 고침(머리줄의 ` · ASSUMED` 도 뗀다) → 답이 AC 를 바꾸면 acceptance-criteria.md 에 append → `devfsd:planning-ko` 를 그 FID 로 호출(§batch 라 plan-reviewer DEFER) → decomposing → `BATCH-PHASE1-DONE` → `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <FID> order "1c 답 변경 → clarify·plan·decompose 재실행" "<질문>: <추측> → <답>"`. 재실행이 plan 에서 실패하면 그 FR 을 HELD 로 바꾸지 않고 queue 상태와 FID 칸을 그대로 두며(PENDING 으로 되돌리면 재진입이 FID 를 새로 만든다), Phase 2 에 들어가지 않고 사용자에게 1줄 보고한다 — 재진입하면 1c 4번부터 그 FR 을 다시 돈다.
 5. 묻지 못한 나머지는 ASSUMED 그대로 두고 `questions.md` 의 `## 1c` 절에 질문 · 추천(추측) · 답(또는 `미질문 — ASSUMED`)을 적는다.
 
 ### Phase 2 — batch plan-review + 일괄 게이트
@@ -173,7 +173,7 @@ reference_upstream: specops-ko 독자 추가
 
 0. **전제**: queue.md의 추적 FR이 모두 `PLAN_DONE`(또는 이후 상태). 미완이면 Phase 1 복귀.
 
-1. **Batch plan-review (필수)** — `Agent` `subagent_type: "specops-ko:plan-reviewer-ko"` **1회**
+1. **Batch plan-review (필수)** — `Agent` `subagent_type: "devfsd:plan-reviewer-ko"` **1회**
    - 컨텍스트: 전 PLAN_DONE FID의 `.specops/<FID>/spec.md` + `plan.md` **경로 목록**(본문 전문 붙여넣기 금지)
    - 부모는 stdout을 `.specops/<BATCH_ID>/plan-review.md`에 저장
    - 각 FID `dispatch-log.md`에 deferred 해소 행: `| … | plan-reviewer | plan-reviewer-ko | PASS|FAIL | batch Phase 2 |`
@@ -248,7 +248,7 @@ reference_upstream: specops-ko 독자 추가
 > 단일 경로의 specifying Step 6.6 과 같은 에이전트다. batch 는 Step 6.6 을 건너뛰므로(§batch 제외) 여기서 한 번에 본다. D(`design-reviewer-ko`)의 독립 판정은 그대로다 — 전문가는 리뷰 앞에서 빈칸을 채우고 리뷰어는 따로 판정한다.
 
 1. **발동** — A 에서 기능 화면 `screens/<name>.md` 를 만들거나 고쳤으면 부른다. foundation 셸(`<!-- foundation-shell -->`)만 재사용했거나 A 가 SKIP 이면 `UI-EXPERT: SKIP — 화면 산출 없음` 을 `queue.md` 헤더 산문 줄로 기록하고 B 로 간다(`|` 로 시작 금지).
-2. **dispatch** — `Agent` 도구, `subagent_type: "specops-ko:ui-designer-ko"`, batch 당 1회. 입력은 경로만 — 이번 batch 가 만든·고친 `screens/<name>.md`·`.html` · PLAN_DONE FID 의 `spec.md`·`acceptance-criteria.md` · `DESIGN.md`(있으면) · `BATCH_ID` 와 산출 경로 `.specops/<BATCH_ID>/experts/ui.md`(산출 경로의 `<FID>` 자리에만 `<BATCH_ID>` 를 쓴다고 프롬프트에 적는다). 산출은 그 파일 하나다.
+2. **dispatch** — `Agent` 도구, `subagent_type: "devfsd:ui-designer-ko"`, batch 당 1회. 입력은 경로만 — 이번 batch 가 만든·고친 `screens/<name>.md`·`.html` · PLAN_DONE FID 의 `spec.md`·`acceptance-criteria.md` · `DESIGN.md`(있으면) · `BATCH_ID` 와 산출 경로 `.specops/<BATCH_ID>/experts/ui.md`(산출 경로의 `<FID>` 자리에만 `<BATCH_ID>` 를 쓴다고 프롬프트에 적는다). 산출은 그 파일 하나다.
 3. **반영** — 지적은 화면 파일에 반영하거나 기각하고 `experts/ui.md` 끝 `## 반영` 에 1줄씩 적는다. `## 확인 필요` 질문은 E 설계 승인 게이트에서 함께 묻는다 — `§auto` 면 best-guess 로 정해 `(ASSUMED)` 로 queue 다이제스트에 남긴다.
 4. **모델 불가·산출 없음** — opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). 산출이 없으면 1회 다시 부르고, 그래도 없으면 `queue.md` 에 `UI-EXPERT: 산출 없음` 을 산문 줄로 남기고 B 로 간다.
 5. 반영 뒤 B 로 진행한다(인터페이스 도출은 반영된 화면의 Interactions 를 쓴다).
@@ -285,7 +285,7 @@ reference_upstream: specops-ko 독자 추가
 
 > A(화면) 또는 B(IF) 중 **하나라도 산출**되면 **항상** Evaluator를 돌린다. 둘 다 SKIP이면 D·E 생략 → F(커밋 없이 Phase 3) 또는 빈 design 커밋 생략 후 Phase 3. (`§일괄` 은 E 4 의 승인 묶음만은 묻는다)
 
-1. **dispatch** — `Agent` 도구, `subagent_type: "specops-ko:design-reviewer-ko"`. 컨텍스트: `BATCH_ID` · PLAN_DONE FID 목록 · `screens/` · `api-spec.md` · `data-model.md` · 각 FID `spec.md` 경로.
+1. **dispatch** — `Agent` 도구, `subagent_type: "devfsd:design-reviewer-ko"`. 컨텍스트: `BATCH_ID` · PLAN_DONE FID 목록 · `screens/` · `api-spec.md` · `data-model.md` · 각 FID `spec.md` 경로.
 2. 부모는 리뷰어 stdout을 `.specops/<BATCH_ID>/design-review.md`에 저장한다 (리뷰어는 Write 없음).
 3. 시그널 처리:
    | 결과 | 동작 |
@@ -324,7 +324,7 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
    git rev-parse HEAD > ".specops/<FID>/review-base.sha"   # 이 FR 구현 시작점 — review.diff 격리 base
    ```
    (재진입 시 해당 FID 가 이미 IMPL_DONE 이면 이 FR 전체를 skip — 파일 재기록 금지. **파일이 이미 있으면 다시 쓰지 않는다** — 보류(`HELD`)에서 돌아온 FR 이 그 경우다: 다시 쓰면 보류 전에 끝낸 태스크 커밋이 리뷰 diff 밖으로 밀린다. 그 사이 다른 FR 의 커밋이 diff 에 섞이는 것은 감수한다 — 빠지는 것보다 낫다)
-1. `specops-ko:implementing-ko` 호출 (**FID 기준**)
+1. `devfsd:implementing-ko` 호출 (**FID 기준**)
 1b. **FR 보류 신호** — implementing-ko 가 `BATCH-FR-HELD: <FID>` 를 내고 멈추면 그 FR 은 여기서 끝낸다. 구현자의 `NEEDS_APPROVAL`(비가역·repo 밖 흔적) 또는 Phase C 의 `NEEDS_DISCUSSION` 이다 — batch 는 사용자와 직접 대화할 수 없어 그 자리에서 묻지 못한다.
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/queue-set-status.sh .specops/$BATCH_ID/queue.md <FR-ID> HELD <FID>
@@ -332,8 +332,8 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
    - 스텝 2~5 는 하지 않는다 — verify·리뷰·`IMPL_DONE` 금지. 사유는 그 FID 의 `dispatch-log.md` 에 있다(`NEEDS_APPROVAL <task-id> …` 또는 `HOLD` 행).
    - 다음 `PLAN_DONE` FR 로 넘어간다(무중단).
    - 보류된 FR 은 "Phase 3 완료" 의 batch-state 스캔에서 미완으로 잡혀 사용자 확인 게이트에 오른다. 그때 FR 별 사유와 선택지를 `dispatch-log.md` 원문 그대로 보인다. 승인·결정을 받으면 그 FR 을 `PLAN_DONE` 으로 되돌려(같은 스크립트) 스텝 1a 부터 다시 돈다(`NEEDS_APPROVAL` 은 승인 기록 `dispatch/<task-id>-approval.md` 를 남긴다 — `skills/implementing-ko/needs-approval.md`).
-2. 완료 → `specops-ko:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
-3. **request/receive 리뷰** — 기본: `specops-ko:requesting-code-review-ko` → `receiving-code-review-ko` (**FID 기준**, review.diff base = `.specops/<FID>/review-base.sha`).
+2. 완료 → `devfsd:verifying-evidence-ko` 호출 (**FID 기준** — `run-verification.sh <FID>` → `.specops/<FID>/evidence.md` 개별 생성 + session-progress 에 `/verify PASS` 줄 append 까지가 이 스텝이다. 이 줄이 R-1/R-2 면제 신호이자 batch-state 하드 재검 대상 — `pnpm test` 류 직접 실행으로 대체하면 실행 증거·진행 줄이 없어 커밋/PR 게이트가 닫힌 채 남는다)
+3. **request/receive 리뷰** — 기본: `devfsd:requesting-code-review-ko` → `receiving-code-review-ko` (**FID 기준**, review.diff base = `.specops/<FID>/review-base.sha`).
    - **축소(오케스트레이터 산문 + batch-state 메타 검증)**: 아래 중 하나면 requesting/receiving **skip 가능**. skip 시 `BATCH-REVIEW-DONE: <FID>` 를 오케스트레이터가 기록하고, IMPL_DONE 전에 `review-request.md` 대신 `review-skip.md`(사유 1줄)를 둔다.
      1. **end-loaded**: `review-skip.md`에 `end-loaded:` 포함 + 전 tid `reviews/<tid>-[BC]-report.md` 존재 (멀티태스크·standard/strict 허용 — implementing이 이미 FID B·C 수행) — report 는 SubagentStop 훅이 저장한다(판정 SoT = reviews 파일 · report 부재 시 부모 fallback 저장 · 반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장 · dispatch-log 행은 부모가 기록)
      2. **lite+단일**: `.specops/<FID>/risk-profile.json`의 `effective=lite` · `reductions_allowed`에 `batch-review-skip` · 태스크 1개 · Phase C PASS (기존). 파일 부재·멀티태스크·standard/strict·auth/DB/migration·allowlist 부재는 이 경로 **금지**
@@ -347,7 +347,7 @@ queue.md의 PLAN_DONE 항목을 **순서대로** 처리 (IMPL_DONE은 skip). 각
     (하나라도 없으면 뭉개짐 — IMPL_DONE 금지, 해당 스텝 재실행. batch PR 직전 `batch-state.sh` 가 IMPL_DONE FID 마다 재검 — skip 경로는 메타 조건까지 통과해야 인정)
 6. 다음 PLAN_DONE FR 반복
 
-> **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `specops-ko:systematic-debugging-ko`로 처리 후 재개.
+> **HARD GATE**: implementing-ko HARD GATE cap 초과 시에만 사용자 개입 요청. 그 외 실패는 `devfsd:systematic-debugging-ko`로 처리 후 재개.
 
 ### Phase 3 완료 — batch 레벨 통합·E2E·성능 테스트 + batch PR 생성
 전 FID IMPL_DONE 확인 후 — **batch-state 하드 스캔** (prose 확인이 아닌 스크립트 판정):
@@ -369,11 +369,11 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 
 > **batch-level 호출 규약**: Step A/B/C 의 skill 은 §batch 감지를 `grep .specops/<FID>/spec.md` 로 **FID-scoped** 수행한다. 오케스트레이터는 batch 의 **대표 FID**(queue.md 의 임의 IMPL_DONE FID — 전 FR spec 이 `**§batch**` 라벨 보유)의 spec.md 를 참조해 호출해야 batch 모드가 발동한다(§batch 부재 스코프로 호출 시 SINGLE 모드 falling back → 단일-batch-PR 불변식 위협). 따라서 아래 `-DONE` signal 의 suffix 는 그 대표 `<FID>` 다(스캔 범위는 batch 전체지만 라벨 판정 기준은 대표 FID).
 
-> **게이트 FAIL 뒤의 복귀 (Step A·B·C 공통)**: 수정은 새 코드다 — 실패한 게이트를 곧장 다시 돌리지 않는다(수정 커밋이 verify·리뷰를 건너뛴다). `specops-ko:systematic-debugging-ko` 로 고친 뒤 ① 수정이 속한 FR(FID)마다 Phase 3 스텝 2(verify)·스텝 3(리뷰)을 다시 돌려 `BATCH-REVIEW-DONE: <FID>` 를 받고 — `review-base.sha` 는 다시 쓰지 않는다(리뷰 diff 가 수정분을 포함해야 한다) ② **Step A(보안)부터** 다시 실행한다 — 어느 Step 이 실패했든 그렇다. 앞서 통과한 Step 의 결과는 수정 전 코드의 것이라, 실패한 Step 부터 이으면 수정분이 보안 스캔을 건너뛴다. 단일 모드의 복귀 경로(각 게이트 SKILL 의 FAIL 분기 — verify → 리뷰 → security → integration → performance)와 같은 순서이고, batch 에서는 리뷰가 끝나면 skill 이 halt 하므로 오케스트레이터가 재진입시킨다.
+> **게이트 FAIL 뒤의 복귀 (Step A·B·C 공통)**: 수정은 새 코드다 — 실패한 게이트를 곧장 다시 돌리지 않는다(수정 커밋이 verify·리뷰를 건너뛴다). `devfsd:systematic-debugging-ko` 로 고친 뒤 ① 수정이 속한 FR(FID)마다 Phase 3 스텝 2(verify)·스텝 3(리뷰)을 다시 돌려 `BATCH-REVIEW-DONE: <FID>` 를 받고 — `review-base.sha` 는 다시 쓰지 않는다(리뷰 diff 가 수정분을 포함해야 한다) ② **Step A(보안)부터** 다시 실행한다 — 어느 Step 이 실패했든 그렇다. 앞서 통과한 Step 의 결과는 수정 전 코드의 것이라, 실패한 Step 부터 이으면 수정분이 보안 스캔을 건너뛴다. 단일 모드의 복귀 경로(각 게이트 SKILL 의 FAIL 분기 — verify → 리뷰 → security → integration → performance)와 같은 순서이고, batch 에서는 리뷰가 끝나면 skill 이 halt 하므로 오케스트레이터가 재진입시킨다.
 
 **Step A: batch 레벨 보안 리뷰 (SAST)**
 
-1. `specops-ko:security-review-ko` 호출 — batch 전체 코드 변경 표면 대상
+1. `devfsd:security-review-ko` 호출 — batch 전체 코드 변경 표면 대상
    - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → 코드 변경 표면 신호 부재 시 graceful skip
    - 또는 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh .`로 batch 전체 직접 스캔 (semgrep·gitleaks 미설치 시 graceful skip)
    - `BATCH-SECURITY-DONE: <FID>` 출력 후 오케스트레이터로 제어 반환 (`**§batch**` halt)
@@ -385,7 +385,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 
 **Step B: batch 레벨 통합·E2E 테스트**
 
-2. `specops-ko:integration-test-ko` 호출 — batch 전체 통합 표면 대상
+2. `devfsd:integration-test-ko` 호출 — batch 전체 통합 표면 대상
    - 각 FR의 `.specops/<FID>/spec.md` `§범위` 스캔 → **두 표면을 함께** 검출(integration-test-ko Q5 풀스택 — 신호 OR, 둘 다 커버):
      - **통합 표면**(API·DB·서비스 간 호출) → downstream 스택 통합 테스트(supertest/httpx/pg 등)
      - **UI 표면**(화면 렌더·사용자 흐름·클릭/폼/라우팅) → **E2E 위임**: 브라우저 E2E 를 downstream 프로젝트 스택(**Playwright/Cypress 등**)으로 작성·실행(플러그인은 브라우저 인프라 미보유 — execution 은 downstream). `e2e-runner` 에이전트 있으면 선택 활용(없어도 downstream 스택 직접 지시로 graceful — 하드 의존 금지).
@@ -399,7 +399,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/batch-state.sh ".specops/$BATCH_ID"
 
 **Step C: batch 레벨 성능 테스트**
 
-3. `specops-ko:performance-test-ko` 호출 — batch 전체 성능 임계값 대상
+3. `devfsd:performance-test-ko` 호출 — batch 전체 성능 임계값 대상
    - `.specops/memory/requirements.md` `## 3. 비기능 요구사항 (NFR)` + 각 FR spec.md `§NFR` 스캔
    - 성능 임계값 신호 부재 시 graceful skip
    - FAIL 시 → 위 **게이트 FAIL 뒤의 복귀**

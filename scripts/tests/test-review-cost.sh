@@ -313,8 +313,8 @@ if ! command -v jq >/dev/null 2>&1; then echo "SKIP: Part B 는 jq 필요"; echo
 mkag() { mkdir -p "$1" && cat > "$1/agent-$2.jsonl" && touch -t 203001010000 "$1/agent-$2.jsonl"; [ "$3" = "-" ] || printf '%s' "$3" > "$1/agent-$2.meta.json"; }
 # 레코드 한 줄: rec HH:MM:SS [YYYY-MM-DD] (기본 2026-09-01 UTC) — KST 로컬은 +9시간
 rec() { printf '{"type":"user","timestamp":"%sT%s.000Z","message":{"content":"x"}}\n' "${2:-2026-09-01}" "$1"; }
-META_PLAN='{"agentType":"specops-ko:plan-reviewer-ko","toolUseId":"toolu_p","spawnDepth":1}'
-META_SPEC='{"agentType":"specops-ko:spec-reviewer-ko","toolUseId":"toolu_s","spawnDepth":1}'
+META_PLAN='{"agentType":"devfsd:plan-reviewer-ko","toolUseId":"toolu_p","spawnDepth":1}'
+META_SPEC='{"agentType":"devfsd:spec-reviewer-ko","toolUseId":"toolu_s","spawnDepth":1}'
 
 # ══ AC-5: wall 귀속 — 원장 plan 창 [시작−60초, 끝+120초] ══
 ledger w5 <<EOF
@@ -441,7 +441,7 @@ $HDR
 $(pr 1 PASS)
 EOF
 { rec 01:05:00; rec 01:15:00; } | mkag "$SB/w5rtd/s1/subagents" a1 "$META_PLAN"
-{ rec 01:12:00; rec 01:17:00; } | mkag "$SB/w5rtd/s1/subagents" a9 '{"agentType":"specops-ko:plan-reviewer-ko","toolUseId":"","spawnDepth":0}'
+{ rec 01:12:00; rec 01:17:00; } | mkag "$SB/w5rtd/s1/subagents" a9 '{"agentType":"devfsd:plan-reviewer-ko","toolUseId":"","spawnDepth":0}'
 { rec 01:13:00; rec 01:18:00; } | mkag "$SB/w5rtd/s1/subagents" a8 '{"agentType":"plan-reviewer-ko","toolUseId":"toolu_q","spawnDepth":1}'
 TZV=Asia/Seoul runs w5r --transcript-dir "$SB/w5rtd"
 ck "T5.g 역할은 agent-spans 가 판정한다: meta 에 plan-reviewer-ko 가 있어도 toolUseId 가 비면 역할 '-' 라 세지 않고(a9), 네임스페이스 없는 이름은 센다(a8) — 에이전트 2개(10+5분) 귀속" "$(printf '%s\n' "$OUT" | grep -F 'wall:')" "wall: 에이전트 2개 중 귀속 2 · 모호 0 · 미귀속 0 — FID 합 15분 · 라운드당 평균 7.5분"
@@ -521,7 +521,7 @@ $(pr 3 ABORT "$CAN-NOTE3")
 EOF
 mkdir -p "$SB/p8/20260901-fida/reviews"; printf '%s-REPORT\n' "$CAN" > "$SB/p8/20260901-fida/reviews/T1-C-report.md"; printf '%s-PRB\n' "$CAN" > "$SB/p8/20260901-fida/reviews/plan-review-1.md"
 cp "$SB/w5/session-progress.md" "$SB/p8/"
-{ printf '{"type":"user","timestamp":"2026-09-01T01:05:00.000Z","message":{"content":"%s-BODY"},"toolUseResult":{"x":"%s-TR"}}\n' "$CAN" "$CAN"; printf '{"type":"assistant","timestamp":"2026-09-01T01:15:00.000Z","message":{"content":"%s-IN"}}\n' "$CAN"; } | mkag "$SB/p8td/s1/subagents" x1 "{\"agentType\":\"specops-ko:plan-reviewer-ko\",\"toolUseId\":\"toolu_p\",\"description\":\"$CAN-DESC\"}"
+{ printf '{"type":"user","timestamp":"2026-09-01T01:05:00.000Z","message":{"content":"%s-BODY"},"toolUseResult":{"x":"%s-TR"}}\n' "$CAN" "$CAN"; printf '{"type":"assistant","timestamp":"2026-09-01T01:15:00.000Z","message":{"content":"%s-IN"}}\n' "$CAN"; } | mkag "$SB/p8td/s1/subagents" x1 "{\"agentType\":\"devfsd:plan-reviewer-ko\",\"toolUseId\":\"toolu_p\",\"description\":\"$CAN-DESC\"}"
 mkdir -p "$SB/shim" "$SB/keep"
 printf '#!/bin/sh\nfor a in "$@"; do [ -f "$a" ] && cp "$a" "'"$SB"'/keep/$(basename "$a").$$.$RANDOM" 2>/dev/null; done\nexec /bin/rm "$@"\n' > "$SB/shim/rm"; chmod +x "$SB/shim/rm"
 ALL=""

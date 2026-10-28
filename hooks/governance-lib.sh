@@ -1392,19 +1392,19 @@ _emit_violation() {
 # usage: apply_skill_declaration_rule <transcript> <skill_full_name>
 # 선언 = 영문 "[Using|Invoking|Calling|Switching to] <short|full>" 또는
 #        한국어 "<short> (을|를|로|으로)? (사용|호출|진입|이동|넘어감|시작|진행|발동|들어감|넘어가|개시)"
-# short = skill_full_name 에서 "specops-ko:" 접두 제거
+# short = skill_full_name 에서 "devfsd:" 접두 제거
 # v0.4-pre W1 변경 (마스터 plan §6 v0.4-pre):
 # 1. 동사군 확장 (한국어 6 → 12, 영문 1 → 4)
 # 2. lookback N=1 → N=3 assistant 메시지
 # 3. user turn 첫 진입 예외 (직전 user 메시지에 /start 또는 트리거 키워드 있으면 면제)
-# v0.4b W1 변경: full name (specops-ko:<short>) 패턴 추가 (cvt+b64 7건 회귀 원인)
-# v0.5 W1 변경: lifecycle chain auto-call exempt — 직전 tool_use가 Skill(specops-ko:*)이면 면제
+# v0.4b W1 변경: full name (devfsd:<short>) 패턴 추가 (cvt+b64 7건 회귀 원인)
+# v0.5 W1 변경: lifecycle chain auto-call exempt — 직전 tool_use가 Skill(devfsd:*)이면 면제
 apply_skill_declaration_rule() {
   local transcript="$1" skill_full="$2"
   [ -f "$transcript" ] || return 0
-  local short="${skill_full#specops-ko:}"
-  # full name = specops-ko:<short>, short name = <short> — 둘 다 허용
-  local name_re="(specops-ko:)?${short}"
+  local short="${skill_full#devfsd:}"
+  # full name = devfsd:<short>, short name = <short> — 둘 다 허용
+  local name_re="(devfsd:)?${short}"
   local decl_re="([Uu]sing[[:space:]]+${name_re}|[Ii]nvoking[[:space:]]+${name_re}|[Cc]alling[[:space:]]+${name_re}|[Ss]witching[[:space:]]+to[[:space:]]+${name_re}|${short}[[:space:]]*(을|를|로|으로)?[[:space:]]*(사용|호출|진입|이동|넘어감|시작|진행|발동|들어감|넘어가|개시))"
   # user turn 첫 진입 예외 트리거 (사용자 입력에 이 패턴이 있으면 첫 Skill 호출은 면제)
   local trigger_re='(/start|/quick|/free|만들[고어]|구현|추가|수정|fix|feature)'
@@ -1417,7 +1417,7 @@ apply_skill_declaration_rule() {
     def utext: [.message.content // "" | if type == "string" then . else (.[]? | select(.type == "text") | .text) end] | first // "";
     def atext: [.message.content[]? | select(.type == "text") | .text] | join("\n");
     def has_target($s): [.message.content[]? | select(.type == "tool_use" and .name == "Skill" and .input.skill == $s)] | length > 0;
-    def lc_skill: [.message.content[]? | select(.type == "tool_use" and .name == "Skill") | (.input.skill // "") | select(startswith("specops-ko:"))] | first // "";
+    def lc_skill: [.message.content[]? | select(.type == "tool_use" and .name == "Skill") | (.input.skill // "") | select(startswith("devfsd:"))] | first // "";
     [inputs] as $all
     | reduce range(0; $all | length) as $i (
         {p1: "", p2: "", p3: "", lu: "", plc: "", matched: false, done: false, offset: 0};

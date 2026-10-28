@@ -102,7 +102,7 @@
     ],
     "SubagentStop": [
       {
-        "matcher": "specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko",
+        "matcher": "devfsd:spec-reviewer-ko|devfsd:code-reviewer-ko",
         "hooks": [
           {
             "type": "command",

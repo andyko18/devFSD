@@ -1,1 +1,1 @@
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_B","name":"Skill","input":{"skill":"specops-ko:verifying-evidence-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_B","name":"Skill","input":{"skill":"devfsd:verifying-evidence-ko"}}]}}

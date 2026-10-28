@@ -31,7 +31,7 @@
 ### 적용 범위
 
 - 훅의 **차단·감사·기록**은 cwd 에 `.specops/` 가 있는 repo 에서만 동작한다(없으면 면제). 훅은 `.specops/` 를 스스로 만들지 않는다 — 만드는 것은 훅이 아닌 명시적 호출(`/init-project`·`/start`·`/maintain` 계열 진입, `/gbrain`·`/design-*` 같은 기록 명령)뿐이다. `.specops/` 를 `.gitignore` 한 저장소에서 새 git worktree 를 만들면 그 worktree 는 `.specops/` 없이 시작하므로, lifecycle 에 진입하기 전까지는 면제 상태다. (v2.17.0 이하에서는 Stop 훅이 `.specops/` 없는 repo 에도 `session-progress.md` 를 만들어 그 repo 를 관할로 편입시켰다. 플러그인을 쓰지 않는 repo 에 `session-progress.md` 만 든 `.specops/` 가 남아 있으면 지우면 된다 — `/doctor` 의 `bootstrap` 항목이 알려 준다.)
-- 그러나 기본 설치(`user` 범위)는 **모든 repo 의 세션 시작에 메타 스킬을 주입**한다. 일부 repo 에서만 쓰려면 범위를 좁혀 설치한다: `claude plugin install specops-ko@specops-ko --scope project` (또는 `local`). 이미 설치했다면 `claude plugin disable specops-ko` 후 필요한 repo 에서만 켠다.
+- 그러나 기본 설치(`user` 범위)는 **모든 repo 의 세션 시작에 메타 스킬을 주입**한다. 일부 repo 에서만 쓰려면 범위를 좁혀 설치한다: `claude plugin install devfsd@devfsd --scope project` (또는 `local`). 이미 설치했다면 `claude plugin disable specops-ko` 후 필요한 repo 에서만 켠다.
 - 기존 프로젝트에 도입할 때는 `/init-project` 를 먼저 돌리고(표준 문서 부트스트랩), 이후 수정은 `/maintain` 으로 시작한다.
 - **주입된 메타 스킬이 하는 일**: 대화에서 기능 요청("X 를 만들어 줘"·"Y 버그 고쳐 줘")을 감지하면 lifecycle 로 진입한다 — `.specops/` 가 없는 repo 에서도 그렇다. 그때 `/init-project` 를 권하는 1줄 안내가 먼저 나오고, 거절해도 명세 단계(`specifying-ko`)로 들어간다. repo 안의 파일을 바꾸지 않는 작업(PPT·Excel·외부 기획서·분석 보고)이나 단순 질문은 진입하지 않는다 — README 같은 repo 안 문서를 고치는 요청은 진입한다. 이 동작을 원하지 않는 repo 에서는 위처럼 설치 범위를 좁힌다.
 
@@ -78,7 +78,7 @@ lifecycle 에 진입하면 저장소에 다음이 생긴다 — 진입 전에 �
 ### 업그레이드 · 삭제
 
 ```bash
-claude plugin update specops-ko@specops-ko   # 적용하려면 Claude Code 재시작
+claude plugin update devfsd@devfsd   # 적용하려면 Claude Code 재시작
 claude plugin uninstall specops-ko           # 제거
 ```
 

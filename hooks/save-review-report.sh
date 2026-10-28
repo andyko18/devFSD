@@ -30,7 +30,7 @@ if [ "$(_j '.hook_event_name // empty')" = "PreToolUse" ]; then
   #   저장 뒤에도 exit 0: PreToolUse 의 exit 2 는 반환 자체를 막는다(요약 재종료 지시 없음).
   [ "$(_j '.tool_name // empty')" = "SubagentHandback" ] || exit 0
   case "$(_j '.agent_type // empty')" in
-    specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko) ;;
+    devfsd:spec-reviewer-ko|devfsd:code-reviewer-ko) ;;
     *) exit 0 ;;
   esac
   msg=$(_j '.tool_input.message // empty')

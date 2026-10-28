@@ -148,7 +148,7 @@ INTEGRATION: FAIL — <N> failures:
   ...
 ```
 
-위 내용을 `.specops/<FID>/evidence.md`에 append 후 **chain 차단** → `specops-ko:systematic-debugging-ko` 호출.
+위 내용을 `.specops/<FID>/evidence.md`에 append 후 **chain 차단** → `devfsd:systematic-debugging-ko` 호출.
 
 systematic-debugging-ko가 원인 분석·수정을 완료하면 다음 경로로 복귀:
 ```
@@ -224,7 +224,7 @@ grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md && echo "BATCH" || echo "SIN
 **[단일 모드]** (`**§batch**` 라벨 없는 경우) → 즉시 호출:
 
 ```
-Skill: specops-ko:performance-test-ko
+Skill: devfsd:performance-test-ko
 ```
 
 performance-test-ko가 성능 NFR 임계값 존재 여부를 판정하고 PR 게이트까지 진행한다. 본 integration-test-ko는 단일 모드에서 **performance-test-ko 이외의 다음 스킬을 호출하지 않는다** (batch halt·FAIL 시 systematic-debugging-ko 경유 후 chain 복귀 제외).

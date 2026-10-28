@@ -1,4 +1,4 @@
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:verifying-evidence-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:verifying-evidence-ko"}}]}}
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"bash scripts/_internal/run-verification.sh 20260526-r6-fix-followup"}}]}}
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Edit","input":{"file_path":".specops/20260526-r6-fix-followup/evidence.md","old_string":"## run-verification.sh","new_string":"# 검증 헤더\n\n## run-verification.sh"}}]}}
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"verify 완료. PR 생성 준비."}]}}

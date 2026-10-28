@@ -1,7 +1,7 @@
 ---
 name: brainstorming
 disable-model-invocation: true
-description: 구현 전 아이디어 탐색·수요 검증 슬래시 — specops-ko:brainstorming-ko 호출. pre-init-project 선택 진입점.
+description: 구현 전 아이디어 탐색·수요 검증 슬래시 — devfsd:brainstorming-ko 호출. pre-init-project 선택 진입점.
 triggers:
   - "/brainstorming"
 mode: ask
@@ -20,7 +20,7 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 
 ## Process
 
-1. **즉시 `specops-ko:brainstorming-ko` 호출** — 전달된 `<주제>`를 초기 맥락으로 제공
+1. **즉시 `devfsd:brainstorming-ko` 호출** — 전달된 `<주제>`를 초기 맥락으로 제공
 2. 모드 선택 GATE (Startup / Builder)
 3. 질문 기반 탐색 진행
 4. 산출물 저장: `.specops/memory/brainstorming-<날짜>-<시간>-<슬러그>.md`

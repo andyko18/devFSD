@@ -95,7 +95,7 @@ SECURITY: FAIL — crit=<N> high=<N>:
   ...
 ```
 
-위 내용을 `.specops/<FID>/evidence.md`에 append 후 **chain 차단** → `specops-ko:systematic-debugging-ko` 호출.
+위 내용을 `.specops/<FID>/evidence.md`에 append 후 **chain 차단** → `devfsd:systematic-debugging-ko` 호출.
 
 systematic-debugging-ko가 원인 분석·수정을 완료하면 다음 경로로 복귀:
 ```
@@ -184,7 +184,7 @@ grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md && echo "BATCH" || echo "SIN
 **[단일 모드]** (`**§batch**` 라벨 없는 경우) — **Critical/High 0건 (PASS) 또는 표면 없음(SKIP)** → 즉시 호출:
 
 ```
-Skill: specops-ko:integration-test-ko
+Skill: devfsd:integration-test-ko
 ```
 
 integration-test-ko가 통합 표면을 판정하고 → performance-test-ko → PR 생성 게이트로 chain한다.

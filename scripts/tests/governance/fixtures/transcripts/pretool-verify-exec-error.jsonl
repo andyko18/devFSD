@@ -1,3 +1,3 @@
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_S","name":"Skill","input":{"skill":"specops-ko:verifying-evidence-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_S","name":"Skill","input":{"skill":"devfsd:verifying-evidence-ko"}}]}}
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_R","name":"Bash","input":{"command":"bash scripts/_internal/run-verification.sh 20260101-x"}}]}}
 {"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_R","is_error":true,"content":"VERIFY: PASS"}]}}

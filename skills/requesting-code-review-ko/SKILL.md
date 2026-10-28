@@ -165,7 +165,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 ## 참조
 
-- 리뷰어 에이전트: `agents/code-reviewer-ko.md` (Phase C — `subagent_type: "specops-ko:code-reviewer-ko"`)
+- 리뷰어 에이전트: `agents/code-reviewer-ko.md` (Phase C — `subagent_type: "devfsd:code-reviewer-ko"`)
 - specops-ko 한국어 선례: `skills/requesting-code-review-ko/SKILL.md`
 
 ## session-progress append (v0.4-pre P1 신설)
@@ -183,7 +183,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /request-r
 리뷰 피드백 수령 + session-progress append 직후 즉시 호출:
 
 ```
-Skill: specops-ko:receiving-code-review-ko
+Skill: devfsd:receiving-code-review-ko
 ```
 
 receiving-code-review-ko가 피드백을 어떻게 수용·검증·구현할지 강제한다. 본 requesting-code-review-ko는 **receiving-code-review-ko 이외의 다음 스킬을 호출하지 않는다**.

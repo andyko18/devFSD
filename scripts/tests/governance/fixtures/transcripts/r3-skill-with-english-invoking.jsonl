@@ -1,2 +1,2 @@
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Invoking decomposing-ko to break down tasks."}]}}
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:decomposing-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:decomposing-ko"}}]}}

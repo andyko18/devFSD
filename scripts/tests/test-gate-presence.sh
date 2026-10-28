@@ -239,8 +239,8 @@ for c in init-project status; do
   awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$PLUGIN/commands/$c.md" | grep -q 'disable-model-invocation' && { _dmi_ok=no; echo "  (모델 호출 필요 command 에 플래그: $c)"; }
 done
 [ "$_dmi_ok" = ok ] && ok "dmi: 사용자 전용 command ${_dmi_n}종 disable-model-invocation · init-project·status 는 제외" || nope "dmi: command 플래그 계약 위반"
-# 비활성 command 를 skill 호출 문법(specops-ko:<cmd>)으로 부르는 본문이 없다 — 있으면 모델이 못 불러 체인이 끊긴다
-_dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'specops-ko:(brainstorming|design-interfaces?|design-screens?|doctor|e2e-test|gbrain|improve-arch|log|maintain-lite|maintain|promote|release|security-scan|start-all-auto|start-all|start-foundation|start-lite|start|statusline-install)([^-a-z]|$)' -- skills agents hooks 2>/dev/null | head -3)
+# 비활성 command 를 skill 호출 문법(devfsd:<cmd>)으로 부르는 본문이 없다 — 있으면 모델이 못 불러 체인이 끊긴다
+_dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'devfsd:(brainstorming|design-interfaces?|design-screens?|doctor|e2e-test|gbrain|improve-arch|log|maintain-lite|maintain|promote|release|security-scan|start-all-auto|start-all|start-foundation|start-lite|start|statusline-install)([^-a-z]|$)' -- skills agents hooks 2>/dev/null | head -3)
 [ -z "$_dmi_ref" ] && ok "dmi: 비활성 command 를 모델이 skill 로 호출하는 본문 0건" || nope "dmi: 비활성 command 호출 참조" "$_dmi_ref"
 
 # ── implementer-ko 가 karpathy-ko 를 프리로드한다 (공식 sub-agents: `skills` frontmatter = 시작 시 전체 내용 주입) ──
@@ -287,7 +287,7 @@ else
 fi
 # ── 20261005 end-loaded 리뷰 완료 FID 의 기계적 단계 생략 (verifying-evidence-ko → review-skip-pass.sh) ──
 # 조건 충족 시 requesting·receiving-code-review-ko 를 호출하지 않고 security-review-ko 로 간다. 문구가 사라지면 두 skill 이 다시 매번 주입된다.
-if has skills/verifying-evidence-ko/SKILL.md 'review-skip-pass\.sh' 'rc 0 .*호출하지 않고.*Skill: specops-ko:security-review-ko' 'rc 1 이면.*아래 기본 경로다' '판정이 애매하면 기본 경로다'; then
+if has skills/verifying-evidence-ko/SKILL.md 'review-skip-pass\.sh' 'rc 0 .*호출하지 않고.*Skill: devfsd:security-review-ko' 'rc 1 이면.*아래 기본 경로다' '판정이 애매하면 기본 경로다'; then
   ok "verifying-evidence-ko review-skip-pass fast path 존재 (rc 0 → security-review · rc 1 → 종전 · 애매하면 기본)"
 else
   nope "verifying-evidence-ko review-skip-pass fast path 소실" "end-loaded FID 의 기계적 리뷰 단계 생략 문구 부재"
@@ -527,7 +527,7 @@ _l_bd=$(grep -n '^### 경계 대조 입력' "$_PL" | head -1 | cut -d: -f1)
 _l_pr=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
 _l_dbend=$(awk -v s="$_l_db" 'NR>s && /^### /{print NR; exit}' "$_PL")   # DB 절 다음 제목 — 뒤에 붙는 전문가 절이 DB 검사를 대신 통과시키지 않게
 if [ -n "$_l_db" ] && [ -n "$_l_dbend" ] && [ -n "$_l_bd" ] && [ -n "$_l_pr" ] && [ "$_l_bd" -lt "$_l_db" ] && [ "$_l_db" -lt "$_l_pr" ] \
-   && has "$_PL" 'subagent_type: "specops-ko:db-designer-ko"' 'experts/db\.md' '\| db-expert \| db-designer-ko \| 반영 \|' 'DB 산출물' 'upsert' '대량 적재' 'data-model\.md' '테스트 DB fixture' '언급되기만 하고' '## 반영' '두 스크립트를 다시 실행' '\| db-expert \| - \| SKIP \|' '가용 모델' '산출 없음' \
+   && has "$_PL" 'subagent_type: "devfsd:db-designer-ko"' 'experts/db\.md' '\| db-expert \| db-designer-ko \| 반영 \|' 'DB 산출물' 'upsert' '대량 적재' 'data-model\.md' '테스트 DB fixture' '언급되기만 하고' '## 반영' '두 스크립트를 다시 실행' '\| db-expert \| - \| SKIP \|' '가용 모델' '산출 없음' \
    && sed -n "${_l_db},${_l_dbend}p" "$_PL" | grep -q '§batch' && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -E '^\| [^|]*\| [^|]*\| db-expert \|' | grep -qE 'DONE|IMPL' \
    && ! sed -n "${_l_db},${_l_pr}p" "$_PL" | grep -oE '`\| [^|`]* \| [^|`]* \| db-expert \|[^`]*`' | grep -qE 'DONE|IMPL'; then
   ok "planning-ko DB 전문가 패스 — 경계 대조 뒤·plan-reviewer 전 · 발동 조건 · dispatch · 반영 · 재검사 · 기록 · batch 제외"
@@ -590,7 +590,7 @@ fi
 _api_has() { local p; for p in "$@"; do printf '%s\n' "$_api_body" | grep -qE -- "$p" || return 1; done; return 0; }
 if [ -n "$_l_db3" ] && [ -n "$_l_apiend" ] && [ -n "$_l_sec3" ] && [ -n "$_l_tst3" ] && [ -n "$_l_pr3" ] \
    && [ "$_l_db3" -lt "$_l_api" ] && [ "$_l_api" -lt "$_l_sec3" ] && [ "$_l_sec3" -lt "$_l_tst3" ] && [ "$_l_tst3" -lt "$_l_pr3" ] \
-   && _api_has 'subagent_type: "specops-ko:api-designer-ko"' 'experts/api\.md' '\| api-expert \| api-designer-ko \| 반영 \|' '\| api-expert \| - \| SKIP \|' '\| api-expert \| api-designer-ko \| 산출 없음 \|' \
+   && _api_has 'subagent_type: "devfsd:api-designer-ko"' 'experts/api\.md' '\| api-expert \| api-designer-ko \| 반영 \|' '\| api-expert \| - \| SKIP \|' '\| api-expert \| api-designer-ko \| 산출 없음 \|' \
         '엔드포인트를 추가·변경·삭제' '라우트·컨트롤러·GraphQL 스키마' 'api-expert/patterns/' '`§batch` 는 이 패스 미적용' '마지막 전문가 패스 뒤에 한 번만' \
    && [ "$(printf '%s\n' "$_api_body" | sed 1d | grep -c '^#')" -eq 0 ] \
    && ! printf '%s\n' "$_api_body" | grep -E '^\| [^|]*\| [^|]*\| api-expert \|' | grep -qE 'DONE|IMPL' \
@@ -664,7 +664,7 @@ _l_sec=$(grep -n '^### 보안 전문가 패스' "$_PL" | head -1 | cut -d: -f1)
 _l_pr4=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
 _l_secend=$(awk -v s="$_l_sec" 'NR>s && /^### /{print NR; exit}' "$_PL")   # 보안 절 다음 제목 — 뒤에 붙는 전문가 절이 보안 검사를 대신 통과시키지 않게
 if [ -n "$_l_secend" ] && [ -n "$_l_db4" ] && [ -n "$_l_sec" ] && [ -n "$_l_pr4" ] && [ "$_l_db4" -lt "$_l_sec" ] && [ "$_l_sec" -lt "$_l_pr4" ] \
-   && has "$_PL" 'subagent_type: "specops-ko:security-designer-ko"' 'experts/security\.md' '\| security-expert \| security-designer-ko \| 반영 \|' '\| security-expert \| - \| SKIP \|' '\| security-expert \| security-designer-ko \| 산출 없음 \|' \
+   && has "$_PL" 'subagent_type: "devfsd:security-designer-ko"' 'experts/security\.md' '\| security-expert \| security-designer-ko \| 반영 \|' '\| security-expert \| - \| SKIP \|' '\| security-expert \| security-designer-ko \| 산출 없음 \|' \
         '\*\*인증·인가·세션\*\*.*\*\*외부 입력 경계\*\*.*\*\*개인정보 필드\*\*.*만들거나 바꾸면 발동한다' '판단 전에 `bash "\$\{CLAUDE_PLUGIN_ROOT\}"/scripts/_internal/check-security-design\.sh <FID>` 를 한 번 실행해 `\[승인 대상\]` 줄이 있으면 발동한다' 'security-expert/patterns/' \
    && sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -q '`§batch` 는 이 패스 미적용' && sed -n "${_l_sec},${_l_secend}p" "$_PL" | grep -q '마지막 전문가 패스 뒤에 한 번만' \
    && [ "$(sed -n "$((_l_sec+1)),$((_l_secend-1))p" "$_PL" | grep -c '^#')" -eq 0 ] \
@@ -795,7 +795,7 @@ _l_tst=$(grep -n '^### 테스트 전문가 패스' "$_PL" | head -1 | cut -d: -f
 _l_pr5=$(grep -n '^### 비-batch — plan-reviewer dispatch' "$_PL" | head -1 | cut -d: -f1)
 _l_tstend=$(awk -v s="$_l_tst" 'NR>s && /^### /{print NR; exit}' "$_PL")   # 테스트 절 다음 제목 — 뒤에 절이 더 붙어도 이 검사가 그 절 문구로 통과하지 않게
 if [ -n "$_l_sec5" ] && [ -n "$_l_tst" ] && [ -n "$_l_pr5" ] && [ -n "$_l_tstend" ] && [ "$_l_sec5" -lt "$_l_tst" ] && [ "$_l_tst" -lt "$_l_pr5" ] \
-   && has "$_PL" 'subagent_type: "specops-ko:test-designer-ko"' 'experts/test\.md' '\| test-expert \| test-designer-ko \| 반영 \|' '\| test-expert \| - \| SKIP \|' '\| test-expert \| test-designer-ko \| 산출 없음 \|' \
+   && has "$_PL" 'subagent_type: "devfsd:test-designer-ko"' 'experts/test\.md' '\| test-expert \| test-designer-ko \| 반영 \|' '\| test-expert \| - \| SKIP \|' '\| test-expert \| test-designer-ko \| 산출 없음 \|' \
         '\*\*테스트 파일\*\*.*`test_\*\.py`.*`scripts/tests/`.*만들거나 고치면 발동한다' '전문가 패스 가운데 마지막' '떨어뜨리는 잘못된 구현" 칸은 plan 의 해당 테스트 스텝에 옮긴다' \
    && sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -q '`§batch` 는 이 패스 미적용' && sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -q '마지막 전문가 패스 뒤에 한 번만' \
    && sed -n "${_l_tst},${_l_tstend}p" "$_PL" | grep -q 'acceptance-criteria\.md' \
@@ -818,7 +818,7 @@ _s65_body=""
 _s65_has() { local p; for p in "$@"; do printf '%s\n' "$_s65_body" | grep -qE -- "$p" || return 1; done; return 0; }
 _s65_ex=$(printf '%s\n' "$_s65_body" | grep -E '^   - \*\*제외\*\*:')
 if [ -n "$_l_s6" ] && [ -n "$_s65_body" ] && [ "$_l_s6" -lt "$_l_s65" ] \
-   && _s65_has 'subagent_type: "specops-ko:req-designer-ko"' 'experts/req\.md' '저장·계산·판정' '판단이 서지 않으면 부른다' \
+   && _s65_has 'subagent_type: "devfsd:req-designer-ko"' 'experts/req\.md' '저장·계산·판정' '판단이 서지 않으면 부른다' \
         'spec §8 열린 질문으로 옮긴다' \
         '`acceptance-criteria\.md` · `intent\.md`' '가용 모델 override 로 다시 dispatch' '부모가 대신 검토하지 않는다' \
         '\| req-expert \| req-designer-ko \| 반영 \|' '\| req-expert \| - \| SKIP \| 데이터 표면 없음 \|' '\| req-expert \| req-designer-ko \| 산출 없음 \|' \
@@ -841,7 +841,7 @@ _s66_body=""; [ -n "$_l_s66end" ] && _s66_body=$(sed -n "${_l_s66},$((_l_s66end-
 _s66_has() { local p; for p in "$@"; do printf '%s\n' "$_s66_body" | grep -qE -- "$p" || return 1; done; return 0; }
 _s66_ex=$(printf '%s\n' "$_s66_body" | grep -E '^   - \*\*제외\*\*:')
 if [ -n "$_l_s65" ] && [ -n "$_l_s66" ] && [ -n "$_l_s7" ] && [ "$_l_s65" -lt "$_l_s66" ] && [ "$_l_s66" -lt "$_l_s7" ] && [ -n "$_s66_body" ] \
-   && _s66_has 'subagent_type: "specops-ko:ui-designer-ko"' 'experts/ui\.md' '기능 화면 `screens/<name>\.md` 를 만들거나 고쳤으면 발동한다' \
+   && _s66_has 'subagent_type: "devfsd:ui-designer-ko"' 'experts/ui\.md' '기능 화면 `screens/<name>\.md` 를 만들거나 고쳤으면 발동한다' \
         'spec §8 열린 질문으로 옮긴다' \
         '이번에 만든·고친 `screens/<name>\.md`·`\.html` · `\.specops/<FID>/spec\.md` · `acceptance-criteria\.md` · `DESIGN\.md`\(있으면\)' '가용 모델 override 로 다시 dispatch' '부모가 대신 검토하지 않는다' \
         '\| ui-expert \| ui-designer-ko \| 반영 \|' '\| ui-expert \| - \| SKIP \| 화면 변경 없음 \|' '\| ui-expert \| ui-designer-ko \| 산출 없음 \|' \
@@ -871,7 +871,7 @@ if [ -n "$_l_pa" ] && [ -n "$_l_pa2" ] && [ -n "$_l_pb" ] && [ "$_l_pa" -lt "$_l
    && _a2_has '`UI-EXPERT: SKIP — 화면 산출 없음`' '`\.specops/<BATCH_ID>/experts/ui\.md`' 'E 설계 승인 게이트에서 함께 묻는다' \
         '`§auto` 면 best-guess 로 정해 `\(ASSUMED\)` 로 queue 다이제스트에 남긴다' '부모가 대신 검토하지 않는다' '`UI-EXPERT: 산출 없음`' \
         'D\(`design-reviewer-ko`\)의 독립 판정은 그대로다' '`BATCH_ID` 와 산출 경로 `\.specops/<BATCH_ID>/experts/ui\.md`\(산출 경로의 `<FID>` 자리에만 `<BATCH_ID>` 를 쓴다고 프롬프트에 적는다\)' \
-   && printf '%s\n' "$_a2_body" | grep -F 'subagent_type: "specops-ko:ui-designer-ko"' | grep -qF 'batch 당 1회' \
+   && printf '%s\n' "$_a2_body" | grep -F 'subagent_type: "devfsd:ui-designer-ko"' | grep -qF 'batch 당 1회' \
    && printf '%s\n' "$_a2_body" | grep -F '`UI-EXPERT: SKIP — 화면 산출 없음`' | grep -F 'foundation 셸(`<!-- foundation-shell -->`)만 재사용했거나 A 가 SKIP 이면' | grep -qF '(`|` 로 시작 금지)' \
    && _l_pe=$(grep -n '^#### E\. ' "$_SAL" | head -1 | cut -d: -f1) && [ -n "$_l_pe" ] && _e_end=$(awk -v s="$_l_pe" 'NR>s && /^#### /{print NR; exit}' "$_SAL") && [ -n "$_e_end" ] \
    && sed -n "${_l_pe},$((_e_end-1))p" "$_SAL" | grep -qF 'A2 의 `experts/ui.md` `## 확인 필요` 질문' \
@@ -893,7 +893,7 @@ _ar_body=""; [ -n "$_l_arend" ] && _ar_body=$(sed -n "${_l_ar},$((_l_arend-1))p"
 _ar_has() { local p; for p in "$@"; do printf '%s\n' "$_ar_body" | grep -qE -- "$p" || return 1; done; return 0; }
 if [ -n "$_l_db6" ] && [ -n "$_l_ar" ] && [ -n "$_l_api6" ] && [ -n "$_l_sec6" ] && [ -n "$_l_tst6" ] && [ -n "$_l_pr6" ] \
    && [ "$_l_db6" -lt "$_l_ar" ] && [ "$_l_ar" -lt "$_l_api6" ] && [ "$_l_api6" -lt "$_l_sec6" ] && [ "$_l_sec6" -lt "$_l_tst6" ] && [ "$_l_tst6" -lt "$_l_pr6" ] && [ "$_l_arend" = "$_l_api6" ] \
-   && _ar_has '^- \*\*dispatch\*\*: `Agent` 도구, `subagent_type: "specops-ko:arch-designer-ko"` · 입력은 경로만 — `\.specops/<FID>/spec\.md` · `plan\.md` · `\.specops/memory/backend-architecture\.md`·`frontend-architecture\.md`\(있으면\) · `\$\{CLAUDE_PLUGIN_ROOT\}/skills/planning-ko/arch-expert/patterns/`\.$' \
+   && _ar_has '^- \*\*dispatch\*\*: `Agent` 도구, `subagent_type: "devfsd:arch-designer-ko"` · 입력은 경로만 — `\.specops/<FID>/spec\.md` · `plan\.md` · `\.specops/memory/backend-architecture\.md`·`frontend-architecture\.md`\(있으면\) · `\$\{CLAUDE_PLUGIN_ROOT\}/skills/planning-ko/arch-expert/patterns/`\.$' \
         'plan §2 파일 구조가 \*\*새 폴더·새 모듈·새 계층\*\*을 만들거나, 경계 약속의 허용 의존에 \*\*새 의존 방향\*\*이 생기거나, spec 에 \*\*새 도메인 개념\*\*\(엔티티·상태\)이 생기면 발동한다\. 기존 파일 수정뿐이거나 문서·테스트만 바꾸면 발동하지 않는다\. 파일 구조·태스크로 판단이 서지 않으면 부른다\(' \
         '`§batch` 는 이 패스 미적용\(기록 행도 남기지 않는다\) · `§auto` 는 그대로 부른다\.' \
         '^- \*\*반영\*\*: `\.specops/<FID>/experts/arch\.md` 의 지적' '마지막 전문가 패스 뒤에 한 번만' \

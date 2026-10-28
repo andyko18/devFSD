@@ -33,7 +33,7 @@ fi
 # T14.b SKILL.md 측 drift — s1 의 Skill: 라인 대상을 제3 skill 로 변경 (chain.yaml 미갱신) → FAIL + edge 명시 (AC-2)
 sb=$(mktemp -d); make_sandbox "$sb"
 pre=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); pre_rc=$?
-sed -i.bak 's/^Skill: specops-ko:clarifying-ko$/Skill: specops-ko:planning-ko/' "$sb/skills/specifying-ko/SKILL.md"
+sed -i.bak 's/^Skill: devfsd:clarifying-ko$/Skill: devfsd:planning-ko/' "$sb/skills/specifying-ko/SKILL.md"
 rm -f "$sb/skills/specifying-ko/SKILL.md.bak"
 err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $pre_rc -eq 0 ] && printf '%s' "$pre" | grep -q 'chain_consistency: OK' \

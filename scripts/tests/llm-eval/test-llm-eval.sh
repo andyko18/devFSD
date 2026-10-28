@@ -62,11 +62,11 @@ fi
 # T2.a stub — STUB_PLAN 1째 줄 skill 지정 시 tool_use 이벤트 + result 이벤트 출력
 TD=$(mktemp -d)
 export STUB_STATE="$TD/count" STUB_PLAN="$TD/plan.jsonl"
-echo '{"skill":"specops-ko:specifying-ko","args":"CSV CLI","cost":0.1}' > "$STUB_PLAN"
+echo '{"skill":"devfsd:specifying-ko","args":"CSV CLI","cost":0.1}' > "$STUB_PLAN"
 out=$(bash "$STUB" -p "아무 프롬프트" --output-format stream-json 2>/dev/null)
 got_skill=$(printf '%s\n' "$out" | jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and .name=="Skill") | .input.skill' | head -1)
 got_cost=$(printf '%s\n' "$out" | jq -r 'select(.type=="result") | .total_cost_usd' | head -1)
-if [ "$got_skill" = "specops-ko:specifying-ko" ] && [ "$got_cost" = "0.1" ] && [ "$(cat "$STUB_STATE")" = "1" ]; then
+if [ "$got_skill" = "devfsd:specifying-ko" ] && [ "$got_cost" = "0.1" ] && [ "$(cat "$STUB_STATE")" = "1" ]; then
   PASS=$((PASS+1)); echo "PASS T2.a stub tool_use + result + 카운터"
 else
   FAIL=$((FAIL+1)); echo "FAIL T2.a (skill=$got_skill cost=$got_cost)"
@@ -82,7 +82,7 @@ mk_fx() { # $1=파일 $2...=jsonl 줄들
 # T3.a 일치 → PASS + exit 0
 TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
 mk_fx "$TD/fx.jsonl" '{"id":"new-1","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}'
-mk_fx "$STUB_PLAN" '{"skill":"specops-ko:specifying-ko","args":"CLI","cost":0}'
+mk_fx "$STUB_PLAN" '{"skill":"devfsd:specifying-ko","args":"CLI","cost":0}'
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS new-1'; then
   PASS=$((PASS+1)); echo "PASS T3.a 일치 판정"
@@ -94,7 +94,7 @@ rm -rf "$TD"
 # T3.b skill 불일치 → FAIL + exit 1 (재시도 2회 모두 불일치)
 TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
 mk_fx "$TD/fx.jsonl" '{"id":"new-1","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}'
-mk_fx "$STUB_PLAN" '{"skill":"specops-ko:analyzing-ko","args":"x","cost":0}' '{"skill":"specops-ko:analyzing-ko","args":"x","cost":0}'
+mk_fx "$STUB_PLAN" '{"skill":"devfsd:analyzing-ko","args":"x","cost":0}' '{"skill":"devfsd:analyzing-ko","args":"x","cost":0}'
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$out" | grep -q '^FAIL new-1'; then
   PASS=$((PASS+1)); echo "PASS T3.b 불일치 판정"
@@ -106,7 +106,7 @@ rm -rf "$TD"
 # T3.c expect_skill=none 인데 Skill 호출 → FAIL
 TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
 mk_fx "$TD/fx.jsonl" '{"id":"none-1","prompt":"jq 어디서 써?","expect_skill":"none","expect_flag":"none"}'
-mk_fx "$STUB_PLAN" '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}' '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
+mk_fx "$STUB_PLAN" '{"skill":"devfsd:specifying-ko","args":"x","cost":0}' '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$out" | grep -q '^FAIL none-1'; then
   PASS=$((PASS+1)); echo "PASS T3.c none 위반 판정"
@@ -122,8 +122,8 @@ mk_fx "$TD/fx.jsonl" \
   '{"id":"maint-1","prompt":"버그 고쳐줘","expect_skill":"analyzing-ko","expect_flag":"maintain"}'
 mk_fx "$STUB_PLAN" \
   '{"skill":null}' \
-  '{"skill":"specops-ko:analyzing-ko","args":"버그 고쳐줘 (flag 없음)","cost":0}' \
-  '{"skill":"specops-ko:analyzing-ko","args":"버그 고쳐줘 (flag 없음)","cost":0}'
+  '{"skill":"devfsd:analyzing-ko","args":"버그 고쳐줘 (flag 없음)","cost":0}' \
+  '{"skill":"devfsd:analyzing-ko","args":"버그 고쳐줘 (flag 없음)","cost":0}'
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$out" | grep -q '^PASS none-2' && echo "$out" | grep -q '^FAIL maint-1'; then
   PASS=$((PASS+1)); echo "PASS T3.d none-PASS + maintain flag 누락 FAIL"
@@ -135,7 +135,7 @@ rm -rf "$TD"
 # T3.e maintain flag 첫 줄 포함 → PASS (AC-4 양성) + 요약 포맷 (AC-5)
 TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
 mk_fx "$TD/fx.jsonl" '{"id":"maint-1","prompt":"버그 고쳐줘","expect_skill":"analyzing-ko","expect_flag":"maintain"}'
-mk_fx "$STUB_PLAN" '{"skill":"specops-ko:analyzing-ko","args":"<!-- entry: maintain -->\n버그 고쳐줘","cost":0}'
+mk_fx "$STUB_PLAN" '{"skill":"devfsd:analyzing-ko","args":"<!-- entry: maintain -->\n버그 고쳐줘","cost":0}'
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS maint-1' \
    && echo "$out" | grep -qE 'PASS=[0-9]+ FAIL=[0-9]+ SKIP=[0-9]+ BORDERLINE=[0-9]+ COST=\$'; then
@@ -178,7 +178,7 @@ rm -rf "$TD"
 # T7.c expect_bootstrap 미정의 + Skill 호출 → 기존 Skill 차원 회귀 (early-return 미발동)
 TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
 mk_fx "$TD/fx.jsonl" '{"id":"new-1","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}'
-mk_fx "$STUB_PLAN" '{"skill":"specops-ko:specifying-ko","args":"CLI","cost":0}'
+mk_fx "$STUB_PLAN" '{"skill":"devfsd:specifying-ko","args":"CLI","cost":0}'
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS new-1'; then PASS=$((PASS+1)); echo "PASS T7.c expect_bootstrap 미정의 회귀"; else FAIL=$((FAIL+1)); echo "FAIL T7.c (rc=$rc out=$out)"; fi
 rm -rf "$TD"
@@ -188,7 +188,7 @@ rm -rf "$TD"
 # T4.a 재시도 성공 — 1차 오답 → 2차 정답 → PASS + retry 표기 + stub 2회 호출 (AC-6)
 TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
 mk_fx "$TD/fx.jsonl" '{"id":"new-1","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}'
-mk_fx "$STUB_PLAN" '{"skill":null}' '{"skill":"specops-ko:specifying-ko","args":"CLI","cost":0}'
+mk_fx "$STUB_PLAN" '{"skill":null}' '{"skill":"devfsd:specifying-ko","args":"CLI","cost":0}'
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 calls=$(cat "$STUB_STATE")
 if [ $rc -eq 0 ] && echo "$out" | grep -q '^PASS new-1 retry' && [ "$calls" = "2" ]; then
@@ -201,7 +201,7 @@ rm -rf "$TD"
 # T4.b BORDERLINE — expect_any 목록 밖 → BORDERLINE 표기 + FAIL 미산입 + exit 0 + 재시도 없음 (AC-11)
 TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
 mk_fx "$TD/fx.jsonl" '{"id":"border-1","prompt":"설명해줘 그리고 고쳐줘","expect_any":["analyzing-ko","none"]}'
-mk_fx "$STUB_PLAN" '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
+mk_fx "$STUB_PLAN" '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 calls=$(cat "$STUB_STATE")
 if [ $rc -eq 0 ] && echo "$out" | grep -q '^BORDERLINE border-1' \
@@ -218,8 +218,8 @@ mk_fx "$TD/fx.jsonl" \
   '{"id":"new-1","prompt":"a","expect_skill":"specifying-ko","expect_flag":"new"}' \
   '{"id":"new-2","prompt":"b","expect_skill":"specifying-ko","expect_flag":"new"}'
 mk_fx "$STUB_PLAN" \
-  '{"skill":"specops-ko:specifying-ko","args":"a","cost":0.5}' \
-  '{"skill":"specops-ko:specifying-ko","args":"b","cost":0.5}'
+  '{"skill":"devfsd:specifying-ko","args":"a","cost":0.5}' \
+  '{"skill":"devfsd:specifying-ko","args":"b","cost":0.5}'
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 0 ] && echo "$out" | grep -q 'COST=\$1\.00'; then
   PASS=$((PASS+1)); echo "PASS T4.c 비용 합산"
@@ -332,7 +332,7 @@ rm -rf "$TD"
 TD=$(mktemp -d); export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
 rm -f "$LLM_EVAL_STAMP_DIR/llm-eval-last-run"   # 선행 케이스 완주 잔재 제거 — 본 케이스가 기록 주체임을 단언
 mk_fx "$TD/fx.jsonl" '{"id":"new-1","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}'
-mk_fx "$STUB_PLAN" '{"skill":"specops-ko:specifying-ko","args":"CLI","cost":0}'
+mk_fx "$STUB_PLAN" '{"skill":"devfsd:specifying-ko","args":"CLI","cost":0}'
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 0 ] && [ -f "$LLM_EVAL_STAMP_DIR/llm-eval-last-run" ] \
    && grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$' "$LLM_EVAL_STAMP_DIR/llm-eval-last-run"; then
@@ -371,7 +371,7 @@ fi
 # ── T9 N-run env 파싱 (AC-5) ──
 # T9.a 비정수 RUNS → 1 폴백 + stderr 경고 (RED: 경고 문구는 Step3 후에만 등장)
 TD=$(mktemp -d) || exit 1; export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
-mk_fx "$STUB_PLAN" '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
+mk_fx "$STUB_PLAN" '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
 echo '{"id":"t9a","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}' > "$TD/fx.jsonl"
 out=$(LLM_EVAL_RUNS=abc CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 # 2>&1 캡처라 stderr 경고도 out 에 포함 — 경고 단언으로 진짜 RED 성립
@@ -383,7 +383,7 @@ rm -rf "$TD"
 # T9.b RUNS=0 및 음수 → 1 폴백 (크래시 없음, 단발 포맷 유지)
 for bad in 0 -5; do
   TD=$(mktemp -d) || exit 1; export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
-  mk_fx "$STUB_PLAN" '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
+  mk_fx "$STUB_PLAN" '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
   echo '{"id":"t9b","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}' > "$TD/fx.jsonl"
   out=$(LLM_EVAL_RUNS="$bad" CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
   if [ $rc -eq 0 ] && printf '%s' "$out" | grep -q 'SKIP=0 BORDERLINE'; then
@@ -395,9 +395,9 @@ done
 # ── T10 N-run 일반 fixture 성공률 (AC-1·2·3 — 판정실패 모드) ──
 # STUB_PLAN 5줄: 3 PASS(specifying) + 2 FAIL(none) → 3/5=60% <80% → FLAKY
 TD=$(mktemp -d) || exit 1; export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
-{ echo '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
-  echo '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
-  echo '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
+{ echo '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
+  echo '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
+  echo '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
   echo '{"text":"일반 응답","cost":0}'
   echo '{"text":"일반 응답","cost":0}'; } > "$STUB_PLAN"
 echo '{"id":"t10","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}' > "$TD/fx.jsonl"
@@ -427,8 +427,8 @@ rm -rf "$TD"
 # ── T11 N-run 경계 케이스 제외 (AC-7) ──
 # expect_any fixture → 성공률/FLAKY 미집계, BORDERLINE 매칭 표기
 TD=$(mktemp -d) || exit 1; export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
-{ echo '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
-  echo '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
+{ echo '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
+  echo '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
   echo '{"text":"일반 응답","cost":0}'; } > "$STUB_PLAN"
 echo '{"id":"t11","prompt":"경계","expect_any":["specifying-ko","none"]}' > "$TD/fx.jsonl"
 out=$(LLM_EVAL_RUNS=3 CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
@@ -451,7 +451,7 @@ rm -rf "$TD"
 
 # ── T13 N=1 무변경 (AC-R-1) — 기존 포맷 정확 유지 ──
 TD=$(mktemp -d) || exit 1; export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
-mk_fx "$STUB_PLAN" '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
+mk_fx "$STUB_PLAN" '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
 echo '{"id":"t13","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}' > "$TD/fx.jsonl"
 out=$(CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?
 if [ $rc -eq 0 ] && printf '%s' "$out" | grep -qE 'PASS=1 FAIL=0 SKIP=0 BORDERLINE=0 COST=' && ! printf '%s' "$out" | grep -qE '평균활성률|FLAKY='; then
@@ -466,10 +466,10 @@ else FAIL=$((FAIL+1)); echo "FAIL T14 (README/CLAUDE 미등재)"; fi
 
 # ── T15 FLAKY 임계 정확-80% 경계 (AC-3 회귀방어: -lt vs -le) ──
 TD=$(mktemp -d) || exit 1; export STUB_STATE="$TD/c" STUB_PLAN="$TD/p.jsonl"
-{ echo '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
-  echo '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
-  echo '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
-  echo '{"skill":"specops-ko:specifying-ko","args":"x","cost":0}'
+{ echo '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
+  echo '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
+  echo '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
+  echo '{"skill":"devfsd:specifying-ko","args":"x","cost":0}'
   echo '{"text":"일반 응답","cost":0}'; } > "$STUB_PLAN"
 echo '{"id":"t15","prompt":"CLI 만들어줘","expect_skill":"specifying-ko","expect_flag":"new"}' > "$TD/fx.jsonl"
 out=$(LLM_EVAL_RUNS=5 CLAUDE_BIN="$STUB" bash "$RUNNER" "$TD/fx.jsonl" 2>&1); rc=$?

@@ -139,7 +139,7 @@ tools: Read, Grep, Glob, Bash
 
 ## 참조
 
-- 호출자: `specops-ko:implementing-ko` (Phase B)
+- 호출자: `devfsd:implementing-ko` (Phase B)
 - 입력: `.specops/<FID>/acceptance-criteria.md`, `spec.md`
 - 다음 Phase: `agents/code-reviewer-ko.md` (Phase C)
 - 본 에이전트는 specops-ko 의 ECC 흡수 (Evaluator-Critic-Coder) 의 Evaluator

@@ -183,7 +183,7 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 - 가능하면 자동 테스트
 - 프레임워크 없으면 일회성 스크립트
 - **픽스 전에 반드시**
-- `specops-ko:tdd-ko`로 실패 테스트 작성
+- `devfsd:tdd-ko`로 실패 테스트 작성
 
 **2. 단일 픽스 구현**
 - 식별된 근본 원인 처리
@@ -300,8 +300,8 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 - **condition-based-waiting** — 임의 타임아웃을 조건 폴링으로 교체 (Phase 4 활용)
 
 **관련 스킬**:
-- `specops-ko:tdd-ko` — 실패 테스트 작성 (Phase 4, Step 1)
-- `specops-ko:verifying-evidence-ko` — 픽스 동작 검증, 성공 주장 전
+- `devfsd:tdd-ko` — 실패 테스트 작성 (Phase 4, Step 1)
+- `devfsd:verifying-evidence-ko` — 픽스 동작 검증, 성공 주장 전
 
 ## 실제 영향
 
@@ -320,8 +320,8 @@ codesign --sign "$IDENTITY" --verbose=4 "$APP"
 근본 원인 식별 + 단일 픽스 완료 후:
 
 - **Phase 4.1~4.3 완료 (테스트·픽스·검증)** → 상위 호출자 복귀
-  - `specops-ko:implementing-ko`에서 분기된 경우 → implementing-ko 복귀 (해당 태스크 재리뷰)
-  - `specops-ko:tdd-ko` Red-Green 사이클 중 호출된 경우 → tdd-ko 복귀
-  - `specops-ko:verifying-evidence-ko`에서 분기된 경우 → verifying-evidence-ko 재실행
-  - `specops-ko:security-review-ko`·`integration-test-ko`·`performance-test-ko` 의 FAIL 분기에서 호출된 경우 → **게이트로 곧장 복귀하지 않는다.** 수정은 새 코드이므로 해당 게이트 SKILL 의 `FAIL 분기` 복귀 경로(SoT)를 그대로 따른다: `verifying-evidence-ko` 재호출 → `requesting-code-review-ko`(Step 0 신선도 검사가 리뷰 이후 변경을 STALE 로 잡아 새로 리뷰) → `receiving-code-review-ko` → 실패한 게이트 재진입(performance 는 integration 경유). 종전 "게이트 곧장 재실행" 은 수정 커밋이 verify·리뷰를 건너뛰는 경로였다.
+  - `devfsd:implementing-ko`에서 분기된 경우 → implementing-ko 복귀 (해당 태스크 재리뷰)
+  - `devfsd:tdd-ko` Red-Green 사이클 중 호출된 경우 → tdd-ko 복귀
+  - `devfsd:verifying-evidence-ko`에서 분기된 경우 → verifying-evidence-ko 재실행
+  - `devfsd:security-review-ko`·`integration-test-ko`·`performance-test-ko` 의 FAIL 분기에서 호출된 경우 → **게이트로 곧장 복귀하지 않는다.** 수정은 새 코드이므로 해당 게이트 SKILL 의 `FAIL 분기` 복귀 경로(SoT)를 그대로 따른다: `verifying-evidence-ko` 재호출 → `requesting-code-review-ko`(Step 0 신선도 검사가 리뷰 이후 변경을 STALE 로 잡아 새로 리뷰) → `receiving-code-review-ko` → 실패한 게이트 재진입(performance 는 integration 경유). 종전 "게이트 곧장 재실행" 은 수정 커밋이 verify·리뷰를 건너뛰는 경로였다.
 - **Phase 4.5 트리거 (3+ 픽스 실패)** → 사용자 파트너 에스컬레이션. chain 정지. 새 스펙 결정 필요

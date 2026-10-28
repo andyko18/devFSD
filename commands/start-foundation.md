@@ -22,7 +22,7 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 
 0. **init 원장 우선** — `.specops/memory/project-context.md`·`decisions.md`가 있으면 clarifying이 이미 확정된 스택·인증·배포를 **재질문하지 않는다**(clarifying-ko 결정 원장 HARD). init 없이 진입했고 architecture placeholder만 있으면 기존 BLOCKING 게이트 유지.
 0b. **범위는 공통부 FR 에서 온다** — `.specops/memory/requirements.md` 가 있으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-fr-table.sh --classify` 의 `SKIP|<FR-ID>|foundation-scope|…` 줄이 이 명령의 대상이다(설명 선두 `[공통]` 또는 `<!-- foundation-fr: … -->` 목록). 인자가 없거나 범위가 모호하면 그 FR 목록을 제시하고 이번 FID 가 다룰 FR 을 확인받는다 — 표에 없는 공통부를 임의로 더하지 않는다. 표에 공통부 FR 이 하나도 없으면 인자를 범위로 삼는다.
-1. `specops-ko:specifying-ko` 스킬 호출 — args 첫 줄에 `<!-- entry: foundation -->` HTML 주석을 prepend 하고 나머지 args 이어붙임
+1. `devfsd:specifying-ko` 스킬 호출 — args 첫 줄에 `<!-- entry: foundation -->` HTML 주석을 prepend 하고 나머지 args 이어붙임
 2. specifying-ko 가 foundation 분기 감지 → Step 5.5 **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`, 기능 화면 금지) → **Step 5.6 인터페이스 design-first** — 이번 공통부가 **API 엔드포인트(제공)·DB 스키마(테이블·필드)·클라이언트 영속 데이터(localStorage·IndexedDB) 중 하나를 신설·변경할 때만** 적용한다(`specifying-ko` Step 5.6 적용 조건 — 순수 UI·CLI 로직만이면 skip). 공통부는 DB 스키마·공통 API 의 **본진**이라 design-first 가 가장 중요하다 → 공통부 컴포넌트 spec 작성 (§유형=`foundation`)
 3. 이후 chain: clarifying-ko(기술스택 BLOCKING 게이트 — 원장에 없으면) → planning-ko(foundation-manifest.md 산출) → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
 4. **완료 기록** — verify 가 PASS 하면 이번 FID 가 만든 공통부 FR 을 요구사항 표에 남긴다(공통부 FR 은 `/start-all` queue 에서 SKIP 이라 FID 칸이 없다 — 여기 적지 않으면 어느 FID 가 그 FR 을 만들었는지 표에서 찾을 수 없다):

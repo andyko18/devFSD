@@ -1,2 +1,2 @@
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:verifying-evidence-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:verifying-evidence-ko"}}]}}
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":".specops/20260529-fid-write/evidence.md","content":"# e"}},{"type":"tool_use","name":"Bash","input":{"command":"bash scripts/_internal/run-verification.sh 20260529-fid-bash"}}]}}

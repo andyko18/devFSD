@@ -292,7 +292,7 @@ rm -rf "$sb"
 
 # T12.a 미존재 skill 토큰 참조 → xref_resolve FAIL
 sb=$(mktemp -d); make_sandbox "$sb"; add_docs "$sb"
-printf -- '---\nname: tdd-ko\n---\n다음은 specops-ko:nonexistent-zz 호출.\n' > "$sb/skills/tdd-ko/SKILL.md"
+printf -- '---\nname: tdd-ko\n---\n다음은 devfsd:nonexistent-zz 호출.\n' > "$sb/skills/tdd-ko/SKILL.md"
 err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
 if [ $rc -eq 1 ] && echo "$err" | grep -q 'xref_resolve: FAIL' && echo "$err" | grep -q 'nonexistent-zz'; then
   PASS=$((PASS+1)); echo "PASS T12.a 미존재 토큰 → xref_resolve FAIL"
@@ -302,7 +302,7 @@ fi
 rm -rf "$sb"
 
 # ── xref bare 토큰 (FID 20260713-ghost-agent-drift): prefix 없는 유령 에이전트 적발 ─────────
-# 배경: 기존 xref_resolve 는 `specops-ko:` prefix 토큰만 수집 → bare 로 서술된 유령
+# 배경: 기존 xref_resolve 는 `devfsd:` prefix 토큰만 수집 → bare 로 서술된 유령
 #       (analyzer-ko·planner-ko 등)이 검사망 밖이었다. 93 테스트 전부 통과하던 거짓.
 
 # T12.b bare 유령 토큰 (prefix 없음) → xref_resolve FAIL (AC-4)

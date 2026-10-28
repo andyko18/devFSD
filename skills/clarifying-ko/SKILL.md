@@ -16,7 +16,7 @@ used_by: specifying-ko (chain 진입), planning-ko (chain 출구)
 `spec.md`의 모호성·열린 질문을 **사용자와 대화로 해소**하고 `clarifications.md`에 기록한다. 필요 시 `acceptance-criteria.md`를 append-only로 보강.
 
 <HARD-GATE>
-**BLOCKING 우선순위의 명확화 질문이 RESOLVED 상태가 되기 전까지** `specops-ko:planning-ko`를 호출할 수 없다. DESIRABLE만 남았거나 전부 RESOLVED일 때만 planning-ko 진입 허용.
+**BLOCKING 우선순위의 명확화 질문이 RESOLVED 상태가 되기 전까지** `devfsd:planning-ko`를 호출할 수 없다. DESIRABLE만 남았거나 전부 RESOLVED일 때만 planning-ko 진입 허용.
 
 **판정: 부분 기계화 + 대화 게이트** — "모든 BLOCKING 이 RESOLVED 인가" 는 BLOCKING 목록 자체가 모델 판단이라 전수 검사가 불가하다. 단 **가장 비싼 축(foundation 기술스택)은 기계 판정**한다 — 판정 SoT = `scripts/_internal/check-stack-decided.sh` (구현 직전 `emit-context.sh` 가 원장 확정 행 또는 clarifications.md 의 스택 `RESOLVED` 를 재검, `ASSUMED` 불인정). 원장 확정값 판정도 `scripts/_internal/check-decisions-ledger.sh` 로 눈대중을 대체했다.
 
@@ -52,8 +52,8 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 6. **clarifications.md 작성** — 판정 JSON + 질문별 답변
 7. **acceptance-criteria.md append** — 신규 AC만 추가, 기존 AC 수정 금지. 추가하는 AC 도 `### AC-<n>:` 헤더 + **Given·When·Then·우선순위**(`must`·`should`·`nice-to-have`)를 갖춰야 한다 — 판정 SoT = `scripts/_internal/check-ac-format.sh` (구현 직전 `emit-context.sh` 자동 호출). `**우선순위**` 누락 시 must 커버리지 검사가 그 AC 를 보지 못한다.
 8. **timestamp 주입** — `bash "${CLAUDE_PLUGIN_ROOT}"/hooks/inject-evaluator-timestamp.sh .specops/<FID>/clarifications.md`
-9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /clarify 완료 "clarifications.md (N 쟁점 해소)"` 호출. `specops-ko:planning-ko` 다음 단계 안내
-10. **전환** — `specops-ko:planning-ko` 호출
+9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /clarify 완료 "clarifications.md (N 쟁점 해소)"` 호출. `devfsd:planning-ko` 다음 단계 안내
+10. **전환** — `devfsd:planning-ko` 호출
 
 ## §일괄 모드 — 질문 묶음 2회째와 승인 묶음
 
@@ -229,7 +229,7 @@ spec·AC 를 아래 8범주로 훑어 범주마다 **확인됨 · 부분 · 빠�
 모든 BLOCKING RESOLVED + clarifications.md 저장 + AC append 완료 후 즉시 호출:
 
 ```
-Skill: specops-ko:planning-ko
+Skill: devfsd:planning-ko
 ```
 
 BLOCKED 상태로 남으면 chain 정지. 사용자 개입 필요.

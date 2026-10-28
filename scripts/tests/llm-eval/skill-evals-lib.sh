@@ -58,7 +58,7 @@ end
 JQ
 }
 
-# skill_evals::called <target> <호출 목록(줄 단위)> → 0=호출됨. `<name>` 과 `specops-ko:<name>` 을 같게 본다.
+# skill_evals::called <target> <호출 목록(줄 단위)> → 0=호출됨. `<name>` 과 `devfsd:<name>` 을 같게 본다.
 skill_evals::called() {
-  printf '%s\n' "$2" | grep -Fxq -e "$1" -e "specops-ko:$1"
+  printf '%s\n' "$2" | grep -Fxq -e "$1" -e "devfsd:$1"
 }

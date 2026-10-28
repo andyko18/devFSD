@@ -256,7 +256,7 @@ dispatch 컨텍스트에 `## 8. 구조 규칙` 절이 있으면 프로젝트 헌
 
 ## 다음 단계
 
-- [ ] (READY 시) `specops-ko:requesting-code-review-ko` 호출 (외부 리뷰)
+- [ ] (READY 시) `devfsd:requesting-code-review-ko` 호출 (외부 리뷰)
 - [ ] (NEEDS_FIX 시) implementer-ko 재dispatch + Critical 목록
 ```
 
@@ -303,7 +303,7 @@ dispatch 컨텍스트에 `## 8. 구조 규칙` 절이 있으면 프로젝트 헌
 
 ## 참조
 
-- 호출자: `specops-ko:implementing-ko` (Phase C, Phase B PASS 후 또는 최초 병렬 dispatch)
+- 호출자: `devfsd:implementing-ko` (Phase C, Phase B PASS 후 또는 최초 병렬 dispatch)
 - 사전: `agents/spec-reviewer-ko.md` (Phase B)
-- 다음: `specops-ko:requesting-code-review-ko` (외부 리뷰 진입)
+- 다음: `devfsd:requesting-code-review-ko` (외부 리뷰 진입)
 - 본 에이전트는 specops-ko 의 ECC 흡수의 Critic

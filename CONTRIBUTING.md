@@ -10,7 +10,7 @@ Claude Code 한국어 자율 Lifecycle 플러그인에 기여 환영. 본 가이
 
 ```bash
 claude plugin marketplace add andyko18/specops-ko                    # GitHub
-claude plugin install specops-ko@specops-ko
+claude plugin install devfsd@devfsd
 # 로컬 dogfood: claude plugin marketplace add /절대경로/specops-ko
 ```
 
@@ -67,7 +67,7 @@ description: <한 줄 — 언제 사용·무엇·결과>
 layer: 1 | 2 | 3
 reference_upstream: <owner/repo@version path> 또는 "specops-ko 독자 추가"
 specops_version: <semver>
-used_by: </command 또는 skill short name>  # command=/start, skill=specifying-ko (specops-ko: prefix 금지)
+used_by: </command 또는 skill short name>  # command=/start, skill=specifying-ko (devfsd: prefix 금지)
 ---
 ```
 

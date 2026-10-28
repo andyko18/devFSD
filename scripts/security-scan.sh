@@ -49,9 +49,13 @@ ruleset_note=""
 # 언어 판별: .sh/.bash 확장자 또는 bash shebang → bash (위험함수 룰 제외, secret 만)
 _is_bash() { case "$1" in *.sh|*.bash) return 0;; esac; head -1 "$1" 2>/dev/null | grep -q '^#!.*\(bash\|sh\)' && return 0; return 1; }
 # 문서 확장자 — 실행되지 않는 산문이라 아래 위험함수·SQL 룰을 걸지 않는다(서술문 속 `eval(` 낱말이 high 가 되던 오탐, 파일 인자일 때만).
+#   .json 도 같다 — 실행되지 않는 데이터다. llm-eval 의 evals.json 은 한 줄 수천 자짜리 문자열에 Python 계획 문안을 담아
+#   `execute(` … 산문 `+` … `params` 가 한 줄에 놓이면 SQL 룰이 high 를 냈다(FID 20261021-api-designer-agent 에서 분류).
+#   정규식 창을 좁히는 대신 확장자로 뺀 것은 코드 파일의 탐지를 그대로 두기 위해서다(긴 SQL 문자열 줄이 창 밖으로 빠진다).
+#   package.json scripts 는 셸 명령이고 셸(.sh)도 이 룰 밖이다.
 #   secret 룰은 문서에도 건다(붙여 넣은 키). 목록은 이 함수 한 곳에만 둔다. 대소문자 무시는 대괄호 패턴 — bash 3.2(macOS 기본)에 ${v,,} 가 없고,
 #   tr 같은 외부 프로세스는 디렉토리 스캔이 비-bash 파일마다 이 함수를 평가하므로 파일 수만큼 포크가 늘어난다(2000개 .py 실측 +29%).
-_is_doc() { case "$1" in *.[Mm][Dd]|*.[Mm][Aa][Rr][Kk][Dd][Oo][Ww][Nn]|*.[Tt][Xx][Tt]|*.[Rr][Ss][Tt]|*.[Aa][Dd][Oo][Cc]) return 0;; esac; return 1; }
+_is_doc() { case "$1" in *.[Mm][Dd]|*.[Mm][Aa][Rr][Kk][Dd][Oo][Ww][Nn]|*.[Tt][Xx][Tt]|*.[Rr][Ss][Tt]|*.[Aa][Dd][Oo][Cc]|*.[Jj][Ss][Oo][Nn]) return 0;; esac; return 1; }
 _selfcheck_file() {
   local f="$1"
   # secret (전 파일) → crit

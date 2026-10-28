@@ -16,7 +16,7 @@ ALLOW_PATHS=(CHANGELOG.md docs/audit docs/case-studies docs/governance-history.m
   scripts/tests/governance/test-rules.sh scripts/tests/governance/test-pretool.sh scripts/tests/governance/test-hooks.sh scripts/tests/test-save-review-report.sh
   scripts/tests/test-plugin-name.sh)
 # 앞에 이름 글자가 붙은 경우(using-specops-ko: 같은 skill 이름 라벨)는 namespace 가 아니다 — 대소문자는 git grep -i 가 맡는다
-OLD_RE='(^|[^a-z0-9_-])specops-ko[[:space:]]*:|specops-ko@|plugins/cache/specops-ko'
+OLD_RE='(^|[^a-z0-9_-])specops-ko[[:space:]]*:|specops-ko@|plugins/cache/specops-ko|plugin[[:space:]]+(disable|enable|uninstall|update|install)[[:space:]]+specops-ko([^-a-z0-9]|$)'
 scan_old_ns() {  # $1 = repo 루트 · stdout = 위반 줄 · rc 0=스캔 성공(위반 유무 무관) 2=스캔 실패
   local d="$1" ex=() p out rc
   for p in "${ALLOW_PATHS[@]}"; do ex+=(":!$p"); done
@@ -26,10 +26,10 @@ scan_old_ns() {  # $1 = repo 루트 · stdout = 위반 줄 · rc 0=스캔 성공
 }
 left=$(scan_old_ns "$ROOT"); src=$?
 { [ "$src" -eq 0 ] && [ -z "$left" ]; } && ok "PN2 옛 namespace 잔존 0 (허용 경로 밖)" || nope PN2 "rc=$src $(printf '%s\n' "$left" | head -5)"
-# PN2.self 스캐너 자기 검증 — 임시 repo 에 위반 3변형(:·@·cache 경로)을 심으면 3줄을 잡는다
-_t=$(mktemp -d); ( cd "$_t" && git init -q && printf 'Skill: specops-ko:planning-ko\nx specops-ko@specops-ko\n~/.claude/plugins/cache/specops-ko/\nok devfsd:planning-ko\n' > a.md && git add a.md ) >/dev/null 2>&1
+# PN2.self 스캐너 자기 검증 — 임시 repo 에 위반 4변형(:·@·cache 경로·접두사 없는 CLI 명령)을 심으면 4줄을 잡는다
+_t=$(mktemp -d); ( cd "$_t" && git init -q && printf 'Skill: specops-ko:planning-ko\nx specops-ko@specops-ko\n~/.claude/plugins/cache/specops-ko/\nclaude plugin disable specops-ko\nok devfsd:planning-ko\n' > a.md && git add a.md ) >/dev/null 2>&1
 n=$(scan_old_ns "$_t" | grep -c .); rm -rf "$_t"
-[ "$n" = 3 ] && ok "PN2.self 스캐너가 위반 3변형을 잡음" || nope PN2.self "잡은 줄 $n (기대 3)"
+[ "$n" = 4 ] && ok "PN2.self 스캐너가 위반 4변형을 잡음" || nope PN2.self "잡은 줄 $n (기대 4)"
 # PN3 (AC-4) 표기 — README 제목·감독형 설명·설치 id
 rd="$ROOT/README.md"
 { grep -q '^# devFSD' "$rd" && grep -q '개발 자율주행' "$rd" && grep -qE '감독형.*설계 승인.*PR 병합' "$rd" \

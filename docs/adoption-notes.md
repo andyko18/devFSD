@@ -31,7 +31,7 @@
 ### 적용 범위
 
 - 훅의 **차단·감사·기록**은 cwd 에 `.specops/` 가 있는 repo 에서만 동작한다(없으면 면제). 훅은 `.specops/` 를 스스로 만들지 않는다 — 만드는 것은 훅이 아닌 명시적 호출(`/init-project`·`/start`·`/maintain` 계열 진입, `/gbrain`·`/design-*` 같은 기록 명령)뿐이다. `.specops/` 를 `.gitignore` 한 저장소에서 새 git worktree 를 만들면 그 worktree 는 `.specops/` 없이 시작하므로, lifecycle 에 진입하기 전까지는 면제 상태다. (v2.17.0 이하에서는 Stop 훅이 `.specops/` 없는 repo 에도 `session-progress.md` 를 만들어 그 repo 를 관할로 편입시켰다. 플러그인을 쓰지 않는 repo 에 `session-progress.md` 만 든 `.specops/` 가 남아 있으면 지우면 된다 — `/doctor` 의 `bootstrap` 항목이 알려 준다.)
-- 그러나 기본 설치(`user` 범위)는 **모든 repo 의 세션 시작에 메타 스킬을 주입**한다. 일부 repo 에서만 쓰려면 범위를 좁혀 설치한다: `claude plugin install devfsd@devfsd --scope project` (또는 `local`). 이미 설치했다면 `claude plugin disable specops-ko` 후 필요한 repo 에서만 켠다.
+- 그러나 기본 설치(`user` 범위)는 **모든 repo 의 세션 시작에 메타 스킬을 주입**한다. 일부 repo 에서만 쓰려면 범위를 좁혀 설치한다: `claude plugin install devfsd@devfsd --scope project` (또는 `local`). 이미 설치했다면 `claude plugin disable devfsd` 후 필요한 repo 에서만 켠다.
 - 기존 프로젝트에 도입할 때는 `/init-project` 를 먼저 돌리고(표준 문서 부트스트랩), 이후 수정은 `/maintain` 으로 시작한다.
 - **주입된 메타 스킬이 하는 일**: 대화에서 기능 요청("X 를 만들어 줘"·"Y 버그 고쳐 줘")을 감지하면 lifecycle 로 진입한다 — `.specops/` 가 없는 repo 에서도 그렇다. 그때 `/init-project` 를 권하는 1줄 안내가 먼저 나오고, 거절해도 명세 단계(`specifying-ko`)로 들어간다. repo 안의 파일을 바꾸지 않는 작업(PPT·Excel·외부 기획서·분석 보고)이나 단순 질문은 진입하지 않는다 — README 같은 repo 안 문서를 고치는 요청은 진입한다. 이 동작을 원하지 않는 repo 에서는 위처럼 설치 범위를 좁힌다.
 
@@ -59,7 +59,7 @@ lifecycle 에 진입하면 저장소에 다음이 생긴다 — 진입 전에 �
   차단 훅을 끈 채 커밋·PR 이 나가면 `.specops/friction-log.jsonl` 에 `GOVERNANCE-DISABLED` 가 남는다. 이 파일을 읽으려면 `python3` + `pyyaml` 이 있어야 한다(없으면 설정이 무시되고 훅은 켜진 채다 — `/doctor` 의 `deps` 가 알린다).
 - **세션 하나에서 줄인다**: `claude` 를 띄우기 **전에** 셸에서 `export SPECOPS_GOVERNANCE_PROFILE=<값>` (세션 안에서 export 하면 훅에 닿지 않는다) — `strict`(기본, 전부) · `standard`(차단·감사·Stop 점검·세션 시작 주입) · `minimal`(차단과 세션 시작 주입만). 괄호 안에 없는 훅은 그 프로파일에서 전부 꺼진다 — `standard` 면 자유작업 캡처·알림·진행 기록 자동 생성·리뷰 보고서 자동 저장이 꺼진다(진행 기록은 lifecycle 이 직접 쓰므로 계속 남는다).
 - **커밋 한 건만 넘긴다**: 명령 앞에 붙인다 — `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<사유>' git commit …` (사유가 기록된다).
-- **아예 쓰지 않는다**: `claude plugin disable specops-ko`.
+- **아예 쓰지 않는다**: `claude plugin disable devfsd`.
 
 ### 산출물은 기본적으로 로컬이다
 
@@ -79,7 +79,7 @@ lifecycle 에 진입하면 저장소에 다음이 생긴다 — 진입 전에 �
 
 ```bash
 claude plugin update devfsd@devfsd   # 적용하려면 Claude Code 재시작
-claude plugin uninstall specops-ko           # 제거
+claude plugin uninstall devfsd               # 제거
 ```
 
 - 업그레이드 후 `/doctor` 로 `deps`·`governance`·`statusline` 을 다시 확인한다. 상태바는 `statusline-install.sh` 가 `.claude/settings.json` 의 `statusLine` 키에 **절대경로를 박아 둔** 것이라, 플러그인 버전이 바뀌면 경로가 낡을 수 있다(`scripts/statusline-install.sh --check` 로 미리보기).

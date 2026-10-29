@@ -31,7 +31,7 @@ frontdoor_check() {
     echo "F2-order"
   fi
   grep -E 'img\.shields\.io|badge\.svg' "$rd" | grep -qE '[0-9]+\.[0-9]+(\.[0-9]+)?|[=(/-]v[0-9]' && echo "F3-static-version"
-  grep -q 'github/v/release/andyko18/specops-ko' "$rd" || echo "F3-no-dynamic-release"
+  grep -q 'github/v/release/andyko18/devFSD' "$rd" || echo "F3-no-dynamic-release"
   if [ -f "$svg" ]; then
     python3 -I -c 'import sys, xml.etree.ElementTree as E; E.parse(sys.argv[1])' "$svg" 2>/dev/null || echo "F4-svg-malformed"
     grep -qiE "(href|src)=[\"']https?:|url\([\"']?https?:|@import|<script" "$svg" && echo "F5-svg-external"

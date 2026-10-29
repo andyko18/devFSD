@@ -254,20 +254,20 @@ used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /
    - **성공지표 작성 유도 (권장 — should)**: §유형이 `trivial`이 아니면 spec.md §1 개요 하위 `### 성공지표` 서브섹션에 measurable target을 작성한다(정량 우선, 불가 시 정성+검증방법). **권장 — 미작성이 evaluator FAIL은 아니나**, 기능 가치 입증·learning-loop 추적을 위해 작성 강력 권고. trivial FID는 면제.
 6.5. **[데이터를 다루는 spec] 요구사항 전문가 패스** — spec.md·AC 를 저장한 직후, 자체 검토(7) 전에 부른다. spec 이 입력 데이터를 받아 저장·계산·판정하거나 외부 소스·배치를 다루면 발동한다. 화면 문구·설정·문서만 바꾸는 spec 은 부르지 않는다. 판단이 서지 않으면 부른다(측정: 데이터 규칙 빈칸 결함을 plan-reviewer 0/6 · 이 전문가 6/6 · 결함 없는 대조군 헛지적 0/3).
    - **제외**: `§batch` · `§lite`(`/start-lite`·`/maintain-lite`) · `§유형: trivial` · promote(`promote-fid`) · foundation 은 부르지 않는다(기록 행도 남기지 않는다). 유지보수 분기는 부른다.
-   - **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:req-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `intent.md` · `.specops/memory/requirements.md`·`data-model.md`·`api-spec.md`(있으면).
+   - **dispatch**: `Agent` 도구, `subagent_type: "devfsd:req-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `intent.md` · `.specops/memory/requirements.md`·`data-model.md`·`api-spec.md`(있으면).
    - **반영**: `.specops/<FID>/experts/req.md` 의 지적은 spec·AC 에 반영하거나 기각하고 같은 파일 끝 `## 반영` 에 `반영(spec §/AC-N)` 또는 `기각(근거)` 1줄씩 적는다. `## 확인 필요` 질문은 spec §8 열린 질문으로 옮긴다(clarifying-ko 가 사용자에게 묻는다).
    - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/req.md` 가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | req-expert | req-designer-ko | 산출 없음 | - |` 를 남기고 7 로 진행한다.
    - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | req-expert | req-designer-ko | 반영 | experts/req.md (지적 N · 반영 N · 기각 N · 질문 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | req-expert | - | SKIP | 데이터 표면 없음 |` 1행.
 6.6. **[기능 화면을 만들거나 고친 FID] 화면 전문가 패스** — 6.5 뒤, 자체 검토(7) 전에 부른다. 이번 FID 가 Step 5.5 에서 기능 화면 `screens/<name>.md` 를 만들거나 고쳤으면 발동한다(측정: 화면 상태 빈칸 결함을 design-reviewer 5/6 · 이 전문가 6/6 · 결함 없는 대조군 헛지적 0/3). spec·AC 가 있어야 하므로 화면 설계(5.5) 직후가 아니라 여기서 부른다.
    - **제외**: `§batch`(`/start-all` Phase 2.5 A2 가 batch 당 1회 맡는다) · `§lite`(`/start-lite`·`/maintain-lite`) · `§유형: trivial` · foundation 셸 화면(`<!-- foundation-shell -->`)만 바꾼 경우는 부르지 않는다(기록 행도 남기지 않는다). 화면 변경이 없으면 부르지 않고 SKIP 행을 남긴다. 유지보수 분기는 부른다.
-   - **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:ui-designer-ko"` · 입력은 경로만 — 이번에 만든·고친 `screens/<name>.md`·`.html` · `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `DESIGN.md`(있으면).
+   - **dispatch**: `Agent` 도구, `subagent_type: "devfsd:ui-designer-ko"` · 입력은 경로만 — 이번에 만든·고친 `screens/<name>.md`·`.html` · `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `DESIGN.md`(있으면).
    - **반영**: `.specops/<FID>/experts/ui.md` 의 지적은 화면 파일에 반영하거나 기각하고 같은 파일 끝 `## 반영` 에 `반영(screens/<name>.md §)` 또는 `기각(근거)` 1줄씩 적는다. `## 확인 필요` 질문은 spec §8 열린 질문으로 옮긴다(clarifying-ko 가 사용자에게 묻는다). 사용자 검토(8)에서 바뀐 화면 행을 함께 보여 준다.
    - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/ui.md` 가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | ui-expert | ui-designer-ko | 산출 없음 | - |` 를 남기고 7 로 진행한다.
    - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | ui-expert | ui-designer-ko | 반영 | experts/ui.md (지적 N · 반영 N · 기각 N · 질문 N) |`. 화면 변경이 없으면 `| <N> | <ISO-8601> | ui-expert | - | SKIP | 화면 변경 없음 |` 1행.
 7. **스펙 자체 검토** — 플레이스홀더·모순·모호성·범위 인라인 점검 (아래 참조)
 8. **사용자 스펙 검토** — 파일 검토를 사용자에게 요청, 승인 대기 (**§일괄**: `### 사용자 검토 게이트` 의 [§일괄 모드])
 9. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /specify 완료 "spec.md, AC.md" "<기능명>"` (첫 진입이라 신규 FID 섹션 생성)
-10. **구현으로 전환** — `specops-ko:clarifying-ko` 스킬 호출
+10. **구현으로 전환** — `devfsd:clarifying-ko` 스킬 호출
 
 ## 프로세스 흐름
 
@@ -333,10 +333,10 @@ screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 (참고용)
                                    │              ↑
                                    │ 승인         │
                                    ↓              │
-                              specops-ko:clarifying-ko 호출
+                              devfsd:clarifying-ko 호출
 ```
 
-**종착점은 `specops-ko:clarifying-ko` 호출이다.** 본 스킬은 프론트엔드 설계 스킬이나 MCP 빌더 등 어떤 구현 스킬도 호출하지 않는다. specifying 이후 유일한 스킬은 **clarifying-ko**이다.
+**종착점은 `devfsd:clarifying-ko` 호출이다.** 본 스킬은 프론트엔드 설계 스킬이나 MCP 빌더 등 어떤 구현 스킬도 호출하지 않는다. specifying 이후 유일한 스킬은 **clarifying-ko**이다.
 
 ## 프로세스 세부
 
@@ -349,7 +349,7 @@ screens/ 존재? ── yes ──▶ 기존 화면 목록 표시 (참고용)
 - **객관식이 가능하면 객관식**. 열린 질문도 OK
 - **한 메시지당 한 질문** — 한 주제에 탐색이 더 필요하면 여러 질문으로 쪼갠다
 - 목적·제약·성공 기준에 집중
-- **질문 상한**: 명확화 질문은 **최대 4 회 (Q1~Q4)** 까지 수집한 뒤 설계 초안을 제시한다. Q5 이상 추가 명확화가 필요하다고 판단되면 **그 질문을 spec.md §8(열린 질문)에 기재**해 `specops-ko:clarifying-ko` 로 위임 — 본 skill 의 책임은 "구현 가능한 최소 초안" 까지 (FRICTION-LOG F-15). §8 기재가 곧 위임 메커니즘이다 — clarifying-ko 는 §8 카운트로 BLOCKING 존재 여부(경량/풀 모드)를 판정하므로(clarifying-ko L54), 구두 언급만으로는 위임이 성립하지 않는다.
+- **질문 상한**: 명확화 질문은 **최대 4 회 (Q1~Q4)** 까지 수집한 뒤 설계 초안을 제시한다. Q5 이상 추가 명확화가 필요하다고 판단되면 **그 질문을 spec.md §8(열린 질문)에 기재**해 `devfsd:clarifying-ko` 로 위임 — 본 skill 의 책임은 "구현 가능한 최소 초안" 까지 (FRICTION-LOG F-15). §8 기재가 곧 위임 메커니즘이다 — clarifying-ko 는 §8 카운트로 BLOCKING 존재 여부(경량/풀 모드)를 판정하므로(clarifying-ko L54), 구두 언급만으로는 위임이 성립하지 않는다.
 
 ### 접근 탐색
 
@@ -451,7 +451,7 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 
 자체 검토 후 사용자에게:
 
-> "스펙을 `.specops/<FID>/spec.md`에 작성했습니다. 검토 후 변경 사항을 말씀해 주세요. 진행해도 되면 `specops-ko:clarifying-ko` 스킬을 호출해 다음 단계(명확화)로 진행하겠습니다."
+> "스펙을 `.specops/<FID>/spec.md`에 작성했습니다. 검토 후 변경 사항을 말씀해 주세요. 진행해도 되면 `devfsd:clarifying-ko` 스킬을 호출해 다음 단계(명확화)로 진행하겠습니다."
 
 **응답 대기**. 변경 요청 시 수정하고 자체 검토 루프 재실행. 승인 후에만 진행.
 
@@ -511,12 +511,12 @@ UI 주제 질문이 자동으로 시각 질문인 건 아님. "이 맥락에서 
 **정상 경로 (§유형 ≠ trivial)**:
 
 ```
-Skill: specops-ko:clarifying-ko
+Skill: devfsd:clarifying-ko
 ```
 
 본 specifying-ko는 정상 경로에서 **clarifying-ko 이외의 어떤 스킬도 호출하지 않는다**. 다른 경로는 금지.
 
-**신규 trivial 단축 경로 (§유형 = trivial, 사용자 승인 완료 시에만)** — clarify·plan **ceremony 만** 건너뛰고 `specops-ko:decomposing-ko` 로 **직행**한다 (인라인 호출 — 이 줄은 primary edge 가 아니라 조건 분기다):
+**신규 trivial 단축 경로 (§유형 = trivial, 사용자 승인 완료 시에만)** — clarify·plan **ceremony 만** 건너뛰고 `devfsd:decomposing-ko` 로 **직행**한다 (인라인 호출 — 이 줄은 primary edge 가 아니라 조건 분기다):
 
 1. **정직한 SKIP 기록** (fake 아님 — 실행이 아니라 생략임을 명시):
    ```bash
@@ -524,7 +524,7 @@ Skill: specops-ko:clarifying-ko
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /plan SKIP "trivial 신규 — plan ceremony 축약(사용자 승인)"
    ```
 2. handoff.md 는 정상 경로와 동일하게 기록.
-3. 이후 `specops-ko:decomposing-ko` 호출 (clarifying·planning 을 건너뜀). decomposing-ko 는 `§유형=trivial` + `plan.md` 부재를 감지해 spec.md+AC 로 **단일 태스크 tasks.md** 를 경량 생성한다 (Step 1 trivial tolerance).
+3. 이후 `devfsd:decomposing-ko` 호출 (clarifying·planning 을 건너뜀). decomposing-ko 는 `§유형=trivial` + `plan.md` 부재를 감지해 spec.md+AC 로 **단일 태스크 tasks.md** 를 경량 생성한다 (Step 1 trivial tolerance).
 
 **§lite 단축 경로** (`**§lite**: true` — `/start-lite`·`/maintain-lite`) — trivial과 동일하게 clarify·plan skip + decomposing 직행. SKIP 사유는 `lite 진입 — clarify/plan ceremony 축약(슬래시 승인)`:
 

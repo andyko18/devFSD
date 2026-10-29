@@ -491,7 +491,7 @@ rp::compute() {
 LITE-STRICT-GUARD: §lite FID 인데 위험 프로파일이 strict 입니다 (신호: ${strict_signals:-none}).
   lite 는 clarify·plan 을 이미 건너뛴 상태라 이대로 진행하면 고위험 변경이 설계 검토 없이 구현됩니다.
 
-  승격(권장): specops-ko:clarifying-ko → specops-ko:planning-ko 수행 후 decomposing 재진입.
+  승격(권장): devfsd:clarifying-ko → devfsd:planning-ko 수행 후 decomposing 재진입.
               plan.md 가 생기면 본 가드는 자동 해제됩니다.${_maint_note}
   사용자 주권 우회(사유 병기 필수):
               SPECOPS_LITE_STRICT_OVERRIDE=1 SPECOPS_LITE_STRICT_REASON='<한 줄 사유>' <명령>

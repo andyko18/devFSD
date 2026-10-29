@@ -44,7 +44,7 @@ MAINTAIN-BASELINE: FAIL — analyzing 산출물 부재: $missing
     - AC-R-1("기존 동작 보존")의 근거가 없다 — 무엇을 보존하는지 모른다.
     - check-regression-ac 의 **스키마 override 판정이 current-state.md 를 읽으므로**,
       파괴적 스키마 변경에도 AC-R-2(데이터 보존)가 요구되지 않는다.
-  해법: specops-ko:analyzing-ko 를 선행 실행하세요(/maintain 진입은 이를 자동 수행).
+  해법: devfsd:analyzing-ko 를 선행 실행하세요(/maintain 진입은 이를 자동 수행).
 EOF
   exit 1
 fi

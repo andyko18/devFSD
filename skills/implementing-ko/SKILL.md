@@ -131,7 +131,7 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
     ↓
 [per-task만] 최종 코드 리뷰어 — 태스크 수==1 이면 SKIP (E2)
     ↓
-specops-ko:verifying-evidence-ko 호출
+devfsd:verifying-evidence-ko 호출
 ```
 
 **DAG 파싱 실패 fallback (advisor 협의 13:00)**: `dag::find_independent_batch` 가 빈 출력 + stderr WARN 반환 → SEQUENTIAL 분기로 자동 fallback. 강제 차단 안 함 (v0.4a; v0.4b strict mode 옵션 검토).
@@ -204,8 +204,8 @@ Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스�
 
 | Phase | FAIL 시 동작 | 재dispatch subagent_type | cap | cap 초과 시 |
 |---|---|---|---|---|
-| B (spec-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-B-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-ko:implementer-ko` | **per-task**: task 당 1회 (B=1/2). **end-loaded**: FID 당 1회 재시도(관련 task만 재구현) | 아래 「cap 초과 처리」 — 전역 재시도 뒤에도 남으면 `HARD-GATE: <task-id> Phase B cap 초과` |
-| C (code-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-C-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `specops-ko:implementer-ko` | **per-task**: task 당 1회 (C=1/2). **end-loaded**: FID 당 1회 | 아래 「cap 초과 처리」 — 전역 재시도 뒤에도 남으면 `HARD-GATE: <task-id> Phase C cap 초과` |
+| B (spec-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-B-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `devfsd:implementer-ko` | **per-task**: task 당 1회 (B=1/2). **end-loaded**: FID 당 1회 재시도(관련 task만 재구현) | 아래 「cap 초과 처리」 — 전역 재시도 뒤에도 남으면 `HARD-GATE: <task-id> Phase B cap 초과` |
+| C (code-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-C-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `devfsd:implementer-ko` | **per-task**: task 당 1회 (C=1/2). **end-loaded**: FID 당 1회 | 아래 「cap 초과 처리」 — 전역 재시도 뒤에도 남으면 `HARD-GATE: <task-id> Phase C cap 초과` |
 
 **cap=2 (Phase별 독립)** — Phase B 최대 2회 시도 (`B=0/2` → `B=1/2` → `B=2/2 EXCEEDED`), Phase C 최대 2회 시도 (`C=0/2` → `C=1/2` → `C=2/2 EXCEEDED`). Phase B/C 는 각자 독립된 cap 을 가지며 공유하지 않는다. cap 초과 시 곧바로 멈추지 않는다 — 아래 「cap 초과 처리」의 전역 재시도 1회 뒤에도 Critical 이 남을 때만 HARD GATE 다. end-loaded FAIL 시에도 feedback 파일은 **영향받은 tid마다** 저장하고 dispatch-log에 tid 행을 남긴다(감사 정합).
 
@@ -231,7 +231,7 @@ cap 초과 시 곧바로 멈추지 않고 **systematic-debugging-ko → 전역 �
 auto-state.md 읽기 (.specops/<FID>/auto-state.md — 없으면 auto_retry_count=0 으로 간주)
 auto_retry_count < 1?
   ├─ YES → auto_retry_count += 1 저장 + escalations 기록
-  │        → specops-ko:systematic-debugging-ko 호출
+  │        → devfsd:systematic-debugging-ko 호출
   │        → 복귀 후 task 재dispatch (loop 재진입)
   └─ NO  → HARD GATE (`§auto` 는 무인 종료 · 그 밖은 사용자에게 한 번에 묻는다):
            "AUTO-HARD-GATE: <task-id> Phase B/C 전역 재시도 초과 (1/1)
@@ -375,7 +375,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 - `agents/spec-reviewer-ko.md` — 스펙 준수 리뷰어 (Phase B)
 - `agents/code-reviewer-ko.md` — 코드 품질 리뷰어 (Phase C)
 
-각 에이전트는 **자신의 namespace subagent_type** 으로 dispatch 한다 — Phase A 는 `subagent_type: "specops-ko:implementer-ko"`, Phase B 는 `"specops-ko:spec-reviewer-ko"`, Phase C 는 `"specops-ko:code-reviewer-ko"` (Generator/Evaluator 분리 — 리뷰어를 implementer 로 dispatch 금지). 모두 `templates/dispatch-context.md` 포맷의 컨텍스트 파일을 입력으로 받는다.
+각 에이전트는 **자신의 namespace subagent_type** 으로 dispatch 한다 — Phase A 는 `subagent_type: "devfsd:implementer-ko"`, Phase B 는 `"devfsd:spec-reviewer-ko"`, Phase C 는 `"devfsd:code-reviewer-ko"` (Generator/Evaluator 분리 — 리뷰어를 implementer 로 dispatch 금지). 모두 `templates/dispatch-context.md` 포맷의 컨텍스트 파일을 입력으로 받는다.
 
 ## 레드 플래그 — 금지
 
@@ -453,15 +453,15 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 ## 통합
 
 **필수 워크플로 스킬**:
-- `specops-ko:planning-ko` — 본 스킬이 실행할 플랜 작성
-- `specops-ko:verifying-evidence-ko` — 전체 구현 후 검증
-- `specops-ko:requesting-code-review-ko` — 리뷰어 서브에이전트용 리뷰 템플릿
+- `devfsd:planning-ko` — 본 스킬이 실행할 플랜 작성
+- `devfsd:verifying-evidence-ko` — 전체 구현 후 검증
+- `devfsd:requesting-code-review-ko` — 리뷰어 서브에이전트용 리뷰 템플릿
 
 **서브에이전트가 사용해야 하는 스킬**:
-- `specops-ko:tdd-ko` — 서브에이전트는 각 태스크를 TDD로
+- `devfsd:tdd-ko` — 서브에이전트는 각 태스크를 TDD로
 
 **실패 시**:
-- `specops-ko:systematic-debugging-ko` — BLOCKED 블로커가 버그성이면 호출
+- `devfsd:systematic-debugging-ko` — BLOCKED 블로커가 버그성이면 호출
 
 ## 참조
 
@@ -485,7 +485,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /implement
 모든 태스크 완료 + end-loaded(또는 per-task) B/C 통과 + 최종 리뷰 정책 충족 + session-progress append 후 즉시 호출:
 
 ```
-Skill: specops-ko:verifying-evidence-ko
+Skill: devfsd:verifying-evidence-ko
 ```
 
 verifying-evidence-ko가 "증거 기반 완료 선언"을 강제한다. 본 implementing-ko는 **verifying-evidence-ko 이외의 다음 스킬을 호출하지 않는다**.

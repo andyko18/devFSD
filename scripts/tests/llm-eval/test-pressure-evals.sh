@@ -40,7 +40,7 @@ line=$(sed -n "${n}p" "$STUB_PLAN"); [ -z "$line" ] && line=$(tail -1 "$STUB_PLA
 tools=$(printf '%s' "$line" | jq -r '.tools // [] | @json')
 text=$(printf '%s' "$line" | jq -r '.text // ""')
 bash_cmd=$(printf '%s' "$line" | jq -r '.bash // ""')
-jq -cn --argjson t "$tools" --arg x "$text" --arg b "$bash_cmd" '{type:"assistant",message:{content:(($t|map({type:"tool_use",name:(if startswith("Skill:") then "Skill" else . end),input:(if startswith("Skill:") then {skill:("specops-ko:"+(.|sub("^Skill:";"")))} else {} end)})) + (if $b=="" then [] else [{type:"tool_use",name:"Bash",input:{command:$b}}] end) + (if $x=="" then [] else [{type:"text",text:$x}] end))}}'
+jq -cn --argjson t "$tools" --arg x "$text" --arg b "$bash_cmd" '{type:"assistant",message:{content:(($t|map({type:"tool_use",name:(if startswith("Skill:") then "Skill" else . end),input:(if startswith("Skill:") then {skill:("devfsd:"+(.|sub("^Skill:";"")))} else {} end)})) + (if $b=="" then [] else [{type:"tool_use",name:"Bash",input:{command:$b}}] end) + (if $x=="" then [] else [{type:"text",text:$x}] end))}}'
 jq -cn '{type:"result",subtype:"success",total_cost_usd:0}'
 STUB
 chmod +x "$TD/stub.sh"

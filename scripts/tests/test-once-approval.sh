@@ -83,7 +83,7 @@ _has "O10.d Phase 1c 확인 묶음·바뀐 FR 재실행 (AC-2)" "$_p1c" \
   '`mode: 일괄` 이 아니면(`--step`·`/start-all-auto`) 건너뛴다' 'BLOCKING · ASSUMED' '많아야 4개를 한 메시지로 묻는다' '3. 답이 추측과 같으면 그 블록의 `status` 를 `RESOLVED` 로 바꾼다' '4. 다르면 **그 FR 만** 다시 돈다' 'Phase 2 에 들어가지 않고' '`## 1c`' 'HELD 로 바꾸지 않고 queue 상태와 FID 칸을 그대로 두며' '머리줄의 ` · ASSUMED` 도 뗀다'
 # 재실행 사슬 순서 — 4번 줄 하나 안에서 clarifications 갱신 < planning < decomposing < PHASE1-DONE < dev-decision
 _r=$(printf '%s\n' "$_p1c" | grep -F '4. 다르면 **그 FR 만** 다시 돈다'); _prev=-1; _bad=""
-for _k in 'clarifications 블록을 답·`RESOLVED` 로 고침' '`specops-ko:planning-ko` 를 그 FID 로 호출' '→ decomposing →' '`BATCH-PHASE1-DONE`' 'dev-decision.sh add <FID> order'; do
+for _k in 'clarifications 블록을 답·`RESOLVED` 로 고침' '`devfsd:planning-ko` 를 그 FID 로 호출' '→ decomposing →' '`BATCH-PHASE1-DONE`' 'dev-decision.sh add <FID> order'; do
   _rest=${_r#*"$_k"}; [ "$_rest" = "$_r" ] && { _bad="$_bad [없음:$_k]"; continue; }; _pos=$(( ${#_r} - ${#_rest} ))
   [ "$_pos" -gt "$_prev" ] || _bad="$_bad [순서:$_k]"; _prev=$_pos; done
 { [ "$(printf '%s\n' "$_p1c" | grep -cF '4. 다르면 **그 FR 만** 다시 돈다')" = 1 ] && [ -z "$_bad" ]; } && ok "O10.d2 1c 재실행 사슬 순서 (AC-2)" || nope "O10.d2" "$_bad"

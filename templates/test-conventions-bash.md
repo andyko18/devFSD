@@ -35,7 +35,7 @@
 
 **규칙**: 모든 `test-*.sh` 는 `chmod +x` (mode 755) — 직접 실행 가능해야 한다.
 
-**강도**: ⚠️ **Universal 강제**. 실행권한 누락 시 decomposing-ko 의 `<HARD-GATE>` 가 발동하여 `specops-ko:implementing-ko` 호출이 차단된다.
+**강도**: ⚠️ **Universal 강제**. 실행권한 누락 시 decomposing-ko 의 `<HARD-GATE>` 가 발동하여 `devfsd:implementing-ko` 호출이 차단된다.
 
 **예외 — library-only 파일**: shebang 바로 다음 줄 (L2) 에 `# library-only` 주석 마커가 있는 파일은 sourced-only 전용으로 간주하여 exec-bit 검증 skip. 범위는 **첫 두 줄 내** (L1 shebang + L2 마커) 로 HARD-GATE 계약과 동일. shebang 자체는 library-only 파일에도 필수다.
 

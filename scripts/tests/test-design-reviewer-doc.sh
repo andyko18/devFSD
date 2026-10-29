@@ -27,7 +27,7 @@ grep -q 'DESIGN-REVIEW-RESULT' "$AG" \
 grep -q '실측 의무' "$AG" && grep -q 'Interactions' "$AG" \
   && ok "T4 실측·Interactions 관점" || nope "T4" "실측/Interactions 부재"
 
-grep -q 'specops-ko:design-reviewer-ko' "$SA" \
+grep -q 'devfsd:design-reviewer-ko' "$SA" \
   && grep -q 'design-review.md' "$SA" \
   && ok "T5 start-all dispatch 배선" || nope "T5" "start-all 미배선"
 

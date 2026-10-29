@@ -25,7 +25,7 @@ make_sandbox() {
   # chain fixture (FID 20260702-chain-single-source): 기존 skill 2개 재사용 — 신규 skill 생성 금지
   # (신규 skill 은 xref_resolve 미존재 FAIL + baseline 카운트 + add_docs README 하드코딩 3중 회귀)
   # s1=specifying-ko → s2=clarifying-ko (T12.a 가 변조하는 tdd-ko 회피)
-  printf -- '\n## 다음 skill\n\nSkill: specops-ko:clarifying-ko\n' >> "$sb/skills/specifying-ko/SKILL.md"
+  printf -- '\n## 다음 skill\n\nSkill: devfsd:clarifying-ko\n' >> "$sb/skills/specifying-ko/SKILL.md"
   cat > "$sb/hooks/chain.yaml" <<'EOF'
 edges:
   - {from: specifying-ko, to: clarifying-ko}

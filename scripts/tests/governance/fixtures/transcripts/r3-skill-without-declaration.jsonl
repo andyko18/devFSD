@@ -1,2 +1,2 @@
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"그냥 진행합니다."}]}}
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:planning-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:planning-ko"}}]}}

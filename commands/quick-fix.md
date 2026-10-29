@@ -32,9 +32,9 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
 
 1. **시작** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/quick-fix.sh start <FID> "<한 줄 설명>"`
    FID 폴더와 진행 기록을 연다. 기본 브랜치(main/master) 위면 브랜치를 만든다.
-2. **고친다** — 동작이 바뀌는 수정이면 **실패하는 테스트를 먼저** 쓰고 실패를 확인한 뒤 고친다(`specops-ko:tdd-ko`). 문구·주석·오타처럼 동작이 바뀌지 않으면 테스트 추가는 생략한다.
+2. **고친다** — 동작이 바뀌는 수정이면 **실패하는 테스트를 먼저** 쓰고 실패를 확인한 뒤 고친다(`devfsd:tdd-ko`). 문구·주석·오타처럼 동작이 바뀌지 않으면 테스트 추가는 생략한다.
 3. **스테이징** — 이번 수정에 넣을 파일만 `git add <파일…>` (별도 호출). 스테이징된 것이 곧 이 수정의 범위다.
-4. **코드 리뷰 1회** — `specops-ko:code-reviewer-ko` 를 dispatch 한다. 프롬프트에 아래를 넣는다:
+4. **코드 리뷰 1회** — `devfsd:code-reviewer-ko` 를 dispatch 한다. 프롬프트에 아래를 넣는다:
    - `quick 경로: yes` (명세가 없다 — 스펙 리뷰 보고서도 없다)
    - FID · task id `T1` · 고친 의도 한 줄 · 리뷰 대상은 `git diff --cached`
    - 리뷰어는 `<<<REVIEW fid=<FID> tid=T1 phase=C verdict=…>>>` 블록으로 보고하고, 저장 훅이 `.specops/<FID>/reviews/T1-C-report.md` 로 옮긴다.

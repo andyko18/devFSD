@@ -1,6 +1,6 @@
 ---
 name: using-specops-ko
-description: 모든 대화 시작 시 활성 — specops-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 specops-ko:specifying-ko 자동 호출 강제 (5원칙 주입)
+description: 모든 대화 시작 시 활성 — specops-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 devfsd:specifying-ko 자동 호출 강제 (5원칙 주입)
 layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
 specops_version: 2.20.0
@@ -16,7 +16,7 @@ used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
 <EXTREMELY-IMPORTANT>
 1% 가능성이라도 specops-ko Lifecycle skill이 적용될 수 있다면 **반드시** 호출한다.
 
-특히 사용자 입력이 다음 신호를 포함하면 즉시 `specops-ko:specifying-ko` 호출:
+특히 사용자 입력이 다음 신호를 포함하면 즉시 `devfsd:specifying-ko` 호출:
 
 **[신규 신호]** — `maintenance flag = false`:
 - "X 기능을 만들고 싶어"
@@ -75,7 +75,7 @@ spec.md + acceptance-criteria.md 작성
     ↓
 HARD GATE: "spec 검토. 다음 skill(clarifying-ko) 진행? [y/n]"
     ↓ y
-specops-ko:clarifying-ko (skill 본문이 다음 chain 명시)
+devfsd:clarifying-ko (skill 본문이 다음 chain 명시)
     ↓
 ... → planning-ko → decomposing-ko → implementing-ko (subagent dispatch) → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
     ↓
@@ -142,7 +142,7 @@ SessionStart 가 `<session-progress-rehydrate>` 블록을 주입했으면, **데
 Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제시됨 — 그대로 따른다. skill 파일을 `Read` 도구로 직접 읽지 말 것.
 단, `using-specops-ko/` 의 참조 파일(예: `freework-pending.md`)은 skill 이 아니라 지시된 시점에 `Read` 하는 절차 문서다.
 
-호출 형식: skill 이름은 `specops-ko:specifying-ko` 같은 namespace 포함.
+호출 형식: skill 이름은 `devfsd:specifying-ko` 같은 namespace 포함.
 
 ## 적색 플래그 — 중단
 
@@ -168,8 +168,8 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 
 ## Karpathy·Advisor (cross-cutting)
 
-- 구현 단계는 `specops-ko:karpathy-ko` 4원칙(가정 명시·단순성·외과적 변경·목표 기반 검증)을 따른다.
-- 기획·분석·설계·개발 중 애매하거나 모르는 지점은 단정하지 말고 advisor 를 호출한다(자명한 typo·1줄 rename 제외). 단계별 호출 시점: `specops-ko:advisor-ko`.
+- 구현 단계는 `devfsd:karpathy-ko` 4원칙(가정 명시·단순성·외과적 변경·목표 기반 검증)을 따른다.
+- 기획·분석·설계·개발 중 애매하거나 모르는 지점은 단정하지 말고 advisor 를 호출한다(자명한 typo·1줄 rename 제외). 단계별 호출 시점: `devfsd:advisor-ko`.
 
 ## 자유작업 pending 처리
 

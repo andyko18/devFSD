@@ -1,2 +1,2 @@
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Using specops-ko:planning-ko to draft the plan."}]}}
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:planning-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Using devfsd:planning-ko to draft the plan."}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:planning-ko"}}]}}

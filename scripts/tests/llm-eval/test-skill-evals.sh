@@ -81,11 +81,11 @@ s0='{"type":"assistant","message":{"content":[{"type":"text","text":"안녕"}]}}
 s1='{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"specifying-ko"}}]}}'
 s2='{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"advisor-ko"}}]}}
 {"type":"assistant","message":{"content":[{"type":"text","text":"이어서"}]}}
-{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:karpathy-ko"}}]}}'
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:karpathy-ko"}}]}}'
 [ -z "$(printf '%s\n' "$s0" | eval::all_skills)" ] && ok "T3.a 호출 0건 → 빈 출력" || nope "T3.a" "빈 출력 아님"
 [ "$(printf '%s\n' "$s1" | eval::all_skills)" = "specifying-ko" ] && ok "T3.b 1건" || nope "T3.b" "1건 파싱 실패"
 got=$(printf '%s\n' "$s2" | eval::all_skills | paste -sd, -)
-[ "$got" = "advisor-ko,specops-ko:karpathy-ko" ] && ok "T3.c 2건 순서 유지" || nope "T3.c" "got='$got'"
+[ "$got" = "advisor-ko,devfsd:karpathy-ko" ] && ok "T3.c 2건 순서 유지" || nope "T3.c" "got='$got'"
 
 # T4 (AC-4) stub 다중 호출 + 하위호환
 _stub() {  # <plan 행> → stub stdout

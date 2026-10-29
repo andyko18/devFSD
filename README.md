@@ -1,10 +1,12 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="specops-ko 의 자율 Lifecycle: 명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 까지의 단계 흐름" width="100%">
+  <img src="docs/assets/hero.svg" alt="devFSD 의 자율 Lifecycle: 명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 까지의 단계 흐름" width="100%">
 </p>
 
-# specops-ko
+# devFSD
 
-**Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v2.37.2)
+**개발 자율주행(devFSD) — Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v2.37.2)
+
+> 감독형 자율주행이다 — 설계 승인과 PR 병합은 사람이 한다. (이전 이름 specops-ko)
 
 [![release](https://img.shields.io/github/v/release/andyko18/specops-ko?label=release&color=0969da)](https://github.com/andyko18/specops-ko/releases)
 [![tests](https://github.com/andyko18/specops-ko/actions/workflows/test.yml/badge.svg)](https://github.com/andyko18/specops-ko/actions/workflows/test.yml)
@@ -18,7 +20,7 @@
 
 LLM 에이전트에게 개발을 맡길 때 반복되는 실패를, 프롬프트가 아니라 런타임의 장치로 막는다.
 
-| 이런 일이 반복된다 | specops-ko 의 답 |
+| 이런 일이 반복된다 | devFSD 의 답 |
 |---|---|
 | 🔁 단계마다 다음 지시를 다시 해야 한다 | 🔗 **자율 chain** — 각 스킬 본문의 `## 다음 skill` 이 다음 단계를 강제한다. 단계마다 지시할 필요가 없다 |
 | 🧠 세션이 끊기면 맥락이 사라진다 | 📁 **파일이 기억한다** — 모든 산출물은 `.specops/<FID>/` 에 남는다. 세션이 끊겨도 파일만 읽고 이어간다 |
@@ -59,7 +61,7 @@ flowchart LR
 ```bash
 # 1) 설치
 claude plugin marketplace add andyko18/specops-ko
-claude plugin install specops-ko@specops-ko
+claude plugin install devfsd@devfsd
 
 # 2) 확인
 /doctor
@@ -295,7 +297,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 도입 전에 읽어 두면 시행착오가 줄어드는 사실 4가지다. 전체(필요한 도구 · 소요 · 적용 범위 · 저장소에 생기는 변화 · 끄는 법 · 로컬 산출물 · 설계 한 화면 · 프라이버시 · 업그레이드·삭제)는 **[docs/adoption-notes.md](docs/adoption-notes.md)** 에 있다.
 
 - **`jq` 가 없으면 훅이 전면 fail-open** — 에러 없이 R-1~R-5 차단·감사가 꺼진다. 설치 직후 `/doctor` 의 `deps` 항목으로 확인한다.
-- **기본 설치(`user` 범위)는 모든 repo 의 세션 시작에 메타 스킬을 주입한다** — 일부 repo 에서만 쓰려면 `claude plugin install specops-ko@specops-ko --scope project`(또는 `local`)로 설치한다.
+- **기본 설치(`user` 범위)는 모든 repo 의 세션 시작에 메타 스킬을 주입한다** — 일부 repo 에서만 쓰려면 `claude plugin install devfsd@devfsd --scope project`(또는 `local`)로 설치한다.
 - **산출물은 기본적으로 로컬이다** — `intent.md` 만 커밋되고 spec·plan·evidence·리뷰는 저장소에 올라가지 않아 PR 리뷰어가 볼 수 없다.
 - **한 건에 걸리는 시간** — FID 1건(spec → verify) 중앙값 약 2시간, p90 약 7.6시간 — **속도 개선(v2.32~2.36: 승인 1회·리뷰 병렬·전문가 동시 실행) 전** 측정이다. 개선 뒤 수치는 아직 재지 않았다.
 

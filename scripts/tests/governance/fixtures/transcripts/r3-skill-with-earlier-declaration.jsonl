@@ -1,4 +1,4 @@
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Using planning-ko to draft."}]}}
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"ls"}}]}}
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"파일 목록 확인."}]}}
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:planning-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:planning-ko"}}]}}

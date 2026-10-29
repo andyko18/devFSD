@@ -39,6 +39,11 @@ fi
 # T6.a R-1 verify 부재 → 매칭
 source "$PLUGIN/hooks/governance-lib.sh"
 FIXTURES="$PLUGIN/scripts/tests/governance/fixtures"
+# TC.* (AC-2) — 3.x 동안 훅은 devfsd: 와 옛 접두사를 모두 판정한다. 저장 픽스처는 전부 devfsd: 라서
+#   옛·other 접두사 픽스처는 런타임 sed 로 만든다. $1=원본 $2=접두사(예: other) $3=출력 [$4=sed 주소(줄 범위)]
+_tcdir=$(mktemp -d) || exit 1
+_pfx() { sed "${4:-}s/devfsd:/$2:/g" "$1" > "$3"; }
+_OLDP=$(printf 'specops-%s' ko)   # 옛 접두사 — 리터럴로 쓰지 않는다
 rule_r1=$(jq -c 'select(.id == "R-1")' "$PLUGIN/hooks/rules.jsonl")
 # T6 격리: apply_lookback_rule 이 detect_fid → 실 repo .specops/session-progress.md 의
 # /verify PASS 를 읽어 위반을 면제(false-negative)하지 않도록 빈 cwd 로 격리 (governance-lookback-fix).
@@ -75,6 +80,19 @@ if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-2"' >/dev/null; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T6.d (out=$out)"
 fi
+
+# TC.1·TC.1n·TC.2 R-1/R-2 negative_skill_pattern — 옛 접두사 verify 도 인정, 임의 접두사는 불인정
+_pfx "$FIXTURES/transcripts/r1-commit-with-verify.jsonl" "$_OLDP" "$_tcdir/r1-old.jsonl"
+_pfx "$FIXTURES/transcripts/r1-commit-with-verify.jsonl" other "$_tcdir/r1-other.jsonl"
+out=$(apply_lookback_rule "$rule_r1" "$_tcdir/r1-old.jsonl" "Bash" 'git commit -m "feat: x"')
+if [ -z "$out" ]; then PASS=$((PASS+1)); echo "PASS TC.1 R-1 옛 접두사 verify → 미매칭"
+else FAIL=$((FAIL+1)); echo "FAIL TC.1 (out=$out)"; fi
+out=$(apply_lookback_rule "$rule_r2" "$_tcdir/r1-old.jsonl" "Bash" 'gh pr create --title "x"')
+if [ -z "$out" ]; then PASS=$((PASS+1)); echo "PASS TC.2 R-2 옛 접두사 verify → 미매칭"
+else FAIL=$((FAIL+1)); echo "FAIL TC.2 (out=$out)"; fi
+out=$(apply_lookback_rule "$rule_r1" "$_tcdir/r1-other.jsonl" "Bash" 'git commit -m "feat: x"')
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-1"' >/dev/null; then PASS=$((PASS+1)); echo "PASS TC.1n R-1 other 접두사 verify → 매칭(양성 대조)"
+else FAIL=$((FAIL+1)); echo "FAIL TC.1n (out=$out)"; fi
 
 # T6.g R-1 bare VAR=val prefix 우회 → 매칭 (F-2 회귀)
 out=$(apply_lookback_rule "$rule_r1" "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" "Bash" 'FOO=bar git commit -m "x"')
@@ -260,7 +278,7 @@ _tcase "T4.g (AC-R-1) _infer_commit_task 7케이스 기준선 불변" ok "$_ir_o
 cd "$_t6_orig" || exit 1; rm -rf "$_t6_sb"
 
 # T7.a R-3 선언 부재 → 매칭
-out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" "specops-ko:planning-ko")
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" "devfsd:planning-ko")
 if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-3"' >/dev/null; then
   PASS=$((PASS+1)); echo "PASS T7.a R-3 선언 부재 매칭"
 else
@@ -268,7 +286,7 @@ else
 fi
 
 # T7.b R-3 영문 Using 선언 → 미매칭
-out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-english-declaration.jsonl" "specops-ko:planning-ko")
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-english-declaration.jsonl" "devfsd:planning-ko")
 if [ -z "$out" ]; then
   PASS=$((PASS+1)); echo "PASS T7.b Using 영문 선언 미매칭"
 else
@@ -277,7 +295,7 @@ fi
 
 # T7.c~g 한국어 변형 5 종 (AC-9 한국어 변형 regex 에 '넘어감' 포함)
 for variant in 사용 호출 진입 이동 넘어감; do
-  out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-korean-${variant}.jsonl" "specops-ko:planning-ko")
+  out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-korean-${variant}.jsonl" "devfsd:planning-ko")
   if [ -z "$out" ]; then
     PASS=$((PASS+1)); echo "PASS T7.c-g 한국어 '${variant}' 미매칭"
   else
@@ -287,7 +305,7 @@ done
 
 # T7.g (v0.4-pre W1 정정) R-3 lookback N=3 이내 선언 → 미매칭 (옛 N=1 규약에서는 매칭이었음)
 # 의도 변경: 옛 "직전 1 외" 매칭 → 새 "직전 3 이내" 미매칭 (false positive 해소)
-out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-earlier-declaration.jsonl" "specops-ko:planning-ko")
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-earlier-declaration.jsonl" "devfsd:planning-ko")
 if [ -z "$out" ]; then
   PASS=$((PASS+1)); echo "PASS T7.g 직전 N=3 이내 선언 → 미매칭 (v0.4-pre W1 lookback 확장)"
 else
@@ -296,11 +314,11 @@ fi
 
 # T7.h~T7.l (v0.4-pre W1) R-3 declaration regex 확장 — 한국어 시작/진행 + 영문 invoking/switching + user turn 첫 진입 예외
 declare -a r3_extra=(
-  "r3-skill-with-korean-시작.jsonl|specops-ko:planning-ko|h|한국어 시작"
-  "r3-skill-with-korean-진행.jsonl|specops-ko:clarifying-ko|i|한국어 진행"
-  "r3-skill-with-english-invoking.jsonl|specops-ko:decomposing-ko|j|영문 Invoking"
-  "r3-skill-with-english-switching.jsonl|specops-ko:verifying-evidence-ko|k|영문 Switching to"
-  "r3-skill-after-user-turn.jsonl|specops-ko:specifying-ko|l|user turn /start 첫 진입 예외"
+  "r3-skill-with-korean-시작.jsonl|devfsd:planning-ko|h|한국어 시작"
+  "r3-skill-with-korean-진행.jsonl|devfsd:clarifying-ko|i|한국어 진행"
+  "r3-skill-with-english-invoking.jsonl|devfsd:decomposing-ko|j|영문 Invoking"
+  "r3-skill-with-english-switching.jsonl|devfsd:verifying-evidence-ko|k|영문 Switching to"
+  "r3-skill-after-user-turn.jsonl|devfsd:specifying-ko|l|user turn /start 첫 진입 예외"
 )
 for entry in "${r3_extra[@]}"; do
   IFS='|' read -r fix skill letter desc <<< "$entry"
@@ -506,8 +524,8 @@ else
 fi
 rm -rf "$tmp"
 
-# T7.m R-3 full name 선언 (specops-ko:<short>) → 미매칭 (v0.4b W1)
-out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-fullname-declaration.jsonl" "specops-ko:planning-ko")
+# T7.m R-3 full name 선언 (devfsd:<short>) → 미매칭 (v0.4b W1)
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-with-fullname-declaration.jsonl" "devfsd:planning-ko")
 if [ -z "$out" ]; then
   PASS=$((PASS+1)); echo "PASS T7.m R-3 full name 선언 → 미매칭 (v0.4b W1)"
 else
@@ -516,12 +534,35 @@ fi
 
 # T7.n R-3 lifecycle chain 자동 호출 → 미매칭 (v0.5 W1)
 # fixture: requesting-code-review-ko 직후 receiving-code-review-ko 자동 chain
-out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-chain-auto-next.jsonl" "specops-ko:receiving-code-review-ko")
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-chain-auto-next.jsonl" "devfsd:receiving-code-review-ko")
 if [ -z "$out" ]; then
   PASS=$((PASS+1)); echo "PASS T7.n R-3 lifecycle chain 자동 호출 → 미매칭 (v0.5 W1)"
 else
   FAIL=$((FAIL+1)); echo "FAIL T7.n (out=$out)"
 fi
+
+# TC.3a~d R-3 선언 텍스트 × skill 인자 접두사 2×2 — 모두 미매칭 · TC.3n 선언만 other → 매칭
+_r3fx="$FIXTURES/transcripts/r3-skill-with-fullname-declaration.jsonl"
+for _d in devfsd "$_OLDP"; do for _s in devfsd "$_OLDP"; do
+  _pfx "$_r3fx" "$_d" "$_tcdir/r3-a.jsonl" 1; _pfx "$_tcdir/r3-a.jsonl" "$_s" "$_tcdir/r3-$_d-$_s.jsonl" 2
+  out=$(apply_skill_declaration_rule "$_tcdir/r3-$_d-$_s.jsonl" "$_s:planning-ko")
+  if [ -z "$out" ]; then PASS=$((PASS+1)); echo "PASS TC.3 R-3 선언 $_d × 인자 $_s → 미매칭"
+  else FAIL=$((FAIL+1)); echo "FAIL TC.3 선언 $_d × 인자 $_s (out=$out)"; fi
+done; done
+_pfx "$_r3fx" other "$_tcdir/r3-n.jsonl" 1
+out=$(apply_skill_declaration_rule "$_tcdir/r3-n.jsonl" "devfsd:planning-ko")
+if [ -n "$out" ]; then PASS=$((PASS+1)); echo "PASS TC.3n R-3 선언만 other 접두사 → 매칭(양성 대조)"
+else FAIL=$((FAIL+1)); echo "FAIL TC.3n 매칭 기대인데 빈 값"; fi
+
+# TC.4·TC.4n lifecycle 자동 호출 면제(lc_skill) — 직전 호출이 옛 접두사여도 면제, other 면 면제 아님
+_pfx "$FIXTURES/transcripts/r3-skill-chain-auto-next.jsonl" "$_OLDP" "$_tcdir/r3-lc-old.jsonl" 1
+_pfx "$FIXTURES/transcripts/r3-skill-chain-auto-next.jsonl" other "$_tcdir/r3-lc-other.jsonl" 1
+out=$(apply_skill_declaration_rule "$_tcdir/r3-lc-old.jsonl" "devfsd:receiving-code-review-ko")
+if [ -z "$out" ]; then PASS=$((PASS+1)); echo "PASS TC.4 직전 호출 옛 접두사 lifecycle → 면제"
+else FAIL=$((FAIL+1)); echo "FAIL TC.4 (out=$out)"; fi
+out=$(apply_skill_declaration_rule "$_tcdir/r3-lc-other.jsonl" "devfsd:receiving-code-review-ko")
+if [ -n "$out" ]; then PASS=$((PASS+1)); echo "PASS TC.4n 직전 호출 other 접두사 → 면제 아님(양성 대조)"
+else FAIL=$((FAIL+1)); echo "FAIL TC.4n 매칭 기대인데 빈 값"; fi
 
 # T10.f R-5 Write(신규 생성) + 섹션 부재 → 미매칭 (v0.5 W2 — fresh Write는 advisor 불필요)
 tmp=$(mktemp -d); cp "$FIXTURES/r5-no-section.md" "$tmp/plan.md"
@@ -610,7 +651,7 @@ rm -rf "$tmp"
 # T7.o R-3 위반 위치 — 대상 Skill 호출이 든 줄의 다음 번호(이 픽스처는 2번째 줄 → 2)
 #   ※ R-3 만 "줄 + 1" 이고 R-1·R-4·R-5 는 0-based 다(아래 T9.g·T10.q). 이 단언은 그 차이를 옳다고 정한 것이 아니라
 #     지금 값을 잠근 것이다 — 규약을 맞추기로 하면 이 숫자를 함께 바꾼다.
-out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" "specops-ko:planning-ko")
+out=$(apply_skill_declaration_rule "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" "devfsd:planning-ko")
 if [ "$(echo "$out" | jq -r '.offset' 2>/dev/null)" = "2" ]; then
   PASS=$((PASS+1)); echo "PASS T7.o R-3 offset=2 (Skill 호출 줄 기준)"
 else
@@ -839,7 +880,7 @@ EOF
 tmp_fixture="$tmpfid_dir/r6-trivial.jsonl"
 # evidence.md path 절대경로 사용 — sed 의 [^/]+ 패턴 매칭은 디렉토리 마지막 segment 사용
 ev_path="$tmpfid_dir/.specops/trivial-test-fid/evidence.md"
-printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:verifying-evidence-ko"}}]}}\n' > "$tmp_fixture"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:verifying-evidence-ko"}}]}}\n' > "$tmp_fixture"
 printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":"%s","content":"# evidence"}}]}}\n' "$ev_path" >> "$tmp_fixture"
 out=$(apply_gbrain_absence_rule "$rule_r6" "$tmp_fixture")
 if [ -z "$out" ]; then
@@ -863,13 +904,23 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-R6.9 Edit tool evidence 미매칭 (gbrain 부재인데 매칭 안 됨)"
 fi
 
+# TC.9·TC.9n R-6 verify_skill_pattern — 옛 접두사 verify 도 인정(매칭), other 는 verify 없음(빈 값)
+_pfx "$FIXTURES/transcripts/r6-verify-edit-evidence.jsonl" "$_OLDP" "$_tcdir/r6-old.jsonl"
+_pfx "$FIXTURES/transcripts/r6-verify-edit-evidence.jsonl" other "$_tcdir/r6-other.jsonl"
+out=$(apply_gbrain_absence_rule "$rule_r6" "$_tcdir/r6-old.jsonl")
+if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then PASS=$((PASS+1)); echo "PASS TC.9 R-6 옛 접두사 verify → 매칭"
+else FAIL=$((FAIL+1)); echo "FAIL TC.9 (out=$out)"; fi
+out=$(apply_gbrain_absence_rule "$rule_r6" "$_tcdir/r6-other.jsonl")
+if [ -z "$out" ]; then PASS=$((PASS+1)); echo "PASS TC.9n R-6 other 접두사 → 빈 값(양성 대조)"
+else FAIL=$((FAIL+1)); echo "FAIL TC.9n (out=$out)"; fi
+
 # T-R6.10 gbrain_runner_pattern false-PASS 회귀 (외부 review #2 fix)
-# specops-ko:gbrain 조회만으로 R-6 silence 되지 않음 검증.
+# devfsd:gbrain 조회만으로 R-6 silence 되지 않음 검증.
 tmpfx2=$(mktemp)
 cat > "$tmpfx2" <<'EOF'
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:verifying-evidence-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:verifying-evidence-ko"}}]}}
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":".specops/20260526-r6-fix-followup/evidence.md","content":"# evidence"}}]}}
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:gbrain"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:gbrain"}}]}}
 EOF
 out=$(apply_gbrain_absence_rule "$rule_r6" "$tmpfx2")
 if [ -n "$out" ] && echo "$out" | jq -e '.rule_id == "R-6"' >/dev/null; then
@@ -910,7 +961,7 @@ cat > "$tmpfid_dir2/.specops/trivial-invocation-fid/spec.md" <<'EOF'
 **§유형**: trivial
 EOF
 tmp_fixture2="$tmpfid_dir2/r6-trivial-invocation.jsonl"
-printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:verifying-evidence-ko"}}]}}\n' > "$tmp_fixture2"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:verifying-evidence-ko"}}]}}\n' > "$tmp_fixture2"
 printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Bash","input":{"command":"bash scripts/_internal/run-verification.sh trivial-invocation-fid"}}]}}\n' >> "$tmp_fixture2"
 # trivial-skip 은 last_evi_path 의 dirname 기준 spec.md 조회 — CWD 기반 상대경로라 tmpfid_dir2 진입 필요
 out=$(cd "$tmpfid_dir2" && apply_gbrain_absence_rule "$rule_r6" "$tmp_fixture2")
@@ -946,7 +997,7 @@ e2e_fid="20260529-r6-e2e-stop"
 mkdir -p "$e2e_tmp/.specops"
 printf '## %s\n' "$e2e_fid" > "$e2e_tmp/.specops/session-progress.md"
 e2e_tx="$e2e_tmp/transcript.jsonl"
-printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:verifying-evidence-ko"}}]}}\n' > "$e2e_tx"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:verifying-evidence-ko"}}]}}\n' > "$e2e_tx"
 printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":".specops/%s/evidence.md","content":"# evidence"}}]}}\n' "$e2e_fid" >> "$e2e_tx"
 e2e_out=$(cd "$e2e_tmp" && printf '{"transcript_path":"%s","stop_hook_active":false}' "$e2e_tx" | bash "$PLUGIN/hooks/stop-governance.sh" 2>/dev/null)
 e2e_cont=$(echo "$e2e_out" | jq -r '.continue' 2>/dev/null)
@@ -969,7 +1020,7 @@ e2e_tmp2=$(mktemp -d)
 mkdir -p "$e2e_tmp2/.specops"
 printf '## %s\n' "$e2e_fid" > "$e2e_tmp2/.specops/session-progress.md"
 e2e_tx2="$e2e_tmp2/transcript.jsonl"
-printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:verifying-evidence-ko"}}]}}\n' > "$e2e_tx2"
+printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:verifying-evidence-ko"}}]}}\n' > "$e2e_tx2"
 printf '{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Write","input":{"file_path":".specops/%s/evidence.md","content":"# evidence"}}]}}\n' "$e2e_fid" >> "$e2e_tx2"
 out2=$(cd "$e2e_tmp2" && printf '{"transcript_path":"%s","stop_hook_active":true}' "$e2e_tx2" | bash "$PLUGIN/hooks/stop-governance.sh" 2>/dev/null)
 if [ "$(echo "$out2" | jq -r '.continue' 2>/dev/null)" = "true" ] && [ ! -f "$e2e_tmp2/.specops/$e2e_fid/friction-log.jsonl" ]; then
@@ -1028,7 +1079,7 @@ fi
 r8_pat=$(jq -r 'select(.id=="R-3")|.trigger_skill_pattern' "$PLUGIN/hooks/rules.jsonl")
 if [ -n "$r8_pat" ] && [ "$r8_pat" != "null" ] \
    && grep -q 'trigger_skill_pattern' "$PLUGIN/hooks/posttool-governance.sh" \
-   && ! grep -qE "grep -Eq '\^specops-ko:'" "$PLUGIN/hooks/posttool-governance.sh"; then
+   && ! grep -qE "grep -Eq '\^devfsd:'" "$PLUGIN/hooks/posttool-governance.sh"; then
   PASS=$((PASS+1)); echo "PASS T-R8 R-3 trigger ≡ rules.jsonl single-source"
 else
   FAIL=$((FAIL+1)); echo "FAIL T-R8 (pat=[$r8_pat] — posttool R-3 하드코딩 drift?)"
@@ -1087,7 +1138,7 @@ if grep -q '"rule_id":"R-4"' "$_na/.specops/friction-log.jsonl" 2>/dev/null; the
 else
   FAIL=$((FAIL+1)); echo "FAIL T-NA.b 대조군이 발화하지 않음 — T-NA.a 가 공허하다"
 fi
-rm -rf "$_na"
+rm -rf "$_na" "$_tcdir"
 
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="

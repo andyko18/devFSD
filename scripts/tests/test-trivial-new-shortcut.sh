@@ -21,17 +21,17 @@ grep -q '신규 trivial 단축 경로' "$SPEC" \
   && ok "AC-2 신규 trivial 단축 경로 근거 서술" || nope "AC-2" "단축 경로 서술 소실"
 
 # ── 라우팅: primary edge 불변 + 조건 분기는 인라인(파서 회피) ──────────
-# specifying `## 다음 skill` 블록 안에서 정확매치 `^Skill: specops-ko:` 라인 추출
+# specifying `## 다음 skill` 블록 안에서 정확매치 `^Skill: devfsd:` 라인 추출
 NEXT_BLOCK=$(awk '/^## 다음 skill/{f=1;next} f&&/^## /{f=0} f' "$SPEC")
-PRIMARY=$(printf '%s\n' "$NEXT_BLOCK" | grep -cE '^Skill: specops-ko:[a-z-]+[[:space:]]*$')
+PRIMARY=$(printf '%s\n' "$NEXT_BLOCK" | grep -cE '^Skill: devfsd:[a-z-]+[[:space:]]*$')
 # 정확매치는 clarifying-ko 하나뿐이어야 chain_consistency 가 primary edge 를 단일 유지
 [ "$PRIMARY" = "1" ] \
   && ok "AC-3 primary edge 단일 (Skill: 정확매치 1건 — chain_consistency 정합)" \
   || nope "AC-3" "Skill: 정확매치 $PRIMARY 건 (1 기대 — decomposing 이 primary 로 오수집)"
-printf '%s\n' "$NEXT_BLOCK" | grep -qE '^Skill: specops-ko:clarifying-ko[[:space:]]*$' \
+printf '%s\n' "$NEXT_BLOCK" | grep -qE '^Skill: devfsd:clarifying-ko[[:space:]]*$' \
   && ok "AC-3b primary 대상 = clarifying-ko (정상 경로 보존)" || nope "AC-3b" "clarifying primary 소실"
 # 조건 분기의 decomposing 참조는 인라인(줄 시작 `Skill: ` 아님)으로만 존재
-printf '%s\n' "$NEXT_BLOCK" | grep -q 'specops-ko:decomposing-ko' \
+printf '%s\n' "$NEXT_BLOCK" | grep -q 'devfsd:decomposing-ko' \
   && ok "AC-4 trivial 분기 decomposing 인라인 참조 존재" || nope "AC-4" "decomposing 직행 참조 소실"
 
 # ── 정직한 SKIP 라우팅: fake 가 아니라 SKIP 으로 기록하도록 지시 ────────

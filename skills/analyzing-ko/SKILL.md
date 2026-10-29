@@ -41,7 +41,7 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
    - 스키마/데이터 변경이면 expand-contract·데이터 보존 포인트를 **반드시** 1줄 이상
    - `## 4. Advisor 협의 기록`: 불확실 없으면 `해당 없음 — lite-mini 분석 중 불확실 지점 없음` 1줄 (R-5)
 5. ★ HARD GATE: "lite-mini 분석 검토. 진행? [y/n]" — [n] 시 chain 중단 (**§일괄** 이면 Step 7 의 [§일괄] 과 같이 묻지 않고 지난다 — 요약은 specifying 끝의 승인 묶음에 실린다)
-6. session-progress append `/analyze 완료` 후 `specops-ko:specifying-ko` — **args 그대로** (`<!-- entry: maintain-lite -->` 유지). specifying-ko **[maintain-lite 분기]**가 참조.
+6. session-progress append `/analyze 완료` 후 `devfsd:specifying-ko` — **args 그대로** (`<!-- entry: maintain-lite -->` 유지). specifying-ko **[maintain-lite 분기]**가 참조.
 
 > mini는 baseline·AC-R-1 근거를 남기기 위한 축소이지 analyzing **완전 skip이 아니다**.
 
@@ -285,7 +285,7 @@ git log --oneline --grep="<symbol>" -n 5
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /analyze 완료 "current-state.md, impact-analysis.md"
 ```
 
-이어서 즉시 `specops-ko:specifying-ko` 호출. **args 그대로 전달** — `<!-- entry: maintain -->` 또는 `<!-- entry: maintain-lite -->` 첫 줄 유지 (AC-10).
+이어서 즉시 `devfsd:specifying-ko` 호출. **args 그대로 전달** — `<!-- entry: maintain -->` 또는 `<!-- entry: maintain-lite -->` 첫 줄 유지 (AC-10).
 
 ---
 
@@ -312,7 +312,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /analyze �
 ## 다음 skill
 
 ```
-Skill: specops-ko:specifying-ko
+Skill: devfsd:specifying-ko
 ```
 
 args 그대로 전달. `entry: maintain` → specifying [유지보수 분기]. `entry: maintain-lite` → specifying [maintain-lite 분기].

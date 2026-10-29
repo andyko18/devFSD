@@ -41,13 +41,13 @@ else FAIL=$((FAIL+1)); echo "FAIL T1.c AC-3b ($outf)"; fi
 
 # T1.d AC-2: 부재 graceful
 out2=$(printf '{"cwd":"/tmp/nonexistent-xyz123"}' | bash "$SL"); rc=$?
-if [ $rc -eq 0 ] && echo "$out2" | grep -qF "◆ specops-ko"; then
+if [ $rc -eq 0 ] && echo "$out2" | grep -qF "◆ devFSD"; then
   PASS=$((PASS+1)); echo "PASS T1.d AC-2 부재 graceful (exit0)"
 else FAIL=$((FAIL+1)); echo "FAIL T1.d AC-2 (rc=$rc out=$out2)"; fi
 
 # T1.e AC-2b: 빈 stdin graceful (run-all 루트 CWD서도 fallback — C-1)
 out3=$(printf '' | bash "$SL"); rc=$?
-if [ $rc -eq 0 ] && echo "$out3" | grep -qF "◆ specops-ko"; then
+if [ $rc -eq 0 ] && echo "$out3" | grep -qF "◆ devFSD"; then
   PASS=$((PASS+1)); echo "PASS T1.e AC-2b 빈 stdin graceful"
 else FAIL=$((FAIL+1)); echo "FAIL T1.e AC-2b (rc=$rc out=$out3)"; fi
 

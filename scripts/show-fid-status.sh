@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # show-fid-status.sh — FID Lifecycle 진행 단계 + 아티팩트 현황 표시
 # Usage: bash scripts/show-fid-status.sh <FID>
-# specops-ko: FR-1~FR-5 (spec.md §4)
+# devfsd: FR-1~FR-5 (spec.md §4)
 set -u
 
 FID="${1:-}"

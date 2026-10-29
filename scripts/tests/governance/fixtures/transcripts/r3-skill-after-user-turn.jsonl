@@ -1,2 +1,2 @@
 {"type":"user","message":{"role":"user","content":"/start 한국어 slug CLI 만들어줘"}}
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:specifying-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:specifying-ko"}}]}}

@@ -357,7 +357,7 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 탐색 완료 + 산출물 저장 후 사용자 선택에 따라:
 
 - **프로젝트 초기화 필요** → `/init-project` 슬래시 커맨드 안내 (Skill 아님 — `commands/init-project.md`)
-- **프로젝트 이미 초기화** → `specops-ko:specifying-ko` 호출
+- **프로젝트 이미 초기화** → `devfsd:specifying-ko` 호출
 
 강제 chain 없음. 본 brainstorming-ko는 **사용자가 명시적으로 선택하기 전까지 어떤 구현 스킬도 호출하지 않는다.**
 

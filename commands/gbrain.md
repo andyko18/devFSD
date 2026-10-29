@@ -18,7 +18,7 @@ reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours gbrai
 
 ## Process
 
-1. **즉시 `specops-ko:gbrain-ko` 호출** — `--fid` 인자를 그대로 전달
+1. **즉시 `devfsd:gbrain-ko` 호출** — `--fid` 인자를 그대로 전달
 2. learnings.jsonl 읽기 → 전체 개수 + 최신 10건 출력
 3. **마찰 집계** — `scripts/gbrain-friction.sh` 로 `friction-log.jsonl` 을 규칙별 집계 + 증류 후보 제시 (기본 출력, 플래그 불요). **증류 후보는 `block`(차단) 건수 기준**입니다 — `warn` 은 posttool 감사 기록이라 성공한 커밋에도 붙으므로 후보 판정에 세지 않습니다(집계 표에는 그대로 남습니다). 설계상 `severity: warn` 인 규칙(R-3·R-4·R-5)에게 "게이트를 더 세게 걸까?"를 묻지 않기 위함입니다. **BYPASS vs receipt** 요약(BYPASS-ENV 행수·FID수 vs `receipts/*.json` 파일수)도 기본 출력에 포함됩니다.
 4. `--fid FID` 지정 시 해당 FID 레코드만 추가 출력

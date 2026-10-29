@@ -1,2 +1,2 @@
 {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"이제 planning-ko 를 호출합니다."}]}}
-{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"specops-ko:planning-ko"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","name":"Skill","input":{"skill":"devfsd:planning-ko"}}]}}

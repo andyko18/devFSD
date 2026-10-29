@@ -58,7 +58,7 @@ used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all
 ```markdown
 # [기능명] 구현 플랜
 
-> **에이전트 워커용**: 필수 하위 스킬 — `specops-ko:implementing-ko` (권장) 또는 `specops-ko:decomposing-ko` 사용. 스텝은 체크박스 `- [ ]` 문법으로 추적.
+> **에이전트 워커용**: 필수 하위 스킬 — `devfsd:implementing-ko` (권장) 또는 `devfsd:decomposing-ko` 사용. 스텝은 체크박스 `- [ ]` 문법으로 추적.
 
 **목표**: [한 문장 — 무엇을 만드는가]
 
@@ -220,7 +220,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .s
 
 경계 대조 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조나 태스크가 **DB 산출물**(마이그레이션·SQL·스키마·ORM 모델·`data-model.md`·upsert·대량 적재 코드·테스트 DB fixture)을 만들거나 바꾸면 발동한다. 단어가 언급되기만 하고 그런 파일·태스크가 없으면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다(긴 plan 에서 DB 결함은 plan-reviewer 를 통과했다: Argus 실제 계획서 2개 0/2). `§batch` 는 이 패스 미적용(후속 FID — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
 
-- **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:db-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/data-model.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/db-expert/engines/`.
+- **dispatch**: `Agent` 도구, `subagent_type: "devfsd:db-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/data-model.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/db-expert/engines/`.
 - **반영**: 에이전트가 쓴 `.specops/<FID>/experts/db.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. plan.md 가 바뀌었으면 위 '사전검사'(check-plan-predispatch.sh)와 '경계 대조 입력'(check-plan-boundary.sh) 의 두 스크립트를 다시 실행한 뒤 plan-reviewer 를 부른다 — 뒤의 전문가 패스(구조·API·보안·테스트)도 돌면 재실행은 마지막 전문가 패스 뒤에 한 번만 한다(입력은 그대로 — 전문가 파일을 넘기지 않는다).
 - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(plan-reviewer 의 모델 불가 fallback 과 같은 원칙 — 부모가 대신 검토하지 않는다). `experts/db.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | db-expert | db-designer-ko | 산출 없음 | - |` 를 남기고 plan-reviewer 로 진행한다.
 - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기 `reconcile-check.sh` 가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | db-expert | db-designer-ko | 반영 | experts/db.md (지적 N · 반영 N · 기각 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | db-expert | - | SKIP | DB 표면 없음 |` 1행.
@@ -229,7 +229,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .s
 
 DB 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조가 **새 폴더·새 모듈·새 계층**을 만들거나, 경계 약속의 허용 의존에 **새 의존 방향**이 생기거나, spec 에 **새 도메인 개념**(엔티티·상태)이 생기면 발동한다. 기존 파일 수정뿐이거나 문서·테스트만 바꾸면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다(Argus 실제 계획 2건에서 구조 결함은 plan-reviewer 0/6 · 이 전문가 5/6 · 결함 없는 대조군 헛지적 0/3). `§batch` 는 이 패스 미적용(기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
 
-- **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:arch-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/backend-architecture.md`·`frontend-architecture.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/arch-expert/patterns/`.
+- **dispatch**: `Agent` 도구, `subagent_type: "devfsd:arch-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/backend-architecture.md`·`frontend-architecture.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/arch-expert/patterns/`.
 - **반영**: `.specops/<FID>/experts/arch.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. 앞의 전문가 패스와 이 패스 중 하나라도 plan.md 를 바꿨으면 '사전검사'·'경계 대조 입력' 의 두 스크립트는 마지막 전문가 패스 뒤에 한 번만 다시 실행하고 plan-reviewer 를 부른다.
 - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/arch.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | arch-expert | arch-designer-ko | 산출 없음 | - |` 를 남기고 다음 전문가 패스로 진행한다.
 - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | arch-expert | arch-designer-ko | 반영 | experts/arch.md (지적 N · 반영 N · 기각 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | arch-expert | - | SKIP | 구조 표면 없음 |` 1행.
@@ -238,7 +238,7 @@ DB 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. pl
 
 구조 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan 이나 `api-spec.md` 가 엔드포인트를 추가·변경·삭제하거나, plan §2 가 라우트·컨트롤러·GraphQL 스키마 파일을 만들거나 고치면 발동한다. 읽기 전용 내부 함수만 바꾸면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다. 빈칸·형식(경로·명명·상태코드·페이지 크기·멱등 정책·미정 칸)은 판정기(check-api-contract.sh)가 먼저 잡고 전문가는 판단이 필요한 계약(호환성·메서드 의미·응답 형태·오류·커서·멱등 키)을 본다. `§batch` 는 이 패스 미적용(batch 는 design-reviewer-ko 가 본다 — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
 
-- **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:api-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/api-spec.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/api-expert/patterns/`.
+- **dispatch**: `Agent` 도구, `subagent_type: "devfsd:api-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/api-spec.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/api-expert/patterns/`.
 - **반영**: `.specops/<FID>/experts/api.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. 앞의 전문가 패스와 이 패스 중 하나라도 plan.md 를 바꿨으면 '사전검사'·'경계 대조 입력' 의 두 스크립트는 마지막 전문가 패스 뒤에 한 번만 다시 실행하고 plan-reviewer 를 부른다.
 - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/api.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | api-expert | api-designer-ko | 산출 없음 | - |` 를 남기고 plan-reviewer 로 진행한다.
 - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | api-expert | api-designer-ko | 반영 | experts/api.md (지적 N · 반영 N · 기각 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | api-expert | - | SKIP | API 표면 없음 |` 1행.
@@ -247,7 +247,7 @@ DB 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. pl
 
 API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조나 태스크가 **인증·인가·세션**(로그인·토큰·권한 검사·역할), **외부 입력 경계**(파일 업로드·웹훅 수신·서버가 가져오는 외부 URL·LLM 호출), **개인정보 필드**(새 컬럼·응답 필드)를 만들거나 바꾸면 발동한다. 판단 전에 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-security-design.sh <FID>` 를 한 번 실행해 `[승인 대상]` 줄이 있으면 발동한다(plan §2 파일 경로·tasks outputs 의 위험 기능 신호를 판정기가 읽는다). 단어가 언급되기만 하고 그런 파일·태스크가 없으면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다. 칸 빈칸·문서로 보이는 결함(Auth 칸·URL 민감정보·응답 민감 필드·CORS·미정 칸·승인 대상)은 판정기가 먼저 잡고 전문가는 판단이 필요한 설계(신뢰 경계·인가·토큰 수명·재설정·mass assignment·보존·삭제)를 본다. `§batch` 는 이 패스 미적용(후속 FID — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
 
-- **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:security-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/api-spec.md`·`data-model.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/security-expert/patterns/`.
+- **dispatch**: `Agent` 도구, `subagent_type: "devfsd:security-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/api-spec.md`·`data-model.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/security-expert/patterns/`.
 - **반영**: `.specops/<FID>/experts/security.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. 앞의 전문가 패스와 이 패스 중 하나라도 plan.md 를 바꿨으면 '사전검사'·'경계 대조 입력' 의 두 스크립트는 마지막 전문가 패스 뒤에 한 번만 다시 실행하고 plan-reviewer 를 부른다.
 - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/security.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | security-expert | security-designer-ko | 산출 없음 | - |` 를 남기고 plan-reviewer 로 진행한다.
 - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | security-expert | security-designer-ko | 반영 | experts/security.md (지적 N · 반영 N · 기각 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | security-expert | - | SKIP | 보안 표면 없음 |` 1행.
@@ -256,16 +256,16 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 
 보안 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조나 태스크가 **테스트 파일**(`test_*.py`·`*_test.py`·`*.test.*`·`*.spec.*`·`tests/`·`test/`·`__tests__/`·`scripts/tests/` 같은 테스트 경로)을 만들거나 고치면 발동한다. 문서·설정만 바꾸는 plan 은 발동하지 않는다 — grep 으로 문서를 확인하는 RED 스텝만 있고 테스트 파일을 고치지 않는 plan 도 마찬가지다. 판단이 서지 않으면 부른다(Argus 에서 테스트 검증력 결함 79건이 plan-reviewer 를 통과했다 — 틀린 구현도 통과하는 단언·규칙을 안 태우는 픽스처·공허한 가드). 앞의 전문가 패스가 바꾼 plan 의 테스트를 보도록 전문가 패스 가운데 마지막에 둔다. `§batch` 는 이 패스 미적용(후속 FID — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
 
-- **dispatch**: `Agent` 도구, `subagent_type: "specops-ko:test-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `plan.md` · `.specops/memory/test-strategy.md`(있으면).
+- **dispatch**: `Agent` 도구, `subagent_type: "devfsd:test-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `plan.md` · `.specops/memory/test-strategy.md`(있으면).
 - **반영**: `.specops/<FID>/experts/test.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. 수용 기준별 설계표의 "떨어뜨리는 잘못된 구현" 칸은 plan 의 해당 테스트 스텝에 옮긴다(구현자의 되돌려-관찰 대상이 된다). 앞의 전문가 패스와 이 패스 중 하나라도 plan.md 를 바꿨으면 '사전검사'·'경계 대조 입력' 의 두 스크립트는 마지막 전문가 패스 뒤에 한 번만 다시 실행하고 plan-reviewer 를 부른다.
 - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/test.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | test-expert | test-designer-ko | 산출 없음 | - |` 를 남기고 plan-reviewer 로 진행한다.
 - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | test-expert | test-designer-ko | 반영 | experts/test.md (지적 N · 반영 N · 기각 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | test-expert | - | SKIP | 테스트 파일 없음 |` 1행.
 
 ### 비-batch — plan-reviewer dispatch
 
-자체 검토 통과 후 `specops-ko:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다. 이 리뷰어는 **spec 대조 2관점(스펙 커버리지·스펙 정합) + 엔지니어링 4관점(TDD·플레이스홀더·파일경계·타입일관성)** 6관점을 fresh 시각으로 수행한다 (구 general-purpose Plan Document Reviewer 의 spec 대조 역할을 전용 Evaluator 로 흡수 — 20260723, dispatch 1회로 단일화).
+자체 검토 통과 후 `devfsd:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다. 이 리뷰어는 **spec 대조 2관점(스펙 커버리지·스펙 정합) + 엔지니어링 4관점(TDD·플레이스홀더·파일경계·타입일관성)** 6관점을 fresh 시각으로 수행한다 (구 general-purpose Plan Document Reviewer 의 spec 대조 역할을 전용 Evaluator 로 흡수 — 20260723, dispatch 1회로 단일화).
 
-**dispatch:** `Agent` 도구, `subagent_type: "specops-ko:plan-reviewer-ko"`
+**dispatch:** `Agent` 도구, `subagent_type: "devfsd:plan-reviewer-ko"`
 입력: `.specops/<FID>/spec.md`(요구 원본) + `.specops/<FID>/plan.md`(검토 대상) + `.specops/<FID>/plan-boundary.txt`(경계 대조 입력) 경로
 
 **판정 처리 (cap=2):**
@@ -315,7 +315,7 @@ cap 초과 시 리뷰어 반환 전문을 `.specops/<FID>/plan-review.md` 에 �
 
 ## 실행 전환
 
-**[§일괄 모드]** (`grep -qE '^\*\*§일괄\*\*:[[:space:]]*true' .specops/<FID>/spec.md`): 아래 질문을 하지 않는다 — 묻지 않고 서브에이전트 주도(`specops-ko:implementing-ko`)로 간다 — 승인 묶음이 이미 승인했다. 정한 사실은 handoff Decided 에 1줄 남긴다. 아래 질문은 `--step` 일 때만 한다.
+**[§일괄 모드]** (`grep -qE '^\*\*§일괄\*\*:[[:space:]]*true' .specops/<FID>/spec.md`): 아래 질문을 하지 않는다 — 묻지 않고 서브에이전트 주도(`devfsd:implementing-ko`)로 간다 — 승인 묶음이 이미 승인했다. 정한 사실은 handoff Decided 에 1줄 남긴다. 아래 질문은 `--step` 일 때만 한다.
 
 플랜 저장 후 실행 방식 선택 제시:
 
@@ -328,11 +328,11 @@ cap 초과 시 리뷰어 반환 전문을 `.specops/<FID>/plan-review.md` 에 �
 > 어느 쪽으로 할까요?"
 
 **서브에이전트 주도 선택 시**:
-- 필수 하위 스킬: `specops-ko:implementing-ko`
+- 필수 하위 스킬: `devfsd:implementing-ko`
 - 태스크별 fresh 서브에이전트 + 2단계 리뷰
 
 **인라인 실행 선택 시**:
-- 하위 스킬: `specops-ko:decomposing-ko`로 태스크 분할 후 인라인 순차 실행
+- 하위 스킬: `devfsd:decomposing-ko`로 태스크 분할 후 인라인 순차 실행
 - 체크포인트마다 리뷰
 
 ## plan.md 필수 섹션
@@ -392,7 +392,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /plan 완�
 플랜 저장 + session-progress append + 실행 방식 결정 + handoff.md 기록 후 즉시 호출:
 
 ```
-Skill: specops-ko:decomposing-ko
+Skill: devfsd:decomposing-ko
 ```
 
-decomposing-ko가 플랜을 실행 가능한 태스크 리스트로 분해. 그 후 `specops-ko:implementing-ko`로 전환.
+decomposing-ko가 플랜을 실행 가능한 태스크 리스트로 분해. 그 후 `devfsd:implementing-ko`로 전환.

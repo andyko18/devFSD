@@ -4,7 +4,7 @@ description: "{{one-line description — 어떤 상황에 사용, 핵심 기능}
 layer: "{{1|2|3}}"
 reference_upstream: "{{owner/repo@version path 또는 specops-ko 독자 추가}}"
 specops_version: "{{semver — 예: 1.0.0}}"
-used_by: "{{호출 스킬 목록 — 예: specops-ko:implementing-ko}}"
+used_by: "{{호출 스킬 목록 — 예: devfsd:implementing-ko}}"
 ---
 
 # {{Skill Title}}
@@ -55,5 +55,5 @@ used_by: "{{호출 스킬 목록 — 예: specops-ko:implementing-ko}}"
 {{이 skill 완료 후 호출할 skill. 또는 "chain 종료" 명시.}}
 
 ```
-Skill: specops-ko:{{next-skill-name}}
+Skill: devfsd:{{next-skill-name}}
 ```

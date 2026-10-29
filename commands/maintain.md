@@ -47,7 +47,7 @@ reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미
 
 ## 안티패턴
 
-- **인자 내용 2 차 판단** — `/maintain <아무 인자>` 는 인자가 "유지보수 신호처럼 보이지 않는다"는 이유로 `specops-ko:analyzing-ko` 호출을 **보류하지 않는다**. 슬래시 진입 자체가 사용자 의도 확정 신호 (명시적 유지보수 진입). 인자 적합성은 specifying-ko Step 1 [유지보수 분기] 검증 문항이 처리. 메타 skill 의 자연어 신호 감지 로직을 command 레이어에 복제 금지 (`/start` 안티패턴 sister 항목과 의미적 동치)
+- **인자 내용 2 차 판단** — `/maintain <아무 인자>` 는 인자가 "유지보수 신호처럼 보이지 않는다"는 이유로 `devfsd:analyzing-ko` 호출을 **보류하지 않는다**. 슬래시 진입 자체가 사용자 의도 확정 신호 (명시적 유지보수 진입). 인자 적합성은 specifying-ko Step 1 [유지보수 분기] 검증 문항이 처리. 메타 skill 의 자연어 신호 감지 로직을 command 레이어에 복제 금지 (`/start` 안티패턴 sister 항목과 의미적 동치)
 - **신규 기능을 `/maintain` 으로 진입** — specifying-ko Step 1 분기 검증 문항이 사용자에게 재분류 요청
 - **인자 없이 진입** — modally 되묻기 (`/start` 안티패턴 동일)
 

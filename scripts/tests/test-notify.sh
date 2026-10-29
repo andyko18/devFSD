@@ -32,8 +32,8 @@ if [ $rc -eq 0 ] && echo "$out3" | grep -qE "입력 대기$"; then
   PASS=$((PASS+1)); echo "PASS T1.c AC-2 cwd 없음 suffix 생략"
 else FAIL=$((FAIL+1)); echo "FAIL T1.c (rc=$rc out=$out3)"; fi
 
-# T1.d AC-2: 제목 specops-ko
-if echo "$out" | grep -q "^specops-ko"; then
+# T1.d AC-2: 제목 devFSD
+if echo "$out" | grep -q "^devFSD"; then
   PASS=$((PASS+1)); echo "PASS T1.d AC-2 제목"
 else FAIL=$((FAIL+1)); echo "FAIL T1.d 제목"; fi
 

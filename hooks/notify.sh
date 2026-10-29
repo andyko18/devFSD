@@ -41,7 +41,7 @@ if [ -n "$cwd" ] && [ -f "$cwd/.specops/session-progress.md" ]; then
 fi
 
 msg="$label$suffix"
-title="specops-ko"
+title="devFSD"
 
 if [ "${SPECOPS_NOTIFY_DRYRUN:-0}" = "1" ]; then
   printf '%s\t%s\n' "$title" "$msg"

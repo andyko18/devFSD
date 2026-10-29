@@ -1,7 +1,7 @@
 ---
 name: start-lite
 disable-model-invocation: true
-description: "[단일·경량] clarify·plan ceremony 생략 Lifecycle 진입 — 화면/IF·Phase B/C·verify 유지. specops-ko:specifying-ko 호출"
+description: "[단일·경량] clarify·plan ceremony 생략 Lifecycle 진입 — 화면/IF·Phase B/C·verify 유지. devfsd:specifying-ko 호출"
 triggers:
   - "/start-lite"
 mode: ask
@@ -28,7 +28,7 @@ reference_upstream: specops-ko 독자 추가 (commands/start.md § lite variant)
    <!-- entry: lite -->
    <원본 기능 설명>
    ```
-3. **즉시 `specops-ko:specifying-ko` 호출** — prepend된 args 전달
+3. **즉시 `devfsd:specifying-ko` 호출** — prepend된 args 전달
 4. **이후 chain (lite)**: specifying(화면/IF 포함) → decomposing(1 task) → implementing(A + end-loaded B/C) → verifying → requesting(end-loaded skip) → receiving → security → integration → performance → PR. clarifying·planning **호출 금지**.
 
 ## `/start` 대비

@@ -20,7 +20,7 @@ specops-ko lifecycle chain의 **완전 자동 E2E 검증**. HARD GATE 없이 내
 
 ## Process
 
-1. `specops-ko:e2e-test-ko` 스킬 즉시 호출
+1. `devfsd:e2e-test-ko` 스킬 즉시 호출
 2. 스킬이 전체 lifecycle 자동 실행 + 산출물 구조 검증 수행
 3. PASS/FAIL 결과 보고
 

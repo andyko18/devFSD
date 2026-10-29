@@ -1,4 +1,4 @@
-# 기여 가이드 — specops-ko
+# 기여 가이드 — devFSD
 
 Claude Code 한국어 자율 Lifecycle 플러그인에 기여 환영. 본 가이드는 PR/skill 추가 시 최소 요건을 정의한다.
 
@@ -10,7 +10,7 @@ Claude Code 한국어 자율 Lifecycle 플러그인에 기여 환영. 본 가이
 
 ```bash
 claude plugin marketplace add andyko18/specops-ko                    # GitHub
-claude plugin install specops-ko@specops-ko
+claude plugin install devfsd@devfsd
 # 로컬 dogfood: claude plugin marketplace add /절대경로/specops-ko
 ```
 
@@ -67,7 +67,7 @@ description: <한 줄 — 언제 사용·무엇·결과>
 layer: 1 | 2 | 3
 reference_upstream: <owner/repo@version path> 또는 "specops-ko 독자 추가"
 specops_version: <semver>
-used_by: </command 또는 skill short name>  # command=/start, skill=specifying-ko (specops-ko: prefix 금지)
+used_by: </command 또는 skill short name>  # command=/start, skill=specifying-ko (devfsd: prefix 금지)
 ---
 ```
 
@@ -171,4 +171,4 @@ PR 본문: `.specops/<FID>/spec.md` + `acceptance-criteria.md` + `evidence.md` �
 
 - `CLAUDE.md` — 프로젝트 컨텍스트 (Claude Code 전용)
 - `README.md` — 사용자 진입 가이드
-- `docs/case-studies/` (specops-ko 본 저장소) — 설계 근거
+- `docs/case-studies/` (devFSD 본 저장소) — 설계 근거

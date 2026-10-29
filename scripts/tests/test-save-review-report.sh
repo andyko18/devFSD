@@ -25,7 +25,7 @@ _block() { printf '<<<REVIEW fid=%s tid=%s phase=%s verdict=%s>>>\n%s\n<<<END>>>
 _run() {
   local json so
   json=$(jq -n --arg cwd "$TD" --arg m "$1" --argjson a "$2" \
-    '{hook_event_name:"SubagentStop",agent_type:"specops-ko:code-reviewer-ko",cwd:$cwd,stop_hook_active:$a,last_assistant_message:$m}')
+    '{hook_event_name:"SubagentStop",agent_type:"devfsd:code-reviewer-ko",cwd:$cwd,stop_hook_active:$a,last_assistant_message:$m}')
   so=$(mktemp)
   ERR=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE PATH="${RUN_PATH:-$PATH}" SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" 2>&1 >"$so")
   RC=$?
@@ -243,7 +243,7 @@ HJ="$PLUGIN/hooks/hooks.json"
 m=$(jq -r '.hooks.SubagentStop[0].matcher // empty' "$HJ")
 c=$(jq -r '.hooks.SubagentStop[0].hooks[0].command // empty' "$HJ")
 a=$(jq -r '.hooks.SubagentStop[0].hooks[0].async' "$HJ")
-if [ "$m" = "specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko" ]; then ok "T2.a AC-6 matcher = 네임스페이스 포함 두 리뷰어"
+if [ "$m" = "devfsd:spec-reviewer-ko|devfsd:code-reviewer-ko|$(printf 'specops-%s' ko):spec-reviewer-ko|$(printf 'specops-%s' ko):code-reviewer-ko" ]; then ok "T2.a AC-6 matcher = 네임스페이스 포함 두 리뷰어(새·옛 접두사 4항목 — 3.x 호환)"
 else nope "T2.a AC-6 matcher" "'$m'"; fi
 if printf '%s' "$c" | grep -qF '${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh'; then ok "T2.b AC-6 command 경로"
 else nope "T2.b AC-6 command" "'$c'"; fi
@@ -320,7 +320,7 @@ _run_env() {
   local msg=$1 active=$2 cwd=$3; shift 3
   local json so
   json=$(jq -n --arg cwd "$cwd" --arg m "$msg" --argjson a "$active" \
-    '{hook_event_name:"SubagentStop",agent_type:"specops-ko:code-reviewer-ko",cwd:$cwd,stop_hook_active:$a,last_assistant_message:$m}')
+    '{hook_event_name:"SubagentStop",agent_type:"devfsd:code-reviewer-ko",cwd:$cwd,stop_hook_active:$a,last_assistant_message:$m}')
   so=$(mktemp)
   ERR=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE PATH="${RUN_PATH:-$PATH}" \
     SPECOPS_CONFIG="$TD/none.yaml" "$@" bash "$HOOK" 2>&1 >"$so")
@@ -430,8 +430,8 @@ else nope "T3.o AC-3" "rc=$RC out=$OUT err=$ERR log=[$(cat "$LOG")] $(ls -A "$R"
 _reset
 _msgB="$(_block T1 B PASS '# B 통과')"
 _msgC="$(_block T1 C READY_TO_MERGE '# C 통과')"
-_jb=$(jq -n --arg cwd "$TD" --arg m "$_msgB" '{hook_event_name:"SubagentStop",agent_type:"specops-ko:spec-reviewer-ko",cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
-_jc=$(jq -n --arg cwd "$TD" --arg m "$_msgC" '{hook_event_name:"SubagentStop",agent_type:"specops-ko:code-reviewer-ko",cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
+_jb=$(jq -n --arg cwd "$TD" --arg m "$_msgB" '{hook_event_name:"SubagentStop",agent_type:"devfsd:spec-reviewer-ko",cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
+_jc=$(jq -n --arg cwd "$TD" --arg m "$_msgC" '{hook_event_name:"SubagentStop",agent_type:"devfsd:code-reviewer-ko",cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
 _rb=$(mktemp); _rc=$(mktemp)
 for _i in 1 2 3 4 5; do
   _reset
@@ -464,17 +464,17 @@ _run_pt() {
 hb="$(_block T1 B PASS '# T1 반환 본문')
 $(_block T2 B NEEDS_FIX '# T2 반환 본문')"
 _reset
-_run_pt specops-ko:spec-reviewer-ko "$hb"
+_run_pt devfsd:spec-reviewer-ko "$hb"
 { [ "$RC" = 0 ] && [ -z "$OUT" ] && [ -z "$ERR" ] \
   && [ "$(cat "$R/T1-B-report.md")" = "# T1 반환 본문" ] && [ "$(cat "$R/T2-B-report.md")" = "# T2 반환 본문" ] \
   && [ "$(cat "$R/T2-B-feedback.md")" = "# T2 반환 본문" ] && [ ! -e "$R/T1-B-feedback.md" ] && [ -z "$(_leftover)" ]; } \
   && ok "T9.a spec 리뷰어 반환 → 블록 본문 저장 · rc 0 · 출력 없음 (AC-1)" || nope "T9.a" "RC=$RC OUT=$OUT ERR=$ERR $(ls -A "$R")"
 _reset
-_run_pt specops-ko:code-reviewer-ko "$(_block T1 C READY_TO_MERGE '# T1 C 본문')"
+_run_pt devfsd:code-reviewer-ko "$(_block T1 C READY_TO_MERGE '# T1 C 본문')"
 { [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(cat "$R/T1-C-report.md")" = "# T1 C 본문" ] && [ ! -e "$R/T1-C-feedback.md" ]; } \
   && ok "T9.b code 리뷰어 반환 → 저장 (AC-1)" || nope "T9.b" "RC=$RC ERR=$ERR $(ls -A "$R")"
 _reset; before=$(_files)
-_run_pt specops-ko:test-designer-ko "$hb"
+_run_pt devfsd:test-designer-ko "$hb"
 { [ "$RC" = 0 ] && [ -z "$ERR" ] && [ -z "$OUT" ] && [ "$(_files)" = "$before" ]; } \
   && ok "T9.c 리뷰어 아닌 에이전트의 반환 → 무동작 (AC-2)" || nope "T9.c" "RC=$RC ERR=$ERR"
 _reset; before=$(_files)
@@ -482,22 +482,42 @@ _run_pt "" "$hb"
 { [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(_files)" = "$before" ]; } \
   && ok "T9.d agent_type 빈 문자열(내부 에이전트) → 무동작 (AC-2)" || nope "T9.d" "RC=$RC ERR=$ERR"
 _reset; before=$(_files)
-_run_pt specops-ko:spec-reviewer-ko "$hb" Bash
+_run_pt devfsd:spec-reviewer-ko "$hb" Bash
 { [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(_files)" = "$before" ]; } \
   && ok "T9.e 반환 도구가 아닌 PreToolUse → 무동작" || nope "T9.e" "RC=$RC ERR=$ERR"
 _reset; before=$(_files)
-_run_pt specops-ko:spec-reviewer-ko "요약: 인용 <<<REVIEW fid=$FID tid=T1 phase=B verdict=PASS>>> 는 줄 처음이 아니다"
+_run_pt devfsd:spec-reviewer-ko "요약: 인용 <<<REVIEW fid=$FID tid=T1 phase=B verdict=PASS>>> 는 줄 처음이 아니다"
 { [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(_files)" = "$before" ]; } \
   && ok "T9.f 줄 처음 REVIEW 없음 → 조용히 무동작 (AC-2)" || nope "T9.f" "RC=$RC ERR=$ERR"
 _reset; before=$(_files)
-_run_pt specops-ko:spec-reviewer-ko "$(printf '<<<REVIEW fid=%s tid=T1 phase=B verdict=PASS>>>\n# 닫힘 없음\n' "$FID")"
+_run_pt devfsd:spec-reviewer-ko "$(printf '<<<REVIEW fid=%s tid=T1 phase=B verdict=PASS>>>\n# 닫힘 없음\n' "$FID")"
 { [ "$RC" = 1 ] && [ -z "$OUT" ] && printf '%s' "$ERR" | head -1 | grep -qF "짝 불일치" && [ "$(_files)" = "$before" ]; } \
   && ok "T9.g 블록 형식 오류 → 종전 _bail(exit 1 · 비차단) · 저장 없음" || nope "T9.g" "RC=$RC ERR=$ERR"
 _reset
 _big=$(awk 'BEGIN{for(i=0;i<3000;i++) printf "본문 줄 %d — 큰 반환 메시지 채우기 문장입니다.\n", i}')
-_run_pt specops-ko:spec-reviewer-ko "$(_block T1 B PASS "$_big")"
+_run_pt devfsd:spec-reviewer-ko "$(_block T1 B PASS "$_big")"
 { [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(wc -c < "$R/T1-B-report.md")" -gt 65536 ]; } \
   && ok "T9.i 64KB 넘는 반환 메시지도 저장 (pipefail SIGPIPE 회귀 · AC-1)" || nope "T9.i" "RC=$RC ERR=$ERR"
+# ── TC.6·TC.7 (AC-2) 3.x 호환 — 새·옛 접두사 리뷰어 4이름 저장, 그 밖의 접두사는 무동작 · matcher 정규식 ──
+_tc_old=$(printf 'specops-%s' ko)
+for _n in "devfsd:spec-reviewer-ko:B" "devfsd:code-reviewer-ko:C" "$_tc_old:spec-reviewer-ko:B" "$_tc_old:code-reviewer-ko:C"; do
+  _agent=${_n%:*}; _ph=${_n##*:}
+  _reset
+  _run_pt "$_agent" "$(_block T1 "$_ph" PASS "# TC6 $_agent 본문")"
+  { [ "$RC" = 0 ] && [ "$(cat "$R/T1-$_ph-report.md" 2>/dev/null)" = "# TC6 $_agent 본문" ]; } \
+    && ok "TC.6 $_agent 반환 → 보고서 저장" || nope "TC.6 $_agent" "RC=$RC ERR=$ERR $(ls -A "$R")"
+done
+_reset; before=$(_files)
+_run_pt other:code-reviewer-ko "$(_block T1 C PASS '# other')"
+{ [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(_files)" = "$before" ]; } \
+  && ok "TC.6n other 접두사 리뷰어 → 저장 안 됨(양성 대조)" || nope "TC.6n" "RC=$RC ERR=$ERR"
+_m=$(jq -r '.hooks.SubagentStop[0].matcher' "$PLUGIN/hooks/hooks.json")
+_ok=1
+for _a in devfsd:spec-reviewer-ko devfsd:code-reviewer-ko "$_tc_old:spec-reviewer-ko" "$_tc_old:code-reviewer-ko"; do
+  printf '%s\n' "$_a" | grep -Eqx "$_m" || _ok=0
+done
+printf '%s\n' other:code-reviewer-ko | grep -Eqx "$_m" && _ok=0
+[ "$_ok" = 1 ] && ok "TC.7 hooks.json matcher 정규식 — 4이름 일치 · other 불일치" || nope "TC.7" "matcher=$_m"
 _pt_n=$(jq -r '[.hooks.PreToolUse[]? | select(.matcher == "SubagentHandback") | .hooks[] | select(.command | contains("${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh")) | select(.async != true)] | length' "$PLUGIN/hooks/hooks.json" 2>/dev/null)
 [ "$_pt_n" = 1 ] && ok "T9.h hooks.json PreToolUse matcher=SubagentHandback · save-review-report · 동기 1건 (AC-1)" || nope "T9.h" "n=${_pt_n:-?}"
 

@@ -300,7 +300,7 @@ fix_count > 3 **또는 `attempt-fp.sh check` rc 1(동일 실패 지문 연속)**
            ├─ YES → auto_retry_count += 1 저장 + escalations 기록
            │        → verify-loop.md 초기화 (fix_count=0)
            │        → advisor() 1회 자문 시도(보조 입력 — 근본 원인 가설) + escalations 기록. 미연결 시 skip(graceful fallback)
-           │        → specops-ko:systematic-debugging-ko 호출
+           │        → devfsd:systematic-debugging-ko 호출
            │        → 복귀 후 VERIFY LOOP 재진입
            └─ NO  → HARD GATE (무인 종료):
                     "AUTO-HARD-GATE: <FID> verify fix_loop 전역 재시도 초과 (1/1)
@@ -341,14 +341,14 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /verify BL
 
 모든 검증 항목 PASS + verify-loop.md 삭제 + session-progress append 후:
 
-**[fast path — end-loaded 리뷰 완료 FID]** 먼저 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/review-skip-pass.sh <FID>` 를 실행한다. rc 0 (`review-skip-pass: OK`)이면 requesting·receiving-code-review-ko 를 **호출하지 않고** 곧바로 `Skill: specops-ko:security-review-ko` 를 호출한다 — 두 단계가 남기던 산출물(review-skip.md·session-progress 두 줄)을 스크립트가 이미 남겼다. rc 1 이면(per-task·§batch·리포트 누락·review-skip.md/review-request.md 기존재 등) 아래 기본 경로다. 판정이 애매하면 기본 경로다.
+**[fast path — end-loaded 리뷰 완료 FID]** 먼저 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/review-skip-pass.sh <FID>` 를 실행한다. rc 0 (`review-skip-pass: OK`)이면 requesting·receiving-code-review-ko 를 **호출하지 않고** 곧바로 `Skill: devfsd:security-review-ko` 를 호출한다 — 두 단계가 남기던 산출물(review-skip.md·session-progress 두 줄)을 스크립트가 이미 남겼다. rc 1 이면(per-task·§batch·리포트 누락·review-skip.md/review-request.md 기존재 등) 아래 기본 경로다. 판정이 애매하면 기본 경로다.
 
 기본 경로 — 즉시 호출:
 
 ```
-Skill: specops-ko:requesting-code-review-ko
+Skill: devfsd:requesting-code-review-ko
 ```
 
 requesting-code-review-ko가 전체 변경사항에 대한 외부 리뷰를 요청한다. 본 verifying-evidence-ko는 정상 chain 전진 시 **requesting-code-review-ko 이외의 다음 스킬을 호출하지 않는다** (예외: 위 fast path 의 security-review-ko 직행, 아래 fix_loop 상한 초과 복구).
 
-fix_loop 상한(3회) 초과 시: `specops-ko:systematic-debugging-ko` 호출 (근본 원인 분석 후 chain 복귀).
+fix_loop 상한(3회) 초과 시: `devfsd:systematic-debugging-ko` 호출 (근본 원인 분석 후 chain 복귀).

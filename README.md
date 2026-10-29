@@ -4,7 +4,7 @@
 
 # devFSD
 
-**개발 자율주행(devFSD) — Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v2.37.2)
+**개발 자율주행(devFSD) — Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v3.0.0)
 
 > 감독형 자율주행이다 — 설계 승인과 PR 병합은 사람이 한다. (이전 이름 specops-ko)
 
@@ -381,4 +381,4 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 
 ---
 
-*초기화: 2026-04-21 · v1.0.0 릴리즈: 2026-04-26 · **최신: v2.37.2 (2026-10-25)** · Claude Code 전용*
+*초기화: 2026-04-21 · v1.0.0 릴리즈: 2026-04-26 · **최신: v3.0.0 (2026-10-30)** · Claude Code 전용*

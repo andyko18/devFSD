@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.1] — 2026-10-30
+
 ### Fixed
 
 - reuse-metrics 측정이 시간 상한(TERM)으로 끊길 때 임시 디렉터리 삭제가 실패하면 0.2초 간격 최대 5회 다시 지운다 — macOS CI 의 `test-reuse-metrics` R6.g 간헐 실패(임시 디렉터리 잔존) 대응. 원인은 추정(삭제 중 자식 프로세스의 쓰기)이라 효과는 CI 에서 확인한다.
@@ -3510,7 +3512,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.1...HEAD
+[3.1.1]: https://github.com/andyko18/devFSD/compare/v3.1.0...v3.1.1
 [3.1.0]: https://github.com/andyko18/devFSD/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/andyko18/specops-ko/compare/v2.37.2...v3.0.0
 [2.37.2]: https://github.com/andyko18/specops-ko/compare/v2.37.1...v2.37.2

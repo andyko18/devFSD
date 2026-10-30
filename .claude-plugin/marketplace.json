@@ -1,7 +1,7 @@
 {
   "name": "devfsd",
   "metadata": {
-    "description": "devFSD 마켓플레이스 (v3.1.0 — Claude Code 전용)"
+    "description": "devFSD 마켓플레이스 (v3.1.1 — Claude Code 전용)"
   },
   "owner": {
     "name": "andyko18",
@@ -11,7 +11,7 @@
     {
       "name": "devfsd",
       "description": "한국어 자율 Lifecycle 플러그인 — 메타 skill 기반",
-      "version": "3.1.0",
+      "version": "3.1.1",
       "source": "./",
       "author": {
         "name": "andyko18",

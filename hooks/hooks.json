@@ -1,4 +1,7 @@
 {
+  "modules": [
+    "./progress-pane.tsx"
+  ],
   "hooks": {
     "PreToolUse": [
       {

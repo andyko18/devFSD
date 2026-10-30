@@ -15,5 +15,6 @@
     "skill-chain",
     "spec-driven",
     "harness"
-  ]
+  ],
+  "types": "./types/index.d.ts"
 }

@@ -26,3 +26,6 @@ orca.yaml
 
 # claude plugin eval 결과(재생성 가능)
 evals/results/
+
+# Claude Code mod 엔진이 플러그인 폴더에 쓰는 타입 (배포 불포함)
+.claude-plugin/types/

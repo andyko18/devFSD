@@ -3496,7 +3496,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/specops-ko/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.0.0...HEAD
 [3.0.0]: https://github.com/andyko18/specops-ko/compare/v2.37.2...v3.0.0
 [2.37.2]: https://github.com/andyko18/specops-ko/compare/v2.37.1...v2.37.2
 [2.37.1]: https://github.com/andyko18/specops-ko/compare/v2.37.0...v2.37.1

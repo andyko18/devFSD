@@ -8,8 +8,8 @@
 
 > 감독형 자율주행이다 — 설계 승인과 PR 병합은 사람이 한다. (이전 이름 specops-ko)
 
-[![release](https://img.shields.io/github/v/release/andyko18/specops-ko?label=release&color=0969da)](https://github.com/andyko18/specops-ko/releases)
-[![tests](https://github.com/andyko18/specops-ko/actions/workflows/test.yml/badge.svg)](https://github.com/andyko18/specops-ko/actions/workflows/test.yml)
+[![release](https://img.shields.io/github/v/release/andyko18/devFSD?label=release&color=0969da)](https://github.com/andyko18/devFSD/releases)
+[![tests](https://github.com/andyko18/devFSD/actions/workflows/test.yml/badge.svg)](https://github.com/andyko18/devFSD/actions/workflows/test.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Claude Code only](https://img.shields.io/badge/Claude%20Code-only-8957e5)
 
@@ -60,7 +60,7 @@ flowchart LR
 
 ```bash
 # 1) 설치
-claude plugin marketplace add andyko18/specops-ko
+claude plugin marketplace add andyko18/devFSD
 claude plugin install devfsd@devfsd
 
 # 2) 확인

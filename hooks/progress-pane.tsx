@@ -76,11 +76,26 @@ export function elapsed(ms: number): string {
   return minutes > 0 ? `${minutes}m${String(seconds).padStart(2, '0')}s` : `${seconds}s`
 }
 
-/** The project folder a worktree belongs to, or the folder itself. */
-function projectRoot(cwd: string): string {
-  const at = cwd.indexOf('/.claude/worktrees/')
+const WORKTREE_MARKERS = ['/.claude/worktrees/', '/.worktrees/']
 
-  return at >= 0 ? cwd.slice(0, at) : cwd
+/** The project folder a worktree belongs to, or the folder itself. */
+export function projectRoot(cwd: string): string {
+  const cuts = WORKTREE_MARKERS.map(m => cwd.indexOf(m)).filter(at => at >= 0)
+
+  return cuts.length > 0 ? cwd.slice(0, Math.min(...cuts)) : cwd
+}
+
+/** devFSD 관할: cwd 또는 그 worktree 의 프로젝트 폴더에 `.specops/` 가 있다. */
+async function isGoverned($: EngineInterface, cwd: string): Promise<boolean> {
+  for (const dir of [cwd, projectRoot(cwd)]) {
+    try {
+      if (await $.fs.exists(`${dir}/.specops`)) return true
+    } catch {
+      // 판정 불가 — 다음 후보, 끝내 못 찾으면 열지 않는다.
+    }
+  }
+
+  return false
 }
 
 async function readFid($: EngineInterface, cwd: string): Promise<string | undefined> {
@@ -144,7 +159,7 @@ export const register: Register = on => {
         if (b.running.length > 0) { const t = await $.clock.now(); await update($, now, () => t) }
       })()
     })
-    void $.ui.open({ id: PANE, title: TITLE })
+    if (await isGoverned($, cwd)) void $.ui.open({ id: PANE, title: TITLE })
 
     return started
   })

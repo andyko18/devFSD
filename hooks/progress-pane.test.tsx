@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { elapsed, fidOf, notificationOf, stageOf } from './progress-pane'
+import { elapsed, fidOf, notificationOf, projectRoot, stageOf } from './progress-pane'
 
 const PANE = {
   plugin: 'devfsd',
@@ -31,6 +31,11 @@ test('helpers read stage, FID, notification and elapsed time', () => {
   expect(notificationOf('plain text')).toBe(undefined)
   expect(elapsed(192_000)).toBe('3m12s')
   expect(elapsed(9_000)).toBe('9s')
+  expect(projectRoot('/repo/.worktrees/20261030-x')).toBe('/repo')
+  expect(projectRoot('/repo/.claude/worktrees/wt')).toBe('/repo')
+  expect(projectRoot('/repo')).toBe('/repo')
+  expect(projectRoot('/a/.worktrees/x/.claude/worktrees/y')).toBe('/a')
+  expect(projectRoot('/repo/.claude/worktrees')).toBe('/repo/.claude/worktrees')
 })
 
 test('the pane shows nothing running before any work', async ($, on) => {
@@ -124,4 +129,63 @@ test('a devFSD skill call sets the stage', async ($, on) => {
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
   expect((await ui.find({ type: 'Text', text: /^devFSD/ }))?.text).toMatch(/구현 \(implementing-ko\)/)
   await ui.unmount()
+})
+
+const opened = (on: Parameters<Parameters<typeof test>[1]>[1]) => {
+  const calls: string[] = []
+  on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
+  on('clock.every', () => ({ value: { cancel: () => {} } }))
+  on('clock.now', () => ({ value: 1_000 }))
+  on('fs.read', () => { throw new Error('ENOENT') })
+  on('ui.open', (_, e) => { calls.push(e.id); return { value: { isPlaced: true } } })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  return calls
+}
+
+const START = { surface: 'desktop', isInteractive: true } as const
+
+test('a governed repo opens the pane at session start', async ($, on) => {
+  const calls = opened(on)
+  on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' }))
+  await $.session.start({ cwd: '/repo', ...START })
+  expect(calls).toEqual(['devfsd-progress'])
+})
+
+test('a worktree of a governed repo opens the pane', async ($, on) => {
+  const calls = opened(on)
+  on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' }))
+  await $.session.start({ cwd: '/repo/.claude/worktrees/wt', ...START })
+  expect(calls).toEqual(['devfsd-progress'])
+})
+
+test('another repo does not open the pane, the command still does', async ($, on) => {
+  const calls = opened(on)
+  on('fs.exists', () => ({ value: false }))
+  await $.session.start({ cwd: '/other', ...START })
+  expect(calls).toEqual([])
+  await $.command.run({ command: 'devfsd-progress', args: '' })
+  expect(calls).toEqual(['devfsd-progress'])
+})
+
+test('a worktree with its own .specops opens the pane', async ($, on) => {
+  const calls = opened(on)
+  on('fs.exists', (_, e) => ({ value: e.path === '/repo/.claude/worktrees/wt/.specops' }))
+  await $.session.start({ cwd: '/repo/.claude/worktrees/wt', ...START })
+  expect(calls).toEqual(['devfsd-progress'])
+})
+
+test('a .worktrees worktree opens the pane, a look-alike folder does not', async ($, on) => {
+  const calls = opened(on)
+  on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' }))
+  await $.session.start({ cwd: '/repo/.worktrees/20261030-x', ...START })
+  expect(calls).toEqual(['devfsd-progress'])
+  await $.session.start({ cwd: '/repo/.worktrees-old/x', ...START })
+  expect(calls).toEqual(['devfsd-progress'])
+})
+
+test('a failing existence check keeps the pane closed without rejecting', async ($, on) => {
+  const calls = opened(on)
+  on('fs.exists', () => { throw new Error('EACCES') })
+  await $.session.start({ cwd: '/repo', ...START })
+  expect(calls).toEqual([])
 })

@@ -439,6 +439,17 @@ gres=$(
 ) 2>/dev/null
 { [ "$left_ok" = 0 ] && [ "${gres%% wrc=*}" = "1 1 0" ] && grep -q "^  trap 'exit 143' TERM" "$RM"; } \
   && ok "R6.g 임시 디렉터리를 남기지 않는다 — 정상 종료 뒤 0개 · 측정 도중(코퍼스 읽기) TERM 으로 끊겨도 1개→0개" || nope "R6.g" "정상 종료 뒤=${left_ok} 끊김(도달 중간 끝)=${gres}"
+# R6.j 첫 삭제가 실패해도(끊기는 순간 자식이 그 디렉터리에 쓰는 중 — macOS CI R6.g 잔존의 추정 원인) EXIT 정리가 다시 지워 남기지 않는다.
+#   EXIT trap 문자열을 파일에서 뽑아, 첫 호출만 실패하는 rm shim 을 PATH 앞에 둔 서브셸에서 실행한다(로컬에서 결정론적으로 재현).
+trap_cmd=$(sed -n "s/^  trap '\(.*\)' EXIT\$/\1/p" "$RM" | head -1)
+mkdir -p "$ROOT/rmshim" "$ROOT/r6h/x"
+printf '#!/usr/bin/env bash\nn=$(cat "%s/rmshim.n" 2>/dev/null || echo 0); echo $((n + 1)) > "%s/rmshim.n"\n[ "$n" = 0 ] && exit 1\nexec /bin/rm "$@"\n' "$ROOT" "$ROOT" > "$ROOT/rmshim/rm"; chmod +x "$ROOT/rmshim/rm"
+printf '%s\n' "$trap_cmd" > "$ROOT/r6j-trap.sh"   # eval 대신 임시 파일로 실행 — 변수는 환경으로 넘긴다
+( _RM_TMP="$ROOT/r6h/x" _RM_OTMP="$ROOT/r6h/none" PATH="$ROOT/rmshim:$PATH" bash "$ROOT/r6j-trap.sh" ) 2>/dev/null
+calls=$(cat "$ROOT/rmshim.n" 2>/dev/null || echo 0)
+{ [ -n "$trap_cmd" ] && [ ! -e "$ROOT/r6h/x" ] && [ "$calls" -ge 2 ]; } \
+  && ok "R6.j 첫 삭제가 실패해도 EXIT 정리가 다시 지워 임시 디렉터리를 남기지 않는다 (rm 호출 ${calls}회)" \
+  || nope "R6.j" "trap=[$trap_cmd] 남음=$([ -e "$ROOT/r6h/x" ] && echo 1 || echo 0) rm호출=$calls"
 # 재측정은 앞선 기록 파일을 비우고 쓰지 않고 통째로 바꾼다(쓰는 도중 끊겨도 빈·일부 기록이 남지 않게).
 #   앞선 기록에 하드 링크를 걸어 둔다 — 바꿔 끼우면 링크는 옛 내용을 그대로 갖고, 비우고 쓰면 링크 내용도 바뀐다.
 R=$(mk_repo); echo "x = 1" > "$R/src/x.py"; commit_all "$R"

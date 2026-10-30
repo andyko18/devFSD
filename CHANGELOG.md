@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- GitHub 저장소 주소를 `andyko18/specops-ko` 에서 `andyko18/devFSD` 로 옮겼다. README 배지·설치 명령·CONTRIBUTING 링크를 새 주소로 바꿨다(#249). 옛 주소는 GitHub 가 새 주소로 넘겨 준다. 아래 3.0.0 항목의 "repo 주소 그대로"·`marketplace add andyko18/specops-ko` 는 발행 당시 기록이다.
+
 ## [3.0.0] — 2026-10-30
 
 ### Changed (breaking)

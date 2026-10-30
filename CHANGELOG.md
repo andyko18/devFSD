@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.2] — 2026-10-30
+
 ### Changed
 
 - 플러그인 목록의 표시 이름을 `devFSD` 로 — `plugin.json` 에 `displayName` 을 넣었다. 설치 id(`devfsd@devfsd`)와 skill 접두사(`devfsd:`)는 그대로다.
@@ -3516,7 +3518,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.2...HEAD
+[3.1.2]: https://github.com/andyko18/devFSD/compare/v3.1.1...v3.1.2
 [3.1.1]: https://github.com/andyko18/devFSD/compare/v3.1.0...v3.1.1
 [3.1.0]: https://github.com/andyko18/devFSD/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/andyko18/specops-ko/compare/v2.37.2...v3.0.0

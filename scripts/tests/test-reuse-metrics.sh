@@ -444,7 +444,8 @@ gres=$(
 trap_cmd=$(sed -n "s/^  trap '\(.*\)' EXIT\$/\1/p" "$RM" | head -1)
 mkdir -p "$ROOT/rmshim" "$ROOT/r6h/x"
 printf '#!/usr/bin/env bash\nn=$(cat "%s/rmshim.n" 2>/dev/null || echo 0); echo $((n + 1)) > "%s/rmshim.n"\n[ "$n" = 0 ] && exit 1\nexec /bin/rm "$@"\n' "$ROOT" "$ROOT" > "$ROOT/rmshim/rm"; chmod +x "$ROOT/rmshim/rm"
-( _RM_TMP="$ROOT/r6h/x"; _RM_OTMP="$ROOT/r6h/none"; PATH="$ROOT/rmshim:$PATH"; eval "$trap_cmd" ) 2>/dev/null
+printf '%s\n' "$trap_cmd" > "$ROOT/r6j-trap.sh"   # eval 대신 임시 파일로 실행 — 변수는 환경으로 넘긴다
+( _RM_TMP="$ROOT/r6h/x" _RM_OTMP="$ROOT/r6h/none" PATH="$ROOT/rmshim:$PATH" bash "$ROOT/r6j-trap.sh" ) 2>/dev/null
 calls=$(cat "$ROOT/rmshim.n" 2>/dev/null || echo 0)
 { [ -n "$trap_cmd" ] && [ ! -e "$ROOT/r6h/x" ] && [ "$calls" -ge 2 ]; } \
   && ok "R6.j 첫 삭제가 실패해도 EXIT 정리가 다시 지워 임시 디렉터리를 남기지 않는다 (rm 호출 ${calls}회)" \

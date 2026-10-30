@@ -3,7 +3,7 @@
 #   --part=self   : 이 스위트의 SKIP 경로 (claude CLI 없으면 PP-7 을 SKIP 하고 PASS 로 끝나는지)
 #   --part=mod    : STAGE_NAMES 의 skill 실재(+변이) · mod 소스 단독 엔진 검사(임시 조립본)
 #   --part=wiring : hooks.json modules·plugin.json types 배선 · classic 6종·명령 경로 보존 · 변이 4건 · .claude-plugin/types/ 무시 · 엔진 검사(실 배선 사본)
-#   --part=docs   : README 안내 · CHANGELOG [Unreleased] ### Added
+#   --part=docs   : README 안내 · CHANGELOG ### Added (버전 절 무관 — 릴리즈가 [Unreleased] 를 [X.Y.Z] 로 바꿔도 통과)
 #   인자 없음(all) : self + mod(엔진 제외) + wiring + docs — run-all 이 이것을 돈다.
 #   엔진 검사(PP-7)는 claude CLI 가 있고 `plugin test` 를 알 때만 임시 사본에서 돈다(실 트리에 쓰지 않는다). 없으면 SKIP.
 #   끄려면 PROGRESS_PANE_CLAUDE_BIN=/nonexistent. 실패는 FAIL — mod 표면 변경을 알아채기 위함.
@@ -130,8 +130,12 @@ if want docs; then
   R="$PLUGIN/README.md"; miss=""
   for s in '/devfsd-progress' '2.1.309' 'CLAUDE_CODE_PLUGIN_DIRS' 'devFSD 진행'; do grep -qF "$s" "$R" || miss="$miss [$s]"; done
   [ -z "$miss" ] && ok "PP-5 README 안내" || ng "PP-5 README 안내 누락:$miss"
-  awk '/^## \[Unreleased\]/{f=1;next} /^## \[/{f=0} f && /^### /{s=$0} f && s=="### Added"' "$PLUGIN/CHANGELOG.md" | grep -q '진행 패널' \
-    && ok "PP-6 CHANGELOG Unreleased Added" || ng "PP-6 CHANGELOG Unreleased Added"
+  # PP-6: 어느 버전 절이든 그 절의 ### Added 하위에 '- 진행 패널' 항목이 있다.
+  added_has() { awk '/^## \[/{s="";next} /^### /{s=$0;next} s=="### Added"' "$1" | grep -q '^- 진행 패널'; }
+  added_has "$PLUGIN/CHANGELOG.md" && ok "PP-6 CHANGELOG ### Added (버전 절 무관)" || ng "PP-6 CHANGELOG ### Added (버전 절 무관)"
+  # PP-6m: Added 가 아닌 절에 있으면 떨어진다 — 사본의 ### Added 를 ### Changed 로
+  sed 's/^### Added$/### Changed/' "$PLUGIN/CHANGELOG.md" > "$WORK/changelog-mut.md"
+  added_has "$WORK/changelog-mut.md" && ng "PP-6m Added 밖 변이 미검출" || ok "PP-6m Added 밖 변이 검출"
 fi
 
 echo "PASS=$PASS FAIL=$FAIL"

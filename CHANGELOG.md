@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 진행 패널 — 관할 repo 에서 세션을 열면 채팅 옆에 "devFSD 진행" 패널이 뜬다(실행 중 서브에이전트·백그라운드 명령·경과 시간·최근 완료·단계·FID). `/devfsd-progress` 로 어디서나 연다. Claude Code mod(`hooks/hooks.json` 의 `modules`)로 동봉 — 2.1.309 이상 필요.
+
 ### Changed
 
 - GitHub 저장소 주소를 `andyko18/specops-ko` 에서 `andyko18/devFSD` 로 옮겼다. README 배지·설치 명령·CONTRIBUTING 링크를 새 주소로 바꿨다(#249). 옛 주소는 GitHub 가 새 주소로 넘겨 준다. 아래 3.0.0 항목의 "repo 주소 그대로"·`marketplace add andyko18/specops-ko` 는 발행 당시 기록이다.

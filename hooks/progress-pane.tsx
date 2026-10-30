@@ -139,8 +139,18 @@ function textOf(content: readonly { type: string; [field: string]: unknown }[]):
     .join('\n')
 }
 
+/** 관찰은 실패해도 조용히 넘어간다 — 원 호출의 결과·실행 횟수에 영향 금지. */
+async function safe(work: () => Promise<unknown>): Promise<void> {
+  try {
+    await work()
+  } catch {
+    // 표시만 어긋날 뿐 동작은 그대로 둔다.
+  }
+}
+
 export const register: Register = on => {
   let cwd = ''
+  let ticker: { cancel(): void } | undefined
 
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -149,15 +159,22 @@ export const register: Register = on => {
       name: 'devfsd-progress',
       description: 'devFSD 진행 패널 열기',
     })
-    const fid = await readFid($, cwd)
-    await update($, board, b => ({ ...b, fid }))
-    { const t = await $.clock.now(); await update($, now, () => t) }
-    // Keeps elapsed times moving while something runs.
-    $.clock.every(TICK_MS, () => {
-      void (async () => {
-        const b = await read($, board)
-        if (b.running.length > 0) { const t = await $.clock.now(); await update($, now, () => t) }
-      })()
+    await safe(async () => {
+      const fid = await readFid($, cwd)
+      await update($, board, b => ({ ...b, fid }))
+      const t = await $.clock.now()
+      await update($, now, () => t)
+      // Keeps elapsed times moving while something runs. A restart replaces the old timer.
+      ticker?.cancel()
+      ticker = $.clock.every(TICK_MS, () => {
+        void safe(async () => {
+          const b = await read($, board)
+          if (b.running.length > 0) {
+            const t = await $.clock.now()
+            await update($, now, () => t)
+          }
+        })
+      })
     })
     if (await isGoverned($, cwd)) void $.ui.open({ id: PANE, title: TITLE })
 
@@ -173,17 +190,19 @@ export const register: Register = on => {
   // Subagents: done when a foreground call returns, else on its notification.
   on('tool.call', { tool: 'Agent' }, async ($, e, next) => {
     if (e.agentId) return next(e)
-    const startedAt = await $.clock.now()
-    await startJob($, {
-      id: e.tool_use_id,
-      kind: 'agent',
-      label: e.description,
-      detail: e.subagent_type ?? 'general-purpose',
-      startedAt,
+    await safe(async () => {
+      const startedAt = await $.clock.now()
+      await startJob($, {
+        id: e.tool_use_id,
+        kind: 'agent',
+        label: e.description,
+        detail: e.subagent_type ?? 'general-purpose',
+        startedAt,
+      })
     })
     const ran = await next(e)
     const isLaunched = ran.deny === undefined && /launched|background/i.test(ran.text ?? '')
-    if (!isLaunched) await endJob($, e.tool_use_id, ran.deny !== undefined || ran.isError === true)
+    if (!isLaunched) await safe(() => endJob($, e.tool_use_id, ran.deny !== undefined || ran.isError === true))
 
     return ran
   }).catch(($, e, next) => next(e))
@@ -191,16 +210,18 @@ export const register: Register = on => {
   // Background commands: done on their notification.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     if (e.agentId || e.run_in_background !== true) return next(e)
-    const startedAt = await $.clock.now()
-    await startJob($, {
-      id: e.tool_use_id,
-      kind: 'bash',
-      label: e.description ?? e.command.slice(0, 40),
-      detail: '백그라운드',
-      startedAt,
+    await safe(async () => {
+      const startedAt = await $.clock.now()
+      await startJob($, {
+        id: e.tool_use_id,
+        kind: 'bash',
+        label: e.description ?? e.command.slice(0, 40),
+        detail: '백그라운드',
+        startedAt,
+      })
     })
     const ran = await next(e)
-    if (ran.deny !== undefined) await endJob($, e.tool_use_id, true)
+    if (ran.deny !== undefined) await safe(() => endJob($, e.tool_use_id, true))
 
     return ran
   }).catch(($, e, next) => next(e))
@@ -208,8 +229,10 @@ export const register: Register = on => {
   on('tool.call', { tool: 'Skill' }, async ($, e, next) => {
     const stage = e.agentId ? undefined : stageOf(e.skill)
     if (stage) {
-      const fid = await readFid($, cwd)
-      await update($, board, b => ({ ...b, stage, fid: fid ?? b.fid }))
+      await safe(async () => {
+        const fid = await readFid($, cwd)
+        await update($, board, b => ({ ...b, stage, fid: fid ?? b.fid }))
+      })
     }
 
     return next(e)
@@ -219,7 +242,7 @@ export const register: Register = on => {
     const stored = await next(e)
     if (!e.agentId && e.message.type === 'user') {
       const note = notificationOf(textOf(e.message.content))
-      if (note) await endJob($, note.id, note.isFailed)
+      if (note) await safe(() => endJob($, note.id, note.isFailed))
     }
 
     return stored

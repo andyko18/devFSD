@@ -40,7 +40,7 @@ const STAGE_NAMES: Record<string, string> = {
 
 /** `devfsd:planning-ko` → `설계 (planning-ko)`; anything else → undefined. */
 export function stageOf(skill: string): string | undefined {
-  const match = /^(?:devfsd|specops-ko):(.+)$/.exec(skill)
+  const match = skill.match(/^(?:devfsd|specops-ko):(.+)$/)
   const name = match?.[1]
   if (!name) return undefined
   const base = name.replace(/-ko$/, '')
@@ -51,7 +51,7 @@ export function stageOf(skill: string): string | undefined {
 
 /** First `## <FID>` heading of session-progress.md. */
 export function fidOf(progress: string): string | undefined {
-  const match = /^## (\S+)/m.exec(progress)
+  const match = progress.match(/^## (\S+)/m)
 
   return match?.[1]
 }
@@ -60,9 +60,9 @@ export function fidOf(progress: string): string | undefined {
 export function notificationOf(
   text: string,
 ): { id: string; isFailed: boolean } | undefined {
-  const id = /<tool-use-id>([^<]+)<\/tool-use-id>/.exec(text)?.[1]
+  const id = text.match(/<tool-use-id>([^<]+)<\/tool-use-id>/)?.[1]
   if (!id) return undefined
-  const status = /<status>([^<]+)<\/status>/.exec(text)?.[1] ?? ''
+  const status = text.match(/<status>([^<]+)<\/status>/)?.[1] ?? ''
 
   return { id: id.trim(), isFailed: /fail|error|kill/i.test(status) }
 }

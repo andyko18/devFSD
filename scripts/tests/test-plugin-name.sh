@@ -10,9 +10,10 @@ m=$(jq -r '.name + "|" + .plugins[0].name' "$ROOT/.claude-plugin/marketplace.jso
 [ "$v|$m" = "devfsd|devfsd|devfsd" ] && ok "PN1 매니페스트 이름 devfsd" || nope PN1 "$v|$m"
 # PN2 (AC-3) 허용 목록 밖 잔존 0 — 허용은 줄이 아니라 **경로**로 뺀다
 #   허용 경로: 이력(CHANGELOG·docs/audit·docs/case-studies·docs/governance-history.md) +
-#   3.x 호환 파일(Task 2 가 옛 접두사를 일부러 두는 훅 5개·그 테스트 2개·옛 접두사 픽스처 생성 줄이 있는 파일) + 이 스위트
+#   3.x 호환 파일(Task 2 가 옛 접두사를 일부러 두는 훅 5개·그 테스트 2개·진행 패널 mod 와 그 테스트·옛 접두사 픽스처 생성 줄이 있는 파일) + 이 스위트
 ALLOW_PATHS=(CHANGELOG.md docs/audit docs/case-studies docs/governance-history.md
   hooks/rules.jsonl hooks/governance-lib.sh hooks/posttool-governance.sh hooks/hooks.json hooks/save-review-report.sh
+  hooks/progress-pane.tsx hooks/progress-pane.test.tsx
   scripts/tests/governance/test-rules.sh scripts/tests/governance/test-pretool.sh scripts/tests/governance/test-hooks.sh scripts/tests/test-save-review-report.sh
   scripts/tests/test-plugin-name.sh)
 # 앞에 이름 글자가 붙은 경우(using-specops-ko: 같은 skill 이름 라벨)는 namespace 가 아니다 — 대소문자는 git grep -i 가 맡는다

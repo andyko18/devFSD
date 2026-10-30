@@ -8,6 +8,9 @@ ok(){ PASS=$((PASS+1)); echo "PASS $1"; }; nope(){ FAIL=$((FAIL+1)); echo "FAIL 
 v=$(jq -r '.name' "$ROOT/.claude-plugin/plugin.json")
 m=$(jq -r '.name + "|" + .plugins[0].name' "$ROOT/.claude-plugin/marketplace.json")
 [ "$v|$m" = "devfsd|devfsd|devfsd" ] && ok "PN1 매니페스트 이름 devfsd" || nope PN1 "$v|$m"
+# PN1b 표시 이름은 제품 표기 devFSD — 설치 이름(name)은 devfsd 그대로
+dn=$(jq -r '.displayName // empty' "$ROOT/.claude-plugin/plugin.json")
+[ "$dn|$v" = "devFSD|devfsd" ] && ok "PN1b 표시 이름 devFSD · 설치 이름 devfsd" || nope PN1b "displayName=$dn name=$v"
 # PN2 (AC-3) 허용 목록 밖 잔존 0 — 허용은 줄이 아니라 **경로**로 뺀다
 #   허용 경로: 이력(CHANGELOG·docs/audit·docs/case-studies·docs/governance-history.md) +
 #   3.x 호환 파일(Task 2 가 옛 접두사를 일부러 두는 훅 5개·그 테스트 2개·진행 패널 mod 와 그 테스트·옛 접두사 픽스처 생성 줄이 있는 파일) + 이 스위트

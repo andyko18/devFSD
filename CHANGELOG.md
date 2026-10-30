@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.0] — 2026-10-30
+
 ### Added
 
 - 진행 패널 — 관할 repo 에서 세션을 열면 채팅 옆에 "devFSD 진행" 패널이 뜬다(실행 중 서브에이전트·백그라운드 명령·경과 시간·최근 완료·단계·FID). `/devfsd-progress` 로 어디서나 연다. Claude Code mod(`hooks/hooks.json` 의 `modules`)로 동봉 — 2.1.309 이상 필요.
@@ -3504,7 +3506,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/andyko18/devFSD/compare/v3.0.0...v3.1.0
 [3.0.0]: https://github.com/andyko18/specops-ko/compare/v2.37.2...v3.0.0
 [2.37.2]: https://github.com/andyko18/specops-ko/compare/v2.37.1...v2.37.2
 [2.37.1]: https://github.com/andyko18/specops-ko/compare/v2.37.0...v2.37.1

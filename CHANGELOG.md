@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 플러그인 목록의 표시 이름을 `devFSD` 로 — `plugin.json` 에 `displayName` 을 넣었다. 설치 id(`devfsd@devfsd`)와 skill 접두사(`devfsd:`)는 그대로다.
+
 ## [3.1.1] — 2026-10-30
 
 ### Fixed

@@ -1,6 +1,16 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { elapsed, fidOf, notificationOf, projectRoot, stageOf } from './progress-pane'
+import {
+  activeFid,
+  elapsed,
+  fidOf,
+  isLifecycleDone,
+  notificationOf,
+  projectRoot,
+  stageOf,
+  stagesOf,
+  verifyWord,
+} from './progress-pane'
 
 const PANE = {
   plugin: 'devfsd',
@@ -480,4 +490,86 @@ test('a failing clock at session start still opens the pane of a governed repo',
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/repo', ...START })
   expect(opens).toEqual(['devfsd-progress'])
+})
+
+const PROG = [
+  '# p', '<!-- active-fid: 20261104-b -->', '',
+  '## 20261104-b · 설명', '',
+  '- 2026-11-04 10:05 /implement 진행 (T1)',
+  '- 2026-11-04 10:04 /tasks 완료 (tasks.md)',
+  '- 2026-11-04 10:03 /plan SKIP (lite)',
+  '- 2026-11-04 10:02 /clarify SKIP (lite)',
+  '- 2026-11-04 10:01 /specify 완료 (spec.md)',
+  '- 2026-11-04 10:00 /analyze 완료 (x)',
+  '', '## 20261104-a · 옛', '', '- 2026-11-03 09:00 /lifecycle DONE (PR #1)', '',
+].join('\n')
+
+test('activeFid prefers the marker, then the first FID-shaped heading', () => {
+  expect(activeFid(PROG)).toBe('20261104-b')
+  expect(activeFid('# p\n\n## 활용 방법\n\n## 20261104-c · x\n')).toBe('20261104-c')
+  expect(activeFid('# p\n\n## 활용 방법\n')).toBe(undefined)
+})
+
+test('activeFid marker beats an earlier heading and bad shapes fall back', () => {
+  expect(activeFid('<!-- active-fid: 20261104-b -->\n## 20261104-a · x\n## 20261104-b · y\n')).toBe('20261104-b')
+  expect(activeFid('<!-- active-fid: 활용방법 -->\n## 20261104-a\n')).toBe('20261104-a')
+  expect(activeFid('## 20261104-A\n')).toBe(undefined)
+  expect(activeFid('## 2026110-a\n')).toBe(undefined)
+  expect(activeFid('### 20261104-a\n')).toBe(undefined)
+})
+
+test('stagesOf reads the newest record of each stage', () => {
+  const line = stagesOf(PROG, '20261104-b').map(s => s.label + s.mark).join(' ')
+  expect(line).toBe('분석✓ 명세✓ 명확화– 설계– 분해✓ 구현● 검증○ 보안○ 통합○ 성능○ PR○')
+  const noAnalyze = PROG.replace('- 2026-11-04 10:00 /analyze 완료 (x)\n', '')
+  expect(stagesOf(noAnalyze, '20261104-b')[0].label).toBe('명세')
+  const failed = PROG.replace('/implement 진행 (T1)', '/verify FAIL (x)\n- 2026-11-04 10:05 /verify PASS (old)')
+  expect(stagesOf(failed, '20261104-b').find(s => s.key === 'verify')?.mark).toBe('✗')
+  const memo = PROG.replace('/tasks 완료 (tasks.md)', '/tasks 진행 (SKIP 아님)')
+  expect(stagesOf(memo, '20261104-b').find(s => s.key === 'tasks')?.mark).toBe('●')
+})
+
+test('stagesOf maps all 11 stage commands and symbol words', () => {
+  const full = [
+    '## 20261104-f', '',
+    '- d t /analyze 완료', '- d t /specify DONE', '- d t /clarify SKIP', '- d t /plan PASS',
+    '- d t /tasks FAIL', '- d t /implement BLOCK', '- d t /verify PARTIAL', '- d t /security-review DONE',
+    '- d t /integration-test SKIP', '- d t /performance-test 진행', '- d t /lifecycle DONE', '',
+  ].join('\n')
+  const line = stagesOf(full, '20261104-f').map(s => s.label + s.mark).join(' ')
+  expect(line).toBe('분석✓ 명세✓ 명확화– 설계✓ 분해✗ 구현✗ 검증● 보안✓ 통합– 성능● PR✓')
+  expect(stagesOf('## 20261104-f\n\n- d t /pr 완료\n', '20261104-f').find(s => s.key === 'pr')?.mark).toBe('○')
+  const dir = '## 20261104-f\n\n- d t /verify PASS\n- d t /verify FAIL\n'
+  expect(stagesOf(dir, '20261104-f').find(s => s.key === 'verify')?.mark).toBe('✓')
+  const memos = '## 20261104-f\n\n- d t /implement 진행 (FAIL 아님 DONE)\n- d t /verify PASS (FAIL 0건)\n'
+  const got = stagesOf(memos, '20261104-f')
+  expect(got.find(s => s.key === 'implement')?.mark).toBe('●')
+  expect(got.find(s => s.key === 'verify')?.mark).toBe('✓')
+})
+
+test('isLifecycleDone only when the newest record is /lifecycle DONE', () => {
+  expect(isLifecycleDone(PROG, '20261104-a')).toBe(true)
+  expect(isLifecycleDone(PROG, '20261104-b')).toBe(false)
+  const after = PROG.replace('- 2026-11-03 09:00 /lifecycle DONE (PR #1)', '- 2026-11-03 09:10 /verify PASS (x)\n- 2026-11-03 09:00 /lifecycle DONE (PR #1)')
+  expect(isLifecycleDone(after, '20261104-a')).toBe(false)
+})
+
+test('verifyWord accepts only a known single word on exit 0', () => {
+  expect(verifyWord({ exitCode: 0, stdout: 'STALE\n' })).toBe('검증 STALE')
+  expect(verifyWord({ exitCode: 1, stdout: 'STALE\n' })).toBe('검증 ?')
+  expect(verifyWord({ exitCode: 0, stdout: '' })).toBe('검증 ?')
+  expect(verifyWord({ exitCode: 0, stdout: 'PASS\nPASS\n' })).toBe('검증 ?')
+  expect(verifyWord({ exitCode: 0, stdout: 'GREEN\n' })).toBe('검증 ?')
+})
+
+test('verifyWord covers all six words with and without newline, and rejects bad input', () => {
+  for (const w of ['PASS', 'STALE', 'FAIL', 'PARTIAL', 'NOT_RUN', 'WAIVED']) {
+    expect(verifyWord({ exitCode: 0, stdout: w })).toBe(`검증 ${w}`)
+    expect(verifyWord({ exitCode: 0, stdout: `${w}\n` })).toBe(`검증 ${w}`)
+  }
+  for (const bad of ['stale', 'PASS extra', 'NOT_RUN: x', ' ']) {
+    expect(verifyWord({ exitCode: 0, stdout: bad })).toBe('검증 ?')
+  }
+  expect(verifyWord({ exitCode: 124, stdout: 'PASS' })).toBe('검증 ?')
+  expect(verifyWord({ exitCode: 1, stdout: 'PASS' })).toBe('검증 ?')
 })

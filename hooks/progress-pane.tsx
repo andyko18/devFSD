@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Board, Job } from '../types'
+import type { Board, Job, StageMark } from '../types'
 
 const PANE = 'devfsd-progress'
 const TITLE = 'devFSD 진행'
@@ -14,7 +14,7 @@ const PROGRESS_FILE = '.specops/session-progress.md'
 const board = atom(
   { plugin: 'devfsd', key: 'board' } as const,
   { running: [], recent: [] } as Board,
-  { shape: 'board-1' },
+  { shape: 'board-2' },
 )
 const now = atom({ plugin: 'devfsd', key: 'now' } as const, 0, {
   shape: 'now-1',
@@ -54,6 +54,80 @@ export function fidOf(progress: string): string | undefined {
   const match = progress.match(/^## (\S+)/m)
 
   return match?.[1]
+}
+
+const FID_RE = /^\d{8}-[a-z0-9-]+$/
+const STAGES: readonly { key: string; cmd: string; label: string }[] = [
+  { key: 'analyze', cmd: '/analyze', label: '분석' },
+  { key: 'specify', cmd: '/specify', label: '명세' },
+  { key: 'clarify', cmd: '/clarify', label: '명확화' },
+  { key: 'plan', cmd: '/plan', label: '설계' },
+  { key: 'tasks', cmd: '/tasks', label: '분해' },
+  { key: 'implement', cmd: '/implement', label: '구현' },
+  { key: 'verify', cmd: '/verify', label: '검증' },
+  { key: 'security', cmd: '/security-review', label: '보안' },
+  { key: 'integration', cmd: '/integration-test', label: '통합' },
+  { key: 'performance', cmd: '/performance-test', label: '성능' },
+  { key: 'pr', cmd: '/lifecycle', label: 'PR' },
+]
+const VERIFY_WORDS = ['PASS', 'STALE', 'FAIL', 'PARTIAL', 'NOT_RUN', 'WAIVED']
+
+/** 활성 FID — active-fid 마커 우선, 없으면 FID 형식의 첫 `## ` 제목. */
+export function activeFid(progress: string): string | undefined {
+  const marked = progress.match(/<!--\s*active-fid:\s*(\S+)\s*-->/)?.[1]
+  if (marked && FID_RE.test(marked)) return marked
+  for (const line of progress.split('\n')) {
+    const id = line.match(/^## (\S+)/)?.[1]
+    if (id && FID_RE.test(id)) return id
+  }
+
+  return undefined
+}
+
+/** FID 섹션의 기록 줄(최신이 위)에서 `/<cmd> <첫 낱말>` 만 뽑는다. */
+function recordsOf(progress: string, fid: string): { cmd: string; word: string }[] {
+  const lines = progress.split('\n')
+  const start = lines.findIndex(l => l.match(/^## (\S+)/)?.[1] === fid)
+  if (start < 0) return []
+  const out: { cmd: string; word: string }[] = []
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith('## ')) break
+    const m = line.match(/^- \S+ \S+ (\/[a-z-]+) (\S+)/)
+    if (m) out.push({ cmd: m[1] ?? '', word: m[2] ?? '' })
+  }
+
+  return out
+}
+
+function markOf(word: string): StageMark['mark'] {
+  if (/^(완료|DONE|PASS)$/.test(word)) return '✓'
+  if (word === 'SKIP') return '–'
+  if (/^(FAIL|BLOCK|BLOCKED)$/.test(word)) return '✗' // PARTIAL·진행 등 그 밖은 ●
+
+  return '●'
+}
+
+export function stagesOf(progress: string, fid: string): StageMark[] {
+  const recs = recordsOf(progress, fid)
+
+  return STAGES.flatMap(s => {
+    const newest = recs.find(r => r.cmd === s.cmd)
+    if (!newest && s.key === 'analyze') return []
+
+    return [{ key: s.key, label: s.label, mark: newest ? markOf(newest.word) : '○' }]
+  })
+}
+
+export function isLifecycleDone(progress: string, fid: string): boolean {
+  const top = recordsOf(progress, fid)[0]
+
+  return top?.cmd === '/lifecycle' && top.word === 'DONE'
+}
+
+export function verifyWord(r: { exitCode: number; stdout: string }): string {
+  const w = r.stdout.trim()
+
+  return r.exitCode === 0 && VERIFY_WORDS.includes(w) ? `검증 ${w}` : '검증 ?'
 }
 
 /** A task notification's tool-use id and whether it failed. */

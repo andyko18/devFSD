@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.3] — 2026-11-04
+
 ### Changed
 
 - 진행 패널에 lifecycle 단계 막대(✓ 완료 · – 생략 · ✗ 실패 · ● 진행 · ○ 남음)와 verify 상태 배지(PASS·STALE 등 — 끝난 FID 는 완료)를 추가했다. 코드를 바꾸는 도구 호출이 끝날 때마다 갱신한다.
@@ -3522,7 +3524,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.2...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.3...HEAD
+[3.1.3]: https://github.com/andyko18/devFSD/compare/v3.1.2...v3.1.3
 [3.1.2]: https://github.com/andyko18/devFSD/compare/v3.1.1...v3.1.2
 [3.1.1]: https://github.com/andyko18/devFSD/compare/v3.1.0...v3.1.1
 [3.1.0]: https://github.com/andyko18/devFSD/compare/v3.0.0...v3.1.0

@@ -911,3 +911,122 @@ test('every refreshing tool recomputes only after its own call returned', async 
   expect(bash(w).length - base).toBe(calls.length)
   expect(w.seen.slice(base)).toEqual(calls.map(() => true))
 })
+
+const BAR_B = '분석✓ 명세✓ 명확화– 설계– 분해✓ 구현● 검증○ 보안○ 통합○ 성능○ PR○'
+const BAR_NONE = '명세○ 명확화○ 설계○ 분해○ 구현○ 검증○ 보안○ 통합○ 성능○ PR○'
+const BAR_DONE = '명세○ 명확화○ 설계○ 분해○ 구현○ 검증✓ 보안○ 통합○ 성능○ PR✓'
+
+/** 한 surface 로 마운트해 비지 않은 Text 줄을 trim 해 읽는다. */
+const rowsOn = async ($: Pane$, surface: (typeof SURFACES)[number]): Promise<string[]> => {
+  const ui = await $.ui.mount({ ...PANE, surface })
+  const rows = (await ui.findAll({ type: 'Text' })).map(one => (one.text ?? '').trim()).filter(Boolean)
+  await ui.unmount()
+
+  return rows
+}
+const badgeOn = async ($: Pane$, surface: (typeof SURFACES)[number]) =>
+  (await rowsOn($, surface)).find(row => row.startsWith('검증 ') || row === '완료')
+
+test('the pane lists head, stage bar, verify badge, running and recent in that order on both surfaces', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+
+  for (const surface of SURFACES) {
+    expect(await rowsOn($, surface)).toEqual([
+      'devFSD · 20261104-b', BAR_B, '검증 STALE', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
+    ])
+  }
+})
+
+test('every verifier word reaches the badge line on both surfaces', async ($, on) => {
+  const w = verifyWorld(on)
+  w.answer = { exitCode: 0, stdout: 'NOT_RUN\n', stderr: '' }
+  await begin($, w)
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 NOT_RUN')
+
+  w.answer = { exitCode: 0, stdout: 'PASS\n', stderr: '' }
+  await $.tool.call(editCall('toolu_w1'))
+  await drain()
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 PASS')
+})
+
+test('a rejected verifier shows a question mark and the next trigger restores the value', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+
+  w.answer = 'reject'
+  await $.tool.call(editCall('toolu_q1'))
+  await drain()
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 ?')
+
+  w.answer = { exitCode: 0, stdout: 'PASS\n', stderr: '' }
+  await $.tool.call(editCall('toolu_q2'))
+  await drain()
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 PASS')
+})
+
+test('a finished lifecycle shows done on the badge line without calling the verifier', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = PROG_DONE
+  await begin($, w)
+
+  expect(bash(w).length).toBe(0)
+  for (const surface of SURFACES) {
+    expect(await rowsOn($, surface)).toEqual([
+      'devFSD · 20261104-b', BAR_DONE, '완료', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
+    ])
+  }
+})
+
+test('a missing FID folder shows a question mark', async ($, on) => {
+  const w = verifyWorld(on)
+  w.dirOk = false
+  await begin($, w)
+
+  expect(bash(w).length).toBe(0)
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 ?')
+})
+
+test('without an active FID neither the stage bar nor the badge is drawn', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = '# p\n\n## 활용 방법\n'
+  await begin($, w)
+
+  expect(bash(w).length).toBe(0)
+  for (const surface of SURFACES) {
+    expect(await rowsOn($, surface)).toEqual(['devFSD', '▶ 실행 중 (0)', '없음', '최근 완료', '없음'])
+  }
+})
+
+test('a marker FID without a section draws an all-open bar with no analysis cell', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = '<!-- active-fid: 20261104-z -->\n## 20261104-a · x\n'
+  await begin($, w)
+
+  for (const surface of SURFACES) {
+    expect(await rowsOn($, surface)).toEqual([
+      'devFSD · 20261104-z', BAR_NONE, '검증 STALE', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
+    ])
+  }
+})
+
+test('the badge is bold except for done and pass', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+  const boldOf = async (surface: (typeof SURFACES)[number], text: RegExp) => {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    const node = (await ui.find({ type: 'Text', text })) as unknown as Record<string, any> | undefined
+    await ui.unmount()
+
+    return node?.bold ?? node?.props?.bold
+  }
+
+  // The head line is always bold: if the kit cannot show that, bold is not observable here.
+  if ((await boldOf('terminal', /^devFSD/)) !== true) return
+
+  for (const surface of SURFACES) expect(await boldOf(surface, /^검증 /)).toBe(true)
+  w.answer = { exitCode: 0, stdout: 'PASS\n', stderr: '' }
+  await $.tool.call(editCall('toolu_b1'))
+  await drain()
+  for (const surface of SURFACES) expect(await boldOf(surface, /^검증 /)).not.toBe(true)
+})

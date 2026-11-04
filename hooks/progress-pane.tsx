@@ -416,6 +416,8 @@ export const register: Register = on => {
     return (
       <Box flexDirection="column">
         <Text bold>{head}</Text>
+        {b.stages && <Text>{b.stages.map(s => `${s.label}${s.mark}`).join(' ')}</Text>}
+        {b.verify && <Text bold={b.verify !== '완료' && b.verify !== '검증 PASS'}>{b.verify}</Text>}
         <Text> </Text>
         <Text bold>▶ 실행 중 ({b.running.length})</Text>
         {b.running.length === 0 && <Text dimColor>  없음</Text>}

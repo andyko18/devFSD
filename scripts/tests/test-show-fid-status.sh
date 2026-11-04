@@ -319,9 +319,10 @@ if _tsc_run UTC '2026-09-10T09:00:00Z' | grep -qE 'fid-start +→ +/analyze +1h0
   PASS=$((PASS+1)); echo "PASS T-ts.l 첫 구간 경계 60분 = 1h0m"
 else FAIL=$((FAIL+1)); echo "FAIL T-ts.l 첫 구간 60분 경계"; fi
 # 음수 오프셋 TZ — 부호 처리(`_ts_zs`)가 빠지면 -0400 을 +0400 으로 읽어 8h 틀린다
-if _tsc_run America/New_York '2026-09-10T12:00:00Z' | grep -qE 'fid-start +→ +/analyze +2h0m'; then
+# 고정 오프셋(Etc/GMT+4 = 항상 -0400)을 쓴다 — America/New_York 은 11월~3월에 -0500 이 되어 스크립트가 읽는 오늘 오프셋과 픽스처(9월) 오프셋이 어긋난다
+if _tsc_run Etc/GMT+4 '2026-09-10T12:00:00Z' | grep -qE 'fid-start +→ +/analyze +2h0m'; then
   PASS=$((PASS+1)); echo "PASS T-ts.m 음수 오프셋 TZ(-0400) 첫 구간 2h0m"
-else FAIL=$((FAIL+1)); echo "FAIL T-ts.m 음수 오프셋: $(_tsc_run America/New_York '2026-09-10T12:00:00Z' | grep fid-start)"; fi
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.m 음수 오프셋: $(_tsc_run Etc/GMT+4 '2026-09-10T12:00:00Z' | grep fid-start)"; fi
 # AC-3 branch (b): fid-start 가 첫 행보다 뒤 → 음수 분을 내지 않고 사유를 밝힌다
 _tsc_neg=$(_tsc_run UTC '2026-09-10T11:30:00Z')
 if printf '%s' "$_tsc_neg" | grep 'fid-start' | grep -q '측정 불가.*시각 불일치' \

@@ -10,11 +10,19 @@ export type Job = {
   isFailed?: boolean
 }
 
+export type StageMark = {
+  key: string
+  label: string
+  mark: '✓' | '–' | '✗' | '●' | '○'
+}
+
 export type Board = {
   running: Job[]
   recent: Job[]
   stage?: string
   fid?: string
+  stages?: StageMark[]
+  verify?: string
 }
 
 declare module 'claude-code' {

@@ -318,7 +318,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | `/devfsd-progress` | 진행 패널 열기 — 실행 중 서브에이전트·백그라운드 명령·경과 시간·단계·FID (`commands/` 가 아니라 진행 패널 mod 가 등록) |
 | `/e2e-test` · `/release` | **플러그인 개발자 전용** — lifecycle 9단계 fixture 완주 검증(수동 · 토큰 비용 · 임시 저장소에 파일 생성) · 릴리즈 자동화(플러그인 저장소에서만) |
 
-**진행 패널** — devFSD 관할 repo(`.specops/` 가 있는 폴더와 그 worktree)에서 세션을 열면 채팅 옆에 "devFSD 진행" 패널이 자동으로 뜬다. 메인 대화가 띄운 서브에이전트·백그라운드 명령의 실행 중 목록과 경과 시간, 최근 완료 5개(✓/✗), 현재 단계·FID 를 보여 준다. 관찰만 하며 어떤 호출도 막거나 바꾸지 않는다. Claude Code 2.1.309 이상(mod 지원)에서 동작하고, mod API 는 early access 다. 같은 패널을 개인 mod 로 쓰던 경우 `~/.claude/settings.json` 의 `CLAUDE_CODE_PLUGIN_DIRS` 에서 그 폴더를 지운다(두 번 뜬다).
+**진행 패널** — devFSD 관할 repo(`.specops/` 가 있는 폴더와 그 worktree)에서 세션을 열면 채팅 옆에 "devFSD 진행" 패널이 자동으로 뜬다. 메인 대화가 띄운 서브에이전트·백그라운드 명령의 실행 중 목록과 경과 시간, 최근 완료 5개(✓/✗), 현재 단계·FID 를 보여 준다. lifecycle 단계 막대(✓ 완료 · – 생략 · ✗ 실패 · ● 진행 · ○ 남음)와 verify 상태 배지(PASS·STALE 등 — 끝난 FID 는 완료)도 함께 보여 주고, 코드를 바꾸는 도구 호출이 끝날 때마다 갱신한다. 관찰만 하며 어떤 호출도 막거나 바꾸지 않는다. Claude Code 2.1.309 이상(mod 지원)에서 동작하고, mod API 는 early access 다. 같은 패널을 개인 mod 로 쓰던 경우 `~/.claude/settings.json` 의 `CLAUDE_CODE_PLUGIN_DIRS` 에서 그 폴더를 지운다(두 번 뜬다).
 
 ---
 

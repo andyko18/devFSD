@@ -1,6 +1,16 @@
 import { expect, mock, test } from 'claude-code/testing'
 
-import { elapsed, fidOf, notificationOf, projectRoot, stageOf } from './progress-pane'
+import {
+  activeFid,
+  elapsed,
+  fidOf,
+  isLifecycleDone,
+  notificationOf,
+  projectRoot,
+  stageOf,
+  stagesOf,
+  verifyWord,
+} from './progress-pane'
 
 const PANE = {
   plugin: 'devfsd',
@@ -480,4 +490,543 @@ test('a failing clock at session start still opens the pane of a governed repo',
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/repo', ...START })
   expect(opens).toEqual(['devfsd-progress'])
+})
+
+const PROG = [
+  '# p', '<!-- active-fid: 20261104-b -->', '',
+  '## 20261104-b · 설명', '',
+  '- 2026-11-04 10:05 /implement 진행 (T1)',
+  '- 2026-11-04 10:04 /tasks 완료 (tasks.md)',
+  '- 2026-11-04 10:03 /plan SKIP (lite)',
+  '- 2026-11-04 10:02 /clarify SKIP (lite)',
+  '- 2026-11-04 10:01 /specify 완료 (spec.md)',
+  '- 2026-11-04 10:00 /analyze 완료 (x)',
+  '', '## 20261104-a · 옛', '', '- 2026-11-03 09:00 /lifecycle DONE (PR #1)', '',
+].join('\n')
+
+test('activeFid prefers the marker, then the first FID-shaped heading', () => {
+  expect(activeFid(PROG)).toBe('20261104-b')
+  expect(activeFid('# p\n\n## 활용 방법\n\n## 20261104-c · x\n')).toBe('20261104-c')
+  expect(activeFid('# p\n\n## 활용 방법\n')).toBe(undefined)
+})
+
+test('activeFid marker beats an earlier heading and bad shapes fall back', () => {
+  expect(activeFid('<!-- active-fid: 20261104-b -->\n## 20261104-a · x\n## 20261104-b · y\n')).toBe('20261104-b')
+  expect(activeFid('<!-- active-fid: 활용방법 -->\n## 20261104-a\n')).toBe('20261104-a')
+  expect(activeFid('## 20261104-A\n')).toBe(undefined)
+  expect(activeFid('## 2026110-a\n')).toBe(undefined)
+  expect(activeFid('### 20261104-a\n')).toBe(undefined)
+})
+
+test('stagesOf reads the newest record of each stage', () => {
+  const line = stagesOf(PROG, '20261104-b').map(s => s.label + s.mark).join(' ')
+  expect(line).toBe('분석✓ 명세✓ 명확화– 설계– 분해✓ 구현● 검증○ 보안○ 통합○ 성능○ PR○')
+  const noAnalyze = PROG.replace('- 2026-11-04 10:00 /analyze 완료 (x)\n', '')
+  expect(stagesOf(noAnalyze, '20261104-b')[0].label).toBe('명세')
+  const failed = PROG.replace('/implement 진행 (T1)', '/verify FAIL (x)\n- 2026-11-04 10:05 /verify PASS (old)')
+  expect(stagesOf(failed, '20261104-b').find(s => s.key === 'verify')?.mark).toBe('✗')
+  const memo = PROG.replace('/tasks 완료 (tasks.md)', '/tasks 진행 (SKIP 아님)')
+  expect(stagesOf(memo, '20261104-b').find(s => s.key === 'tasks')?.mark).toBe('●')
+})
+
+test('stagesOf maps all 11 stage commands and symbol words', () => {
+  const full = [
+    '## 20261104-f', '',
+    '- d t /analyze 완료', '- d t /specify DONE', '- d t /clarify SKIP', '- d t /plan PASS',
+    '- d t /tasks FAIL', '- d t /implement BLOCK', '- d t /verify PARTIAL', '- d t /security-review DONE',
+    '- d t /integration-test SKIP', '- d t /performance-test 진행', '- d t /lifecycle DONE', '',
+  ].join('\n')
+  const line = stagesOf(full, '20261104-f').map(s => s.label + s.mark).join(' ')
+  expect(line).toBe('분석✓ 명세✓ 명확화– 설계✓ 분해✗ 구현✗ 검증● 보안✓ 통합– 성능● PR✓')
+  expect(stagesOf('## 20261104-f\n\n- d t /pr 완료\n', '20261104-f').find(s => s.key === 'pr')?.mark).toBe('○')
+  const dir = '## 20261104-f\n\n- d t /verify PASS\n- d t /verify FAIL\n'
+  expect(stagesOf(dir, '20261104-f').find(s => s.key === 'verify')?.mark).toBe('✓')
+  const memos = '## 20261104-f\n\n- d t /implement 진행 (FAIL 아님 DONE)\n- d t /verify PASS (FAIL 0건)\n'
+  const got = stagesOf(memos, '20261104-f')
+  expect(got.find(s => s.key === 'implement')?.mark).toBe('●')
+  expect(got.find(s => s.key === 'verify')?.mark).toBe('✓')
+})
+
+test('isLifecycleDone only when the newest record is /lifecycle DONE', () => {
+  expect(isLifecycleDone(PROG, '20261104-a')).toBe(true)
+  expect(isLifecycleDone(PROG, '20261104-b')).toBe(false)
+  const after = PROG.replace('- 2026-11-03 09:00 /lifecycle DONE (PR #1)', '- 2026-11-03 09:10 /verify PASS (x)\n- 2026-11-03 09:00 /lifecycle DONE (PR #1)')
+  expect(isLifecycleDone(after, '20261104-a')).toBe(false)
+})
+
+test('verifyWord accepts only a known single word on exit 0', () => {
+  expect(verifyWord({ exitCode: 0, stdout: 'STALE\n' })).toBe('검증 STALE')
+  expect(verifyWord({ exitCode: 1, stdout: 'STALE\n' })).toBe('검증 ?')
+  expect(verifyWord({ exitCode: 0, stdout: '' })).toBe('검증 ?')
+  expect(verifyWord({ exitCode: 0, stdout: 'PASS\nPASS\n' })).toBe('검증 ?')
+  expect(verifyWord({ exitCode: 0, stdout: 'GREEN\n' })).toBe('검증 ?')
+})
+
+test('verifyWord covers all six words with and without newline, and rejects bad input', () => {
+  for (const w of ['PASS', 'STALE', 'FAIL', 'PARTIAL', 'NOT_RUN', 'WAIVED']) {
+    expect(verifyWord({ exitCode: 0, stdout: w })).toBe(`검증 ${w}`)
+    expect(verifyWord({ exitCode: 0, stdout: `${w}\n` })).toBe(`검증 ${w}`)
+  }
+  for (const bad of ['stale', 'PASS extra', 'NOT_RUN: x', ' ']) {
+    expect(verifyWord({ exitCode: 0, stdout: bad })).toBe('검증 ?')
+  }
+  expect(verifyWord({ exitCode: 124, stdout: 'PASS' })).toBe('검증 ?')
+  expect(verifyWord({ exitCode: 1, stdout: 'PASS' })).toBe('검증 ?')
+})
+
+// --- T2: 단계·verify 갱신 · 트리거 --------------------------------------------
+
+/** void 로 도는 계산이 끝까지 흐르게 마이크로태스크를 비운다 — 시계·타이머에 기대지 않는다. */
+const drain = async () => { for (let i = 0; i < 300; i++) await Promise.resolve() }
+
+const VERIFY_SH = '/scripts/_internal/verification-state.sh'
+const STALE_OUT = { exitCode: 0, stdout: 'STALE\n', stderr: '' }
+const PROG_C = PROG.replace('active-fid: 20261104-b', 'active-fid: 20261104-c').replace('## 20261104-b ·', '## 20261104-c ·')
+const PROG_DONE = '# p\n\n## 20261104-b · x\n\n- 2026-11-04 10:09 /lifecycle DONE (PR #2)\n- 2026-11-04 10:00 /verify PASS (x)\n'
+
+type Run = { argv: string[]; init?: Record<string, unknown> }
+
+/** 관할 repo(`/repo`) 세계: progress 는 `/repo` 에만 있고, process.run 호출을 모두 기록한다. */
+const verifyWorld = (on: PaneOn) => {
+  const w = {
+    progress: PROG,
+    dirOk: true,
+    readable: true,
+    git: { exitCode: 0, stdout: '/repo/.git/worktrees/wt\n', stderr: '' },
+    answer: STALE_OUT as typeof STALE_OUT | 'reject',
+    gate: undefined as Promise<void> | undefined,
+    reply: { result: {}, text: 'ok' } as Record<string, unknown>,
+    toolDone: false,
+    runs: [] as Run[],
+    seen: [] as boolean[],
+  }
+  on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
+  on('clock.every', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 1_000 }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('fs.read', (_, e) => {
+    if (w.readable && e.path === '/repo/.specops/session-progress.md') return { value: w.progress }
+    throw new Error('ENOENT')
+  })
+  on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' || (e.path.startsWith('/repo/.specops/') && w.dirOk) }))
+  on('tool.call', async () => { await drain(); w.toolDone = true; return w.reply as never })
+  on('process.run', async (_, e) => {
+    const run = e as unknown as Run
+    w.runs.push({ argv: [...run.argv], init: run.init })
+    if (run.argv[0] === 'git') return { value: w.git }
+    w.seen.push(w.toolDone)
+    if (w.gate) await w.gate
+    if (w.answer === 'reject') throw new Error('spawn failed')
+
+    return { value: w.answer }
+  })
+
+  return w
+}
+
+type World = ReturnType<typeof verifyWorld>
+const bash = (w: World) => w.runs.filter(r => r.argv[0] === 'bash')
+const begin = async ($: Pane$, w: World, cwd = '/repo') => {
+  await $.session.start({ cwd, ...START })
+  await drain()
+
+  return bash(w).length
+}
+const editCall = (id: string, extra: Record<string, unknown> = {}) =>
+  ({ tool: 'Edit', tool_use_id: id, file_path: '/repo/a.ts', old_string: 'a', new_string: 'b', ...extra }) as never
+const fgBash = (id: string, extra: Record<string, unknown> = {}) =>
+  ({ tool: 'Bash', tool_use_id: id, command: 'ls', ...extra }) as never
+const headOf = async ($: Pane$) => (await rowsOf($)).find(row => row.startsWith('devFSD'))
+
+test('an edit in a governed session recomputes verify once, after the tool finished', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  expect(base).toBe(1)
+
+  const ran = await $.tool.call(editCall('toolu_e1'))
+  await drain()
+  expect(ran).toEqual(w.reply)
+  expect(bash(w).length - base).toBe(1)
+  const argv = bash(w)[base]?.argv ?? []
+  expect([argv[0], argv[2], argv[3]]).toEqual(['bash', 'current', '20261104-b'])
+  expect(argv[1]?.endsWith(VERIFY_SH)).toBe(true)
+  expect(w.seen.slice(base)).toEqual([true])
+})
+
+test('a verification that never finishes does not hold the tool call', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  let release: () => void = () => {}
+  w.gate = new Promise<void>(resolve => (release = resolve))
+  try {
+    const ran = await $.tool.call(editCall('toolu_n1'))
+    await drain()
+    expect(ran).toEqual(w.reply)
+    expect(bash(w).length - base).toBe(1)
+  } finally {
+    release()
+  }
+  await drain()
+})
+
+test('subagent edits do not recompute, the main thread does', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+
+  await $.tool.call(editCall('toolu_s1', { agentId: 'sub1' }))
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+  await $.tool.call(editCall('toolu_s2'))
+  await drain()
+  expect(bash(w).length - base).toBe(1)
+})
+
+test('overlapping triggers collapse into one extra run that re-reads progress', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  let release: () => void = () => {}
+  w.gate = new Promise<void>(resolve => (release = resolve))
+  try {
+    await $.tool.call(fgBash('toolu_o1'))
+    await drain()
+    expect(bash(w).length - base).toBe(1)
+    await $.tool.call(fgBash('toolu_o2'))
+    await $.tool.call(fgBash('toolu_o3'))
+    await drain()
+    expect(bash(w).length - base).toBe(1)
+    w.progress = PROG_C
+  } finally {
+    release()
+  }
+  await drain()
+  expect(bash(w).slice(base).map(r => r.argv[3])).toEqual(['20261104-b', '20261104-c'])
+})
+
+test('a worktree session runs git for the project folder and verifies with its own GIT_DIR', async ($, on) => {
+  const w = verifyWorld(on)
+  const wt = '/repo/.claude/worktrees/wt'
+  const base = await begin($, w, wt)
+  expect(base).toBe(1)
+
+  const git = w.runs.find(r => r.argv[0] === 'git')
+  expect(git?.argv).toEqual(['git', '-C', wt, 'rev-parse', '--absolute-git-dir'])
+  expect(git?.init).toEqual({ timeoutMs: 10000 })
+  expect(bash(w)[0]?.init).toEqual({
+    cwd: '/repo',
+    env: { GIT_DIR: '/repo/.git/worktrees/wt', GIT_WORK_TREE: wt },
+    timeoutMs: 10000,
+  })
+})
+
+test('a plain repo skips git and passes an empty env', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+
+  expect(w.runs.filter(r => r.argv[0] === 'git').length).toBe(0)
+  expect(bash(w)[0]?.init).toEqual({ cwd: '/repo', env: {}, timeoutMs: 10000 })
+})
+
+test('a failing git lookup in a worktree never starts the verifier', async ($, on) => {
+  const w = verifyWorld(on)
+  w.git = { exitCode: 128, stdout: '', stderr: 'fatal' }
+  await begin($, w, '/repo/.claude/worktrees/wt')
+  await $.tool.call(editCall('toolu_g1'))
+  await drain()
+
+  expect(w.runs.filter(r => r.argv[0] === 'git').length).toBe(2)
+  expect(bash(w).length).toBe(0)
+})
+
+test('a rejected verifier leaves the call untouched and the next trigger recovers', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+
+  w.answer = 'reject'
+  const ran = await $.tool.call(editCall('toolu_r1'))
+  await drain()
+  expect(ran).toEqual(w.reply)
+  expect(bash(w).length - base).toBe(1)
+
+  w.answer = STALE_OUT
+  await $.tool.call(editCall('toolu_r2'))
+  await drain()
+  expect(bash(w).length - base).toBe(2)
+})
+
+test('a finished lifecycle skips the verifier until progress says otherwise', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = PROG_DONE
+  const base = await begin($, w)
+  expect(base).toBe(0)
+
+  await $.tool.call(editCall('toolu_d1'))
+  await drain()
+  expect(bash(w).length).toBe(0)
+
+  w.progress = PROG
+  await $.tool.call(editCall('toolu_d2'))
+  await drain()
+  expect(bash(w).length).toBe(1)
+})
+
+test('no FID in progress means no verifier call and a bare head line', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  expect(await headOf($)).toBe('devFSD · 20261104-b')
+
+  w.progress = '# p\n\n## 활용 방법\n'
+  await $.tool.call(editCall('toolu_f1'))
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+  expect(await headOf($)).toBe('devFSD')
+
+  w.progress = PROG
+  await $.tool.call(editCall('toolu_f2'))
+  await drain()
+  expect(bash(w).length - base).toBe(1)
+  expect(await headOf($)).toBe('devFSD · 20261104-b')
+})
+
+test('an unreadable progress file means no verifier call', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = ''
+  w.readable = false
+  await begin($, w)
+  await $.tool.call(editCall('toolu_u1'))
+  await drain()
+
+  expect(bash(w).length).toBe(0)
+  expect(await headOf($)).toBe('devFSD')
+})
+
+test('the FID is re-read on every trigger', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+
+  await $.tool.call(editCall('toolu_h1'))
+  await drain()
+  w.progress = PROG_C
+  await $.tool.call(editCall('toolu_h2'))
+  await drain()
+
+  expect(bash(w).slice(base).map(r => r.argv[3])).toEqual(['20261104-b', '20261104-c'])
+  expect(await headOf($)).toBe('devFSD · 20261104-c')
+})
+
+test('a marker FID without a section still verifies, a missing FID folder does not', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = '<!-- active-fid: 20261104-z -->\n## 20261104-a · x\n'
+  const base = await begin($, w)
+  expect(bash(w).map(r => r.argv[3])).toEqual(['20261104-z'])
+
+  w.dirOk = false
+  await $.tool.call(editCall('toolu_m1'))
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+
+  w.dirOk = true
+  await $.tool.call(editCall('toolu_m2'))
+  await drain()
+  expect(bash(w).length - base).toBe(1)
+})
+
+test('every state-changing tool recomputes, observation tools and subagents do not', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+  const cases: { label: string; call: Record<string, unknown>; text?: string; want: number }[] = [
+    { label: 'Edit', call: { tool: 'Edit', file_path: '/repo/a', old_string: 'a', new_string: 'b' }, want: 1 },
+    { label: 'Write', call: { tool: 'Write', file_path: '/repo/a', content: 'x' }, want: 1 },
+    { label: 'NotebookEdit', call: { tool: 'NotebookEdit', notebook_path: '/repo/a.ipynb', new_source: 'x' }, want: 1 },
+    { label: 'Agent fg', call: { tool: 'Agent', description: 'd', prompt: 'p', subagent_type: 'general-purpose' }, want: 1 },
+    { label: 'Agent bg launch', call: { tool: 'Agent', description: 'd', prompt: 'p', subagent_type: 'general-purpose' }, text: 'Async agent launched successfully', want: 0 },
+    { label: 'Bash fg', call: { tool: 'Bash', command: 'ls' }, want: 1 },
+    { label: 'Bash bg', call: { tool: 'Bash', command: 'sleep 1', description: 'bg', run_in_background: true }, want: 1 },
+    { label: 'Skill devfsd', call: { tool: 'Skill', skill: 'devfsd:implementing-ko' }, want: 1 },
+    { label: 'Skill other', call: { tool: 'Skill', skill: 'simplify' }, want: 0 },
+    { label: 'Read', call: { tool: 'Read', file_path: '/repo/a' }, want: 0 },
+    { label: 'Grep', call: { tool: 'Grep', pattern: 'x' }, want: 0 },
+    { label: 'Edit in subagent', call: { tool: 'Edit', file_path: '/repo/a', old_string: 'a', new_string: 'b', agentId: 's' }, want: 0 },
+    { label: 'Bash in subagent', call: { tool: 'Bash', command: 'ls', agentId: 's' }, want: 0 },
+    { label: 'Skill in subagent', call: { tool: 'Skill', skill: 'devfsd:planning-ko', agentId: 's' }, want: 0 },
+    { label: 'Agent in subagent', call: { tool: 'Agent', description: 'd', prompt: 'p', agentId: 's' }, want: 0 },
+  ]
+  const got: [string, number][] = []
+  let n = 0
+  for (const c of cases) {
+    w.reply = { result: {}, text: c.text ?? 'ok' }
+    const before = bash(w).length
+    n += 1
+    await $.tool.call({ tool_use_id: `toolu_x${n}`, ...c.call } as never)
+    await drain()
+    got.push([c.label, bash(w).length - before])
+  }
+  expect(got).toEqual(cases.map(c => [c.label, c.want]))
+})
+
+test('session start and a background completion notice recompute, other messages do not', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  expect(base).toBe(1)
+  w.reply = { result: {}, text: 'Async agent launched successfully' }
+  await $.tool.call(agentCall('toolu_bgn'))
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+
+  await notify($, 'toolu_bgn', 'completed', { agentId: 'sub1' })
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+  await $.session.append({
+    door: 'delivery',
+    origin: { kind: 'task-notification' },
+    uuid: 'row-plain',
+    message: { type: 'user', content: [{ type: 'text', text: 'hello' }] },
+  } as never)
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+
+  await notify($, 'toolu_bgn', 'completed')
+  await drain()
+  expect(bash(w).length - base).toBe(1)
+})
+
+test('every refreshing tool recomputes only after its own call returned', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  const calls = [
+    { tool: 'Write', file_path: '/repo/a', content: 'x' },
+    { tool: 'NotebookEdit', notebook_path: '/repo/a.ipynb', new_source: 'x' },
+    { tool: 'Bash', command: 'ls' },
+    { tool: 'Bash', command: 'sleep 1', description: 'bg', run_in_background: true },
+    { tool: 'Agent', description: 'd', prompt: 'p', subagent_type: 'general-purpose' },
+    { tool: 'Skill', skill: 'devfsd:implementing-ko' },
+  ]
+  let n = 0
+  for (const c of calls) {
+    w.toolDone = false
+    n += 1
+    await $.tool.call({ tool_use_id: `toolu_q${n}`, ...c } as never)
+    await drain()
+  }
+  expect(bash(w).length - base).toBe(calls.length)
+  expect(w.seen.slice(base)).toEqual(calls.map(() => true))
+})
+
+const BAR_B = '분석✓ 명세✓ 명확화– 설계– 분해✓ 구현● 검증○ 보안○ 통합○ 성능○ PR○'
+const BAR_NONE = '명세○ 명확화○ 설계○ 분해○ 구현○ 검증○ 보안○ 통합○ 성능○ PR○'
+const BAR_DONE = '명세○ 명확화○ 설계○ 분해○ 구현○ 검증✓ 보안○ 통합○ 성능○ PR✓'
+
+/** 한 surface 로 마운트해 비지 않은 Text 줄을 trim 해 읽는다. */
+const rowsOn = async ($: Pane$, surface: (typeof SURFACES)[number]): Promise<string[]> => {
+  const ui = await $.ui.mount({ ...PANE, surface })
+  const rows = (await ui.findAll({ type: 'Text' })).map(one => (one.text ?? '').trim()).filter(Boolean)
+  await ui.unmount()
+
+  return rows
+}
+const badgeOn = async ($: Pane$, surface: (typeof SURFACES)[number]) =>
+  (await rowsOn($, surface)).find(row => row.startsWith('검증 ') || row === '완료')
+
+test('the pane lists head, stage bar, verify badge, running and recent in that order on both surfaces', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+
+  for (const surface of SURFACES) {
+    expect(await rowsOn($, surface)).toEqual([
+      'devFSD · 20261104-b', BAR_B, '검증 STALE', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
+    ])
+  }
+})
+
+test('every verifier word reaches the badge line on both surfaces', async ($, on) => {
+  const w = verifyWorld(on)
+  w.answer = { exitCode: 0, stdout: 'NOT_RUN\n', stderr: '' }
+  await begin($, w)
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 NOT_RUN')
+
+  w.answer = { exitCode: 0, stdout: 'PASS\n', stderr: '' }
+  await $.tool.call(editCall('toolu_w1'))
+  await drain()
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 PASS')
+})
+
+test('a rejected verifier shows a question mark and the next trigger restores the value', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+
+  w.answer = 'reject'
+  await $.tool.call(editCall('toolu_q1'))
+  await drain()
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 ?')
+
+  w.answer = { exitCode: 0, stdout: 'PASS\n', stderr: '' }
+  await $.tool.call(editCall('toolu_q2'))
+  await drain()
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 PASS')
+})
+
+test('a finished lifecycle shows done on the badge line without calling the verifier', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = PROG_DONE
+  await begin($, w)
+
+  expect(bash(w).length).toBe(0)
+  for (const surface of SURFACES) {
+    expect(await rowsOn($, surface)).toEqual([
+      'devFSD · 20261104-b', BAR_DONE, '완료', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
+    ])
+  }
+})
+
+test('a missing FID folder shows a question mark', async ($, on) => {
+  const w = verifyWorld(on)
+  w.dirOk = false
+  await begin($, w)
+
+  expect(bash(w).length).toBe(0)
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 ?')
+})
+
+test('without an active FID neither the stage bar nor the badge is drawn', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = '# p\n\n## 활용 방법\n'
+  await begin($, w)
+
+  expect(bash(w).length).toBe(0)
+  for (const surface of SURFACES) {
+    expect(await rowsOn($, surface)).toEqual(['devFSD', '▶ 실행 중 (0)', '없음', '최근 완료', '없음'])
+  }
+})
+
+test('a marker FID without a section draws an all-open bar with no analysis cell', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = '<!-- active-fid: 20261104-z -->\n## 20261104-a · x\n'
+  await begin($, w)
+
+  for (const surface of SURFACES) {
+    expect(await rowsOn($, surface)).toEqual([
+      'devFSD · 20261104-z', BAR_NONE, '검증 STALE', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
+    ])
+  }
+})
+
+test('the badge is bold except for done and pass', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+  const boldOf = async (surface: (typeof SURFACES)[number], text: RegExp) => {
+    const ui = await $.ui.mount({ ...PANE, surface })
+    const node = (await ui.find({ type: 'Text', text })) as unknown as Record<string, any> | undefined
+    await ui.unmount()
+
+    return node?.bold ?? node?.props?.bold
+  }
+
+  // The head line is always bold: if the kit cannot show that, bold is not observable here.
+  if ((await boldOf('terminal', /^devFSD/)) !== true) return
+
+  for (const surface of SURFACES) expect(await boldOf(surface, /^검증 /)).toBe(true)
+  w.answer = { exitCode: 0, stdout: 'PASS\n', stderr: '' }
+  await $.tool.call(editCall('toolu_b1'))
+  await drain()
+  for (const surface of SURFACES) expect(await boldOf(surface, /^검증 /)).not.toBe(true)
 })

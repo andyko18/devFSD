@@ -573,3 +573,341 @@ test('verifyWord covers all six words with and without newline, and rejects bad 
   expect(verifyWord({ exitCode: 124, stdout: 'PASS' })).toBe('검증 ?')
   expect(verifyWord({ exitCode: 1, stdout: 'PASS' })).toBe('검증 ?')
 })
+
+// --- T2: 단계·verify 갱신 · 트리거 --------------------------------------------
+
+/** void 로 도는 계산이 끝까지 흐르게 마이크로태스크를 비운다 — 시계·타이머에 기대지 않는다. */
+const drain = async () => { for (let i = 0; i < 300; i++) await Promise.resolve() }
+
+const VERIFY_SH = '/scripts/_internal/verification-state.sh'
+const STALE_OUT = { exitCode: 0, stdout: 'STALE\n', stderr: '' }
+const PROG_C = PROG.replace('active-fid: 20261104-b', 'active-fid: 20261104-c').replace('## 20261104-b ·', '## 20261104-c ·')
+const PROG_DONE = '# p\n\n## 20261104-b · x\n\n- 2026-11-04 10:09 /lifecycle DONE (PR #2)\n- 2026-11-04 10:00 /verify PASS (x)\n'
+
+type Run = { argv: string[]; init?: Record<string, unknown> }
+
+/** 관할 repo(`/repo`) 세계: progress 는 `/repo` 에만 있고, process.run 호출을 모두 기록한다. */
+const verifyWorld = (on: PaneOn) => {
+  const w = {
+    progress: PROG,
+    dirOk: true,
+    readable: true,
+    git: { exitCode: 0, stdout: '/repo/.git/worktrees/wt\n', stderr: '' },
+    answer: STALE_OUT as typeof STALE_OUT | 'reject',
+    gate: undefined as Promise<void> | undefined,
+    reply: { result: {}, text: 'ok' } as Record<string, unknown>,
+    toolDone: false,
+    runs: [] as Run[],
+    seen: [] as boolean[],
+  }
+  on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
+  on('clock.every', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 1_000 }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('fs.read', (_, e) => {
+    if (w.readable && e.path === '/repo/.specops/session-progress.md') return { value: w.progress }
+    throw new Error('ENOENT')
+  })
+  on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' || (e.path.startsWith('/repo/.specops/') && w.dirOk) }))
+  on('tool.call', async () => { await drain(); w.toolDone = true; return w.reply as never })
+  on('process.run', async (_, e) => {
+    const run = e as unknown as Run
+    w.runs.push({ argv: [...run.argv], init: run.init })
+    if (run.argv[0] === 'git') return { value: w.git }
+    w.seen.push(w.toolDone)
+    if (w.gate) await w.gate
+    if (w.answer === 'reject') throw new Error('spawn failed')
+
+    return { value: w.answer }
+  })
+
+  return w
+}
+
+type World = ReturnType<typeof verifyWorld>
+const bash = (w: World) => w.runs.filter(r => r.argv[0] === 'bash')
+const begin = async ($: Pane$, w: World, cwd = '/repo') => {
+  await $.session.start({ cwd, ...START })
+  await drain()
+
+  return bash(w).length
+}
+const editCall = (id: string, extra: Record<string, unknown> = {}) =>
+  ({ tool: 'Edit', tool_use_id: id, file_path: '/repo/a.ts', old_string: 'a', new_string: 'b', ...extra }) as never
+const fgBash = (id: string, extra: Record<string, unknown> = {}) =>
+  ({ tool: 'Bash', tool_use_id: id, command: 'ls', ...extra }) as never
+const headOf = async ($: Pane$) => (await rowsOf($)).find(row => row.startsWith('devFSD'))
+
+test('an edit in a governed session recomputes verify once, after the tool finished', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  expect(base).toBe(1)
+
+  const ran = await $.tool.call(editCall('toolu_e1'))
+  await drain()
+  expect(ran).toEqual(w.reply)
+  expect(bash(w).length - base).toBe(1)
+  const argv = bash(w)[base]?.argv ?? []
+  expect([argv[0], argv[2], argv[3]]).toEqual(['bash', 'current', '20261104-b'])
+  expect(argv[1]?.endsWith(VERIFY_SH)).toBe(true)
+  expect(w.seen.slice(base)).toEqual([true])
+})
+
+test('a verification that never finishes does not hold the tool call', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  let release: () => void = () => {}
+  w.gate = new Promise<void>(resolve => (release = resolve))
+  try {
+    const ran = await $.tool.call(editCall('toolu_n1'))
+    await drain()
+    expect(ran).toEqual(w.reply)
+    expect(bash(w).length - base).toBe(1)
+  } finally {
+    release()
+  }
+  await drain()
+})
+
+test('subagent edits do not recompute, the main thread does', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+
+  await $.tool.call(editCall('toolu_s1', { agentId: 'sub1' }))
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+  await $.tool.call(editCall('toolu_s2'))
+  await drain()
+  expect(bash(w).length - base).toBe(1)
+})
+
+test('overlapping triggers collapse into one extra run that re-reads progress', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  let release: () => void = () => {}
+  w.gate = new Promise<void>(resolve => (release = resolve))
+  try {
+    await $.tool.call(fgBash('toolu_o1'))
+    await drain()
+    expect(bash(w).length - base).toBe(1)
+    await $.tool.call(fgBash('toolu_o2'))
+    await $.tool.call(fgBash('toolu_o3'))
+    await drain()
+    expect(bash(w).length - base).toBe(1)
+    w.progress = PROG_C
+  } finally {
+    release()
+  }
+  await drain()
+  expect(bash(w).slice(base).map(r => r.argv[3])).toEqual(['20261104-b', '20261104-c'])
+})
+
+test('a worktree session runs git for the project folder and verifies with its own GIT_DIR', async ($, on) => {
+  const w = verifyWorld(on)
+  const wt = '/repo/.claude/worktrees/wt'
+  const base = await begin($, w, wt)
+  expect(base).toBe(1)
+
+  const git = w.runs.find(r => r.argv[0] === 'git')
+  expect(git?.argv).toEqual(['git', '-C', wt, 'rev-parse', '--absolute-git-dir'])
+  expect(git?.init).toEqual({ timeoutMs: 10000 })
+  expect(bash(w)[0]?.init).toEqual({
+    cwd: '/repo',
+    env: { GIT_DIR: '/repo/.git/worktrees/wt', GIT_WORK_TREE: wt },
+    timeoutMs: 10000,
+  })
+})
+
+test('a plain repo skips git and passes an empty env', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+
+  expect(w.runs.filter(r => r.argv[0] === 'git').length).toBe(0)
+  expect(bash(w)[0]?.init).toEqual({ cwd: '/repo', env: {}, timeoutMs: 10000 })
+})
+
+test('a failing git lookup in a worktree never starts the verifier', async ($, on) => {
+  const w = verifyWorld(on)
+  w.git = { exitCode: 128, stdout: '', stderr: 'fatal' }
+  await begin($, w, '/repo/.claude/worktrees/wt')
+  await $.tool.call(editCall('toolu_g1'))
+  await drain()
+
+  expect(w.runs.filter(r => r.argv[0] === 'git').length).toBe(2)
+  expect(bash(w).length).toBe(0)
+})
+
+test('a rejected verifier leaves the call untouched and the next trigger recovers', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+
+  w.answer = 'reject'
+  const ran = await $.tool.call(editCall('toolu_r1'))
+  await drain()
+  expect(ran).toEqual(w.reply)
+  expect(bash(w).length - base).toBe(1)
+
+  w.answer = STALE_OUT
+  await $.tool.call(editCall('toolu_r2'))
+  await drain()
+  expect(bash(w).length - base).toBe(2)
+})
+
+test('a finished lifecycle skips the verifier until progress says otherwise', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = PROG_DONE
+  const base = await begin($, w)
+  expect(base).toBe(0)
+
+  await $.tool.call(editCall('toolu_d1'))
+  await drain()
+  expect(bash(w).length).toBe(0)
+
+  w.progress = PROG
+  await $.tool.call(editCall('toolu_d2'))
+  await drain()
+  expect(bash(w).length).toBe(1)
+})
+
+test('no FID in progress means no verifier call and a bare head line', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  expect(await headOf($)).toBe('devFSD · 20261104-b')
+
+  w.progress = '# p\n\n## 활용 방법\n'
+  await $.tool.call(editCall('toolu_f1'))
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+  expect(await headOf($)).toBe('devFSD')
+
+  w.progress = PROG
+  await $.tool.call(editCall('toolu_f2'))
+  await drain()
+  expect(bash(w).length - base).toBe(1)
+  expect(await headOf($)).toBe('devFSD · 20261104-b')
+})
+
+test('an unreadable progress file means no verifier call', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = ''
+  w.readable = false
+  await begin($, w)
+  await $.tool.call(editCall('toolu_u1'))
+  await drain()
+
+  expect(bash(w).length).toBe(0)
+  expect(await headOf($)).toBe('devFSD')
+})
+
+test('the FID is re-read on every trigger', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+
+  await $.tool.call(editCall('toolu_h1'))
+  await drain()
+  w.progress = PROG_C
+  await $.tool.call(editCall('toolu_h2'))
+  await drain()
+
+  expect(bash(w).slice(base).map(r => r.argv[3])).toEqual(['20261104-b', '20261104-c'])
+  expect(await headOf($)).toBe('devFSD · 20261104-c')
+})
+
+test('a marker FID without a section still verifies, a missing FID folder does not', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = '<!-- active-fid: 20261104-z -->\n## 20261104-a · x\n'
+  const base = await begin($, w)
+  expect(bash(w).map(r => r.argv[3])).toEqual(['20261104-z'])
+
+  w.dirOk = false
+  await $.tool.call(editCall('toolu_m1'))
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+
+  w.dirOk = true
+  await $.tool.call(editCall('toolu_m2'))
+  await drain()
+  expect(bash(w).length - base).toBe(1)
+})
+
+test('every state-changing tool recomputes, observation tools and subagents do not', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+  const cases: { label: string; call: Record<string, unknown>; text?: string; want: number }[] = [
+    { label: 'Edit', call: { tool: 'Edit', file_path: '/repo/a', old_string: 'a', new_string: 'b' }, want: 1 },
+    { label: 'Write', call: { tool: 'Write', file_path: '/repo/a', content: 'x' }, want: 1 },
+    { label: 'NotebookEdit', call: { tool: 'NotebookEdit', notebook_path: '/repo/a.ipynb', new_source: 'x' }, want: 1 },
+    { label: 'Agent fg', call: { tool: 'Agent', description: 'd', prompt: 'p', subagent_type: 'general-purpose' }, want: 1 },
+    { label: 'Agent bg launch', call: { tool: 'Agent', description: 'd', prompt: 'p', subagent_type: 'general-purpose' }, text: 'Async agent launched successfully', want: 0 },
+    { label: 'Bash fg', call: { tool: 'Bash', command: 'ls' }, want: 1 },
+    { label: 'Bash bg', call: { tool: 'Bash', command: 'sleep 1', description: 'bg', run_in_background: true }, want: 1 },
+    { label: 'Skill devfsd', call: { tool: 'Skill', skill: 'devfsd:implementing-ko' }, want: 1 },
+    { label: 'Skill other', call: { tool: 'Skill', skill: 'simplify' }, want: 0 },
+    { label: 'Read', call: { tool: 'Read', file_path: '/repo/a' }, want: 0 },
+    { label: 'Grep', call: { tool: 'Grep', pattern: 'x' }, want: 0 },
+    { label: 'Edit in subagent', call: { tool: 'Edit', file_path: '/repo/a', old_string: 'a', new_string: 'b', agentId: 's' }, want: 0 },
+    { label: 'Bash in subagent', call: { tool: 'Bash', command: 'ls', agentId: 's' }, want: 0 },
+    { label: 'Skill in subagent', call: { tool: 'Skill', skill: 'devfsd:planning-ko', agentId: 's' }, want: 0 },
+    { label: 'Agent in subagent', call: { tool: 'Agent', description: 'd', prompt: 'p', agentId: 's' }, want: 0 },
+  ]
+  const got: [string, number][] = []
+  let n = 0
+  for (const c of cases) {
+    w.reply = { result: {}, text: c.text ?? 'ok' }
+    const before = bash(w).length
+    n += 1
+    await $.tool.call({ tool_use_id: `toolu_x${n}`, ...c.call } as never)
+    await drain()
+    got.push([c.label, bash(w).length - before])
+  }
+  expect(got).toEqual(cases.map(c => [c.label, c.want]))
+})
+
+test('session start and a background completion notice recompute, other messages do not', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  expect(base).toBe(1)
+  w.reply = { result: {}, text: 'Async agent launched successfully' }
+  await $.tool.call(agentCall('toolu_bgn'))
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+
+  await notify($, 'toolu_bgn', 'completed', { agentId: 'sub1' })
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+  await $.session.append({
+    door: 'delivery',
+    origin: { kind: 'task-notification' },
+    uuid: 'row-plain',
+    message: { type: 'user', content: [{ type: 'text', text: 'hello' }] },
+  } as never)
+  await drain()
+  expect(bash(w).length - base).toBe(0)
+
+  await notify($, 'toolu_bgn', 'completed')
+  await drain()
+  expect(bash(w).length - base).toBe(1)
+})
+
+test('every refreshing tool recomputes only after its own call returned', async ($, on) => {
+  const w = verifyWorld(on)
+  const base = await begin($, w)
+  const calls = [
+    { tool: 'Write', file_path: '/repo/a', content: 'x' },
+    { tool: 'NotebookEdit', notebook_path: '/repo/a.ipynb', new_source: 'x' },
+    { tool: 'Bash', command: 'ls' },
+    { tool: 'Bash', command: 'sleep 1', description: 'bg', run_in_background: true },
+    { tool: 'Agent', description: 'd', prompt: 'p', subagent_type: 'general-purpose' },
+    { tool: 'Skill', skill: 'devfsd:implementing-ko' },
+  ]
+  let n = 0
+  for (const c of calls) {
+    w.toolDone = false
+    n += 1
+    await $.tool.call({ tool_use_id: `toolu_q${n}`, ...c } as never)
+    await drain()
+  }
+  expect(bash(w).length - base).toBe(calls.length)
+  expect(w.seen.slice(base)).toEqual(calls.map(() => true))
+})

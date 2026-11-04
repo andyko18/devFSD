@@ -8,6 +8,8 @@ const TITLE = 'devFSD 진행'
 const TICK_MS = 5000
 const RECENT_MAX = 5
 const PROGRESS_FILE = '.specops/session-progress.md'
+const VERIFY_TIMEOUT_MS = 10_000
+const REFRESH_TOOLS = ['Edit', 'Write', 'NotebookEdit'] // Bash·Agent·Skill 은 각자의 hook 안에서
 
 // Change a tag when its value's fields change: it declines what an earlier
 // version stored, which outlives a reload.
@@ -175,13 +177,70 @@ async function isGoverned($: EngineInterface, cwd: string): Promise<boolean> {
 async function readFid($: EngineInterface, cwd: string): Promise<string | undefined> {
   for (const dir of [cwd, projectRoot(cwd)]) {
     try {
-      return fidOf(await $.fs.read(`${dir}/${PROGRESS_FILE}`))
+      return activeFid(await $.fs.read(`${dir}/${PROGRESS_FILE}`))
     } catch {
       // No progress file here: try the project folder, then give up.
     }
   }
 
   return undefined
+}
+
+/** 이 FID 의 verify 상태 낱말 — 읽기 전용 `current` 만 부른다. 판정 불가는 `검증 ?`. */
+async function verifyFor($: EngineInterface, cwd: string, fid: string): Promise<string> {
+  const root = projectRoot(cwd)
+  const env: Record<string, string> = {}
+  if (root !== cwd) {
+    const g = await $.process.run(['git', '-C', cwd, 'rev-parse', '--absolute-git-dir'], { timeoutMs: VERIFY_TIMEOUT_MS })
+    if (g.exitCode !== 0) return '검증 ?'
+    env.GIT_DIR = g.stdout.trim()
+    env.GIT_WORK_TREE = cwd
+  }
+  if (!(await $.fs.exists(`${root}/.specops/${fid}`))) return '검증 ?'
+  const r = await $.process.run(
+    ['bash', `${$.plugin.root}/scripts/_internal/verification-state.sh`, 'current', fid],
+    { cwd: root, env, timeoutMs: VERIFY_TIMEOUT_MS },
+  )
+
+  return verifyWord(r)
+}
+
+type RefreshGate = { refreshing: boolean; again: boolean }
+
+/** 단계 막대·배지를 다시 계산한다. 겹치면 끝난 뒤 1회만 다시. 실패는 `?`. */
+async function refreshStatus($: EngineInterface, cwd: string, gate: RefreshGate): Promise<void> {
+  if (gate.refreshing) {
+    gate.again = true
+
+    return
+  }
+  gate.refreshing = true
+  try {
+    do {
+      gate.again = false
+      let progress = ''
+      for (const dir of [cwd, projectRoot(cwd)]) {
+        try {
+          progress = await $.fs.read(`${dir}/${PROGRESS_FILE}`)
+          break
+        } catch {
+          // 다음 후보
+        }
+      }
+      const fid = activeFid(progress)
+      if (!fid) {
+        await update($, board, b => ({ ...b, fid: undefined, stages: undefined, verify: undefined }))
+        continue
+      }
+      const stages = stagesOf(progress, fid)
+      const verify = isLifecycleDone(progress, fid) ? '완료' : await verifyFor($, cwd, fid).catch(() => '검증 ?')
+      await update($, board, b => ({ ...b, fid, stages, verify }))
+    } while (gate.again)
+  } catch {
+    await safe(() => update($, board, b => ({ ...b, verify: '검증 ?' })))
+  } finally {
+    gate.refreshing = false
+  }
 }
 
 function startJob($: EngineInterface, job: Job): Promise<unknown> {
@@ -225,7 +284,7 @@ async function safe(work: () => Promise<unknown>): Promise<void> {
 export const register: Register = on => {
   let cwd = ''
   let ticker: { cancel(): void } | undefined
-
+  const gate: RefreshGate = { refreshing: false, again: false } // 재로드 때 초기화되도록 register 안에 둔다
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     cwd = e.cwd
@@ -251,6 +310,7 @@ export const register: Register = on => {
       })
     })
     if (await isGoverned($, cwd)) void $.ui.open({ id: PANE, title: TITLE })
+    void refreshStatus($, cwd, gate)
 
     return started
   })
@@ -276,14 +336,23 @@ export const register: Register = on => {
     })
     const ran = await next(e)
     const isLaunched = ran.deny === undefined && /launched|background/i.test(ran.text ?? '')
-    if (!isLaunched) await safe(() => endJob($, e.tool_use_id, ran.deny !== undefined || ran.isError === true))
+    if (!isLaunched) {
+      await safe(() => endJob($, e.tool_use_id, ran.deny !== undefined || ran.isError === true))
+      void refreshStatus($, cwd, gate)
+    }
 
     return ran
   }).catch(($, e, next) => next(e))
 
   // Background commands: done on their notification.
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
-    if (e.agentId || e.run_in_background !== true) return next(e)
+    if (e.agentId) return next(e)
+    if (e.run_in_background !== true) {
+      const done = await next(e)
+      void refreshStatus($, cwd, gate)
+
+      return done
+    }
     await safe(async () => {
       const startedAt = await $.clock.now()
       await startJob($, {
@@ -296,6 +365,7 @@ export const register: Register = on => {
     })
     const ran = await next(e)
     if (ran.deny !== undefined) await safe(() => endJob($, e.tool_use_id, true))
+    void refreshStatus($, cwd, gate)
 
     return ran
   }).catch(($, e, next) => next(e))
@@ -309,14 +379,29 @@ export const register: Register = on => {
       })
     }
 
-    return next(e)
+    const ran = await next(e)
+    if (stage) void refreshStatus($, cwd, gate)
+
+    return ran
   }).catch(($, e, next) => next(e))
+
+  for (const tool of REFRESH_TOOLS) {
+    on('tool.call', { tool }, async ($, e, next) => {
+      const ran = await next(e)
+      if (!e.agentId) void refreshStatus($, cwd, gate)
+
+      return ran
+    }).catch(($, e, next) => next(e))
+  }
 
   on('session.append', async ($, e, next) => {
     const stored = await next(e)
     if (!e.agentId && e.message.type === 'user') {
       const note = notificationOf(textOf(e.message.content))
-      if (note) await safe(() => endJob($, note.id, note.isFailed))
+      if (note) {
+        await safe(() => endJob($, note.id, note.isFailed))
+        void refreshStatus($, cwd, gate)
+      }
     }
 
     return stored

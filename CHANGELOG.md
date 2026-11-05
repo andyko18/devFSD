@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.4] — 2026-11-05
+
 ### Fixed
 
 - worktree 에서 일할 때 기록 폴더(.specops)를 스크립트마다 다르게 찾던 문제 — 진입점 8개와 리뷰 저장 훅이 메인의 FID 폴더를 찾는다(리뷰 결과 자동 저장 복구).
@@ -3528,7 +3530,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.3...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.4...HEAD
+[3.1.4]: https://github.com/andyko18/devFSD/compare/v3.1.3...v3.1.4
 [3.1.3]: https://github.com/andyko18/devFSD/compare/v3.1.2...v3.1.3
 [3.1.2]: https://github.com/andyko18/devFSD/compare/v3.1.1...v3.1.2
 [3.1.1]: https://github.com/andyko18/devFSD/compare/v3.1.0...v3.1.1

@@ -330,7 +330,7 @@ specops-ko/
 ├── commands/           슬래시 진입로 25건
 ├── hooks/              SessionStart · PreToolUse · PostToolUse · Stop · Notification
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
-├── skills/             flat: skills/<name>/SKILL.md × 30
+├── skills/             flat: skills/<name>/SKILL.md × 31
 │                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 Harness(원칙)
 ├── agents/             ← 15건  implementer · req-designer · ui-designer · db-designer · arch-designer · api-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
 │                              design-reviewer · red-team · blue-team · auditor

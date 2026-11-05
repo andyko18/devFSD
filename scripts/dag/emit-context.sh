@@ -20,7 +20,7 @@ FID="${1:?usage: $0 <FID>}"
 _EC_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck disable=SC1091
 . "$_EC_DIR/../_internal/specops-root.sh" 2>/dev/null && specops_root_enter "$FID" || true
-[ -z "${_SR_CWD:-}" ] || export EC_SCREENS_DIR="$_SR_CWD/screens"   # screens/ 는 이동 전 폴더(worktree) 기준
+[ -z "${_SR_CWD:-}" ] || export EC_SCREENS_DIR="${GIT_WORK_TREE:-$_SR_CWD}/screens"   # screens/ 는 worktree 최상위 기준(enter 가 이동했으면 GIT_WORK_TREE = 최상위 — 하위 폴더에서 불러도 빠지지 않는다)
 TASKS=".specops/$FID/tasks.md"
 AC=".specops/$FID/acceptance-criteria.md"
 SPEC=".specops/$FID/spec.md"

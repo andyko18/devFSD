@@ -361,6 +361,10 @@ mkdir -p "$W2/screens"; : > "$W2/screens/home.md"
 rm -rf "$M2/.specops/$EFID/dispatch"
 (cd "$W2" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$EFID") >/dev/null 2>&1; RC=$?
 [ "$RC" = 0 ] && [ ! -e "$M2/screens" ] && grep -qxF -- '- `screens/`' "$c" && ok "SR-28s ★ worktree 에만 있는 screens/ → §6 에 실림" || nope "SR-28s" "RC=$RC"
+# SR-28sd worktree 하위 폴더(src/)에서 불러도 screens/ 는 worktree 최상위 기준 — 이동 전 폴더 기준이면 src/screens 를 보아 조용히 빠진다
+rm -rf "$M2/.specops/$EFID/dispatch"
+(cd "$W2/src" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$EFID") >/dev/null 2>&1; RC=$?
+[ "$RC" = 0 ] && [ ! -e "$W2/src/screens" ] && grep -qxF -- '- `screens/`' "$c" && ok "SR-28sd ★ worktree 하위 폴더에서 불러도 screens/ → §6 에 실림" || nope "SR-28sd" "RC=$RC screens줄=$(grep -cxF -- '- `screens/`' "$c" 2>/dev/null)"
 rm -rf "$W2/screens" "$M2/.specops/$EFID/dispatch"
 # SR-28f(f) SCRIPT_DIR — worktree 에서 상대경로로 불러도 worktree 자신의 scripts/ 게이트가 돈다(스텁 게이트가 마커를 남긴다)
 mkdir -p "$W2/scripts"; cp -R "$PLUGIN/scripts/dag" "$PLUGIN/scripts/_internal" "$W2/scripts/"
@@ -431,6 +435,17 @@ tw=$(cd "$TNW" && bash "$PLUGIN/scripts/_internal/risk-profile.sh" compute "$TFI
 cm=$(printf '%s' "$tm" | grep -o 'computed=[a-z]*' | head -1); cw=$(printf '%s' "$tw" | grep -o 'computed=[a-z]*' | head -1)
 [ "$tmrc" = 0 ] && [ "$twrc" = 0 ] && [ -n "$cm" ] && [ "$cm" = "$cw" ] && [ "$cm" != computed=strict ] && [ -f "$TN/.specops/$TFID/risk-profile.json" ] && [ ! -e "$TNW/.specops/$TFID/risk-profile.json" ] \
   && ok "SR-23t ★ 추적 구조 인용 FID → 메인·worktree 실행의 $cm 가 같다 (strict 아님)" || nope "SR-23t" "main=${tmrc}[$cm] wt=${twrc}[$cw]"
+# SR-33 훅이 GIT_DIR(·GIT_WORK_TREE)을 내보낸 환경에서는 메인으로 보내지 않는다 — specops_root_enter 와 같은 가드.
+#   (i)(ii) 비 git 폴더 + GIT_DIR=어떤 linked worktree 의 gitdir → DIR/.specops · SPECOPS_ROOT 안 세움
+#   (iii) 훅 형태(_gov_apply_git_target 이 셸의 worktree 로 GIT_DIR·GIT_WORK_TREE export) — 자기 기록 worktree($L)에서 record-metric → $L/.specops · 메인에 새 FID 폴더 없음
+NG="$TD/nogit"; mkdir -p "$NG"; W2GD=$(git -C "$W2" rev-parse --absolute-git-dir)
+d33=$(cd "$NG" && GIT_DIR="$W2GD" && export GIT_DIR && specops_root_dir "$FID")
+e33=$(cd "$NG" && GIT_DIR="$W2GD" && export GIT_DIR && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+RX="$R/.worktrees/sr33x"; git -C "$R" worktree add -q "$RX" -b sr33x 2>/dev/null; RXGD=$(git -C "$RX" rev-parse --absolute-git-dir)
+NFID=20261105-sr33-new
+(cd "$L" && GIT_DIR="$RXGD" GIT_WORK_TREE="$RX" bash "$PLUGIN/scripts/_internal/record-metric.sh" --fid "$NFID" --phase sr33-phase) >/dev/null 2>&1; RC=$?
+[ "$d33" = "$NG/.specops" ] && [ "$e33" = none ] && [ "$RC" = 0 ] && [ "$(jq -r .phase "$L/.specops/$NFID/metrics.jsonl" 2>/dev/null | tail -1)" = sr33-phase ] && [ ! -e "$R/.specops/$NFID" ] \
+  && ok "SR-33 ★ GIT_DIR 이 내보내진 환경 → 메인으로 보내지 않음(dir·export·record-metric)" || nope "SR-33" "d33=$d33 e33=$e33 RC=$RC main_new=$([ -e "$R/.specops/$NFID" ] && echo yes || echo no)"
 
 # ── T7 해석 누락 잠금: 진입점·제외 목록 (20261105-specops-root-unify) ──
 # SR-29 해석 누락 잠금

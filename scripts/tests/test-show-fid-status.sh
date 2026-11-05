@@ -314,15 +314,72 @@ TSCEOF
   TZ="$1" SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TSC" 2>&1 \
     | awk '/^## 단계 소요/{f=1} f && /^## 아티팩트/{exit} f'
 }
+_tsc_run_d() { # <TZ> <fid-start ts> <첫 행 날짜> <첫 행 HH:MM> → 소요 표 섹션 (둘째 행은 항상 23:30 — 첫 행보다 뒤)
+  cat > "$TMPDIR_TEST/.specops/session-progress.md" <<TSCEOF
+## $_TSC
+- $3 23:30 /specify 완료 (x)
+- $3 $4 /analyze 완료 (x)
+TSCEOF
+  printf '{"ts":"%s","fid":"%s","phase":"fid-start","schema_version":2}\n' "$2" "$_TSC" \
+    > "$TMPDIR_TEST/.specops/$_TSC/metrics.jsonl"
+  TZ="$1" SPECOPS_ROOT="$TMPDIR_TEST/.specops" "$SCRIPT" "$_TSC" 2>&1 \
+    | awk '/^## 단계 소요/{f=1} f && /^## 아티팩트/{exit} f'
+}
 # AC-8 경계 60분 — 첫 구간에도 적용된다(M11 잠금: `-ge 60`→`-gt` 면 `60m` 이 나온다)
 if _tsc_run UTC '2026-09-10T09:00:00Z' | grep -qE 'fid-start +→ +/analyze +1h0m'; then
   PASS=$((PASS+1)); echo "PASS T-ts.l 첫 구간 경계 60분 = 1h0m"
 else FAIL=$((FAIL+1)); echo "FAIL T-ts.l 첫 구간 60분 경계"; fi
 # 음수 오프셋 TZ — 부호 처리(`_ts_zs`)가 빠지면 -0400 을 +0400 으로 읽어 8h 틀린다
-# 고정 오프셋(Etc/GMT+4 = 항상 -0400)을 쓴다 — America/New_York 은 11월~3월에 -0500 이 되어 스크립트가 읽는 오늘 오프셋과 픽스처(9월) 오프셋이 어긋난다
-if _tsc_run Etc/GMT+4 '2026-09-10T12:00:00Z' | grep -qE 'fid-start +→ +/analyze +2h0m'; then
-  PASS=$((PASS+1)); echo "PASS T-ts.m 음수 오프셋 TZ(-0400) 첫 구간 2h0m"
-else FAIL=$((FAIL+1)); echo "FAIL T-ts.m 음수 오프셋: $(_tsc_run Etc/GMT+4 '2026-09-10T12:00:00Z' | grep fid-start)"; fi
+# America/New_York + 9월 fid-start(EDT -0400): 오프셋을 오늘 것(11~3월 -0500)으로 읽으면 3h0m 이 된다
+# (손계산: fid-start 12:00Z = 현지 08:00, 첫 행 10:00 → 2h0m)
+if _tsc_run_d America/New_York '2026-09-10T12:00:00Z' 2026-09-10 10:00 | grep -qE 'fid-start +→ +/analyze +2h0m'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.m 음수 오프셋 TZ(NY, 9월 -0400) 첫 구간 2h0m"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.m 음수 오프셋: $(_tsc_run_d America/New_York '2026-09-10T12:00:00Z' 2026-09-10 10:00 | grep fid-start)"; fi
+# 서머타임 전후: 같은 TZ 의 1월(EST -0500)·7월(EDT -0400) — 오늘이 어느 쪽이든 종전 코드는 둘 중 하나가 틀린다
+#   겨울: 12:00Z = 현지 07:00, 첫 행 09:00 → 2h0m · 여름: 12:00Z = 현지 08:00, 첫 행 10:00 → 2h0m
+_tsc_w=$(_tsc_run_d America/New_York '2026-01-10T12:00:00Z' 2026-01-10 09:00 | grep fid-start)
+_tsc_s=$(_tsc_run_d America/New_York '2026-07-10T12:00:00Z' 2026-07-10 10:00 | grep fid-start)
+if printf '%s' "$_tsc_w" | grep -qE 'fid-start +→ +/analyze +2h0m$'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.p 겨울(EST) fid-start → 2h0m"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.p 겨울: $_tsc_w"; fi
+if printf '%s' "$_tsc_s" | grep -qE 'fid-start +→ +/analyze +2h0m$'; then
+  PASS=$((PASS+1)); echo "PASS T-ts.q 여름(EDT) fid-start → 2h0m"
+else FAIL=$((FAIL+1)); echo "FAIL T-ts.q 여름: $_tsc_s"; fi
+# T-ts.s — GNU date 표면(--version rc 0, -r 은 파일 시각이라 숫자 인자는 실패, -d @E / -d "<ISO> UTC" 지원)을 흉내 낸 PATH shim 으로
+#   GNU 분기를 태운다 (macOS 에서는 GNU date 를 못 돌려서다). shim 은 PATH 앞에 **이 호출에만** 준다 — 전역 PATH 오염 금지.
+mkdir -p "$TMPDIR_TEST/stub-gnu"
+cat > "$TMPDIR_TEST/stub-gnu/date" <<'GNUSTUB'
+#!/bin/bash
+# GNU date 표면 흉내: --version rc 0, -d @E / -d "<ISO> UTC" 지원, -r 은 '파일 시각'이라 숫자 인자는 실패
+case "$1" in
+  --version) echo "date (GNU coreutils) 9.4"; exit 0;;
+  -r) echo "date: $2: No such file or directory" >&2; exit 1;;
+  -d) shift; arg="$1"; shift
+      case "$arg" in
+        @*) exec /bin/date -r "${arg#@}" "$@";;
+        *" UTC") iso="${arg% UTC}"; e=$(TZ=UTC /bin/date -j -f "%Y-%m-%dT%H:%M:%S" "$iso" +%s) || exit 1; exec /bin/date -r "$e" "$@";;
+        *) exit 1;;
+      esac;;
+esac
+exec /bin/date "$@"
+GNUSTUB
+chmod +x "$TMPDIR_TEST/stub-gnu/date"
+_tsc_run_gnu() { PATH="$TMPDIR_TEST/stub-gnu:$PATH" _tsc_run_d "$@"; }
+# 이 shim 은 위임에 BSD 전용 옵션(`/bin/date -r EPOCH`·`-j -f`)을 쓴다 — GNU 호스트(ubuntu CI)에서는 위임이 실패해 3건 모두 FAIL 하므로
+#   **BSD 호스트(`/bin/date --version` 이 실패)에서만** 돌리고 GNU 호스트에서는 SKIP 줄을 낸다. GNU 호스트에서는 T-ts.m·p·q 가 실제 GNU 분기를 직접 검증한다.
+if /bin/date --version >/dev/null 2>&1; then
+  echo "SKIP T-ts.s GNU 호스트 — shim 위임이 BSD 전용 옵션이라 건너뜀(T-ts.m·p·q 가 실제 GNU date 를 검증)"
+else
+for _c in 'T-ts.s.m|2026-09-10T12:00:00Z|2026-09-10|10:00' 'T-ts.s.p|2026-01-10T12:00:00Z|2026-01-10|09:00' 'T-ts.s.q|2026-07-10T12:00:00Z|2026-07-10|10:00'; do
+  IFS='|' read -r _id _fs _rd _hm <<EOF
+$_c
+EOF
+  _got=$(_tsc_run_gnu America/New_York "$_fs" "$_rd" "$_hm" | grep fid-start)
+  if printf '%s' "$_got" | grep -qE 'fid-start +→ +/analyze +2h0m$'; then
+    PASS=$((PASS+1)); echo "PASS $_id GNU 표면 shim — 기록 시각 오프셋 → 2h0m"
+  else FAIL=$((FAIL+1)); echo "FAIL $_id GNU 표면 shim: $_got"; fi
+done
+fi
 # AC-3 branch (b): fid-start 가 첫 행보다 뒤 → 음수 분을 내지 않고 사유를 밝힌다
 _tsc_neg=$(_tsc_run UTC '2026-09-10T11:30:00Z')
 if printf '%s' "$_tsc_neg" | grep 'fid-start' | grep -q '측정 불가.*시각 불일치' \

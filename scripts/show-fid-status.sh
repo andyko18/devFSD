@@ -114,7 +114,8 @@ else
   #   record-metric.sh:58 은 `date -u`(UTC), session-progress-append.sh:120 은 **로컬**이다.
   #   행 간 인접 차이는 오프셋이 상쇄돼 무해하지만, UTC fid-start 와 로컬 첫 행을 그냥 빼면
   #   오프셋만큼 틀린다. 실측(plan-reviewer, +0900): 정답 5m 이 **9h5m** 으로 나왔다.
-  #   `date +%z` 로 오프셋을 1회 읽어 UTC 기준값에 더해 로컬로 맞춘다.
+  #   fid-start 시각(epoch)의 로컬 오프셋을 `date -r`(BSD)/`date -d @`(GNU)로 읽어 UTC 기준값에 더해
+  #   로컬로 맞춘다 — 오늘의 오프셋(`date +%z`)을 쓰면 서머타임 전후 기록이 1시간 틀린다.
   # 분 → 표기 1곳. 첫 구간(_ts_d0)과 본구간(_ts_dm)이 같은 규칙을 **한 정의**로 쓴다.
   #   결과를 `$( )` 로 받지 않고 **전역 `_ts_fmt_out` 에 쓴다** — 명령치환은 행마다
   #   서브셸을 fork 해서 15행 FID 에 +63ms 였다(실측: I-1 도입 전 396ms → 후 459ms).
@@ -124,10 +125,6 @@ else
     elif [ "$1" -ge 60 ]; then _ts_fmt_out="$(( $1 / 60 ))h$(( $1 % 60 ))m"
     else _ts_fmt_out="${1}m"; fi
   }
-  _ts_z=$(date +%z)                                  # 예: +0900 / -0500
-  _ts_zs=${_ts_z%"${_ts_z#?}"}                       # 부호 1글자
-  _ts_zm=$(( 10#${_ts_z:1:2} * 60 + 10#${_ts_z:3:2} ))
-  [ "$_ts_zs" = "-" ] && _ts_zm=$(( -_ts_zm ))
   # `_ts_start` 는 게이트 위에서 이미 조회했다(중복 호출 제거).
   if [ -n "$_ts_start" ]; then
     _ts_se=$(bash "$(dirname "${BASH_SOURCE[0]}")/epoch.sh" "$_ts_start" 2>/dev/null)
@@ -136,6 +133,14 @@ else
     _ts_fhm=${_ts_frest%% *}; _ts_fcmd=${_ts_frest#* }
     _ts_fb=$(bash "$(dirname "${BASH_SOURCE[0]}")/epoch.sh" "${_ts_fd}T00:00:00Z" 2>/dev/null)
     if [ -n "$_ts_se" ] && [ -n "$_ts_fb" ]; then
+      # 오프셋은 오늘이 아니라 fid-start 시각의 것을 쓴다 (서머타임 전환 전후 기록이 1시간 틀리지 않게).
+      #   단 fid-start 와 첫 행 사이에 서머타임 전환이 끼면 ±60분 오차가 남을 수 있다(한계 — clarifications Q2).
+      #   GNU date: -d @EPOCH · BSD date: -r EPOCH (GNU 의 -r 은 파일 시각이라 판별을 먼저 한다). 형식이 어긋나면 종전처럼 오늘 오프셋.
+      if date --version >/dev/null 2>&1; then _ts_z=$(date -d "@$_ts_se" +%z 2>/dev/null); else _ts_z=$(date -r "$_ts_se" +%z 2>/dev/null); fi
+      case "$_ts_z" in [+-][0-9][0-9][0-9][0-9]) ;; *) _ts_z=$(date +%z) ;; esac
+      _ts_zs=${_ts_z%"${_ts_z#?}"}                       # 부호 1글자
+      _ts_zm=$(( 10#${_ts_z:1:2} * 60 + 10#${_ts_z:3:2} ))
+      [ "$_ts_zs" = "-" ] && _ts_zm=$(( -_ts_zm ))
       # 첫 행은 로컬, fid-start 는 UTC → UTC 쪽에 오프셋을 더해 같은 기준으로 만든다.
       _ts_d0=$(( _ts_fb / 60 + 10#${_ts_fhm%%:*} * 60 + 10#${_ts_fhm##*:} - (_ts_se / 60 + _ts_zm) ))
       if [ "$_ts_d0" -lt 0 ]; then

@@ -50,8 +50,9 @@ grep -qE '^\*\*§batch\*\*:' "$D/spec.md" && _no "§batch FID"
 [ ! -f "$D/review-skip.md" ] || _no "review-skip.md 이미 존재"
 
 # task id 목록 — batch-state.sh 의 end-loaded skip 검증과 같은 추출이다
-tids=$(grep -E '^[[:space:]]*-[[:space:]]*id:[[:space:]]*' "$TASKS" 2>/dev/null \
-  | sed -E 's/^[[:space:]]*-[[:space:]]*id:[[:space:]]*//; s/[[:space:]]*$//')
+# shellcheck source=/dev/null
+. "$HERE/task-ids.sh"
+tids=$(tasks_md_ids "$TASKS")
 [ -n "$tids" ] || _no "tasks.md 에 task id 없음"
 for tid in $tids; do
   [ -f "$D/reviews/${tid}-B-report.md" ] && [ -f "$D/reviews/${tid}-C-report.md" ] \

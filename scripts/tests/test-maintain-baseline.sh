@@ -84,4 +84,24 @@ grep -q 'check-maintain-baseline.sh' "$PLUGIN/scripts/dag/emit-context.sh" \
 grep -q 'check-maintain-baseline.sh' "$PLUGIN/skills/analyzing-ko/SKILL.md" \
   && ok "T9 analyzing-ko SoT 지목" || nope "T9" "스킬 본문 미갱신"
 
+# T10: ★ 분석 문서 본문의 백틱 규약 토큰 표기는 미채움이 아니다 (20261105-detector-false-positives AC-1)
+#   종전: 백틱으로 감싼 FID 표기 한 줄 때문에 FAIL → 문서를 고쳐 써야 했다.
+TD=$(mktemp -d); _fid "$TD" 20260806-m 유지보수; _baseline "$TD" 20260806-m
+printf '경로 표기 `<FID>` · `<name>` 은 규약 표기다\n' >> "$TD/.specops/20260806-m/current-state.md"
+printf '산출물은 `<fid>` 폴더에 둔다 (`<task-id>` 별)\n' >> "$TD/.specops/20260806-m/impact-analysis.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-m 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qx 'MAINTAIN-BASELINE: PASS' \
+  && ok "T10 백틱 규약 토큰 표기만 → PASS" || nope "T10" "rc=$rc out=$out"
+rm -rf "$TD"
+
+# T10.b: 같은 픽스처에 진짜 빈칸(백틱 안 목록 밖)이 한 줄 섞이면 여전히 FAIL — 줄 인용에 그 빈칸이 있다
+TD=$(mktemp -d); _fid "$TD" 20260806-m 유지보수; _baseline "$TD" 20260806-m
+printf '경로 표기 `<FID>` · `<name>` 은 규약 표기다\n' >> "$TD/.specops/20260806-m/current-state.md"
+printf -- '- 파일: `<path/to/file.ts>`\n' >> "$TD/.specops/20260806-m/current-state.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-m 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -qF '<path/to/file.ts>' && ! printf '%s' "$out" | grep -qF '`<FID>`' \
+  && ok "T10.b 규약 토큰 + 진짜 빈칸 → FAIL(빈칸만 인용)" || nope "T10.b" "rc=$rc out=$out"
+rm -rf "$TD"
+
+
 finish

@@ -21,6 +21,7 @@ set -u
 # Status 라벨 정규화 단일 출처 (20260828-queue-label-drift) — 모델 손편집의 표기 장식 흡수
 _BS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"   # 안내문에 싣는 경로의 기준 — 하류 저장소에는 scripts/ 가 없다
 . "$_BS_DIR/_internal/queue-lib.sh"
+. "$_BS_DIR/_internal/task-ids.sh"
 
 GATE=0
 if [ "${1:-}" = "--gate" ]; then GATE=1; shift; fi
@@ -234,9 +235,9 @@ if [ -n "$done_pairs" ]; then
             [ -f "$SPECOPS_ROOT/$fid/reviews/${tid}-C-report.md" ] || \
               missing_bc="${missing_bc}${tid}-C "
           done <<TIDS
-$(grep -E '^[[:space:]]*-[[:space:]]*id:[[:space:]]*' "$tasks_file" 2>/dev/null | sed -E 's/^[[:space:]]*-[[:space:]]*id:[[:space:]]*//;s/[[:space:]]*$//' || true)
+$(tasks_md_ids "$tasks_file")
 TIDS
-          if [ -z "$(grep -E '^[[:space:]]*-[[:space:]]*id:[[:space:]]*' "$tasks_file" 2>/dev/null || true)" ]; then
+          if [ "$(tasks_md_ids "$tasks_file" | wc -l | tr -d ' ')" -eq 0 ]; then
             invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): end-loaded skip 인데 tasks.md 에 task id 없음"$'\n'
           elif [ -n "$missing_bc" ]; then
             invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): end-loaded skip 인데 reviews 누락 (${missing_bc% })"$'\n'
@@ -258,7 +259,7 @@ TIDS
         if [ ! -f "$tasks_file" ]; then
           invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 tasks.md 부재"$'\n'
         else
-          task_n=$(grep -E '^[[:space:]]*-[[:space:]]*id:[[:space:]]*' "$tasks_file" 2>/dev/null | wc -l | tr -d ' ')
+          task_n=$(tasks_md_ids "$tasks_file" | wc -l | tr -d ' ')
           if [ "${task_n:-0}" -ne 1 ]; then
             invalid_skip="${invalid_skip}  - ${fr_id} (${fid}): review-skip 인데 태스크 수=${task_n:-0} (단일 태스크만 허용)"$'\n'
           fi

@@ -297,6 +297,48 @@ out=$(bash "$SCRIPT" "$TMP/b1i/.specops/batch-y1i" "$TMP/b1i/req.md" 2>&1); code
 [ "$code" -eq 0 ] && ok "T2.a9 end-loaded skip — exit 0" \
   || nope "T2.a9 end-loaded skip" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
 
+elk=0
+# ── fixture B1j: end-loaded skip + id 줄에 인라인 주석·따옴표·후행 공백 (20261105-detector-false-positives AC-2) ──
+#   종전: `- id: T1   # 설명` 이 공백 분리로 `T1`·`#`·`설명` 이 되어 `#-B`·`설명-B` 누락으로 오차단.
+_mk_elids() {  # $1=이름 → $TMP/$1 아래 batch/FID 픽스처 (id 줄 3변형, B/C 리포트는 T1~T3 모두 완비). 경로는 $TMP/$1/.specops/batch-y$1/ · FID 는 20260101-$1
+  local n="$1" fid="20260101-$1" r="$TMP/$1/.specops" t
+  mkdir -p "$r/batch-y$n" "$r/$fid/reviews"
+  printf '| FR-ID | FID | FR 설명(1줄) | Status |\n|---|---|---|---|\n| FR-1 | %s | one | IMPL_DONE |\n' "$fid" > "$r/batch-y$n/queue.md"
+  : > "$r/$fid/review-base.sha"; : > "$r/$fid/evidence.md"
+  echo "end-loaded: Phase B/C already covered full FID diff" > "$r/$fid/review-skip.md"
+  printf '## 의존 그래프\n```yaml\nreview_mode: end-loaded\ntasks:\n  - id: T1   # 설명 # 두번째\n    depends_on: []\n  - id: "T2"\n    depends_on: [T1]\n  - id: T3 \n    depends_on: [T2]\n```\n' > "$r/$fid/tasks.md"
+  for t in T1 T2 T3; do : > "$r/$fid/reviews/$t-B-report.md"; : > "$r/$fid/reviews/$t-C-report.md"; done
+  printf '## %s\n- 2026-01-01 10:00 /verify PASS (evidence.md)\n' "$fid" > "$r/session-progress.md"
+  printf '| FR-1 | %s | M1 | must | s | f |\n' "$n" > "$TMP/$n/req.md"
+}
+_mk_elids elcm
+out=$(bash "$SCRIPT" "$TMP/elcm/.specops/batch-yelcm" "$TMP/elcm/req.md" 2>&1); code=$?
+[ "$code" -eq 0 ] && ok "T2.a10 end-loaded skip + id 주석·따옴표·후행 공백 — exit 0" \
+  || nope "T2.a10 id 주석" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+# 변형 id 마다 B 리포트 하나만 지우면 그 진짜 tid 로 정확히 보고한다 — 추출이 어긋나면 다른 이름이 보고된다
+for t in T1 T2 T3; do
+  n="elm$(printf %s "$t" | tr 'A-Z' 'a-z')"; _mk_elids "$n"; rm -f "$TMP/$n/.specops/20260101-$n/reviews/$t-B-report.md"
+  out=$(bash "$SCRIPT" "$TMP/$n/.specops/batch-y$n" "$TMP/$n/req.md" 2>&1); code=$?
+  if [ "$code" -eq 1 ] && echo "$out" | grep -qF "reviews 누락 (${t}-B)"; then
+    ok "T2.a11 $t 의 B 리포트 누락 → 'reviews 누락 (${t}-B)' 정확 보고"
+  else nope "T2.a11 $t" "exit=$code out=$(echo "$out" | tr '\n' ' ')"; fi
+done
+# 걷고 나니 빈 id 는 규격 위반 — 정상 id 가 있어도 건너뛰지 않고 막는다(종전에도 `""`·`# 주석뿐` 은 reviews 누락으로 막혔다)
+for variant in '  - id: ""' '  - id: # 주석뿐'; do
+  n="elem$((++elk))"; _mk_elids "$n"
+  printf '## 의존 그래프\n```yaml\nreview_mode: end-loaded\ntasks:\n  - id: T1\n%s\n  - id: T2\n```\n' "$variant" > "$TMP/$n/.specops/20260101-$n/tasks.md"
+  out=$(bash "$SCRIPT" "$TMP/$n/.specops/batch-y$n" "$TMP/$n/req.md" 2>&1); code=$?
+  if [ "$code" -eq 1 ] && echo "$out" | grep -q "review-skip 무효" && echo "$out" | grep -q "reviews 누락"; then
+    ok "T2.a12 빈 id [$variant] → 차단"
+  else nope "T2.a12 [$variant]" "exit=$code out=$(echo "$out" | tr '\n' ' ')"; fi
+done
+# 값이 처음부터 없는 `- id:` 는 종전 그대로 — 정상 id 와 함께·혼자 모두 exit 0 (이 FID 가 바꾸지 않는 동작의 잠금 — L239 를 `[ -z "$(tasks_md_ids …)" ]` 로 바꾸면 alone 이 exit 1 로 FAIL; `wc -l` 형태는 통과)
+for variant in 'mixed|  - id: T1\n  - id:\n  - id: T2' 'alone|  - id:'; do
+  k=${variant%%|*}; body=${variant#*|}; n="elb$k"; _mk_elids "$n"
+  printf '## 의존 그래프\n```yaml\nreview_mode: end-loaded\ntasks:\n%b\n```\n' "$body" > "$TMP/$n/.specops/20260101-$n/tasks.md"
+  out=$(bash "$SCRIPT" "$TMP/$n/.specops/batch-y$n" "$TMP/$n/req.md" 2>&1); code=$?
+  [ "$code" -eq 0 ] && ok "T2.a13 값 없는 '- id:' ($k) — 종전처럼 exit 0" || nope "T2.a13 $k" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+done
 # ── fixture B2: IMPL_DONE 이나 per-FR 산출물 뭉개짐 (evidence.md만·review-request.md 부재) ──
 mkdir -p "$TMP/b2/.specops/batch-y2" "$TMP/b2/.specops/20260101-c" "$TMP/b2/.specops/20260101-d"
 cat > "$TMP/b2/.specops/batch-y2/queue.md" <<'EOF'

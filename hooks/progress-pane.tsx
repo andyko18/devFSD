@@ -7,13 +7,16 @@ const PANE = 'devfsd-progress'
 const TITLE = 'devFSD 진행'
 const TICK_MS = 5000
 const RECENT_MAX = 5
+// devFSD: 세션 시작 때 여는 패널은 관제판(console.tsx)이다. 진행 패널은 /devfsd-progress 로 연다.
+const CONSOLE_PANE = 'devfsd-console'
+const CONSOLE_TITLE = 'devFSD 관제판'
 const PROGRESS_FILE = '.specops/session-progress.md'
 const VERIFY_TIMEOUT_MS = 10_000
 const REFRESH_TOOLS = ['Edit', 'Write', 'NotebookEdit'] // Bash·Agent·Skill 은 각자의 hook 안에서
 
 // Change a tag when its value's fields change: it declines what an earlier
 // version stored, which outlives a reload.
-const board = atom(
+export const board = atom(
   { plugin: 'devfsd', key: 'board' } as const,
   { running: [], recent: [] } as Board,
   { shape: 'board-2' },
@@ -281,13 +284,15 @@ async function safe(work: () => Promise<unknown>): Promise<void> {
   }
 }
 
-export const register: Register = on => {
-  let cwd = ''
-  let ticker: { cancel(): void } | undefined
-  const gate: RefreshGate = { refreshing: false, again: false } // 재로드 때 초기화되도록 register 안에 둔다
-  on('session.start', async ($, e, next) => {
-    const started = await next(e)
-    cwd = e.cwd
+/** 진행 패널의 세션 시작 — 관제판(console.tsx)의 session.start 가 엔진 동작 뒤에 부른다.
+ *  엔진은 같은 이벤트를 matcher 없이 두 번 등록하는 것을 거부하므로 session.start 는 한 곳에만 둔다. */
+// 진행 패널의 세션 값 — 모듈 변수는 재로드 때 새로 시작하고, registerProgress 가 다시 비운다.
+let cwd = ''
+let ticker: { cancel(): void } | undefined
+let gate: RefreshGate = { refreshing: false, again: false }
+
+export async function progressStart($: EngineInterface, cwdNow: string): Promise<void> {
+    cwd = cwdNow
     await $.command.register({
       name: 'devfsd-progress',
       description: 'devFSD 진행 패널 열기',
@@ -309,11 +314,15 @@ export const register: Register = on => {
         })
       })
     })
-    if (await isGoverned($, cwd)) void $.ui.open({ id: PANE, title: TITLE })
+    if (await isGoverned($, cwd)) void $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })
     void refreshStatus($, cwd, gate)
+}
 
-    return started
-  })
+export function registerProgress(on: Parameters<Register>[0]): void {
+  cwd = ''
+  ticker?.cancel()
+  ticker = undefined
+  gate = { refreshing: false, again: false }
 
   on('command.run', { command: 'devfsd-progress' }, async $ => {
     await $.ui.open({ id: PANE, title: TITLE })
@@ -439,4 +448,5 @@ export const register: Register = on => {
       </Box>
     )
   })
+
 }

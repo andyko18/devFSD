@@ -1,6 +1,6 @@
 {
   "modules": [
-    "./progress-pane.tsx"
+    "./register.tsx"
   ],
   "hooks": {
     "PreToolUse": [

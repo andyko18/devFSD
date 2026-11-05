@@ -158,14 +158,14 @@ test('a governed repo opens the pane at session start', async ($, on) => {
   const calls = opened(on)
   on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' }))
   await $.session.start({ cwd: '/repo', ...START })
-  expect(calls).toEqual(['devfsd-progress'])
+  expect(calls).toEqual(['devfsd-console'])
 })
 
 test('a worktree of a governed repo opens the pane', async ($, on) => {
   const calls = opened(on)
   on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' }))
   await $.session.start({ cwd: '/repo/.claude/worktrees/wt', ...START })
-  expect(calls).toEqual(['devfsd-progress'])
+  expect(calls).toEqual(['devfsd-console'])
 })
 
 test('another repo does not open the pane, the command still does', async ($, on) => {
@@ -181,16 +181,16 @@ test('a worktree with its own .specops opens the pane', async ($, on) => {
   const calls = opened(on)
   on('fs.exists', (_, e) => ({ value: e.path === '/repo/.claude/worktrees/wt/.specops' }))
   await $.session.start({ cwd: '/repo/.claude/worktrees/wt', ...START })
-  expect(calls).toEqual(['devfsd-progress'])
+  expect(calls).toEqual(['devfsd-console'])
 })
 
 test('a .worktrees worktree opens the pane, a look-alike folder does not', async ($, on) => {
   const calls = opened(on)
   on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' }))
   await $.session.start({ cwd: '/repo/.worktrees/20261030-x', ...START })
-  expect(calls).toEqual(['devfsd-progress'])
+  expect(calls).toEqual(['devfsd-console'])
   await $.session.start({ cwd: '/repo/.worktrees-old/x', ...START })
-  expect(calls).toEqual(['devfsd-progress'])
+  expect(calls).toEqual(['devfsd-console'])
 })
 
 test('a failing existence check keeps the pane closed without rejecting', async ($, on) => {
@@ -303,8 +303,9 @@ test('recent keeps the latest five, newest on top', async ($, on) => {
   const done = (await rowsOf($)).filter(row => row.includes('✓'))
   expect(done.length).toBe(5)
   expect(done.some(row => row.includes('작업 a1 '))).toBe(false)
-  expect(done[0]).toBe('  ✓ 작업 a6 · 1s')
-  expect(done[4]).toBe('  ✓ 작업 a2 · 1s')
+  // 관제판 훅도 같은 시계를 읽으므로 소요 초는 고정하지 않고 순서만 본다.
+  expect(done[0]).toMatch(/^  ✓ 작업 a6 · \d+s$/)
+  expect(done[4]).toMatch(/^  ✓ 작업 a2 · \d+s$/)
 })
 
 test('the hooks hand back exactly what the tool returned', async ($, on) => {
@@ -489,7 +490,7 @@ test('a failing clock at session start still opens the pane of a governed repo',
   on('ui.open', (_, e) => { opens.push(e.id); return { value: { isPlaced: true } } })
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/repo', ...START })
-  expect(opens).toEqual(['devfsd-progress'])
+  expect(opens).toEqual(['devfsd-console'])
 })
 
 const PROG = [

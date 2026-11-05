@@ -290,6 +290,43 @@ mk_rs "20260107-rs-cmt-ok"; printf 'review_mode: end-loaded   # 기본 — 레�
 out=$(rs_run "20260107-rs-cmt-ok" 2>&1); rc=$?
 if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'review-skip-pass: OK'; then ok "R23b end-loaded + 인라인 주석 → 통과"; else no "R23b" "rc=$rc out=[$out]"; fi
 
+# R23c — id 줄에 인라인 주석·따옴표·후행 공백·CRLF 가 붙어도 진짜 tid 로 리포트를 찾는다 (20261105-detector-false-positives AC-2)
+#   종전: `- id: T1   # 설명` 이 공백 분리로 `T1`·`#`·`설명` 이 되어 `#-B-report.md` 부재로 rc 1.
+mk_rs_ids() {  # $1=fid — id 줄 5변형(주석 2개 달린 줄·쌍따옴표·홑따옴표·후행 공백·CRLF), 리포트는 T1~T5 모두 완비
+  local fid="$1" root="$TMP/.specops" t
+  mk_rs "$fid"
+  printf 'review_mode: end-loaded\ntasks:\n  - id: T1   # 설명 # 두번째\n  - id: "T2"\n  - id: '"'"'T3'"'"'\n  - id: T4 \n  - id: T5\r\n' > "$root/$fid/tasks.md"
+  for t in T1 T2 T3 T4 T5; do
+    printf 'B\n' > "$root/$fid/reviews/$t-B-report.md"
+    printf 'C\n' > "$root/$fid/reviews/$t-C-report.md"
+  done
+}
+mk_rs_ids "20260107-rs-ids"
+out=$(rs_run "20260107-rs-ids" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = "review-skip-pass: OK 20260107-rs-ids" ]; then ok "R23c id 줄 주석·따옴표·후행 공백·CRLF → 통과"; else no "R23c" "rc=$rc out=[$out]"; fi
+# R26b — 변형 id 마다 그 태스크의 C 리포트 하나만 지우면 그 진짜 tid(주석 낱말이 아니라)로 보고하고 쓰기 0 — 추출이 어긋나면 다른 이름으로 보고된다
+for t in T1 T2 T3 T4 T5; do
+  fid="20260107-rs-idm-$(printf %s "$t" | tr A-Z a-z)"; mk_rs_ids "$fid"; rm -f "$TMP/.specops/$fid/reviews/$t-C-report.md"
+  before=$(rs_sum); err=$(rs_run "$fid" 2>&1 >/dev/null); rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s' "$err" | grep -qF "리뷰 리포트 누락: $t —" && [ "$before" = "$(rs_sum)" ] && [ ! -e "$TMP/.specops/$fid/review-skip.md" ]; then
+    ok "R26b $t 의 C 리포트 누락 → '리뷰 리포트 누락: $t' · 쓰기 0"
+  else no "R26b $t" "rc=$rc err=[$err]"; fi
+done
+# R26c — 걷고 나니 빈 id(`""`·주석뿐)는 규격 위반이다 — 다른 정상 id 가 있어도 건너뛰지 않고 막는다 (종전에도 rc 1 — 종전 입력 불변 잠금)
+emp=0
+for variant in '  - id: ""' '  - id: # 주석뿐'; do
+  fid="20260107-rs-empty$((++emp))"; mk_rs "$fid"
+  printf 'review_mode: end-loaded\ntasks:\n  - id: T1\n%s\n  - id: T2\n' "$variant" > "$TMP/.specops/$fid/tasks.md"
+  before=$(rs_sum); err=$(rs_run "$fid" 2>&1 >/dev/null); rc=$?
+  if [ "$rc" -eq 1 ] && printf '%s' "$err" | grep -qF '리뷰 리포트 누락:' && [ "$before" = "$(rs_sum)" ] && [ ! -e "$TMP/.specops/$fid/review-skip.md" ]; then
+    ok "R26c 빈 id [$variant] → rc 1 · 쓰기 0"
+  else no "R26c [$variant]" "rc=$rc err=[$err]"; fi
+done
+# R26d — 값이 처음부터 없는 `- id:` 는 종전처럼 건너뛴다(정상 id 와 함께면 통과) — 이 FID 가 바꾸지 않는 동작의 잠금
+fid="20260107-rs-bare"; mk_rs "$fid"
+printf 'review_mode: end-loaded\ntasks:\n  - id: T1\n  - id:\n  - id: T2\n' > "$TMP/.specops/$fid/tasks.md"
+out=$(rs_run "$fid" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && [ "$out" = "review-skip-pass: OK $fid" ]; then ok "R26d 값 없는 '- id:' + 정상 id → 종전처럼 통과"; else no "R26d" "rc=$rc out=[$out]"; fi
 # R24 — 소비자 호환(reconcile-check 가 읽는 마커·review-skip.md 와 batch-state 가 grep 하는 end-loaded 사유. 스크립트는 §batch FID 를 거부하고
 #   batch-state 는 batch 큐의 FID 만 읽으므로 batch-state 를 직접 돌리는 대신 사유 문구 계약(test-batch-state T2.a7 이 잠금)만 대조한다): reconcile-check --hook 이 이 산출물을 정합으로 본다(DESYNC 무출력) + batch-state 의 end-loaded 사유 문구
 hook_out=$(SPECOPS_ROOT="$TMP/.specops" bash "$SCRIPT" "20260107-rs-pass" --hook 2>&1)
@@ -339,6 +376,7 @@ mk_stub() {  # $1=실패시킬 호출 번호 — 스크립트 사본 + 스텁 ap
   local n="$1" d="$TMP/stub$1"
   mkdir -p "$d/_internal"
   cp "$RSP" "$d/_internal/review-skip-pass.sh"
+  cp "$PLUGIN/scripts/_internal/task-ids.sh" "$d/_internal/task-ids.sh" 2>/dev/null || true   # 20261105: review-skip-pass 가 같은 폴더의 task-ids.sh 를 source 한다
   # shellcheck disable=SC2016  # 스텁 본문은 의도적으로 단일 따옴표(생성되는 스크립트 안에서 전개된다)
   printf '#!/usr/bin/env bash\nc=$(cat "%s/count" 2>/dev/null || echo 0); c=$((c+1)); echo "$c" > "%s/count"\n[ "$c" -eq %s ] && exit 1\nexit 0\n' "$d" "$d" "$n" > "$d/session-progress-append.sh"
   printf '%s' "$d"
@@ -379,5 +417,19 @@ for form in UNSET ".specops" "./.specops" "$TMP/.specops/"; do
   if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'review-skip-pass: OK'; then ok "R37.$i SPECOPS_ROOT=[$form] → 통과"; else no "R37.$i" "form=[$form] rc=$rc out=[$out]"; fi
 done
 
+# R38 — task-ids.sh 헬퍼 단위 (20261105-detector-false-positives AC-2): 기대 출력은 손으로 쓴 리터럴이다
+. "$PLUGIN/scripts/_internal/task-ids.sh"
+_ti="$TMP/ti.md"
+printf -- '- id: T5   # 주석\n  - id: "T6"\n- id: '"'"'T7'"'"'\n- id: T8 \n  - id: T9\r\n-   id:   T10\t# tab 주석\n  - id: T11 # a # b\ntext - id: not-a-task-line-start\n' > "$_ti"
+got=$(tasks_md_ids "$_ti" | tr '\n' ' ')
+if [ "$got" = "T5 T6 T7 T8 T9 T10 T11 " ]; then ok "R38.a 헬퍼: 주석·따옴표·후행 공백·CRLF·탭 → 첫 토큰만"; else no "R38.a" "got=[$got]"; fi
+printf -- '- id: ""\n- id: # 주석뿐\n' > "$_ti"
+got=$(tasks_md_ids "$_ti" | tr '\n' ' ')
+if [ "$got" = "<빈-id> <빈-id> " ]; then ok "R38.b 헬퍼: 값이 있었는데 걷고 나니 빈 id 는 건너뛰지 않고 표식으로 낸다"; else no "R38.b" "got=[$got]"; fi
+printf 'tasks: []\n' > "$_ti"; got=$(tasks_md_ids "$_ti")
+if [ -z "$got" ] && [ -z "$(tasks_md_ids "$TMP/없는-파일.md")" ]; then ok "R38.c 헬퍼: id 줄 없음·파일 부재 → 빈 출력"; else no "R38.c" "got=[$got]"; fi
+# R38.d — 값이 처음부터 없는 `- id:` 는 종전처럼 빈 줄 하나(표식 없음) — 종전 입력 불변 잠금
+printf -- '- id:\n' > "$_ti"
+if [ -z "$(tasks_md_ids "$_ti")" ] && [ "$(tasks_md_ids "$_ti" | wc -l | tr -d ' ')" = 1 ]; then ok "R38.d 헬퍼: 값 없는 '- id:' → 빈 줄 1개(표식 없음)"; else no "R38.d" "got=[$(tasks_md_ids "$_ti" | cat -vet)]"; fi
 echo "── test-reconcile-check: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

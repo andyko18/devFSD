@@ -432,4 +432,49 @@ cm=$(printf '%s' "$tm" | grep -o 'computed=[a-z]*' | head -1); cw=$(printf '%s' 
 [ "$tmrc" = 0 ] && [ "$twrc" = 0 ] && [ -n "$cm" ] && [ "$cm" = "$cw" ] && [ "$cm" != computed=strict ] && [ -f "$TN/.specops/$TFID/risk-profile.json" ] && [ ! -e "$TNW/.specops/$TFID/risk-profile.json" ] \
   && ok "SR-23t ★ 추적 구조 인용 FID → 메인·worktree 실행의 $cm 가 같다 (strict 아님)" || nope "SR-23t" "main=${tmrc}[$cm] wt=${twrc}[$cw]"
 
+# ── T7 해석 누락 잠금: 진입점·제외 목록 (20261105-specops-root-unify) ──
+# SR-29 해석 누락 잠금
+ENTRY="scripts/dev-decision.sh scripts/_internal/risk-profile.sh scripts/_internal/record-metric.sh scripts/show-fid-status.sh scripts/stage-timing.sh scripts/dag/emit-context.sh scripts/dag/plan-to-tasks.sh scripts/gbrain-collect.sh"
+EXCL="$PLUGIN/scripts/tests/specops-root-excluded.txt"
+_sr_in_list() { local x=$1 e; shift; for e in "$@"; do [ "$e" = "$x" ] && return 0; done; return 1; }   # case 문은 $(…) 안에 쓰지 않는다 — bash 3.2 파서가 *) 에서 죽는다
+_sr_resolves() { grep -qE '^[^#]*(specops_root_export|specops_root_enter|SPECOPS_ROOT)' "$1"; }       # 주석에 적힌 이름은 세지 않는다
+# $1=루트 → 전역 SCANNED(후보 수) · 전역 UNRES(해석 안 하는데 진입점·제외 목록에도 없는 스크립트). 서브셸을 만들지 않는다.
+_sr_scan() {
+  local root=$1 f excl="$1/scripts/tests/specops-root-excluded.txt" docs lits
+  SCANNED=0; UNRES=""
+  # (A) 문서가 FID 인자로 직접 부르는 스크립트 중 .specops 를 언급하는 것 (B) 어느 폴더든 .specops/<변수>·%s 를 글자로 여는 스크립트
+  docs=$( (cd "$root" && grep -rhoE 'scripts/[A-Za-z0-9_/.-]+\.sh[^`|;&]*(<FID>|\$\{?FID\}?)' skills commands agents 2>/dev/null) | sed -E 's/^(scripts\/[A-Za-z0-9_\/.-]+\.sh).*/\1/' | LC_ALL=C sort -u)
+  lits=$( (cd "$root" && find scripts -name '*.sh' -not -path 'scripts/tests/*' -exec grep -lE '\.specops/("?\$|%s)' {} + 2>/dev/null) | LC_ALL=C sort -u)
+  for f in $(printf '%s\n%s\n' "$docs" "$lits" | LC_ALL=C sort -u); do
+    [ -f "$root/$f" ] || continue
+    if ! _sr_in_list "$f" $lits; then grep -q '\.specops' "$root/$f" || continue; fi   # (A) 만 해당하면 .specops 를 언급하는 것만
+    SCANNED=$((SCANNED+1))
+    _sr_in_list "$f" $ENTRY && continue
+    _sr_resolves "$root/$f" && continue
+    awk -v f="$f" '$1==f && NF>=2 {found=1} END{exit !found}' "$excl" 2>/dev/null || UNRES="$UNRES $f"
+  done
+}
+_sr_scan "$PLUGIN"; REAL_SCANNED=$SCANNED; REAL_UNRES=$UNRES
+miss=""; for f in $ENTRY; do grep -qE '^[^#]*(specops_root_export|specops_root_enter)' "$PLUGIN/$f" || miss="$miss $f"; done
+[ -z "$miss" ] && ok "SR-29a 진입점 8개 모두 주석 아닌 줄에서 specops_root_export·specops_root_enter 호출" || nope "SR-29a" "누락:$miss"
+[ "$REAL_SCANNED" -ge 10 ] && [ -z "$REAL_UNRES" ] && ok "SR-29b 후보 ${REAL_SCANNED}개 전부 진입점·해석 사용·제외 목록(사유 병기) 중 하나" || nope "SR-29b" "scanned=$REAL_SCANNED 미해석:$REAL_UNRES"
+# SR-29d 제외 목록 위생 — 파일 존재 · 모든 줄이 실재 파일 · 진입점 아님 · 사유가 child:/direct-backlog 로 시작
+bad=""; if [ -f "$EXCL" ]; then
+  while IFS= read -r l; do [ -n "$l" ] || continue; set -- $l
+    if [ -f "$PLUGIN/$1" ] && [ $# -ge 2 ] && ! _sr_in_list "$1" $ENTRY && { [ "${2#child:}" != "$2" ] || [ "$2" = direct-backlog ]; }; then :; else bad="$bad $1"; fi
+  done < "$EXCL"
+else bad=" (제외 목록 파일 없음)"; fi
+[ -z "$bad" ] && ok "SR-29d 제외 목록 줄은 실재 파일·진입점 아님·사유(child:/direct-backlog) 있음" || nope "SR-29d" "$bad"
+# SR-29e 양성 대조(가드 자기 검증) — 위반을 심은 사본에서 실제로 걸리는가, 대상 0개면 SCANNED=0 이 되는가
+FK="$TD/fk"; mkdir -p "$FK/scripts/tests" "$FK/skills/x" "$FK/commands" "$FK/agents"
+: > "$FK/scripts/tests/specops-root-excluded.txt"
+printf '#!/usr/bin/env bash\ncat .specops/"$1"/spec.md\n' > "$FK/scripts/new-a.sh"                 # 인용 우회
+printf '#!/usr/bin/env bash\n# specops_root_export\ncat .specops/$FID/x\n' > "$FK/scripts/new-b.sh"  # 주석 위장
+mkdir -p "$FK/scripts/_internal/init-project"; printf '#!/usr/bin/env bash\ncat .specops/${fid}/x\n' > "$FK/scripts/_internal/init-project/zz.sh"   # 하위 폴더
+printf '`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/new-c.sh <FID>`\n' > "$FK/skills/x/SKILL.md"; printf '#!/usr/bin/env bash\nD=.specops; cat "$D/$1/x"\n' > "$FK/scripts/new-c.sh"   # 문서가 FID 로 부르는데 우회 형태
+_sr_scan "$FK"
+n=0; for w in scripts/new-a.sh scripts/new-b.sh scripts/_internal/init-project/zz.sh scripts/new-c.sh; do _sr_in_list "$w" $UNRES && n=$((n+1)); done
+rm -rf "$FK/scripts"; mkdir -p "$FK/scripts"; _sr_scan "$FK"
+[ "$n" = 4 ] && [ "$SCANNED" = 0 ] && ok "SR-29e 양성 대조: 위반 4변형 적발 · 대상 0개는 SCANNED=0" || nope "SR-29e" "caught=$n/4 scanned_empty=$SCANNED"
+
 finish

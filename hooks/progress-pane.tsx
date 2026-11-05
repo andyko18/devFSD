@@ -39,6 +39,7 @@ const STAGE_NAMES: Record<string, string> = {
   'security-review': '보안 리뷰',
   'integration-test': '통합 테스트',
   'performance-test': '성능 테스트',
+  demo: '데모',
   'finishing-a-development-branch': 'PR',
   release: '릴리즈',
 }
@@ -73,6 +74,7 @@ const STAGES: readonly { key: string; cmd: string; label: string }[] = [
   { key: 'security', cmd: '/security-review', label: '보안' },
   { key: 'integration', cmd: '/integration-test', label: '통합' },
   { key: 'performance', cmd: '/performance-test', label: '성능' },
+  { key: 'demo', cmd: '/demo', label: '데모' },
   { key: 'pr', cmd: '/lifecycle', label: 'PR' },
 ]
 const VERIFY_WORDS = ['PASS', 'STALE', 'FAIL', 'PARTIAL', 'NOT_RUN', 'WAIVED']

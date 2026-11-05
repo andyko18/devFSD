@@ -409,4 +409,27 @@ for c in "dev-decision.sh" "gbrain-collect.sh" "dag/plan-to-tasks.sh" "dag/emit-
 done
 [ -z "$bad" ] && ok "SR-31 인자 없는 호출 → rc 1 · unbound variable 없음" || nope "SR-31" "$bad"
 
+# ── T5 진입점: record-metric · risk-profile (20261105-specops-root-unify) ──
+# SR-22 record-metric — rc 만으로는 prelude 없이도 0 이다: 메인의 새 metrics.jsonl + worktree 에 .specops 없음 이 판별이다
+(cd "$W2" && bash "$PLUGIN/scripts/_internal/record-metric.sh" --fid "$FID" --phase sr22-phase) >/dev/null 2>&1; RC=$?
+[ "$RC" = 0 ] && [ "$(jq -r '[.fid,.phase]|join(" ")' "$M2/.specops/$FID/metrics.jsonl" | tail -1)" = "$FID sr22-phase" ] && _nowt && ok "SR-22 ★ record-metric → 메인 metrics.jsonl" || nope "SR-22" "RC=$RC"
+# SR-23 risk-profile compute·show
+out=$(cd "$W2" && bash "$PLUGIN/scripts/_internal/risk-profile.sh" compute "$FID" 2>&1); RC=$?
+sh=$(cd "$W2" && bash "$PLUGIN/scripts/_internal/risk-profile.sh" show "$FID" 2>&1); shrc=$?
+[ "$RC" = 0 ] && printf '%s' "$out" | grep -q '^RISK_PROFILE: computed=' && [ "$(jq -r .effective "$M2/.specops/$FID/risk-profile.json")" = standard ] && [ "$shrc" = 0 ] && [ "$sh" = "standard (computed=standard, mode=live)" ] && _nowt \
+  && ok "SR-23 ★ risk-profile compute·show → 메인 risk-profile.json" || nope "SR-23" "RC=$RC out=$out sh=$sh"
+# SR-24b risk-profile 을 source 로만 쓰는 호출자(quick-scope.sh)에는 부작용이 없다 — 환경·cwd 불변
+sb=$(cd "$W2" && bash -c 'source "$1" >/dev/null 2>&1; printf "%s|%s|%s" "${SPECOPS_ROOT:-none}" "${GIT_DIR:-none}" "$(pwd -P)"' _ "$PLUGIN/scripts/_internal/risk-profile.sh")
+[ "$sb" = "none|none|$W2P" ] && ok "SR-24b risk-profile source 는 SPECOPS_ROOT·GIT_DIR·cwd 를 바꾸지 않는다" || nope "SR-24b" "sb=$sb"
+# SR-23t 하류 추적 구조 — spec §참조가 추적 문서(api-spec.md)를 인용한 FID 는 메인·worktree 실행의 computed 가 같다.
+#   절대경로 SPECOPS_ROOT 에서 git ls-files 가 'outside repository' rc 128 로 실패하면 인용 가림이 꺼져 worktree 에서만 strict 가 나온다.
+printf '# api\n' > "$TN/.specops/memory/api-spec.md" && git -C "$TN" add -f .specops/memory/api-spec.md && _g -C "$TN" commit -qm api-spec   # 추적 문서 — 커밋해 '변경 파일' 신호가 되지 않게
+printf '# 스펙\n**§유형**: trivial\n**§lite**: true\n## 1. 개요\n저장 버튼 문구를 바꾼다.\n## 10. 참조\n- IF 설계서 — `.specops/memory/api-spec.md`\n' > "$TN/.specops/$TFID/spec.md"
+tm=$(cd "$TN" && bash "$PLUGIN/scripts/_internal/risk-profile.sh" compute "$TFID" 2>&1); tmrc=$?
+rm -f "$TN/.specops/$TFID/risk-profile.json"   # worktree 실행이 메인에 다시 써야 한다
+tw=$(cd "$TNW" && bash "$PLUGIN/scripts/_internal/risk-profile.sh" compute "$TFID" 2>&1); twrc=$?
+cm=$(printf '%s' "$tm" | grep -o 'computed=[a-z]*' | head -1); cw=$(printf '%s' "$tw" | grep -o 'computed=[a-z]*' | head -1)
+[ "$tmrc" = 0 ] && [ "$twrc" = 0 ] && [ -n "$cm" ] && [ "$cm" = "$cw" ] && [ "$cm" != computed=strict ] && [ -f "$TN/.specops/$TFID/risk-profile.json" ] && [ ! -e "$TNW/.specops/$TFID/risk-profile.json" ] \
+  && ok "SR-23t ★ 추적 구조 인용 FID → 메인·worktree 실행의 $cm 가 같다 (strict 아님)" || nope "SR-23t" "main=${tmrc}[$cm] wt=${twrc}[$cw]"
+
 finish

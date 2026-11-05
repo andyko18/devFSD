@@ -166,7 +166,7 @@ rp::filter_corpus() {
 rp::mask_doc_citations() {
   local docs="" d
   for d in api-spec data-model; do
-    git ls-files --error-unmatch -- "$SPECOPS/memory/$d.md" >/dev/null 2>&1 && docs="${docs}${docs:+|}$d"
+    git -C "$SPECOPS/memory" ls-files --error-unmatch -- "$d.md" >/dev/null 2>&1 && docs="${docs}${docs:+|}$d"
   done
   [ -z "$docs" ] && { printf '%s' "$1"; return 0; }
   local out
@@ -511,6 +511,10 @@ rp::show() {
 [ "${BASH_SOURCE[0]}" = "$0" ] || return 0
 
 action="${1:-}"; fid="${2:-}"
+# worktree 에서도 메인 기록을 쓴다. source 경로(위 가드)에서는 환경을 건드리지 않도록 가드 뒤에 둔다.
+# shellcheck source=/dev/null
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/specops-root.sh" 2>/dev/null && specops_root_export "$fid"
+SPECOPS="${SPECOPS_ROOT:-.specops}"
 case "$action" in
   compute)
     [ -n "$fid" ] || { echo "usage: $0 compute <FID> [--floor standard|strict]" >&2; exit 1; }

@@ -278,7 +278,7 @@ _reset; _run "$(_block T1 C READY_TO_MERGE '   ')" false
 _c "T3.e AC-1 빈 본문 → exit 1 + 사유" 'save-review-report: 본문이 비어 있음 — 저장 건너뜀'
 
 _reset; _run "$(printf '<<<REVIEW fid=20260101-nope tid=T1 phase=C verdict=PASS>>>\n본문\n<<<END>>>')" false
-_c "T3.f AC-1 FID 디렉터리 부재 → exit 1 + 사유" 'save-review-report: FID 디렉터리 없음(cwd 확인) — 저장 건너뜀'
+_c "T3.f AC-1 FID 디렉터리 부재 → exit 1 + 사유" "save-review-report: FID 디렉터리 없음 — 찾은 위치: $TD/.specops/20260101-nope (cwd=$TD) — 저장 건너뜀"
 
 # ── T3.f2 AC-1 사유 6종이 서로 구별된다 — 구현 리터럴을 직접 잠근다 ──
 #   위 T3.a~f 는 각 케이스가 "기대 문자열을 내는지" 만 본다. 구현과 테스트를 **함께** 고쳐
@@ -520,5 +520,58 @@ printf '%s\n' other:code-reviewer-ko | grep -Eqx "$_m" && _ok=0
 [ "$_ok" = 1 ] && ok "TC.7 hooks.json matcher 정규식 — 4이름 일치 · other 불일치" || nope "TC.7" "matcher=$_m"
 _pt_n=$(jq -r '[.hooks.PreToolUse[]? | select(.matcher == "SubagentHandback") | .hooks[] | select(.command | contains("${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh")) | select(.async != true)] | length' "$PLUGIN/hooks/hooks.json" 2>/dev/null)
 [ "$_pt_n" = 1 ] && ok "T9.h hooks.json PreToolUse matcher=SubagentHandback · save-review-report · 동기 1건 (AC-1)" || nope "T9.h" "n=${_pt_n:-?}"
+
+# ── T-wt (20261105-specops-root-unify) ──
+_g() { git -c user.name=t -c user.email=t@e.com "$@"; }
+unset SPECOPS_ROOT
+WM="$TDROOT/wm"; mkdir -p "$WM"; git init -q "$WM" && git -C "$WM" symbolic-ref HEAD refs/heads/main
+printf '.specops/\n.worktrees/\n' > "$WM/.gitignore"; : > "$WM/f"; (cd "$WM" && git add -A && _g commit -qm i)
+mkdir -p "$WM/.specops/$FID"; git -C "$WM" worktree add -q "$WM/.worktrees/w" -b w 2>/dev/null; WW="$WM/.worktrees/w"
+WMP=$(cd "$WM" && pwd -P); MR="$WMP/.specops/$FID/reviews"
+RS="$PLUGIN/scripts/_internal/review-saved.sh"
+OLDPWD_SAVE=$PWD; cd "$TDROOT"     # 훅 프로세스의 cwd 는 JSON cwd 와 다른 곳 — DIR 인자를 무시하는 구현을 잡는다
+# T-wt.1 ★ linked worktree cwd · FID 기록은 메인에만 → 메인 reviews/ 에 tid별 저장 · review-saved check 는 저장 전 rc 1 → 저장 후 rc 0 (대조)
+(cd "$WW" && bash "$RS" mark "$FID" C) >/dev/null 2>&1
+touch -t 200001010000 "$MR/.dispatched-C"          # -nt 는 초 단위 — 표지를 과거로
+(cd "$WW" && bash "$RS" check "$FID" C T1 T2) >/dev/null 2>&1; pre_rc=$?
+_run_env "$(_block T1 C READY_TO_MERGE '# T1 본문')
+$(_block T2 C NEEDS_FIX '# T2 본문')" false "$WW"
+(cd "$WW" && bash "$RS" check "$FID" C T1 T2) >/dev/null 2>&1; post_rc=$?
+if [ "$pre_rc" = 1 ] && [ "$RC" = 2 ] && [ "$(cat "$MR/T1-C-report.md" 2>/dev/null)" = "# T1 본문" ] && [ "$(cat "$MR/T2-C-report.md" 2>/dev/null)" = "# T2 본문" ] \
+   && [ "$(cat "$MR/T2-C-feedback.md" 2>/dev/null)" = "# T2 본문" ] && [ ! -e "$MR/T1-C-feedback.md" ] && [ "$post_rc" = 0 ] \
+   && printf '%s' "$ERR" | grep -qF "$MR/T1-C-report.md" \
+   && [ ! -e "$WW/.specops" ] && [ -z "$(ls -A "$MR" | grep -E '\.(tmp|bak)\.')" ]; then
+  ok "T-wt.1 ★ worktree cwd → 메인 reviews/ 저장 · check 1→0 · worktree 에 .specops 없음"
+else nope "T-wt.1" "pre=$pre_rc rc=$RC post=$post_rc err=$ERR mr=$(ls -A "$MR" 2>&1 | tr '\n' ' ') wt=$(ls -a "$WW" | tr '\n' ' ')"; fi
+# T-wt.2 FID 를 어디서도 못 찾음 → exit 1 · stderr 첫 줄에 정확한 후보 경로 · stdout 공백 · worktree 에 .specops 없음
+rm -rf "$MR"
+_run_env "$(printf '<<<REVIEW fid=20260101-nope tid=T1 phase=C verdict=PASS>>>\n본문\n<<<END>>>')" false "$WW"
+if [ "$RC" = 1 ] && [ -z "$OUT" ] && printf '%s' "$ERR" | head -1 | grep -qF "$WMP/.specops/20260101-nope" && [ ! -e "$WW/.specops" ]; then ok "T-wt.2 FID 부재 → exit 1 + 후보 경로"
+else nope "T-wt.2" "rc=$RC err=$ERR"; fi
+# T-wt.3 (회귀) cwd 에 FID 기록이 있는 비 worktree → 종전 위치
+_reset; _run_env "$(_block T1 C READY_TO_MERGE '# 본문')" false "$TD"
+[ "$RC" = 2 ] && [ -f "$R/T1-C-report.md" ] && ok "T-wt.3 비 worktree → 종전 위치" || nope "T-wt.3" "rc=$RC"
+cd "$OLDPWD_SAVE"
+# T-wt.5 하류 구조 — .specops 일부 추적(FID/intent.md 추적) worktree → 메인에 저장 · worktree 의 추적 파일 불변 (종전 훅·"cwd 먼저" 구현은 여기에 무음 저장했다)
+TM="$TDROOT/tm"; mkdir -p "$TM/.specops/$FID" "$TM/.specops/memory"; git init -q "$TM" && git -C "$TM" symbolic-ref HEAD refs/heads/main
+printf '.worktrees/\n' > "$TM/.gitignore"; printf 'i\n' > "$TM/.specops/$FID/intent.md"; printf 'c\n' > "$TM/.specops/memory/c.md"; (cd "$TM" && git add -A && _g commit -qm i)
+git -C "$TM" worktree add -q "$TM/.worktrees/w" -b w 2>/dev/null; TW="$TM/.worktrees/w"
+_run_env "$(_block T1 C READY_TO_MERGE '# 추적-worktree 본문')" false "$TW"
+[ "$RC" = 2 ] && [ "$(cat "$TM/.specops/$FID/reviews/T1-C-report.md" 2>/dev/null)" = "# 추적-worktree 본문" ] && [ -z "$(git -C "$TW" status --porcelain -- .specops)" ] && [ ! -e "$TW/.specops/$FID/reviews" ] \
+  && ok "T-wt.5 ★ 추적 .specops worktree → 메인 저장 · worktree 불변" || nope "T-wt.5" "rc=$RC err=$ERR wt=$(git -C "$TW" status --porcelain -- .specops | tr '\n' ' ')"
+# T-wt.6 worktree 에 자기 기록(비추적 파일) → 자기 위치에 저장 · 메인 불변
+mkdir -p "$TW/.specops/$FID" && printf 'own\n' > "$TW/.specops/$FID/own.md"
+_run_env "$(_block T2 C READY_TO_MERGE '# 자기 본문')" false "$TW"
+[ "$RC" = 2 ] && [ -f "$TW/.specops/$FID/reviews/T2-C-report.md" ] && [ ! -e "$TM/.specops/$FID/reviews/T2-C-report.md" ] && ok "T-wt.6 자기 기록 worktree → 자기 위치" || nope "T-wt.6" "rc=$RC"
+# T-wt.4 훅 환경에 SPECOPS_ROOT → 그 위치 (종전엔 무시 — 행동 변경을 고정. 확인 필요 3 의 결정에 따라 뒤집는다)
+OTH="$TDROOT/oth"; mkdir -p "$OTH/$FID"; _reset
+_run_env "$(_block T1 C READY_TO_MERGE '# oth')" false "$TD" SPECOPS_ROOT="$OTH"
+[ "$RC" = 2 ] && [ -f "$OTH/$FID/reviews/T1-C-report.md" ] && [ ! -e "$R/T1-C-report.md" ] && ok "T-wt.4 SPECOPS_ROOT → 그 위치" || nope "T-wt.4" "rc=$RC err=$ERR"
+# T-wt.7 해석 라이브러리를 못 불러도 종전 동작(cwd/.specops) — 라이브러리 없는 플러그인 사본에서 훅 실행
+NS="$TDROOT/nosrc"; mkdir -p "$NS/hooks" "$NS/scripts/_internal"; cp "$HOOK" "$NS/hooks/"; cp "$PLUGIN/scripts/_internal/is-hook-enabled.sh" "$NS/scripts/_internal/"
+_reset
+json=$(jq -n --arg cwd "$TD" --arg m "$(_block T1 C READY_TO_MERGE '# nosrc')" '{hook_event_name:"SubagentStop",cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
+nerr=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE SPECOPS_CONFIG="$TD/none.yaml" bash "$NS/hooks/save-review-report.sh" 2>&1 >/dev/null); nrc=$?
+[ "$nrc" = 2 ] && [ "$(cat "$R/T1-C-report.md" 2>/dev/null)" = "# nosrc" ] && ok "T-wt.7 라이브러리 부재 → 종전 동작" || nope "T-wt.7" "rc=$nrc err=$nerr"
 
 finish

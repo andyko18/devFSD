@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- scripts/defect-rate.sh — FID 별 머지 후 30일 안 결함 fix 수를 git 기록만으로 집계 (줄 단위 귀속).
+
 ## [3.1.5] — 2026-11-05
 
 ### Fixed

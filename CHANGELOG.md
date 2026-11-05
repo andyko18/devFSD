@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.5] — 2026-11-05
+
 ### Fixed
 
 - 백틱으로 감싼 규약 토큰이 빈칸 판정을 막던 오탐 · tasks.md id 줄의 인라인 주석을 id 로 읽던 오류 · 소요 시간 계산이 오늘의 시간대 오프셋을 써서 서머타임에 1시간 틀리던 문제를 고쳤다.
@@ -3534,7 +3536,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.4...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.5...HEAD
+[3.1.5]: https://github.com/andyko18/devFSD/compare/v3.1.4...v3.1.5
 [3.1.4]: https://github.com/andyko18/devFSD/compare/v3.1.3...v3.1.4
 [3.1.3]: https://github.com/andyko18/devFSD/compare/v3.1.2...v3.1.3
 [3.1.2]: https://github.com/andyko18/devFSD/compare/v3.1.1...v3.1.2

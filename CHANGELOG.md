@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- demo-ko skill — PR 생성 전에 만든 것을 실제로 실행해 결과를 보여 주고, 사용자가 보는 결과가 바뀐 작업은 "맞다/아니다" 확인을 받는다 (performance-test-ko 의 PR 게이트가 호출).
+
 ## [3.1.6] — 2026-11-05
 
 ### Added

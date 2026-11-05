@@ -17,6 +17,9 @@ set -u
 # 비교 규칙을 바이트 순으로 고정한다(T1.g 가 잠근다).
 export LC_ALL=C
 
+# worktree 에서 불리면 메인 원장을 본다 (FID 인자가 없는 스크립트 — 빈 값으로 부르며 worktree 에 .specops 가 없을 때만 메인)
+# shellcheck disable=SC1091
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/specops-root.sh" 2>/dev/null && specops_root_export ""
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 LEDGER="$SPECOPS/session-progress.md"
 SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)

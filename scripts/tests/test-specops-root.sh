@@ -327,4 +327,47 @@ n_top=$(_gcalls "$M2" "$FID"); n_wt=$(_gcalls "$TNW" "$TFID"); n_wt2=$(_gcalls "
 [ "$n_top" = 0 ] && [ "$n_wt" -ge 1 ] && [ "$n_wt" -le 3 ] && [ "$n_wt2" -ge 1 ] && [ "$n_wt2" -le 3 ] \
   && ok "SR-32 ★ git 호출: 일반 저장소 최상위 0회 · 링크 worktree ≤3회 (top=$n_top wt=$n_wt wt2=$n_wt2)" || nope "SR-32" "top=$n_top wt=$n_wt wt2=$n_wt2"
 
+# ── T2 진입점: stage-timing · emit-context (20261105-specops-root-unify) ──
+EFID=20260902-rules
+mkdir -p "$M2/.specops/$EFID" "$M2/.specops/memory"
+cp "$PLUGIN"/scripts/tests/dag/fixtures/emit-context/ok-fid/*.md "$M2/.specops/$EFID/"
+printf '# api\n' > "$M2/.specops/memory/api-spec.md"
+_nowt() { [ ! -e "$W2/.specops" ]; }
+# SR-25 stage-timing — 출력에 FID 는 없다. 원장 경로가 메인이다
+out=$(cd "$W2" && bash "$PLUGIN/scripts/stage-timing.sh" 2>&1); RC=$?
+[ "$RC" = 0 ] && printf '%s\n' "$out" | grep -qF "원장: $MP/.specops/session-progress.md " && _nowt && ok "SR-25 ★ stage-timing → 메인 원장" || nope "SR-25" "RC=$RC out=$(printf '%s' "$out" | head -4)"
+# SR-28 emit-context(a) — worktree: 메인 dispatch · §6 은 상대 표기(enter 방식 — 이동 뒤 상대경로가 메인을 가리킨다). worktree 에는 api-spec 이 없으니 실렸다는 것이 메인을 읽었다는 증거
+out=$(cd "$W2" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$EFID" 2>/dev/null); RC=$?
+c="$M2/.specops/$EFID/dispatch/T1-context.md"
+[ "$RC" = 0 ] && [ "$(printf '%s' "$out" | tail -1)" = "EMIT: 2 files" ] && [ -f "$c" ] && [ -f "$M2/.specops/$EFID/dispatch/T2-context.md" ] \
+  && grep -qxF -- '- `.specops/memory/api-spec.md`' "$c" && [ ! -e "$W2/.specops/memory/api-spec.md" ] && _nowt \
+  && ok "SR-28 ★ emit-context → 메인 dispatch · §6 설계 계약에 api-spec(상대 표기)" || nope "SR-28" "RC=$RC out=$out"
+# SR-28m(d) 메인 체크아웃 — 종전 상대 표기 그대로(AC-R-1)
+rm -rf "$M2/.specops/$EFID/dispatch"
+out=$(cd "$M2" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$EFID" 2>/dev/null); RC=$?
+[ "$RC" = 0 ] && grep -qxF -- '- `.specops/memory/api-spec.md`' "$c" && ! grep -qF "$MP" "$c" && ok "SR-28m 메인 체크아웃의 emit-context 는 종전 상대 표기(AC-R-1)" || nope "SR-28m" "RC=$RC"
+# SR-28b(b) 게이트 불변식 — 접미사 id(T1a, 날짜 20261007 이후)는 worktree 에서도 task-ids 게이트가 막는다(export 방식이면 게이트가 조용히 SKIP). 메인 체크아웃에서 SPECOPS_ROOT 를 줘도 마찬가지(c)
+BFID=20261105-sr-ids
+mkdir -p "$M2/.specops/$BFID"; cp "$PLUGIN"/scripts/tests/dag/fixtures/emit-context/ok-fid/*.md "$M2/.specops/$BFID/"
+sed -i.bak 's/id: T1$/id: T1a/' "$M2/.specops/$BFID/tasks.md"; rm -f "$M2/.specops/$BFID/tasks.md.bak"
+err=$(cd "$W2" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$BFID" 2>&1 >/dev/null); RC=$?
+cp -R "$M2/.specops" "$TD/sr-copy"
+err2=$(cd "$M2" && SPECOPS_ROOT="$TD/sr-copy" bash "$PLUGIN/scripts/dag/emit-context.sh" "$BFID" 2>&1 >/dev/null); RC2=$?
+[ "$RC" = 1 ] && printf '%s\n' "$err" | grep -q '^TASK-IDS: FAIL' && [ ! -d "$M2/.specops/$BFID/dispatch" ] && _nowt \
+  && [ "$RC2" = 1 ] && printf '%s\n' "$err2" | grep -q '^TASK-IDS: FAIL' \
+  && ok "SR-28b ★ worktree 의 접미사 id → TASK-IDS FAIL·dispatch 0 · 외부 SPECOPS_ROOT 도 위치를 못 옮김" || nope "SR-28b" "RC=$RC RC2=$RC2 err=$(printf '%s' "$err" | head -2) err2=$(printf '%s' "$err2" | head -2)"
+# SR-28s(e) screens/ — worktree 에만 있는 screens 가 §6 에 실린다(이동하면 상대 screens 가 메인 기준이 되어 조용히 빠진다)
+mkdir -p "$W2/screens"; : > "$W2/screens/home.md"
+rm -rf "$M2/.specops/$EFID/dispatch"
+(cd "$W2" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$EFID") >/dev/null 2>&1; RC=$?
+[ "$RC" = 0 ] && [ ! -e "$M2/screens" ] && grep -qxF -- '- `screens/`' "$c" && ok "SR-28s ★ worktree 에만 있는 screens/ → §6 에 실림" || nope "SR-28s" "RC=$RC"
+rm -rf "$W2/screens" "$M2/.specops/$EFID/dispatch"
+# SR-28f(f) SCRIPT_DIR — worktree 에서 상대경로로 불러도 worktree 자신의 scripts/ 게이트가 돈다(스텁 게이트가 마커를 남긴다)
+mkdir -p "$W2/scripts"; cp -R "$PLUGIN/scripts/dag" "$PLUGIN/scripts/_internal" "$W2/scripts/"
+GM="$TD/gate.marker"; : > "$GM"
+printf '#!/usr/bin/env bash\necho ran >> "%s"\nexit 0\n' "$GM" > "$W2/scripts/_internal/check-fid-size.sh"
+(cd "$W2" && bash scripts/dag/emit-context.sh "$EFID") >/dev/null 2>&1; RC=$?
+[ "$RC" = 0 ] && [ -s "$GM" ] && ok "SR-28f ★ 상대경로 호출 → worktree 자신의 게이트 실행" || nope "SR-28f" "RC=$RC marker=$(cat "$GM")"
+rm -rf "$W2/scripts/dag" "$W2/scripts/_internal" "$M2/.specops/$EFID/dispatch"
+
 finish

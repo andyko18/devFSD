@@ -14,6 +14,13 @@ set -euo pipefail
 
 FID="${1:?usage: $0 <FID>}"
 [[ "$FID" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "emit-context: invalid FID — $FID" >&2; exit 1; }
+# worktree 에서 불리면 메인 worktree 로 이동한다(specops_root_enter) — 이후 상대경로 .specops 와 하위 check-*.sh 의 실행 위치 기준 .specops 가 같은 메인 기록을 본다.
+#   export 방식(SPECOPS_ROOT)은 쓰지 않는다: check-task-ids·check-fid-size 가 SPECOPS_ROOT 를 일부러 읽지 않아 게이트가 조용히 SKIP 한다.
+#   자기 경로는 이동 **전에** 절대경로로 고정한다 — 상대경로 호출(bash scripts/dag/emit-context.sh)의 뜻이 이동 뒤 바뀐다.
+_EC_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck disable=SC1091
+. "$_EC_DIR/../_internal/specops-root.sh" 2>/dev/null && specops_root_enter "$FID" || true
+[ -z "${_SR_CWD:-}" ] || export EC_SCREENS_DIR="$_SR_CWD/screens"   # screens/ 는 이동 전 폴더(worktree) 기준
 TASKS=".specops/$FID/tasks.md"
 AC=".specops/$FID/acceptance-criteria.md"
 SPEC=".specops/$FID/spec.md"
@@ -23,7 +30,7 @@ for f in "$TASKS" "$AC" "$SPEC"; do
   [ -f "$f" ] || { echo "emit-context: not found — $f" >&2; exit 1; }
 done
 
-SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+SCRIPT_DIR="$_EC_DIR"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/parse-dag.sh"
 
@@ -411,7 +418,7 @@ for t in tasks:
     #   존재하는 설계 산출물만 emit, 부재 시 §6 자체 생략(graceful — 순수 로직/CLI 무영향).
     # api-spec-consumer.md: 외부 API 소비 계약 (KIND 1·5 — Phase 8g/Step 5.6 산출). 제공 IF 와 대칭 (C2).
     contract = [p for p in (".specops/memory/api-spec.md", ".specops/memory/api-spec-consumer.md", ".specops/memory/data-model.md") if os.path.exists(p)]
-    if os.path.isdir("screens"):
+    if os.path.isdir(os.environ.get("EC_SCREENS_DIR", "screens")):
         contract.append("screens/")
     contract_section = ""
     if contract:

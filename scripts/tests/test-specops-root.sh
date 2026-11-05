@@ -370,4 +370,19 @@ printf '#!/usr/bin/env bash\necho ran >> "%s"\nexit 0\n' "$GM" > "$W2/scripts/_i
 [ "$RC" = 0 ] && [ -s "$GM" ] && ok "SR-28f ★ 상대경로 호출 → worktree 자신의 게이트 실행" || nope "SR-28f" "RC=$RC marker=$(cat "$GM")"
 rm -rf "$W2/scripts/dag" "$W2/scripts/_internal" "$M2/.specops/$EFID/dispatch"
 
+# ── T3 진입점: gbrain-collect · plan-to-tasks (20261105-specops-root-unify) ──
+mkdir -p "$M2/.specops/$FID/handoffs"
+printf '## Decided\n- 메인-핸드오프-결정\n' > "$M2/.specops/$FID/handoffs/T1.md"
+printf '### Task 1: 메인-플랜-첫째\n\n- [ ] **Step 1**: a\n\n### Task 2: 메인-플랜-둘째\n\n- [ ] **Step 1**: b\n' > "$M2/.specops/$FID/plan.md"
+# SR-26 gbrain-collect — 출력에 FID 는 없다. 메인 핸드오프의 고유 토큰으로 전체 비교
+out=$(cd "$W2" && bash "$PLUGIN/scripts/gbrain-collect.sh" "$FID" 2>&1); RC=$?
+[ "$RC" = 0 ] && [ "$out" = "$(printf '## T1.md\n- 메인-핸드오프-결정')" ] && _nowt && ok "SR-26 ★ gbrain-collect → 메인 핸드오프" || nope "SR-26" "RC=$RC out=$out"
+# SR-27 plan-to-tasks (+ --plan 명시 경로는 SPECOPS_ROOT 를 무시하고 그 경로를 읽는다)
+out=$(cd "$W2" && bash "$PLUGIN/scripts/dag/plan-to-tasks.sh" "$FID" 2>&1); RC=$?
+mkdir -p "$W2/pp" && printf '### Task 1: 워크트리-플랜\n\n- [ ] **Step 1**: a\n' > "$W2/pp/plan.md"
+out2=$(cd "$W2" && bash "$PLUGIN/scripts/dag/plan-to-tasks.sh" --plan pp/plan.md 2>&1); RC2=$?
+rm -rf "$W2/pp"
+[ "$RC" = 0 ] && printf '%s' "$out" | grep -qF '메인-플랜-첫째' && printf '%s' "$out" | grep -qF '메인-플랜-둘째' && [ "$RC2" = 0 ] && printf '%s' "$out2" | grep -qF '워크트리-플랜' && ! printf '%s' "$out2" | grep -qF '메인-플랜' && _nowt \
+  && ok "SR-27 ★ plan-to-tasks → 메인 plan.md · --plan 경로 회귀" || nope "SR-27" "RC=$RC RC2=$RC2 out=$(printf '%s' "$out" | head -3) out2=$(printf '%s' "$out2" | head -3)"
+
 finish

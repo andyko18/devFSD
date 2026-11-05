@@ -108,8 +108,11 @@ _demo_checks() { local f=$1 perf=$2 fm all m bb ba bs blk s k t line lb
   s=$(_sec "$f" '^## 1단계' '^## 2단계')
   _has "D2.a 1단계 — 기준 브랜치 대비 변경 파일 목록 (AC-1)" "$s" 'git diff "origin/$BASE"...HEAD --name-only' 'refs/remotes/origin/HEAD' 'BASE=${BASE:-main}'
   _has "D2.b 1단계 — 종류 5갈래 표와 신호 (AC-1)" "$s" '| 화면 |' '| iOS 앱 |' '| 진행 패널(mod) |' '| 명령·스크립트 출력 |' '| 내부 |' \
-    '`screens/`' '`*.tsx`' '`*.swift`' '최상위 `scripts/*.sh`' '`commands/`' '위에 해당하지 않음'
+    '`screens/`' '`*.tsx`' '`*.swift`' '최상위 `scripts/*.sh`' '`commands/`' '`tests/`' '`scripts/_internal/`' '내부 라이브러리로 확인된 파일 **만**'
     _has "D2.c 1단계 — skills/ 문구 변경이 '내부' 가 아니라 명령·스크립트 출력 행으로 분류된다 (AC-3)" "$(printf '%s\n' "$s" | grep -F -- '| 명령·스크립트 출력 |')" '`skills/`'
+  _has "D2.d 1단계 — '미분류' 행(소스 파일 예시)·3단계에서 확인 필수(fail-safe) (AC-3)" "$(printf '%s\n' "$s" | grep -F -- '| 미분류 |')" '`*.py`' '`*.go`' '`*.rs`' '`*.svelte`' '`*.scss`' 'API 서버 코드'
+  _has "D2.d2 3단계 — 미분류 포함이 확인 필수 판정에 들어간다 (AC-3)" "$(_sec "$f" '^## 3단계' '^##+ 합리화')" '**미분류 포함**' '미분류는' '확인 필수로 다룬다(fail-safe)'
+  _has "D2.e 1단계 — diff 실패(rc≠0)·빈 출력은 미분류·확인 필수, 내부로 읽지 않음 (AC-3)" "$s" 'rc≠0' '출력이 비어 있으면' '`미분류` 로 보고 확인 필수' '빈 출력을 `내부` 로 읽지 않는다' '사용자에게 변경 범위를 확인해 달라고 요청'
 # D3 — 2단계 실행해 보여 주기 (AC-1)
   s=$(_sec "$f" '^## 2단계' '^## 3단계')
   _has "D3.a 2단계 — 테스트 요약은 데모가 아님·종류별 실행 수단·직접 확인 방법 (AC-1)" "$s" \

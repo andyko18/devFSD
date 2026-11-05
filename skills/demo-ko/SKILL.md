@@ -33,6 +33,8 @@ BASE=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^o
 git diff "origin/$BASE"...HEAD --name-only
 ```
 
+`git diff` 가 실패하거나(rc≠0: origin 없음·기준 브랜치가 다름 등) 출력이 비어 있으면 종류를 정할 수 없는 것이므로 `미분류` 로 보고 확인 필수로 다룬다(빈 출력을 `내부` 로 읽지 않는다). 기준 브랜치를 못 찾으면 `git diff HEAD~N...HEAD` 등으로 범위를 좁히거나 사용자에게 변경 범위를 확인해 달라고 요청한다.
+
 변경 파일로 종류를 정한다(여럿이면 모두).
 
 | 종류 | 신호 |
@@ -41,7 +43,8 @@ git diff "origin/$BASE"...HEAD --name-only
 | iOS 앱 | `*.swift`, `*.xcodeproj`, `*.xcworkspace` |
 | 진행 패널(mod) | `hooks/progress-pane.*`, 패널 렌더 코드 |
 | 명령·스크립트 출력 | 최상위 `scripts/*.sh`, `commands/`, `skills/`, 훅 메시지 |
-| 내부 | 위에 해당하지 않음(테스트·문서·`scripts/_internal/`·내부 라이브러리) |
+| 내부 | `tests/`·`test-*`·`*.test.*` 같은 테스트, 문서(`*.md`·`docs/`), `scripts/_internal/`, 내부 라이브러리로 확인된 파일 **만** |
+| 미분류 | 위 어느 행에도 명시되지 않은 소스 파일(예: `*.py` `*.go` `*.rs` `*.svelte` `*.scss`, API 서버 코드) |
 
 ## 2단계: 실제로 실행해 보여 주기
 
@@ -57,7 +60,8 @@ git diff "origin/$BASE"...HEAD --name-only
 ## 3단계: 확인 필요 판정
 
 다음 중 하나라도 해당하거나 **판단이 애매하면** 확인이 **필수**다(fail-safe):
-화면·UI 소스 · iOS 앱 · 진행 패널 · 최상위 `scripts/*.sh` 의 출력 · `commands/`·`skills/` 의 사용자 문구 · 훅 메시지.
+화면·UI 소스 · iOS 앱 · 진행 패널 · 최상위 `scripts/*.sh` 의 출력 · `commands/`·`skills/` 의 사용자 문구 · 훅 메시지 · **미분류 포함**.
+미분류는 사용자에게 보이는지 알 수 없으므로 확인 필수로 다룬다(fail-safe).
 **내부**만이면 보여 주기만 하고 멈추지 않는다.
 
 확인 필수일 때 사용자에게 한 번에 묻는다:
@@ -89,7 +93,7 @@ git diff "origin/$BASE"...HEAD --name-only
 ```markdown
 ## /demo — <ISO-8601>
 
-**종류**: 화면 | iOS 앱 | 진행 패널 | 명령·스크립트 | 내부 (복수 가능)
+**종류**: 화면 | iOS 앱 | 진행 패널 | 명령·스크립트 | 내부 | 미분류 (복수 가능)
 **실행**: <명령 또는 URL>
 **보여 준 것**: <스크린샷 설명 / 출력 요약>
 **확인 필요**: yes | no (<이유>)

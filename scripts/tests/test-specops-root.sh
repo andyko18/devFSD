@@ -265,4 +265,66 @@ printf '%s' "$rr" | grep -q '^RELEASE_READY: ' && ! printf '%s' "$rr" | grep -qE
   && ok "SR-16 ★ 추적 .specops worktree 에서 release-ready·review-skip-pass → 메인 기록으로 판정·기록 · worktree .specops 불변" \
   || nope "SR-16" "rr=[$(printf '%s' "$rr" | head -2 | tr '\n' ' ')] rs=${rsrc}[$rs] status=[$(git -C "$TNW" status --porcelain -- .specops | tr '\n' ' ')]"
 
+# ── 해석 함수 (20261105-specops-root-unify) ──
+. "$SR"
+unset SPECOPS_ROOT
+M2="$TD/r"; MK2="$TD/r.marker"; _mk "$M2" "$MK2"; W2="$M2/.worktrees/$FID"
+MP=$(cd "$M2" && pwd -P); W2P=$(cd "$W2" && pwd -P)
+# SR-17 (a) 메인에만 있음 → 메인 .specops · DIR 인자(다른 cwd·하위 폴더)도 같은 답 · export 는 SPECOPS_ROOT 만(GIT_DIR·GIT_WORK_TREE 없음·cwd 불변)
+got=$(cd "$W2" && specops_root_dir "$FID")
+got_far=$(cd "$TD" && specops_root_dir "$FID" "$W2")
+got_sub=$(cd "$TD" && specops_root_dir "$FID" "$W2/src")
+exp=$(cd "$W2" && specops_root_export "$FID" && printf '%s|%s|%s|%s' "${SPECOPS_ROOT:-none}" "${GIT_DIR:-none}" "${GIT_WORK_TREE:-none}" "$(pwd -P)")
+[ "$got" = "$MP/.specops" ] && [ "$got_far" = "$MP/.specops" ] && [ "$got_sub" = "$MP/.specops" ] && [ "$exp" = "$MP/.specops|none|none|$W2P" ] \
+  && ok "SR-17 ★ 메인에만 있는 FID → 메인 .specops · DIR 인자 · export 는 SPECOPS_ROOT 만" || nope "SR-17" "got=$got far=$got_far sub=$got_sub exp=$exp"
+# SR-18 (b) worktree 에 실제 기록 파일(비추적) → 현재 worktree · export 는 아무것도 안 함. 논리 경로($W2) — 훅의 종전 $cwd/.specops 와 같다
+mkdir -p "$W2/.specops/$FID" && : > "$W2/.specops/$FID/own.md"
+got=$(cd "$W2" && specops_root_dir "$FID")
+exp=$(cd "$W2" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+[ "$got" = "$W2/.specops" ] && [ "$exp" = none ] && ok "SR-18 worktree 에 자기 기록 → 현재 worktree .specops" || nope "SR-18" "got=$got exp=$exp"
+rm -rf "$W2/.specops"
+# SR-19 (c) SPECOPS_ROOT 지정은 그대로(export 도 불변) · 빈 문자열은 미지정 · (d) 진짜 비 git 폴더 → DIR/.specops · DIR 인자 폴백
+got=$(cd "$W2" && SPECOPS_ROOT=/x/y specops_root_dir "$FID")
+nogit="$TD/nongit"; mkdir -p "$nogit"; got2=$(cd "$nogit" && specops_root_dir "$FID")
+ex=$(cd "$W2" && export SPECOPS_ROOT=/x/y && specops_root_export "$FID" && printf '%s' "$SPECOPS_ROOT")
+ex_empty=$(cd "$W2" && SPECOPS_ROOT= specops_root_dir "$FID")
+got3=$(cd "$TD" && specops_root_dir "$FID" "$nogit")
+[ "$got" = "/x/y" ] && [ "$got2" = "$nogit/.specops" ] && [ "$ex" = "/x/y" ] && [ "$ex_empty" = "$MP/.specops" ] && [ "$got3" = "$nogit/.specops" ] \
+  && ok "SR-19 SPECOPS_ROOT 지정 그대로 · 빈값은 미지정 · 비 git 은 DIR/.specops" || nope "SR-19" "got=$got got2=$got2 ex=$ex ex_empty=$ex_empty got3=$got3"
+# SR-20 메인 자신 · 메인에 .specops 없음 · worktree 의 .specops 링크 · 메인의 .specops 링크 → export 안 함 (링크는 종전대로 해석하지 않는다)
+r1=$(cd "$M2" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+mkdir -p "$TD/nm" && git init -q "$TD/nm" && (cd "$TD/nm" && _g commit -q --allow-empty -m i) && git -C "$TD/nm" worktree add -q "$TD/nm/w" -b w 2>/dev/null
+r2=$(cd "$TD/nm/w" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+LNK="$TD/lk"; _mk "$LNK" "$TD/lk.marker"; LW="$LNK/.worktrees/$FID"; mkdir -p "$TD/lk-target"; ln -s "$TD/lk-target" "$LW/.specops"
+r3=$(cd "$LW" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}"); d3=$(cd "$LW" && specops_root_dir "$FID")
+LK2="$TD/lk2"; _mk "$LK2" "$TD/lk2.marker"; LW2="$LK2/.worktrees/$FID"; mv "$LK2/.specops" "$TD/lk2-real"; ln -s "$TD/lk2-real" "$LK2/.specops"
+r4=$(cd "$LW2" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+[ "$r1" = none ] && [ "$r2" = none ] && [ "$r3" = none ] && [ "$d3" = "$LW/.specops" ] && [ "$r4" = none ] \
+  && ok "SR-20 메인 자신 · 메인에 .specops 없음 · .specops 링크(worktree·메인) → export 안 함" || nope "SR-20" "r1=$r1 r2=$r2 r3=$r3 d3=$d3 r4=$r4"
+# SR-20b 추적 파일만 있는 메인 자신 — linked 판정이 없으면 _sr_fid_only_in_main 이 rc 0 이 되는 픽스처 (plan 의 r1 은 비추적 파일이라 이 변이를 못 잡는다)
+TM="$TD/tm"; git init -q "$TM" && git -C "$TM" symbolic-ref HEAD refs/heads/main; mkdir -p "$TM/.specops/$FID"; printf 'i\n' > "$TM/.specops/$FID/intent.md"; (cd "$TM" && git add -A && _g commit -qm i)
+r5=$(cd "$TM" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+mkdir -p "$TM/sub"; r5s=$(cd "$TM/sub" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")   # 하위 폴더 — 최상위 .git 지름길을 거치지 않아 linked 판정 줄이 실제로 걸린다
+[ "$r5" = none ] && [ "$r5s" = none ] && ok "SR-20b ★ 추적 파일만 있는 메인 자신(최상위·하위 폴더) → export 안 함" || nope "SR-20b" "r5=$r5 r5s=$r5s"
+# SR-17e 하류 추적 .specops worktree (SR-12 의 TN/TO) — 새·구 템플릿 → 메인 · 거기에 비추적 기록이 생기면 자기 위치 (추적 파일을 기록으로 오인하는 변이를 잡는다)
+dn=$(cd "$TNW" && specops_root_dir "$TFID"); do_=$(cd "$TOW" && specops_root_dir "$TFID")
+printf 'local\n' > "$TNW/.specops/$TFID/tasks.md"; dn2=$(cd "$TNW" && specops_root_dir "$TFID"); rm -f "$TNW/.specops/$TFID/tasks.md"
+[ "$dn" = "$TNP/.specops" ] && [ "$do_" = "$TOP/.specops" ] && [ "$dn2" = "$TNW/.specops" ] \
+  && ok "SR-17e ★ 추적 .specops worktree(새·구 템플릿) → 메인 · 비추적 기록이 있으면 자기 위치" || nope "SR-17e" "dn=$dn do=$do_ dn2=$dn2"
+# SR-20c 형식 틀린 FID(옵션 문자열·경로 조각)는 판정에 들어가지 않는다 → 메인에 기록이 있어도 리다이렉트 안 함(DIR/.specops) · 빈 FID 는 .specops 가 아예 없을 때만 메인 · 있으면 자기 위치
+c1=$(cd "$W2" && specops_root_dir "--plan"); c2=$(cd "$W2" && specops_root_dir "../x"); c3=$(cd "$W2" && specops_root_dir "20261016-SR")
+c4=$(cd "$W2" && specops_root_export "--plan" && printf '%s' "${SPECOPS_ROOT:-none}")
+e1=$(cd "$W2" && specops_root_dir ""); e2=$(cd "$TNW" && specops_root_dir "")
+[ "$c1" = "$W2/.specops" ] && [ "$c2" = "$W2/.specops" ] && [ "$c3" = "$W2/.specops" ] && [ "$c4" = none ] && [ "$e1" = "$MP/.specops" ] && [ "$e2" = "$TNW/.specops" ] \
+  && ok "SR-20c ★ 형식 틀린 FID → 리다이렉트 안 함 · 빈 FID 는 worktree 에 .specops 없을 때만 메인" || nope "SR-20c" "c1=$c1 c2=$c2 c3=$c3 c4=$c4 e1=$e1 e2=$e2"
+# SR-32 NFR-2 git 호출 횟수 — PATH 앞의 가짜 git(횟수를 세고 실 git 으로 exec): 일반 저장소 최상위 0회 · 링크 worktree(추적 .specops) 3회 이내(0회가 아님 — 계수기 생존 대조)
+REALGIT=$(command -v git); FG="$TD/fakegit"; mkdir -p "$FG"; CNT="$TD/git.count"
+printf '#!/bin/sh\necho x >> "%s"\nexec "%s" "$@"\n' "$CNT" "$REALGIT" > "$FG/git"; chmod +x "$FG/git"
+_gcalls() {  # DIR FID → git 호출 횟수
+  : > "$CNT"; ( export PATH="$FG:$PATH"; cd "$TD" && specops_root_dir "$2" "$1" >/dev/null ); wc -l < "$CNT" | tr -d ' '
+}
+n_top=$(_gcalls "$M2" "$FID"); n_wt=$(_gcalls "$TNW" "$TFID"); n_wt2=$(_gcalls "$W2" "$FID")
+[ "$n_top" = 0 ] && [ "$n_wt" -ge 1 ] && [ "$n_wt" -le 3 ] && [ "$n_wt2" -ge 1 ] && [ "$n_wt2" -le 3 ] \
+  && ok "SR-32 ★ git 호출: 일반 저장소 최상위 0회 · 링크 worktree ≤3회 (top=$n_top wt=$n_wt wt2=$n_wt2)" || nope "SR-32" "top=$n_top wt=$n_wt wt2=$n_wt2"
+
 finish

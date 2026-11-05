@@ -14,6 +14,7 @@
 #      같은 줄의 실 placeholder 는 검출 유지):
 #      .specops/<FID> · screens/<name> · design-screen <name> · <YYYYMMDDHHMMSS>_<description>
 #      · <feature> 경로/테스트 표기 · "<UI 기능>" · "<첫 기능>"
+#      · 백틱 단독 표기 <FID>·<fid>·<name>·<task-id> — 채움 대상이 아닌 문서 본문 표기
 #      (`<화면A>`·`<화면B>` 는 화면 목록에서 도출 가능한 실 보강 대상 — 제외하지 않음)
 set -u
 [ $# -ge 1 ] || { echo "Usage: $0 <file...>" >&2; exit 2; }
@@ -34,6 +35,7 @@ out=$(grep -HnE "$_PH" "$@" 2>/dev/null \
         -e 's|<feature>/|feature/|g' \
         -e 's|"<UI 기능>"|"UI-기능"|g' \
         -e 's|"<첫 기능>"|"첫-기능"|g' \
+  | sed -E 's/`<(FID|fid|name|task-id)>`//g' \
   | grep -E "$_PH")
 
 # ── 예시 블록 잔존 검출 (20260806) ───────────────────────────────────────────

@@ -118,5 +118,65 @@ _tplrows=$(awk '/screens-table:start/{f=1;next} /screens-table:end/{f=0} f&&/^\|
   && ok "T7 소비처 예시-제외 유지: screens-overview 빈 fence" \
   || nope "T7 screens-overview" "fence 에 ${_tplrows}행 — 유령 화면 배포"
 
+# ── T-tok: 백틱으로 감싼 닫힌 규약 토큰은 빈칸이 아니다 (20261105-detector-false-positives AC-1) ──
+# 기대값은 손으로 쓴 리터럴이다. 스캐너 출력은 sed 를 거친 뒤의 줄이므로 "출력에 토큰 글자가 남았나"로 제거 여부를 본다.
+_tok_scan() {  # $1=파일 내용 → _rc, _out (매번 새 임시 파일; 파일이 실제로 읽혔는지는 양성 대조가 보증)
+  local _f; _f=$(mktemp)
+  printf '%s\n' "$1" > "$_f"
+  _out=$(bash "$SCAN" "$_f" 2>/dev/null); _rc=$?
+  rm -f "$_f"
+}
+# a: 닫힌 토큰 4개만 → clean
+_tok_scan '참조: `<FID>` · `<fid>` · `<name>` · `<task-id>` 를 쓴다'
+[ "$_rc" -eq 0 ] && [ -z "$_out" ] && ok "T-tok.a 백틱 규약 토큰만 → clean" || nope "T-tok.a" "rc=$_rc out=$_out"
+# a2: 양성 대조 — 같은 토큰 줄 + 진짜 빈칸 줄. 파일이 읽히고 있으며(스캐너는 없는 파일에도 rc 0 이다), 토큰 줄만 빠지고 빈칸 줄은 남는다
+_tok_scan '참조: `<FID>` · `<fid>` · `<name>` · `<task-id>` 를 쓴다
+- **버전**: <버전>'
+[ "$_rc" -eq 1 ] && printf '%s' "$_out" | grep -qF '<버전>' && ! printf '%s' "$_out" | grep -qF '<FID>' \
+  && ok "T-tok.a2 토큰 줄은 빠지고 같은 파일의 진짜 빈칸은 검출(양성 대조)" || nope "T-tok.a2" "rc=$_rc out=$_out"
+# b: 백틱 밖 꺾쇠 FID(템플릿 제목 꼴) → 검출, 그 줄이 출력에 있다
+_tok_scan '# 현재 시스템 분석 — <FID>'
+[ "$_rc" -eq 1 ] && printf '%s' "$_out" | grep -qF '— <FID>' \
+  && ok "T-tok.b 백틱 밖 <FID> → 검출" || nope "T-tok.b" "rc=$_rc out=$_out"
+# b2: 같은 줄에 백틱 토큰과 백틱 밖 토큰 → 밖의 것 때문에 검출
+_tok_scan '- `<FID>` 와 <FID>'
+[ "$_rc" -eq 1 ] && ok "T-tok.b2 한 줄 백틱 토큰 + 백틱 밖 토큰 → 검출" || nope "T-tok.b2" "rc=$_rc out=$_out"
+# c: 백틱 안이어도 목록 밖(경로 자리) → 검출, 토큰 글자가 출력에 남는다
+_tok_scan '- 파일: `<path/to/file.ts>`'
+[ "$_rc" -eq 1 ] && printf '%s' "$_out" | grep -qF '<path/to/file.ts>' \
+  && ok "T-tok.c 백틱 안 목록 밖 → 검출" || nope "T-tok.c" "rc=$_rc out=$_out"
+# d: 한 줄에 둘 다 → 목록 밖(심볼) 때문에 검출, FID 는 빠지고 심볼은 남는다
+_tok_scan '- `<FID>` 의 `<symbol>`'
+[ "$_rc" -eq 1 ] && printf '%s' "$_out" | grep -qF '<symbol>' && ! printf '%s' "$_out" | grep -qF '<FID>' \
+  && ok "T-tok.d 한 줄 목록 + 목록 밖 → 목록 밖만 검출" || nope "T-tok.d" "rc=$_rc out=$_out"
+# f: 목록은 닫힌 집합·대소문자 구분 — 철자만 다른 것은 빈칸이다 (대소문자 무시 변이 차단)
+for _t in '`<Fid>`' '`<NAME>`' '`<Task-ID>`' '`<task_id>`'; do
+  _tok_scan "- 표기 $_t"
+  [ "$_rc" -eq 1 ] && ok "T-tok.f 목록 밖 철자 $_t → 검출" || nope "T-tok.f $_t" "rc=$_rc out=$_out"
+done
+# g: 닫는/여는 백틱 한쪽이 없으면 '감싼' 것이 아니다
+for _t in '`<FID>' '<FID>`'; do
+  _tok_scan "- 표기 $_t"
+  [ "$_rc" -eq 1 ] && ok "T-tok.g 한쪽 백틱만 $_t → 검출" || nope "T-tok.g $_t" "rc=$_rc out=$_out"
+done
+# e: 실제 템플릿 5종 원본 — 미채움 원본이 계속 검출된다.
+#   rc 1 만으로는 부족하다(5종 모두 백틱 밖 빈칸이 많아 제외 로직이 망가져도 rc 1). 그래서 템플릿에서
+#   "백틱으로 감싼 꺾쇠 한 덩어리"를 grep 으로 뽑아(구현과 별개의 출처) 그 글자가 출력에 그대로 남는지 본다.
+_etok_n=0
+for _t in current-state impact-analysis intent spec requirements; do
+  _tf="$PLUGIN/templates/$_t.md"
+  [ -s "$_tf" ] || { nope "T-tok.e $_t" "템플릿 부재/빈 파일"; continue; }
+  _out=$(bash "$SCAN" "$_tf" 2>/dev/null); _rc=$?
+  [ "$_rc" -eq 1 ] && ok "T-tok.e $_t 원본 → 검출(rc 1)" || nope "T-tok.e $_t" "rc=$_rc"
+  while IFS= read -r _tk; do
+    [ -n "$_tk" ] || continue
+    _etok_n=$((_etok_n+1))
+    printf '%s' "$_out" | grep -qF -- "$_tk" && ok "T-tok.e $_t 백틱 빈칸 $_tk 검출 유지" || nope "T-tok.e $_t" "백틱 빈칸 $_tk 가 검출에서 사라짐"
+  done <<EOF
+$(grep -oE '`<[^`>]+>`' "$_tf" | tr -d '`')
+EOF
+done
+[ "$_etok_n" -ge 4 ] && ok "T-tok.e 백틱 빈칸 대상 ${_etok_n}개 (current-state 4개 이상 — 공허 방지)" || nope "T-tok.e 대상 수" "${_etok_n}개 — 템플릿에서 뽑지 못했다"
+
 
 finish

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.8] — 2026-11-05
+
 ### Added
 
 - 관제판(패널 8개) — Flightdeck v0.6.0 이식. 세션 시작 때 자동으로 열리고 예전 진행 패널은 /devfsd-progress. 진행 패널에 데모 단계 추가, /doctor 가 Claude Code 2.1.287 미만에서 경고.
@@ -3552,7 +3554,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.7...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.8...HEAD
+[3.1.8]: https://github.com/andyko18/devFSD/compare/v3.1.7...v3.1.8
 [3.1.7]: https://github.com/andyko18/devFSD/compare/v3.1.6...v3.1.7
 [3.1.6]: https://github.com/andyko18/devFSD/compare/v3.1.5...v3.1.6
 [3.1.5]: https://github.com/andyko18/devFSD/compare/v3.1.4...v3.1.5

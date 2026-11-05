@@ -1,10 +1,10 @@
 ---
 name: performance-test-ko
-description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스트를 작성·실행·증거화. 임계값 부재 시 graceful skip. Lifecycle 최종 단계 — PASS/SKIP 후 PR 생성 게이트 진행
+description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스트를 작성·실행·증거화. 임계값 부재 시 graceful skip. Lifecycle 최종 단계 — PASS/SKIP 후 demo-ko 로 실제 결과를 보여 준 뒤 PR 생성 게이트 진행
 layer: 2
 reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
 specops_version: 2.18.0
-used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출)
+used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출), demo-ko (PR 생성 게이트 직전 호출 → 복귀)
 ---
 
 # Engine 스킬 — 성능 테스트 (performance-test)
@@ -188,9 +188,9 @@ fi
 
 - **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-PERF-DONE: <FID>` 출력 + **PR 게이트 전체 skip**. `/start-all` 오케스트레이터가 batch PR을 소유한다.
 
-- **auto 모드** (`**§auto**` 라벨 감지) → **가정 다이제스트 제시 + 단일 [y/n] 확인** (아래 §auto 게이트 참조).
+- **auto 모드** (`**§auto**` 라벨 감지) → **먼저 `Skill: devfsd:demo-ko`**(확인 대기는 가정 다이제스트 `### 데모` 로 이관 · demo-ko 가 끝나면 여기로 복귀), 이어서 **가정 다이제스트 제시 + 단일 [y/n] 확인** (아래 §auto 게이트 참조).
 
-- **단일 모드** (`**§batch**`, `**§auto**` 라벨 없는 경우) → 아래 단일 모드 게이트 진행:
+- **단일 모드** (`**§batch**`, `**§auto**` 라벨 없는 경우) → **먼저 `Skill: devfsd:demo-ko`** 를 호출해 실제 결과를 보여 주고 사용자 판정을 받은 뒤(demo-ko 가 복귀), 아래 단일 모드 게이트 진행:
 
 ### §auto 게이트 (auto 모드 전용)
 
@@ -232,6 +232,9 @@ cat .specops/<FID>/auto-state.md 2>/dev/null | grep escalations -A10
 
 ### 에스컬레이션 이력
 <auto-state.md escalations — 없으면 "(없음)">
+
+### 데모
+<evidence.md `## /demo` 요약 — 확인 필요 항목은 "사용자 확인 대기">
 
 ### 개발 중 결정
 <`dev-decision.sh show <FID>` 출력 그대로>
@@ -285,6 +288,9 @@ gh pr create \
 ## Test plan
 - [ ] 프로젝트 테스트(`tasks.md` 의 test_command) 전 항목 PASS — 근거: `.specops/<FID>/evidence.md` `VERIFY: PASS`
 - [ ] security / integration / performance 게이트 결과: `.specops/<FID>/evidence.md`
+
+## 데모
+<evidence.md `## /demo` 의 종류 · 보여 준 것 · 사용자 판정>
 
 ## 이번에 고치지 않고 넘긴 것
 <`dev-decision.sh show <FID> --backlog` 출력 — 비면 "없음">
@@ -346,7 +352,7 @@ PR 게이트 처리 직후 (y/n 결과 무관 — 작업 자체는 완료됐으�
 
 본 skill은 specops-ko Lifecycle의 **최종 단계**다.
 
-- **단일 모드 PASS·SKIP** → PR 생성 게이트 진행 → Lifecycle 종료
+- **단일 모드 PASS·SKIP** → `devfsd:demo-ko` 호출-복귀 → PR 생성 게이트 진행 → Lifecycle 종료
 - **batch 모드 PASS·SKIP** → `BATCH-PERF-DONE: <FID>` 출력 → `/start-all` 오케스트레이터로 제어 반환 (PR 게이트 skip)
 - **FAIL** → `devfsd:systematic-debugging-ko` 호출 (수정 후 chain 복귀)
 - **PR 생성·머지 후** worktree/branch 정리가 필요하면 `devfsd:finishing-a-development-branch-ko` 스킬로 마무리 (PR `state==MERGED` HARD GATE이므로 **자동 chain하지 않음** — 머지 확인 후 수동 진입)

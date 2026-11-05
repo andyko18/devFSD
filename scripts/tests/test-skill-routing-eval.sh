@@ -193,9 +193,14 @@ if [ -n "$_em1" ] && [ "$_em1" = "$_em2" ] && printf '%s' "$_em1" | jq -e '.vers
   if [ "$(printf '%s' "$_em1" | jq -S -c .)" = "$(jq -S -c . "$BASEF")" ]; then ok "T2.c --emit-baseline 결정론 · 커밋된 기준선과 동일"
   else ok "T2.c --emit-baseline 결정론 · ⚠️ 커밋된 기준선과 다름(warn-first — 갱신 권장)"; fi
 else nope "T2.c" "emit 출력 비결정 또는 형식 오류"; fi
-# T2.d 기준선 하한 경계 — 점수가 정확히 하한(0.15)인 planning-ko~specifying-ko 쌍이 emit·커밋된 기준선에 모두 포함(하한 비교 >= 를 > 로 바꾸면 이 쌍이 빠져 실패)
-if [ "$(printf '%s' "$_em1" | jq -r '.pairs["planning-ko~specifying-ko"] // "없음"')" = "0.15" ] && [ "$(jq -r '.pairs["planning-ko~specifying-ko"] // "없음"' "$BASEF")" = "0.15" ]; then
-  ok "T2.d 기준선 하한 경계 — 점수 정확히 0.15 인 planning-ko~specifying-ko 가 emit·커밋된 기준선에 포함"
-else nope "T2.d" "emit='$(printf '%s' "$_em1" | jq -c '.pairs["planning-ko~specifying-ko"]')' base='$(jq -c '.pairs["planning-ko~specifying-ko"]' "$BASEF")'"; fi
+# T2.d 기준선 하한 경계 — emit 의 모든 쌍이 하한(0.15) 이상이고 커밋된 기준선에 같은 점수로 있으며, 점수가 정확히 0.15 인 쌍이 있으면 반드시 포함(하한 비교 >= 를 > 로 바꾸면 그 쌍이 빠져 실패)
+#   실데이터 정확 경계(옛 planning-ko~specifying-ko = 0.15)는 skill 이 늘면 IDF 가 움직여 어긋난다(20261105 demo-ko 추가로 0.151) — 특정 쌍·점수에 묶지 않는다.
+#   한계: 현재 실데이터에 정확히 0.15 인 쌍이 없으면 경계(>=) 변이는 이 케이스가 못 잡는다 — 합성 경계 fixture 는 후속 backlog.
+_d_low=$(printf '%s' "$_em1" | jq -r '[.pairs[]] | min // 0')
+_d_miss=$(jq -n --argjson e "$(printf '%s' "$_em1" | jq -c .pairs)" --argjson b "$(jq -c .pairs "$BASEF")" '[$e | to_entries[] | select(.value != $b[.key])] | length')
+_d_edge=$(printf '%s' "$_em1" | jq -r '[.pairs | to_entries[] | select(.value == 0.15)] | length')
+if awk -v v="$_d_low" 'BEGIN{exit !(v >= 0.15)}' && [ "$_d_miss" = 0 ]; then
+  ok "T2.d 기준선 하한 경계 — emit 최저 ${_d_low} ≥ 0.15 · 모든 쌍이 커밋된 기준선과 같은 점수 · 정확히 0.15 인 쌍 ${_d_edge}개 포함"
+else nope "T2.d" "emit 최저=${_d_low} 기준선과 다른 쌍=${_d_miss}"; fi
 
 finish

@@ -1,13 +1,13 @@
 {
   "pairs": {
-    "dispatching-parallel-agents-ko~file-based-communication-ko": 0.176,
-    "file-based-communication-ko~generator-evaluator-ko": 0.169,
-    "integration-test-ko~performance-test-ko": 0.264,
-    "integration-test-ko~security-review-ko": 0.323,
-    "karpathy-ko~tdd-ko": 0.161,
-    "performance-test-ko~security-review-ko": 0.228,
-    "planning-ko~specifying-ko": 0.15,
-    "systematic-debugging-ko~tdd-ko": 0.156
+    "dispatching-parallel-agents-ko~file-based-communication-ko": 0.178,
+    "file-based-communication-ko~generator-evaluator-ko": 0.17,
+    "integration-test-ko~performance-test-ko": 0.239,
+    "integration-test-ko~security-review-ko": 0.324,
+    "karpathy-ko~tdd-ko": 0.162,
+    "performance-test-ko~security-review-ko": 0.206,
+    "planning-ko~specifying-ko": 0.151,
+    "systematic-debugging-ko~tdd-ko": 0.157
   },
   "version": 1
 }

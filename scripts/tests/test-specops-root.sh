@@ -385,4 +385,28 @@ rm -rf "$W2/pp"
 [ "$RC" = 0 ] && printf '%s' "$out" | grep -qF '메인-플랜-첫째' && printf '%s' "$out" | grep -qF '메인-플랜-둘째' && [ "$RC2" = 0 ] && printf '%s' "$out2" | grep -qF '워크트리-플랜' && ! printf '%s' "$out2" | grep -qF '메인-플랜' && _nowt \
   && ok "SR-27 ★ plan-to-tasks → 메인 plan.md · --plan 경로 회귀" || nope "SR-27" "RC=$RC RC2=$RC2 out=$(printf '%s' "$out" | head -3) out2=$(printf '%s' "$out2" | head -3)"
 
+# ── T4 진입점: dev-decision · show-fid-status (20261105-specops-root-unify) ──
+# SR-21 dev-decision add·show
+(cd "$W2" && bash "$PLUGIN/scripts/dev-decision.sh" add "$FID" order "정함-sr21" "근거") >/dev/null 2>&1; RC=$?
+out=$(cd "$W2" && bash "$PLUGIN/scripts/dev-decision.sh" show "$FID" 2>&1); src=$?
+[ "$RC" = 0 ] && [ "$src" = 0 ] && grep -qF '[order] 정함-sr21 — 근거' "$M2/.specops/$FID/dev-decisions.md" && printf '%s' "$out" | grep -qF '[order] 정함-sr21 — 근거' && _nowt \
+  && ok "SR-21 ★ worktree 에서 dev-decision add·show → 메인" || nope "SR-21" "RC=$RC src=$src out=$out"
+# SR-24 show-fid-status — 메인에만 있는 plan.md·tasks.md 가 ✅ (stderr 의 FID 는 증거가 아니다)
+out=$(cd "$W2" && bash "$PLUGIN/scripts/show-fid-status.sh" "$FID" 2>&1); RC=$?
+printf '%s\n' "$out" | head -1 | grep -qx "=== FID: $FID ===" && [ "$RC" = 0 ] && printf '%s\n' "$out" | grep -qx '  ✅ plan.md' && printf '%s\n' "$out" | grep -qx '  ✅ tasks.md' && _nowt \
+  && ok "SR-24 ★ show-fid-status → 메인 산출물 현황" || nope "SR-24" "RC=$RC out=$(printf '%s' "$out" | head -3)"
+# SR-30 이동하지 않아야 할 때 — 자기 기록 worktree($L)는 자기 .specops · 추적 .specops worktree($TNW)는 메인에 쓰고 추적 파일 불변
+(cd "$L" && bash "$PLUGIN/scripts/dev-decision.sh" add "$FID" order "own-sr30" "x") >/dev/null 2>&1; RC=$?
+(cd "$TNW" && bash "$PLUGIN/scripts/dev-decision.sh" add "$TFID" order "trk-sr30" "x") >/dev/null 2>&1; RC2=$?
+[ "$RC" = 0 ] && grep -q 'own-sr30' "$L/.specops/$FID/dev-decisions.md" && [ ! -e "$R/.specops/$FID/dev-decisions.md" ] \
+  && [ "$RC2" = 0 ] && grep -q 'trk-sr30' "$TN/.specops/$TFID/dev-decisions.md" && [ -z "$(git -C "$TNW" status --porcelain -- .specops)" ] \
+  && ok "SR-30 ★ 자기 기록 worktree → 자기 .specops · 추적 worktree → 메인(추적 파일 불변)" || nope "SR-30" "RC=$RC RC2=$RC2"
+# SR-31 인자 없는/틀린 호출은 종전 그대로 — set -u 아래 prelude 가 'unbound variable' 로 죽지 않는다 (worktree 에서)
+bad=""
+for c in "dev-decision.sh" "gbrain-collect.sh" "dag/plan-to-tasks.sh" "dag/emit-context.sh" "_internal/record-metric.sh" "_internal/risk-profile.sh"; do
+  o=$(cd "$W2" && bash "$PLUGIN/scripts/$c" 2>&1); rc=$?
+  { [ "$rc" = 1 ] && ! printf '%s' "$o" | grep -q 'unbound variable'; } || bad="$bad $c(rc=$rc)"
+done
+[ -z "$bad" ] && ok "SR-31 인자 없는 호출 → rc 1 · unbound variable 없음" || nope "SR-31" "$bad"
+
 finish

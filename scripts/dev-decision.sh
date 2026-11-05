@@ -15,6 +15,8 @@ set -u
 
 KINDS="fixed backlog order retry skip approval"
 KIND_RE="fixed|backlog|order|retry|skip|approval"
+# worktree 에서 불러도 FID 기록이 메인에만 있으면 메인을 쓴다 (SPECOPS_ROOT 만 내보낸다 — 아래 세 갈래가 그대로 받는다)
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/specops-root.sh" 2>/dev/null && specops_root_export "${2:-}"
 # 하위 디렉터리에서 불러도 repo 의 .specops 를 찾는다 (SPECOPS_ROOT 가 있으면 그것이 우선)
 if [ -n "${SPECOPS_ROOT:-}" ]; then SPECOPS="$SPECOPS_ROOT"
 elif [ -d .specops ]; then SPECOPS=".specops"

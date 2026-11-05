@@ -60,3 +60,39 @@ _sr_leave() {
   cd "$_SR_CWD" || return 1
   unset GIT_DIR GIT_WORK_TREE
 }
+
+# 폴더를 옮기지 않고 위치만 알려 준다 (20261105-specops-root-unify).
+# _sr_redirect_main FID [DIR] — DIR(기본 $PWD)이 linked worktree 이고 기록이 메인에 있을 때만 rc 0 + 메인 .specops 경로 출력.
+#   조건은 specops_root_enter 와 같다(GIT_DIR·GIT_WORK_TREE 가 이미 있으면 보내지 않는 가드 포함): 메인에 .specops 디렉터리가 있고, worktree 에 .specops 가 없거나 그 FID 기록이 메인에만 있을 때.
+#   git 호출: 일반 저장소 최상위 0회 · 하위 폴더·비 git 1회 · linked worktree 3회 이내.
+_sr_redirect_main() {
+  local fid=${1:-} dir=${2:-$PWD} wt gd cdir main rp
+  [ -z "${SPECOPS_ROOT:-}" ] || return 1
+  [ -z "${GIT_DIR:-}${GIT_WORK_TREE:-}" ] || return 1   # 훅이 내보낸 git env 아래에서는 판정 대상 폴더가 흐려진다 — enter 와 같다
+  { [ -z "$fid" ] || printf '%s' "$fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$'; } || return 1   # 형식 틀린 FID 는 판정에 넣지 않는다
+  [ ! -d "$dir/.git" ] || return 1   # 일반 저장소 최상위는 git 호출 없이 종전 경로 (NFR-2)
+  rp=$(git -C "$dir" rev-parse --show-toplevel --absolute-git-dir --git-common-dir 2>/dev/null) || return 1   # 1회
+  wt=$(printf '%s\n' "$rp" | sed -n 1p); gd=$(printf '%s\n' "$rp" | sed -n 2p); cdir=$(printf '%s\n' "$rp" | sed -n 3p)
+  [ ! -L "$wt/.specops" ] || return 1
+  cdir=$(cd "$dir" 2>/dev/null && cd "$cdir" 2>/dev/null && pwd -P) || return 1
+  [ "$(cd "$gd" 2>/dev/null && pwd -P)" != "$cdir" ] || return 1
+  main=$(git -C "$dir" worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')
+  [ -n "$main" ] && [ -d "$main/.specops" ] && [ ! -L "$main/.specops" ] || return 1
+  if [ -e "$wt/.specops" ]; then _sr_fid_only_in_main "$fid" "$wt" "$main" || return 1; fi
+  printf '%s\n' "$main/.specops"
+}
+
+specops_root_dir() { # FID [DIR] → 기록 디렉터리
+  local r
+  if r=$(_sr_redirect_main "$@"); then printf '%s\n' "$r"
+  elif [ -n "${SPECOPS_ROOT:-}" ]; then printf '%s\n' "$SPECOPS_ROOT"
+  else printf '%s\n' "${2:-$PWD}/.specops"
+  fi
+}
+
+specops_root_export() { # FID — 메인으로 보내야 할 때만 SPECOPS_ROOT 를 내보낸다 (cd·GIT_DIR 변경 없음)
+  local r
+  r=$(_sr_redirect_main "${1:-}") || return 0
+  SPECOPS_ROOT=$r
+  export SPECOPS_ROOT
+}

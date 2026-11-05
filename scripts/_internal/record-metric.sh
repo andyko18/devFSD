@@ -49,6 +49,10 @@ case "$fallback" in true|false) ;; *) echo "record-metric: fallback must be true
 case "$verdict" in ""|NOT_RUN|PASS|PARTIAL|FAIL|WAIVED|STALE) ;; *) echo "record-metric: invalid verdict" >&2; exit 1 ;; esac
 case "$finding_severity" in ""|none|low|medium|high|critical) ;; *) echo "record-metric: invalid severity" >&2; exit 1 ;; esac
 
+# worktree 에서도 메인 기록을 쓴다 (fid 확정 뒤 · symlink 검사 앞)
+# shellcheck source=/dev/null
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/specops-root.sh" 2>/dev/null && specops_root_export "$fid"
+SPECOPS="${SPECOPS_ROOT:-.specops}"
 [ ! -L "$SPECOPS" ] || { echo "record-metric: $SPECOPS symlink 거부" >&2; exit 1; }
 [ ! -L "$SPECOPS/$fid" ] || { echo "record-metric: FID symlink 거부" >&2; exit 1; }
 mkdir -p "$SPECOPS/$fid" || exit 1

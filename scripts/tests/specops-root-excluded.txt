@@ -1,0 +1,10 @@
+scripts/promote-validate.sh direct-backlog — 문서(commands/promote.md·analyzing-ko)가 FID 로 직접 호출, 이번 FID 범위(진입점 8개) 밖
+scripts/_internal/attempt-fp.sh direct-backlog — 문서(verifying-evidence-ko)가 직접 호출, 이번 FID 범위 밖
+scripts/_internal/check-review-fresh.sh direct-backlog — 문서(requesting-code-review-ko)가 직접 호출, 이번 FID 범위 밖
+scripts/_internal/check-plan-predispatch.sh direct-backlog — 문서(planning-ko)가 직접 호출, 이번 FID 범위 밖
+scripts/_internal/check-task-ids.sh child:emit-context — emit-context 가 enter 로 위치를 고정한 뒤 호출(문서는 이름만 언급)
+scripts/_internal/check-fid-size.sh child:emit-context — emit-context 가 enter 로 위치를 고정한 뒤 호출(일부러 고정: 호출 위치가 틀리면 게이트가 SKIP 으로 우회된다)
+scripts/_internal/check-review-audit.sh child:run-verification — run-verification·release-ready 가 호출(문서는 이름만 언급)
+scripts/_internal/validate-task-dependencies.sh direct-backlog — 호출자 없음(문서에 이름 예시만), 수동 실행 전용, 이번 FID 범위 밖
+scripts/dag/validate-context.sh direct-backlog — 경로 인자를 받고 .specops 는 정규식 검사뿐(실제 해석 없음), 문서가 직접 호출
+scripts/gbrain-append.sh direct-backlog — 문서가 직접 호출, 대상은 GBRAIN_FILE 또는 cwd 상대 .specops/memory, 이번 FID 범위 밖

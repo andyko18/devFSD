@@ -88,8 +88,12 @@ while [ "$i" -le "$count" ]; do
   i=$((i+1))
 done
 
-[ -d "$cwd/.specops/$fid" ] || _bail "FID 디렉터리 없음(cwd 확인)"
-reviews="$cwd/.specops/$fid/reviews"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../scripts/_internal/specops-root.sh" 2>/dev/null || true
+_sr_dir=$(command -v specops_root_dir >/dev/null 2>&1 && specops_root_dir "$fid" "$cwd" || printf '%s/.specops' "$cwd")
+[ -d "$_sr_dir/$fid" ] || _bail "FID 디렉터리 없음 — 찾은 위치: $_sr_dir/$fid (cwd=$cwd)"
+reviews="$_sr_dir/$fid/reviews"
+# 저장 경로 표기 — 메인으로 보낸 경우만 절대 경로(worktree 기준 상대 경로는 존재하지 않는다), 그 밖은 종전 상대 표기
+if [ "$_sr_dir" = "$cwd/.specops" ]; then _sr_show=".specops/$fid/reviews"; else _sr_show="$reviews"; fi
 mkdir -p "$reviews" 2>/dev/null || exit 0
 
 # 0단계: 저장 대상 이름 목록 + 대상 경로 검사 — 일반 파일이 아닌 기존 경로(디렉토리 등)면 mv 가 그 안으로
@@ -144,7 +148,7 @@ for name in $names; do
   fi
   moved="$moved $name"
   saved="$saved
-- .specops/$fid/reviews/$name"
+- $_sr_show/$name"
 done
 _cleanup
 [ -n "$saved" ] || exit 0

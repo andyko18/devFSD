@@ -14,10 +14,12 @@
 set -u
 
 FID=""; PLAN=""
+# worktree 에서 불러도 메인 기록을 읽는다 (--plan 은 export 가 FID 로 안 보므로 SPECOPS_ROOT 를 세우지 않는다)
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../_internal/specops-root.sh" 2>/dev/null && specops_root_export "${1:-}"
 case "${1:-}" in
   --plan) PLAN="${2:-}" ;;
   "")     echo "plan-to-tasks: FID 인자 필요" >&2; exit 1 ;;
-  *)      FID="$1"; PLAN=".specops/$FID/plan.md" ;;
+  *)      FID="$1"; PLAN="${SPECOPS_ROOT:-.specops}/$FID/plan.md" ;;
 esac
 
 if [ ! -r "$PLAN" ]; then

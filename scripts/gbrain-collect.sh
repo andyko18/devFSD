@@ -4,7 +4,8 @@
 # 출력: 수집 텍스트 / 수집물 0 → "COLLECT: EMPTY" (exit 0). FID 디렉토리 부재만 exit 1 (사용 오류)
 set -uo pipefail
 FID="${1:?FID required}"
-DIR=".specops/$FID"
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/specops-root.sh" 2>/dev/null && specops_root_export "$FID"
+DIR="${SPECOPS_ROOT:-.specops}/$FID"
 if [ ! -d "$DIR" ]; then
   echo "ERROR: $DIR 부재 (사용 오류 — FID 확인)" >&2
   exit 1

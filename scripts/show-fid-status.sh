@@ -6,6 +6,9 @@ set -u
 
 FID="${1:-}"
 
+# worktree 에서 불러도 FID 기록이 메인에만 있으면 메인을 읽는다
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/specops-root.sh" 2>/dev/null && specops_root_export "${FID:-}"
+
 # 테스트 환경 오버라이드 (SPECOPS_ROOT 미설정 시 기본 .specops)
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 PROGRESS="$SPECOPS/session-progress.md"

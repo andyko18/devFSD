@@ -265,4 +265,231 @@ printf '%s' "$rr" | grep -q '^RELEASE_READY: ' && ! printf '%s' "$rr" | grep -qE
   && ok "SR-16 ★ 추적 .specops worktree 에서 release-ready·review-skip-pass → 메인 기록으로 판정·기록 · worktree .specops 불변" \
   || nope "SR-16" "rr=[$(printf '%s' "$rr" | head -2 | tr '\n' ' ')] rs=${rsrc}[$rs] status=[$(git -C "$TNW" status --porcelain -- .specops | tr '\n' ' ')]"
 
+# ── 해석 함수 (20261105-specops-root-unify) ──
+. "$SR"
+unset SPECOPS_ROOT
+M2="$TD/r"; MK2="$TD/r.marker"; _mk "$M2" "$MK2"; W2="$M2/.worktrees/$FID"
+MP=$(cd "$M2" && pwd -P); W2P=$(cd "$W2" && pwd -P)
+# SR-17 (a) 메인에만 있음 → 메인 .specops · DIR 인자(다른 cwd·하위 폴더)도 같은 답 · export 는 SPECOPS_ROOT 만(GIT_DIR·GIT_WORK_TREE 없음·cwd 불변)
+got=$(cd "$W2" && specops_root_dir "$FID")
+got_far=$(cd "$TD" && specops_root_dir "$FID" "$W2")
+got_sub=$(cd "$TD" && specops_root_dir "$FID" "$W2/src")
+exp=$(cd "$W2" && specops_root_export "$FID" && printf '%s|%s|%s|%s' "${SPECOPS_ROOT:-none}" "${GIT_DIR:-none}" "${GIT_WORK_TREE:-none}" "$(pwd -P)")
+[ "$got" = "$MP/.specops" ] && [ "$got_far" = "$MP/.specops" ] && [ "$got_sub" = "$MP/.specops" ] && [ "$exp" = "$MP/.specops|none|none|$W2P" ] \
+  && ok "SR-17 ★ 메인에만 있는 FID → 메인 .specops · DIR 인자 · export 는 SPECOPS_ROOT 만" || nope "SR-17" "got=$got far=$got_far sub=$got_sub exp=$exp"
+# SR-18 (b) worktree 에 실제 기록 파일(비추적) → 현재 worktree · export 는 아무것도 안 함. 논리 경로($W2) — 훅의 종전 $cwd/.specops 와 같다
+mkdir -p "$W2/.specops/$FID" && : > "$W2/.specops/$FID/own.md"
+got=$(cd "$W2" && specops_root_dir "$FID")
+exp=$(cd "$W2" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+[ "$got" = "$W2/.specops" ] && [ "$exp" = none ] && ok "SR-18 worktree 에 자기 기록 → 현재 worktree .specops" || nope "SR-18" "got=$got exp=$exp"
+rm -rf "$W2/.specops"
+# SR-19 (c) SPECOPS_ROOT 지정은 그대로(export 도 불변) · 빈 문자열은 미지정 · (d) 진짜 비 git 폴더 → DIR/.specops · DIR 인자 폴백
+got=$(cd "$W2" && SPECOPS_ROOT=/x/y specops_root_dir "$FID")
+nogit="$TD/nongit"; mkdir -p "$nogit"; got2=$(cd "$nogit" && specops_root_dir "$FID")
+ex=$(cd "$W2" && export SPECOPS_ROOT=/x/y && specops_root_export "$FID" && printf '%s' "$SPECOPS_ROOT")
+ex_empty=$(cd "$W2" && SPECOPS_ROOT= specops_root_dir "$FID")
+got3=$(cd "$TD" && specops_root_dir "$FID" "$nogit")
+[ "$got" = "/x/y" ] && [ "$got2" = "$nogit/.specops" ] && [ "$ex" = "/x/y" ] && [ "$ex_empty" = "$MP/.specops" ] && [ "$got3" = "$nogit/.specops" ] \
+  && ok "SR-19 SPECOPS_ROOT 지정 그대로 · 빈값은 미지정 · 비 git 은 DIR/.specops" || nope "SR-19" "got=$got got2=$got2 ex=$ex ex_empty=$ex_empty got3=$got3"
+# SR-20 메인 자신 · 메인에 .specops 없음 · worktree 의 .specops 링크 · 메인의 .specops 링크 → export 안 함 (링크는 종전대로 해석하지 않는다)
+r1=$(cd "$M2" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+mkdir -p "$TD/nm" && git init -q "$TD/nm" && (cd "$TD/nm" && _g commit -q --allow-empty -m i) && git -C "$TD/nm" worktree add -q "$TD/nm/w" -b w 2>/dev/null
+r2=$(cd "$TD/nm/w" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+LNK="$TD/lk"; _mk "$LNK" "$TD/lk.marker"; LW="$LNK/.worktrees/$FID"; mkdir -p "$TD/lk-target"; ln -s "$TD/lk-target" "$LW/.specops"
+r3=$(cd "$LW" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}"); d3=$(cd "$LW" && specops_root_dir "$FID")
+LK2="$TD/lk2"; _mk "$LK2" "$TD/lk2.marker"; LW2="$LK2/.worktrees/$FID"; mv "$LK2/.specops" "$TD/lk2-real"; ln -s "$TD/lk2-real" "$LK2/.specops"
+r4=$(cd "$LW2" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+[ "$r1" = none ] && [ "$r2" = none ] && [ "$r3" = none ] && [ "$d3" = "$LW/.specops" ] && [ "$r4" = none ] \
+  && ok "SR-20 메인 자신 · 메인에 .specops 없음 · .specops 링크(worktree·메인) → export 안 함" || nope "SR-20" "r1=$r1 r2=$r2 r3=$r3 d3=$d3 r4=$r4"
+# SR-20b 추적 파일만 있는 메인 자신 — linked 판정이 없으면 _sr_fid_only_in_main 이 rc 0 이 되는 픽스처 (plan 의 r1 은 비추적 파일이라 이 변이를 못 잡는다)
+TM="$TD/tm"; git init -q "$TM" && git -C "$TM" symbolic-ref HEAD refs/heads/main; mkdir -p "$TM/.specops/$FID"; printf 'i\n' > "$TM/.specops/$FID/intent.md"; (cd "$TM" && git add -A && _g commit -qm i)
+r5=$(cd "$TM" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+mkdir -p "$TM/sub"; r5s=$(cd "$TM/sub" && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")   # 하위 폴더 — 최상위 .git 지름길을 거치지 않아 linked 판정 줄이 실제로 걸린다
+[ "$r5" = none ] && [ "$r5s" = none ] && ok "SR-20b ★ 추적 파일만 있는 메인 자신(최상위·하위 폴더) → export 안 함" || nope "SR-20b" "r5=$r5 r5s=$r5s"
+# SR-17e 하류 추적 .specops worktree (SR-12 의 TN/TO) — 새·구 템플릿 → 메인 · 거기에 비추적 기록이 생기면 자기 위치 (추적 파일을 기록으로 오인하는 변이를 잡는다)
+dn=$(cd "$TNW" && specops_root_dir "$TFID"); do_=$(cd "$TOW" && specops_root_dir "$TFID")
+printf 'local\n' > "$TNW/.specops/$TFID/tasks.md"; dn2=$(cd "$TNW" && specops_root_dir "$TFID"); rm -f "$TNW/.specops/$TFID/tasks.md"
+[ "$dn" = "$TNP/.specops" ] && [ "$do_" = "$TOP/.specops" ] && [ "$dn2" = "$TNW/.specops" ] \
+  && ok "SR-17e ★ 추적 .specops worktree(새·구 템플릿) → 메인 · 비추적 기록이 있으면 자기 위치" || nope "SR-17e" "dn=$dn do=$do_ dn2=$dn2"
+# SR-20c 형식 틀린 FID(옵션 문자열·경로 조각)는 판정에 들어가지 않는다 → 메인에 기록이 있어도 리다이렉트 안 함(DIR/.specops) · 빈 FID 는 .specops 가 아예 없을 때만 메인 · 있으면 자기 위치
+c1=$(cd "$W2" && specops_root_dir "--plan"); c2=$(cd "$W2" && specops_root_dir "../x"); c3=$(cd "$W2" && specops_root_dir "20261016-SR")
+c4=$(cd "$W2" && specops_root_export "--plan" && printf '%s' "${SPECOPS_ROOT:-none}")
+e1=$(cd "$W2" && specops_root_dir ""); e2=$(cd "$TNW" && specops_root_dir "")
+[ "$c1" = "$W2/.specops" ] && [ "$c2" = "$W2/.specops" ] && [ "$c3" = "$W2/.specops" ] && [ "$c4" = none ] && [ "$e1" = "$MP/.specops" ] && [ "$e2" = "$TNW/.specops" ] \
+  && ok "SR-20c ★ 형식 틀린 FID → 리다이렉트 안 함 · 빈 FID 는 worktree 에 .specops 없을 때만 메인" || nope "SR-20c" "c1=$c1 c2=$c2 c3=$c3 c4=$c4 e1=$e1 e2=$e2"
+# SR-32 NFR-2 git 호출 횟수 — PATH 앞의 가짜 git(횟수를 세고 실 git 으로 exec): 일반 저장소 최상위 0회 · 링크 worktree(추적 .specops) 3회 이내(0회가 아님 — 계수기 생존 대조)
+REALGIT=$(command -v git); FG="$TD/fakegit"; mkdir -p "$FG"; CNT="$TD/git.count"
+printf '#!/bin/sh\necho x >> "%s"\nexec "%s" "$@"\n' "$CNT" "$REALGIT" > "$FG/git"; chmod +x "$FG/git"
+_gcalls() {  # DIR FID → git 호출 횟수
+  : > "$CNT"; ( export PATH="$FG:$PATH"; cd "$TD" && specops_root_dir "$2" "$1" >/dev/null ); wc -l < "$CNT" | tr -d ' '
+}
+n_top=$(_gcalls "$M2" "$FID"); n_wt=$(_gcalls "$TNW" "$TFID"); n_wt2=$(_gcalls "$W2" "$FID")
+[ "$n_top" = 0 ] && [ "$n_wt" -ge 1 ] && [ "$n_wt" -le 3 ] && [ "$n_wt2" -ge 1 ] && [ "$n_wt2" -le 3 ] \
+  && ok "SR-32 ★ git 호출: 일반 저장소 최상위 0회 · 링크 worktree ≤3회 (top=$n_top wt=$n_wt wt2=$n_wt2)" || nope "SR-32" "top=$n_top wt=$n_wt wt2=$n_wt2"
+
+# ── T2 진입점: stage-timing · emit-context (20261105-specops-root-unify) ──
+EFID=20260902-rules
+mkdir -p "$M2/.specops/$EFID" "$M2/.specops/memory"
+cp "$PLUGIN"/scripts/tests/dag/fixtures/emit-context/ok-fid/*.md "$M2/.specops/$EFID/"
+printf '# api\n' > "$M2/.specops/memory/api-spec.md"
+_nowt() { [ ! -e "$W2/.specops" ]; }
+# SR-25 stage-timing — 출력에 FID 는 없다. 원장 경로가 메인이다
+out=$(cd "$W2" && bash "$PLUGIN/scripts/stage-timing.sh" 2>&1); RC=$?
+[ "$RC" = 0 ] && printf '%s\n' "$out" | grep -qF "원장: $MP/.specops/session-progress.md " && _nowt && ok "SR-25 ★ stage-timing → 메인 원장" || nope "SR-25" "RC=$RC out=$(printf '%s' "$out" | head -4)"
+# SR-28 emit-context(a) — worktree: 메인 dispatch · §6 은 상대 표기(enter 방식 — 이동 뒤 상대경로가 메인을 가리킨다). worktree 에는 api-spec 이 없으니 실렸다는 것이 메인을 읽었다는 증거
+out=$(cd "$W2" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$EFID" 2>/dev/null); RC=$?
+c="$M2/.specops/$EFID/dispatch/T1-context.md"
+[ "$RC" = 0 ] && [ "$(printf '%s' "$out" | tail -1)" = "EMIT: 2 files" ] && [ -f "$c" ] && [ -f "$M2/.specops/$EFID/dispatch/T2-context.md" ] \
+  && grep -qxF -- '- `.specops/memory/api-spec.md`' "$c" && [ ! -e "$W2/.specops/memory/api-spec.md" ] && _nowt \
+  && ok "SR-28 ★ emit-context → 메인 dispatch · §6 설계 계약에 api-spec(상대 표기)" || nope "SR-28" "RC=$RC out=$out"
+# SR-28m(d) 메인 체크아웃 — 종전 상대 표기 그대로(AC-R-1)
+rm -rf "$M2/.specops/$EFID/dispatch"
+out=$(cd "$M2" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$EFID" 2>/dev/null); RC=$?
+[ "$RC" = 0 ] && grep -qxF -- '- `.specops/memory/api-spec.md`' "$c" && ! grep -qF "$MP" "$c" && ok "SR-28m 메인 체크아웃의 emit-context 는 종전 상대 표기(AC-R-1)" || nope "SR-28m" "RC=$RC"
+# SR-28b(b) 게이트 불변식 — 접미사 id(T1a, 날짜 20261007 이후)는 worktree 에서도 task-ids 게이트가 막는다(export 방식이면 게이트가 조용히 SKIP). 메인 체크아웃에서 SPECOPS_ROOT 를 줘도 마찬가지(c)
+BFID=20261105-sr-ids
+mkdir -p "$M2/.specops/$BFID"; cp "$PLUGIN"/scripts/tests/dag/fixtures/emit-context/ok-fid/*.md "$M2/.specops/$BFID/"
+sed -i.bak 's/id: T1$/id: T1a/' "$M2/.specops/$BFID/tasks.md"; rm -f "$M2/.specops/$BFID/tasks.md.bak"
+err=$(cd "$W2" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$BFID" 2>&1 >/dev/null); RC=$?
+cp -R "$M2/.specops" "$TD/sr-copy"
+err2=$(cd "$M2" && SPECOPS_ROOT="$TD/sr-copy" bash "$PLUGIN/scripts/dag/emit-context.sh" "$BFID" 2>&1 >/dev/null); RC2=$?
+[ "$RC" = 1 ] && printf '%s\n' "$err" | grep -q '^TASK-IDS: FAIL' && [ ! -d "$M2/.specops/$BFID/dispatch" ] && _nowt \
+  && [ "$RC2" = 1 ] && printf '%s\n' "$err2" | grep -q '^TASK-IDS: FAIL' \
+  && ok "SR-28b ★ worktree 의 접미사 id → TASK-IDS FAIL·dispatch 0 · 외부 SPECOPS_ROOT 도 위치를 못 옮김" || nope "SR-28b" "RC=$RC RC2=$RC2 err=$(printf '%s' "$err" | head -2) err2=$(printf '%s' "$err2" | head -2)"
+# SR-28s(e) screens/ — worktree 에만 있는 screens 가 §6 에 실린다(이동하면 상대 screens 가 메인 기준이 되어 조용히 빠진다)
+mkdir -p "$W2/screens"; : > "$W2/screens/home.md"
+rm -rf "$M2/.specops/$EFID/dispatch"
+(cd "$W2" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$EFID") >/dev/null 2>&1; RC=$?
+[ "$RC" = 0 ] && [ ! -e "$M2/screens" ] && grep -qxF -- '- `screens/`' "$c" && ok "SR-28s ★ worktree 에만 있는 screens/ → §6 에 실림" || nope "SR-28s" "RC=$RC"
+# SR-28sd worktree 하위 폴더(src/)에서 불러도 screens/ 는 worktree 최상위 기준 — 이동 전 폴더 기준이면 src/screens 를 보아 조용히 빠진다
+rm -rf "$M2/.specops/$EFID/dispatch"
+(cd "$W2/src" && bash "$PLUGIN/scripts/dag/emit-context.sh" "$EFID") >/dev/null 2>&1; RC=$?
+[ "$RC" = 0 ] && [ ! -e "$W2/src/screens" ] && grep -qxF -- '- `screens/`' "$c" && ok "SR-28sd ★ worktree 하위 폴더에서 불러도 screens/ → §6 에 실림" || nope "SR-28sd" "RC=$RC screens줄=$(grep -cxF -- '- `screens/`' "$c" 2>/dev/null)"
+rm -rf "$W2/screens" "$M2/.specops/$EFID/dispatch"
+# SR-28f(f) SCRIPT_DIR — worktree 에서 상대경로로 불러도 worktree 자신의 scripts/ 게이트가 돈다(스텁 게이트가 마커를 남긴다)
+mkdir -p "$W2/scripts"; cp -R "$PLUGIN/scripts/dag" "$PLUGIN/scripts/_internal" "$W2/scripts/"
+GM="$TD/gate.marker"; : > "$GM"
+printf '#!/usr/bin/env bash\necho ran >> "%s"\nexit 0\n' "$GM" > "$W2/scripts/_internal/check-fid-size.sh"
+(cd "$W2" && bash scripts/dag/emit-context.sh "$EFID") >/dev/null 2>&1; RC=$?
+[ "$RC" = 0 ] && [ -s "$GM" ] && ok "SR-28f ★ 상대경로 호출 → worktree 자신의 게이트 실행" || nope "SR-28f" "RC=$RC marker=$(cat "$GM")"
+rm -rf "$W2/scripts/dag" "$W2/scripts/_internal" "$M2/.specops/$EFID/dispatch"
+
+# ── T3 진입점: gbrain-collect · plan-to-tasks (20261105-specops-root-unify) ──
+mkdir -p "$M2/.specops/$FID/handoffs"
+printf '## Decided\n- 메인-핸드오프-결정\n' > "$M2/.specops/$FID/handoffs/T1.md"
+printf '### Task 1: 메인-플랜-첫째\n\n- [ ] **Step 1**: a\n\n### Task 2: 메인-플랜-둘째\n\n- [ ] **Step 1**: b\n' > "$M2/.specops/$FID/plan.md"
+# SR-26 gbrain-collect — 출력에 FID 는 없다. 메인 핸드오프의 고유 토큰으로 전체 비교
+out=$(cd "$W2" && bash "$PLUGIN/scripts/gbrain-collect.sh" "$FID" 2>&1); RC=$?
+[ "$RC" = 0 ] && [ "$out" = "$(printf '## T1.md\n- 메인-핸드오프-결정')" ] && _nowt && ok "SR-26 ★ gbrain-collect → 메인 핸드오프" || nope "SR-26" "RC=$RC out=$out"
+# SR-27 plan-to-tasks (+ --plan 명시 경로는 SPECOPS_ROOT 를 무시하고 그 경로를 읽는다)
+out=$(cd "$W2" && bash "$PLUGIN/scripts/dag/plan-to-tasks.sh" "$FID" 2>&1); RC=$?
+mkdir -p "$W2/pp" && printf '### Task 1: 워크트리-플랜\n\n- [ ] **Step 1**: a\n' > "$W2/pp/plan.md"
+out2=$(cd "$W2" && bash "$PLUGIN/scripts/dag/plan-to-tasks.sh" --plan pp/plan.md 2>&1); RC2=$?
+rm -rf "$W2/pp"
+[ "$RC" = 0 ] && printf '%s' "$out" | grep -qF '메인-플랜-첫째' && printf '%s' "$out" | grep -qF '메인-플랜-둘째' && [ "$RC2" = 0 ] && printf '%s' "$out2" | grep -qF '워크트리-플랜' && ! printf '%s' "$out2" | grep -qF '메인-플랜' && _nowt \
+  && ok "SR-27 ★ plan-to-tasks → 메인 plan.md · --plan 경로 회귀" || nope "SR-27" "RC=$RC RC2=$RC2 out=$(printf '%s' "$out" | head -3) out2=$(printf '%s' "$out2" | head -3)"
+
+# ── T4 진입점: dev-decision · show-fid-status (20261105-specops-root-unify) ──
+# SR-21 dev-decision add·show
+(cd "$W2" && bash "$PLUGIN/scripts/dev-decision.sh" add "$FID" order "정함-sr21" "근거") >/dev/null 2>&1; RC=$?
+out=$(cd "$W2" && bash "$PLUGIN/scripts/dev-decision.sh" show "$FID" 2>&1); src=$?
+[ "$RC" = 0 ] && [ "$src" = 0 ] && grep -qF '[order] 정함-sr21 — 근거' "$M2/.specops/$FID/dev-decisions.md" && printf '%s' "$out" | grep -qF '[order] 정함-sr21 — 근거' && _nowt \
+  && ok "SR-21 ★ worktree 에서 dev-decision add·show → 메인" || nope "SR-21" "RC=$RC src=$src out=$out"
+# SR-24 show-fid-status — 메인에만 있는 plan.md·tasks.md 가 ✅ (stderr 의 FID 는 증거가 아니다)
+out=$(cd "$W2" && bash "$PLUGIN/scripts/show-fid-status.sh" "$FID" 2>&1); RC=$?
+printf '%s\n' "$out" | head -1 | grep -qx "=== FID: $FID ===" && [ "$RC" = 0 ] && printf '%s\n' "$out" | grep -qx '  ✅ plan.md' && printf '%s\n' "$out" | grep -qx '  ✅ tasks.md' && _nowt \
+  && ok "SR-24 ★ show-fid-status → 메인 산출물 현황" || nope "SR-24" "RC=$RC out=$(printf '%s' "$out" | head -3)"
+# SR-30 이동하지 않아야 할 때 — 자기 기록 worktree($L)는 자기 .specops · 추적 .specops worktree($TNW)는 메인에 쓰고 추적 파일 불변
+(cd "$L" && bash "$PLUGIN/scripts/dev-decision.sh" add "$FID" order "own-sr30" "x") >/dev/null 2>&1; RC=$?
+(cd "$TNW" && bash "$PLUGIN/scripts/dev-decision.sh" add "$TFID" order "trk-sr30" "x") >/dev/null 2>&1; RC2=$?
+[ "$RC" = 0 ] && grep -q 'own-sr30' "$L/.specops/$FID/dev-decisions.md" && [ ! -e "$R/.specops/$FID/dev-decisions.md" ] \
+  && [ "$RC2" = 0 ] && grep -q 'trk-sr30' "$TN/.specops/$TFID/dev-decisions.md" && [ -z "$(git -C "$TNW" status --porcelain -- .specops)" ] \
+  && ok "SR-30 ★ 자기 기록 worktree → 자기 .specops · 추적 worktree → 메인(추적 파일 불변)" || nope "SR-30" "RC=$RC RC2=$RC2"
+# SR-31 인자 없는/틀린 호출은 종전 그대로 — set -u 아래 prelude 가 'unbound variable' 로 죽지 않는다 (worktree 에서)
+bad=""
+for c in "dev-decision.sh" "gbrain-collect.sh" "dag/plan-to-tasks.sh" "dag/emit-context.sh" "_internal/record-metric.sh" "_internal/risk-profile.sh"; do
+  o=$(cd "$W2" && bash "$PLUGIN/scripts/$c" 2>&1); rc=$?
+  { [ "$rc" = 1 ] && ! printf '%s' "$o" | grep -q 'unbound variable'; } || bad="$bad $c(rc=$rc)"
+done
+[ -z "$bad" ] && ok "SR-31 인자 없는 호출 → rc 1 · unbound variable 없음" || nope "SR-31" "$bad"
+
+# ── T5 진입점: record-metric · risk-profile (20261105-specops-root-unify) ──
+# SR-22 record-metric — rc 만으로는 prelude 없이도 0 이다: 메인의 새 metrics.jsonl + worktree 에 .specops 없음 이 판별이다
+(cd "$W2" && bash "$PLUGIN/scripts/_internal/record-metric.sh" --fid "$FID" --phase sr22-phase) >/dev/null 2>&1; RC=$?
+[ "$RC" = 0 ] && [ "$(jq -r '[.fid,.phase]|join(" ")' "$M2/.specops/$FID/metrics.jsonl" | tail -1)" = "$FID sr22-phase" ] && _nowt && ok "SR-22 ★ record-metric → 메인 metrics.jsonl" || nope "SR-22" "RC=$RC"
+# SR-23 risk-profile compute·show
+out=$(cd "$W2" && bash "$PLUGIN/scripts/_internal/risk-profile.sh" compute "$FID" 2>&1); RC=$?
+sh=$(cd "$W2" && bash "$PLUGIN/scripts/_internal/risk-profile.sh" show "$FID" 2>&1); shrc=$?
+[ "$RC" = 0 ] && printf '%s' "$out" | grep -q '^RISK_PROFILE: computed=' && [ "$(jq -r .effective "$M2/.specops/$FID/risk-profile.json")" = standard ] && [ "$shrc" = 0 ] && [ "$sh" = "standard (computed=standard, mode=live)" ] && _nowt \
+  && ok "SR-23 ★ risk-profile compute·show → 메인 risk-profile.json" || nope "SR-23" "RC=$RC out=$out sh=$sh"
+# SR-24b risk-profile 을 source 로만 쓰는 호출자(quick-scope.sh)에는 부작용이 없다 — 환경·cwd 불변
+sb=$(cd "$W2" && bash -c 'source "$1" >/dev/null 2>&1; printf "%s|%s|%s" "${SPECOPS_ROOT:-none}" "${GIT_DIR:-none}" "$(pwd -P)"' _ "$PLUGIN/scripts/_internal/risk-profile.sh")
+[ "$sb" = "none|none|$W2P" ] && ok "SR-24b risk-profile source 는 SPECOPS_ROOT·GIT_DIR·cwd 를 바꾸지 않는다" || nope "SR-24b" "sb=$sb"
+# SR-23t 하류 추적 구조 — spec §참조가 추적 문서(api-spec.md)를 인용한 FID 는 메인·worktree 실행의 computed 가 같다.
+#   절대경로 SPECOPS_ROOT 에서 git ls-files 가 'outside repository' rc 128 로 실패하면 인용 가림이 꺼져 worktree 에서만 strict 가 나온다.
+printf '# api\n' > "$TN/.specops/memory/api-spec.md" && git -C "$TN" add -f .specops/memory/api-spec.md && _g -C "$TN" commit -qm api-spec   # 추적 문서 — 커밋해 '변경 파일' 신호가 되지 않게
+printf '# 스펙\n**§유형**: trivial\n**§lite**: true\n## 1. 개요\n저장 버튼 문구를 바꾼다.\n## 10. 참조\n- IF 설계서 — `.specops/memory/api-spec.md`\n' > "$TN/.specops/$TFID/spec.md"
+tm=$(cd "$TN" && bash "$PLUGIN/scripts/_internal/risk-profile.sh" compute "$TFID" 2>&1); tmrc=$?
+rm -f "$TN/.specops/$TFID/risk-profile.json"   # worktree 실행이 메인에 다시 써야 한다
+tw=$(cd "$TNW" && bash "$PLUGIN/scripts/_internal/risk-profile.sh" compute "$TFID" 2>&1); twrc=$?
+cm=$(printf '%s' "$tm" | grep -o 'computed=[a-z]*' | head -1); cw=$(printf '%s' "$tw" | grep -o 'computed=[a-z]*' | head -1)
+[ "$tmrc" = 0 ] && [ "$twrc" = 0 ] && [ -n "$cm" ] && [ "$cm" = "$cw" ] && [ "$cm" != computed=strict ] && [ -f "$TN/.specops/$TFID/risk-profile.json" ] && [ ! -e "$TNW/.specops/$TFID/risk-profile.json" ] \
+  && ok "SR-23t ★ 추적 구조 인용 FID → 메인·worktree 실행의 $cm 가 같다 (strict 아님)" || nope "SR-23t" "main=${tmrc}[$cm] wt=${twrc}[$cw]"
+# SR-33 훅이 GIT_DIR(·GIT_WORK_TREE)을 내보낸 환경에서는 메인으로 보내지 않는다 — specops_root_enter 와 같은 가드.
+#   (i)(ii) 비 git 폴더 + GIT_DIR=어떤 linked worktree 의 gitdir → DIR/.specops · SPECOPS_ROOT 안 세움
+#   (iii) 훅 형태(_gov_apply_git_target 이 셸의 worktree 로 GIT_DIR·GIT_WORK_TREE export) — 자기 기록 worktree($L)에서 record-metric → $L/.specops · 메인에 새 FID 폴더 없음
+NG="$TD/nogit"; mkdir -p "$NG"; W2GD=$(git -C "$W2" rev-parse --absolute-git-dir)
+d33=$(cd "$NG" && GIT_DIR="$W2GD" && export GIT_DIR && specops_root_dir "$FID")
+e33=$(cd "$NG" && GIT_DIR="$W2GD" && export GIT_DIR && specops_root_export "$FID" && printf '%s' "${SPECOPS_ROOT:-none}")
+RX="$R/.worktrees/sr33x"; git -C "$R" worktree add -q "$RX" -b sr33x 2>/dev/null; RXGD=$(git -C "$RX" rev-parse --absolute-git-dir)
+NFID=20261105-sr33-new
+(cd "$L" && GIT_DIR="$RXGD" GIT_WORK_TREE="$RX" bash "$PLUGIN/scripts/_internal/record-metric.sh" --fid "$NFID" --phase sr33-phase) >/dev/null 2>&1; RC=$?
+[ "$d33" = "$NG/.specops" ] && [ "$e33" = none ] && [ "$RC" = 0 ] && [ "$(jq -r .phase "$L/.specops/$NFID/metrics.jsonl" 2>/dev/null | tail -1)" = sr33-phase ] && [ ! -e "$R/.specops/$NFID" ] \
+  && ok "SR-33 ★ GIT_DIR 이 내보내진 환경 → 메인으로 보내지 않음(dir·export·record-metric)" || nope "SR-33" "d33=$d33 e33=$e33 RC=$RC main_new=$([ -e "$R/.specops/$NFID" ] && echo yes || echo no)"
+
+# ── T7 해석 누락 잠금: 진입점·제외 목록 (20261105-specops-root-unify) ──
+# SR-29 해석 누락 잠금
+ENTRY="scripts/dev-decision.sh scripts/_internal/risk-profile.sh scripts/_internal/record-metric.sh scripts/show-fid-status.sh scripts/stage-timing.sh scripts/dag/emit-context.sh scripts/dag/plan-to-tasks.sh scripts/gbrain-collect.sh"
+EXCL="$PLUGIN/scripts/tests/specops-root-excluded.txt"
+_sr_in_list() { local x=$1 e; shift; for e in "$@"; do [ "$e" = "$x" ] && return 0; done; return 1; }   # case 문은 $(…) 안에 쓰지 않는다 — bash 3.2 파서가 *) 에서 죽는다
+_sr_resolves() { grep -qE '^[^#]*(specops_root_export|specops_root_enter|SPECOPS_ROOT)' "$1"; }       # 주석에 적힌 이름은 세지 않는다
+# $1=루트 → 전역 SCANNED(후보 수) · 전역 UNRES(해석 안 하는데 진입점·제외 목록에도 없는 스크립트). 서브셸을 만들지 않는다.
+_sr_scan() {
+  local root=$1 f excl="$1/scripts/tests/specops-root-excluded.txt" docs lits
+  SCANNED=0; UNRES=""
+  # (A) 문서가 FID 인자로 직접 부르는 스크립트 중 .specops 를 언급하는 것 (B) 어느 폴더든 .specops/<변수>·%s 를 글자로 여는 스크립트
+  docs=$( (cd "$root" && grep -rhoE 'scripts/[A-Za-z0-9_/.-]+\.sh[^`|;&]*(<FID>|\$\{?FID\}?)' skills commands agents 2>/dev/null) | sed -E 's/^(scripts\/[A-Za-z0-9_\/.-]+\.sh).*/\1/' | LC_ALL=C sort -u)
+  lits=$( (cd "$root" && find scripts -name '*.sh' -not -path 'scripts/tests/*' -exec grep -lE '\.specops/("?\$|%s)' {} + 2>/dev/null) | LC_ALL=C sort -u)
+  for f in $(printf '%s\n%s\n' "$docs" "$lits" | LC_ALL=C sort -u); do
+    [ -f "$root/$f" ] || continue
+    if ! _sr_in_list "$f" $lits; then grep -q '\.specops' "$root/$f" || continue; fi   # (A) 만 해당하면 .specops 를 언급하는 것만
+    SCANNED=$((SCANNED+1))
+    _sr_in_list "$f" $ENTRY && continue
+    _sr_resolves "$root/$f" && continue
+    awk -v f="$f" '$1==f && NF>=2 {found=1} END{exit !found}' "$excl" 2>/dev/null || UNRES="$UNRES $f"
+  done
+}
+_sr_scan "$PLUGIN"; REAL_SCANNED=$SCANNED; REAL_UNRES=$UNRES
+miss=""; for f in $ENTRY; do grep -qE '^[^#]*(specops_root_export|specops_root_enter)' "$PLUGIN/$f" || miss="$miss $f"; done
+[ -z "$miss" ] && ok "SR-29a 진입점 8개 모두 주석 아닌 줄에서 specops_root_export·specops_root_enter 호출" || nope "SR-29a" "누락:$miss"
+[ "$REAL_SCANNED" -ge 10 ] && [ -z "$REAL_UNRES" ] && ok "SR-29b 후보 ${REAL_SCANNED}개 전부 진입점·해석 사용·제외 목록(사유 병기) 중 하나" || nope "SR-29b" "scanned=$REAL_SCANNED 미해석:$REAL_UNRES"
+# SR-29d 제외 목록 위생 — 파일 존재 · 모든 줄이 실재 파일 · 진입점 아님 · 사유가 child:/direct-backlog 로 시작
+bad=""; if [ -f "$EXCL" ]; then
+  while IFS= read -r l; do [ -n "$l" ] || continue; set -- $l
+    if [ -f "$PLUGIN/$1" ] && [ $# -ge 2 ] && ! _sr_in_list "$1" $ENTRY && { [ "${2#child:}" != "$2" ] || [ "$2" = direct-backlog ]; }; then :; else bad="$bad $1"; fi
+  done < "$EXCL"
+else bad=" (제외 목록 파일 없음)"; fi
+[ -z "$bad" ] && ok "SR-29d 제외 목록 줄은 실재 파일·진입점 아님·사유(child:/direct-backlog) 있음" || nope "SR-29d" "$bad"
+# SR-29e 양성 대조(가드 자기 검증) — 위반을 심은 사본에서 실제로 걸리는가, 대상 0개면 SCANNED=0 이 되는가
+FK="$TD/fk"; mkdir -p "$FK/scripts/tests" "$FK/skills/x" "$FK/commands" "$FK/agents"
+: > "$FK/scripts/tests/specops-root-excluded.txt"
+printf '#!/usr/bin/env bash\ncat .specops/"$1"/spec.md\n' > "$FK/scripts/new-a.sh"                 # 인용 우회
+printf '#!/usr/bin/env bash\n# specops_root_export\ncat .specops/$FID/x\n' > "$FK/scripts/new-b.sh"  # 주석 위장
+mkdir -p "$FK/scripts/_internal/init-project"; printf '#!/usr/bin/env bash\ncat .specops/${fid}/x\n' > "$FK/scripts/_internal/init-project/zz.sh"   # 하위 폴더
+printf '`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/new-c.sh <FID>`\n' > "$FK/skills/x/SKILL.md"; printf '#!/usr/bin/env bash\nD=.specops; cat "$D/$1/x"\n' > "$FK/scripts/new-c.sh"   # 문서가 FID 로 부르는데 우회 형태
+_sr_scan "$FK"
+n=0; for w in scripts/new-a.sh scripts/new-b.sh scripts/_internal/init-project/zz.sh scripts/new-c.sh; do _sr_in_list "$w" $UNRES && n=$((n+1)); done
+rm -rf "$FK/scripts"; mkdir -p "$FK/scripts"; _sr_scan "$FK"
+[ "$n" = 4 ] && [ "$SCANNED" = 0 ] && ok "SR-29e 양성 대조: 위반 4변형 적발 · 대상 0개는 SCANNED=0" || nope "SR-29e" "caught=$n/4 scanned_empty=$SCANNED"
+
 finish

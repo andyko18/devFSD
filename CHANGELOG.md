@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.7] — 2026-11-05
+
 ### Added
 
 - demo-ko skill — PR 생성 전에 만든 것을 실제로 실행해 결과를 보여 주고, 사용자가 보는 결과가 바뀐 작업은 "맞다/아니다" 확인을 받는다 (performance-test-ko 의 PR 게이트가 호출).
@@ -3546,7 +3548,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.6...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.7...HEAD
+[3.1.7]: https://github.com/andyko18/devFSD/compare/v3.1.6...v3.1.7
 [3.1.6]: https://github.com/andyko18/devFSD/compare/v3.1.5...v3.1.6
 [3.1.5]: https://github.com/andyko18/devFSD/compare/v3.1.4...v3.1.5
 [3.1.4]: https://github.com/andyko18/devFSD/compare/v3.1.3...v3.1.4

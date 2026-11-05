@@ -1,0 +1,7 @@
+devFSD 관제판(hooks/console.tsx, core.ts, rail.tsx, elapsed.tsx, console.test.ts, types 일부)은
+Claude Flightdeck v0.6.0 (https://github.com/scasella/claude-flightdeck)을 이식·수정한 것이다.
+
+Copyright (c) 2026 Stephen Casella — MIT License (전문: LICENSE-flightdeck)
+
+devFSD 의 변경: 이름(flightdeck → devfsd / devfsd-console / devFSD 관제판), fid 패널 추가,
+openOnStart 기본값 false(.specops 저장소에서만 자동으로 연다), 상태 계약을 'devfsd' 아래로 병합.

@@ -16,7 +16,7 @@ dn=$(jq -r '.displayName // empty' "$ROOT/.claude-plugin/plugin.json")
 #   3.x 호환 파일(Task 2 가 옛 접두사를 일부러 두는 훅 5개·그 테스트 2개·진행 패널 mod 와 그 테스트·옛 접두사 픽스처 생성 줄이 있는 파일) + 이 스위트
 ALLOW_PATHS=(CHANGELOG.md docs/audit docs/case-studies docs/governance-history.md
   hooks/rules.jsonl hooks/governance-lib.sh hooks/posttool-governance.sh hooks/hooks.json hooks/save-review-report.sh
-  hooks/progress-pane.tsx hooks/progress-pane.test.tsx
+  hooks/progress-pane.tsx hooks/progress-pane.test.tsx scripts/tests/test-progress-pane.sh
   scripts/tests/governance/test-rules.sh scripts/tests/governance/test-pretool.sh scripts/tests/governance/test-hooks.sh scripts/tests/test-save-review-report.sh
   scripts/tests/test-plugin-name.sh)
 # 앞에 이름 글자가 붙은 경우(using-specops-ko: 같은 skill 이름 라벨)는 namespace 가 아니다 — 대소문자는 git grep -i 가 맡는다

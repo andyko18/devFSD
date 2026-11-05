@@ -38,15 +38,21 @@ stage_keys() {
 
 # 엔진 검사 — 인자: 조립된 플러그인 폴더, 라벨. CLI 없으면 SKIP
 engine_check() {
-  local pp=$1 label=$2 out n_pass n_fail expected ev
+  local pp=$1 label=$2 mods out n_pass n_fail expected ev
   if ! command -v "$CLAUDE_BIN" >/dev/null 2>&1 || ! "$CLAUDE_BIN" plugin test --help >/dev/null 2>&1; then
     echo "SKIP PP-7 ($label) claude CLI 없음·plugin test 미지원 — validate·test 생략"
     return 0
   fi
   if out=$("$CLAUDE_BIN" plugin validate "$pp" 2>&1); then
     local miss=""
-    echo "$out" | grep -q 'progress-pane.tsx' || miss="$miss progress-pane.tsx"
+    mods=register.tsx   # progress-pane.tsx 는 이제 register.tsx 가 부르는 하위 모듈 — modules[0] 은 register.tsx
+    echo "$out" | grep -q "$mods" || miss="$miss $mods"
     for ev in $EVENTS; do echo "$out" | grep -q "$ev" || miss="$miss $ev"; done
+    if [ "$label" = wiring ]; then   # 실 배선: 진행 패널·관제판 둘 다의 등록 이벤트가 validate 출력에 있다
+      for ev in 'requestId=devfsd-progress' 'requestId=devfsd-console' 'command.run{command=devfsd-progress}' 'command.run{command=devfsd}'; do
+        echo "$out" | grep -qF "$ev" || miss="$miss $ev"
+      done
+    fi
     [ -z "$miss" ] && ok "PP-7a ($label) validate · 모듈·이벤트 5종" || ng "PP-7a ($label) validate 출력 누락:$miss"
   else
     echo "$out" | tail -10; ng "PP-7a ($label) validate 실패"
@@ -54,8 +60,8 @@ engine_check() {
   out=$("$CLAUDE_BIN" plugin test "$pp" 2>&1); local rc=$?
   n_pass=$(echo "$out" | sed -nE 's/^ *([0-9]+) pass$/\1/p' | tail -1)
   n_fail=$(echo "$out" | sed -nE 's/^ *([0-9]+) fail$/\1/p' | tail -1)
-  expected=$(grep -c '^test(' "$pp/hooks/progress-pane.test.tsx")
-  if [ "$rc" -eq 0 ] && [ "${n_fail:-x}" = 0 ] && [ "${n_pass:-0}" -eq "$expected" ]; then
+  expected=$(echo "$out" | sed -nE 's/^Ran ([0-9]+) tests.*/\1/p' | tail -1)   # 도우미가 test() 를 감싸 grep -c 와 어긋난다 — 엔진이 보고한 실행 수
+  if [ "$rc" -eq 0 ] && [ "${n_fail:-x}" = 0 ] && [ "${n_pass:-0}" -eq "${expected:--1}" ]; then
     ok "PP-7b ($label) test ${n_pass}/${expected} pass"
   else
     echo "$out" | tail -15; ng "PP-7b ($label) test rc=$rc pass=${n_pass:-?}/${expected} fail=${n_fail:-?}"
@@ -72,10 +78,10 @@ fi
 if [ "$PART" = engine ] || [ "$PART" = mod ]; then
   pp="$WORK/mod"; mkdir -p "$pp/.claude-plugin" "$pp/hooks" "$pp/types"
   jq '. + {types: "./types/index.d.ts"}' "$PLUGIN/.claude-plugin/plugin.json" > "$pp/.claude-plugin/plugin.json"
-  echo '{ "modules": ["./progress-pane.tsx"] }' > "$pp/hooks/hooks.json"
+  echo '{ "modules": ["./register.tsx"] }' > "$pp/hooks/hooks.json"
   if [ "$PART" = engine ] && ! command -v "$CLAUDE_BIN" >/dev/null 2>&1; then
     engine_check "$pp" mod
-  elif cp "$PLUGIN/hooks/progress-pane.tsx" "$PLUGIN/hooks/progress-pane.test.tsx" "$pp/hooks/" 2>/dev/null && cp "$PLUGIN/types/index.d.ts" "$pp/types/" 2>/dev/null; then
+  elif cp "$PLUGIN"/hooks/{register.tsx,console.tsx,core.ts,rail.tsx,elapsed.tsx,console.test.ts,progress-pane.tsx,progress-pane.test.tsx} "$pp/hooks/" 2>/dev/null && cp "$PLUGIN/types/index.d.ts" "$pp/types/" 2>/dev/null; then
     engine_check "$pp" mod
   else
     ng "PP-7 (mod) 소스 파일 없음 — hooks/progress-pane*.tsx · types/index.d.ts"
@@ -110,7 +116,7 @@ if want wiring; then
   [ -z "$miss" ] && ok "PP-2c classic 명령 경로 실재" || ng "PP-2c classic 명령 경로 부재:$miss"
   # 변이 4건 — 사본에서 하나씩 깨고 wiring_ok 가 떨어지는지
   m="$WORK/mut"; mkdir -p "$m/hooks" "$m/.claude-plugin" "$m/types"
-  cp "$PLUGIN/hooks/progress-pane.tsx" "$m/hooks/" 2>/dev/null; cp "$PLUGIN/types/index.d.ts" "$m/types/" 2>/dev/null
+  cp "$PLUGIN/hooks/register.tsx" "$m/hooks/" 2>/dev/null; cp "$PLUGIN/types/index.d.ts" "$m/types/" 2>/dev/null
   mutate() {   # 인자: 라벨, hooks.json jq, plugin.json jq
     jq "$2" "$HJ" > "$m/hooks/hooks.json"; jq "$3" "$PJ" > "$m/.claude-plugin/plugin.json"
     wiring_ok "$m" && ng "PP-3 $1 미검출" || ok "PP-3 $1 검출"
@@ -123,6 +129,143 @@ if want wiring; then
   pp="$WORK/wired"; mkdir -p "$pp/.claude-plugin"
   cp "$PJ" "$pp/.claude-plugin/"; cp -R "$PLUGIN/hooks" "$pp/"; cp -R "$PLUGIN/types" "$pp/" 2>/dev/null
   engine_check "$pp" wiring
+  # ── 보존 잠금 (FID 20261105-console-baseline T4) ──
+  # PP-L1: 셸 훅 등록 전체 등가 — modules 를 뺀 나머지가 이식 전 hooks.json 의 리터럴과 같다(키·matcher·command·async 값까지)
+  EXPECTED_SHELL_HOOKS=$(cat <<'LITERAL'
+{
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "idle_prompt"
+      },
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "permission_prompt"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/posttool-governance.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash|Skill"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pretool-governance.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "SubagentHandback"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "startup|clear|compact"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/ensure-session-progress.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-governance.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/freecomment-capture.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "devfsd:spec-reviewer-ko|devfsd:code-reviewer-ko|specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko"
+      }
+    ]
+  }
+}
+LITERAL
+)
+  [ "$(jq -S 'del(.modules)' "$HJ" 2>/dev/null)" = "$EXPECTED_SHELL_HOOKS" ] && ok "PP-L1 셸 훅 등록 전체 등가(값까지)" || ng "PP-L1 셸 훅 등록이 보존 리터럴과 다르다"
+  [ "$(jq -c '.modules' "$HJ" 2>/dev/null)" = '["./register.tsx"]' ] && ok "PP-L2 modules == [./register.tsx]" || ng "PP-L2 modules 가 [./register.tsx] 가 아니다"
+  # PP-L3: 출처 고지
+  { [ -s "$PLUGIN/NOTICE" ] && grep -qF 'Stephen Casella' "$PLUGIN/NOTICE" && grep -qF 'MIT' "$PLUGIN/NOTICE"; } && ok "PP-L3 NOTICE 존재·Stephen Casella·MIT" || ng "PP-L3 NOTICE 없음 또는 Stephen Casella/MIT 누락"
+  { [ -s "$PLUGIN/LICENSE-flightdeck" ] && grep -qF 'Stephen Casella' "$PLUGIN/LICENSE-flightdeck" && grep -qF 'MIT' "$PLUGIN/LICENSE-flightdeck"; } && ok "PP-L4 LICENSE-flightdeck 존재·Stephen Casella·MIT" || ng "PP-L4 LICENSE-flightdeck 없음/빈 파일 또는 Stephen Casella/MIT 누락"
+  # PP-L5: 이식 파일 5개 첫 3줄 머리말 (register.tsx 는 devFSD 작성이라 제외)
+  for f in console.tsx core.ts rail.tsx elapsed.tsx console.test.ts; do
+    head -3 "$PLUGIN/hooks/$f" 2>/dev/null | grep -qF 'Ported from Claude Flightdeck' && ok "PP-L5 $f 머리말" || ng "PP-L5 $f 머리말(Ported from Claude Flightdeck) 없음"
+  done
+  # PP-L6: 격리 5곳 — validate 의 'without .catch' 이름 집합이 정확히 범위 밖 둘 (CLI 없으면 SKIP)
+  if command -v "$CLAUDE_BIN" >/dev/null 2>&1 && "$CLAUDE_BIN" plugin test --help >/dev/null 2>&1; then
+    names=$("$CLAUDE_BIN" plugin validate "$pp" 2>&1 | sed -n 's/.*gating hook without \.catch: //p' | sort | tr '\n' ' ')
+    [ "$names" = "agent.offer session.compact " ] && ok "PP-L6 without .catch 이름 집합 == {agent.offer, session.compact}" || ng "PP-L6 without .catch 이름 집합이 다르다: ${names:-없음}"
+  else
+    echo "SKIP PP-L6 claude CLI 없음·plugin test 미지원 — validate 이름 집합 생략"
+  fi
 fi
 
 # ── docs ─────────────────────────────────────────────────────────────

@@ -475,6 +475,16 @@ _chk_effort_env() {
   fi
 }
 
+# 관제판(mod) — Claude Code 2.1.287 이상에서만 로드된다. 조회만 한다.
+_chk_console() {
+  local v min=2.1.287
+  if ! command -v claude >/dev/null 2>&1; then _add console unknown "claude CLI 없음 — 관제판(mod) 버전 판정 불가" ""; return; fi
+  v=$(claude --version 2>/dev/null | sed -n 's/^\([0-9][0-9.]*\).*/\1/p')
+  if [ -z "$v" ]; then _add console unknown "claude --version 출력을 판독하지 못함 — 관제판(mod) 버전 판정 불가" ""; return; fi
+  if [ "$(printf '%s\n%s\n' "$min" "$v" | sort -V | head -1)" = "$min" ]; then _add console ok "Claude Code $v — 관제판 사용 가능(2.1.287 이상)" ""
+  else _add console warn "Claude Code $v < $min — 관제판 비활성" "Claude Code 를 2.1.287 이상으로 올리세요"; fi
+}
+
 JSON=0
 [ "${1:-}" = "--json" ] && JSON=1
 
@@ -495,6 +505,7 @@ else
   _chk_stale
   _chk_governance
   _chk_deps
+  _chk_console
   _chk_effort_env
 fi
 

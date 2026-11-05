@@ -1,7 +1,7 @@
 ---
 name: doctor
 disable-model-invocation: true
-description: specops 설치·환경 건강 진단 — git hook 2단 게이트·memory 채움·고아 FID·progress 정합·부트스트랩 종결·무음 실패 적체·거버넌스 훅 활성·필수 의존·effort 환경변수 9항목 read-only 점검
+description: specops 설치·환경 건강 진단 — git hook 2단 게이트·memory 채움·고아 FID·progress 정합·부트스트랩 종결·무음 실패 적체·거버넌스 훅 활성·필수 의존·관제판 버전·effort 환경변수 10항목 read-only 점검
 triggers:
   - "/doctor"
 mode: ask
@@ -36,6 +36,7 @@ reference_upstream: specops-ko 독자 추가
 | `stale` | 무음 실패 — pending 적체(>7일) · freelog 정체(>14일 + 그 사이 커밋) · 최근 30일 우회 ≥3건 |
 | `governance` | 거버넌스 훅 4종(`pretool-governance`·`posttool-governance`·`stop-governance`·`session-start`)이 실제로 켜져 있는가 — 전부 활성이면 `훅 4종 활성`, 아니면 `훅 N/4 비활성: <목록>` (조치: `.specops/config.yaml` 의 profile/hooks 설정 확인). 훅이 켜져 있어도 `jq` 가 없으면 ⚠️ — 전부 fail-open 이라 동작하지 않는다 |
 | `deps` | 거버넌스가 의존하는 도구. **두 부재의 귀결이 다르다** — `jq` 부재 → 훅이 전면 fail-open(거버넌스 비활성) · `python3`/`pyyaml` 부재 → `is-hook-enabled` 가 default enabled 로 답해 위 `governance` 항목이 config 킬스위치를 **탐지하지 못한다**. `jq` 가 있고 pyyaml 만 없으면 훅 자체는 정상 동작한다 |
+| `console` | 관제판(mod)은 Claude Code **2.1.287 이상**에서만 로드된다. `claude --version` 의 버전을 `sort -V` 로 비교 — 이상 ✅ · 미만 ⚠️(관제판 비활성, 올리라고 안내) · `claude` 없음·출력 판독 불가 `unknown`(⚠️ 가 아니다, 판정 불가를 사유와 함께 적는다). 조회만 한다 |
 | `effort_env` | `CLAUDE_CODE_EFFORT_LEVEL` 환경변수 설정 여부. 설정되면 skill·agent frontmatter effort(서브에이전트 effort 프로파일 포함)가 **전부 무력화**된다(env 가 frontmatter 보다 우선 — 공식 문서, skill 은 20261007 실측으로도 확인). 미설정 ✅ · 설정 ⚠️(값 앞 24자 표시, 의도한 설정이면 무시 가능). 빈 값은 미설정으로 본다. doctor 는 **자기 프로세스 env 만 관측**하므로 ✅ 가 무력화 없음의 증명은 아니다 |
 
 ## 계약

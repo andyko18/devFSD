@@ -10,6 +10,15 @@ unset CLAUDE_CODE_EFFORT_LEVEL   # 호스트 셸의 env 가 새 effort_env 행�
 
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 
+# 가짜 claude — console 행(관제판 버전)이 기계의 실 claude 유무·버전에 좌우되지 않게 PATH 앞에 둔다(기존 케이스 전부 같은 결과).
+FAKEBIN="$TMP/fakebin"; mkdir -p "$FAKEBIN"
+_fake_claude() {  # $1=--version 이 찍을 문자열, $2=종료코드(기본 0)
+  printf '#!/bin/sh\n[ "$1" = "--version" ] && { printf "%%s\\n" "%s"; exit %s; }\nexit 0\n' "$1" "${2:-0}" > "$FAKEBIN/claude"
+  chmod +x "$FAKEBIN/claude"
+}
+_fake_claude "2.1.318 (Claude Code)"
+PATH="$FAKEBIN:$PATH"
+
 _mkrepo() {  # $1=repo 경로 — git init + .specops 생성
   mkdir -p "$1/.specops"
   git -C "$1" init -q 2>/dev/null
@@ -220,7 +229,7 @@ printf '%s\n' "$_OUT" | grep '^| governance |' | grep -q '✅' \
 # T8 (AC-8): --json 9항목 status  ← governance·deps 2항목 추가(FID 20260830 T3)
 R="$TMP/r8"; _mkrepo "$R"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
-if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '(.checks|length)==9 and all(.checks[]; has("status"))' >/dev/null 2>&1; then
+if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | jq -e '(.checks|length)==10 and all(.checks[]; has("status"))' >/dev/null 2>&1; then
   ok "T8 --json 스키마"
 else
   nope "T8" "rc=$_RC out=$_OUT"
@@ -252,7 +261,7 @@ else
   nope "T10" "commands/doctor.md 누락·필드 미비"
 fi
 
-# T11 (AC-11): 정상 상태에서도 9행 전부 출력
+# T11 (AC-11): 정상 상태에서도 10행 전부 출력
 R="$TMP/r11"; _mkrepo "$R"; _hooks_ok "$R"
 mkdir -p "$R/.specops/memory"; printf '# doc\n\n실제 내용\n' > "$R/.specops/memory/x.md"
 printf '# Session Progress\n' > "$R/.specops/session-progress.md"
@@ -266,11 +275,11 @@ printf '{"ts":"%s","files":["a.sh"],"prompt":"","type":"fix","fid":""}\n' \
 git -C "$R" add -A >/dev/null 2>&1
 git -C "$R" commit -q -m "chore(init): /init-project 부트스트랩 (픽스처)" >/dev/null 2>&1
 _run "$R"
-rows=$(printf '%s' "$_OUT" | grep -cE '^\| (git_hooks|memory|orphan_fid|progress|bootstrap|stale|governance|deps|effort_env) ')
+rows=$(printf '%s' "$_OUT" | grep -cE '^\| (git_hooks|memory|orphan_fid|progress|bootstrap|stale|governance|deps|console|effort_env) ')
 oks=$(printf '%s' "$_OUT" | grep -c '✅')
-# AC-11 Then 은 2절이다 — "9행 출력" AND "각 행이 ✅". 행 수만 세면 ⚠️ 9행도 통과한다.
-[ "${rows:-0}" -eq 9 ] && [ "${oks:-0}" -eq 9 ] \
-  && ok "T11 정상 상태 9행 전부 ✅" || nope "T11" "rows=$rows oks=$oks out=$_OUT"
+# AC-11 Then 은 2절이다 — "10행 출력" AND "각 행이 ✅". 행 수만 세면 ⚠️ 10행도 통과한다.
+[ "${rows:-0}" -eq 10 ] && [ "${oks:-0}" -eq 10 ] \
+  && ok "T11 정상 상태 10행 전부 ✅" || nope "T11" "rows=$rows oks=$oks out=$_OUT"
 
 # ── Phase C 수습 (리뷰 T3-C / T4-C) ─────────────────────────────────────────
 
@@ -296,7 +305,7 @@ R="$TMP/r14"; _mkrepo "$R"
 mkdir -p "$R/.specops/20260401-a|b|c"; printf '# spec\n' > "$R/.specops/20260401-a|b|c/spec.md"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
 if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
-   | jq -e '(.checks|length)==9
+   | jq -e '(.checks|length)==10
             and ((.checks[]|select(.id=="orphan_fid")|.fix)=="진행하거나 정리하세요")' >/dev/null 2>&1; then
   ok "T14 파이프 인젝션에도 JSON 필드 정합 유지 (fix 문구 무손실)"
 else
@@ -318,10 +327,10 @@ mkdir -p "$R/.specops/$NLDIR"; printf '# spec\n' > "$R/.specops/$NLDIR/spec.md"
 _OUT=$(cd "$R" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1); _RC=$?
 # 행 수만 세면 mkdir 실패로 픽스처가 재현 안 돼도 9행이라 헛통과한다 — 고아 검출까지 함께 고정.
 if [ "$_RC" -eq 0 ] && printf '%s' "$_OUT" \
-   | jq -e '(.checks|length)==9
+   | jq -e '(.checks|length)==10
             and ((.checks[]|select(.id=="orphan_fid")|.status)=="warn")
             and ((.checks[]|select(.id=="orphan_fid")|.detail)|test("20260402-x"))' >/dev/null 2>&1; then
-  ok "T14b 개행 포함 FID 에도 행 위조 없음 (checks 9행 고정)"
+  ok "T14b 개행 포함 FID 에도 행 위조 없음 (checks 10행 고정)"
 else
   nope "T14b" "rc=$_RC out=$_OUT"
 fi
@@ -459,8 +468,8 @@ _n=$(printf '%s' "$_OUT" | jq -r '.checks|length' 2>/dev/null)
 _sv=$(printf '%s' "$_OUT" | jq -r '.schema_version' 2>/dev/null)
 _wc=$(printf '%s' "$_OUT" | jq -r '.warn_count' 2>/dev/null)
 _actual=$(printf '%s' "$_OUT" | jq -r '[.checks[]|select(.status=="warn" or .status=="unknown")]|length' 2>/dev/null)
-[ "$_n" = "9" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
-  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=9 · warn_count=$_wc)" \
+[ "$_n" = "10" ] && [ "$_sv" = "1" ] && [ "$_wc" = "$_actual" ] \
+  && ok "T23 아카이브 상태에서 --json 스키마 불변 (checks=10 · warn_count=$_wc)" \
   || nope "T23" "n=$_n sv=$_sv wc=$_wc actual=$_actual"
 
 # T27 (Phase C Important 2): CRLF 헤더에서도 dir 존재 판정이 어긋나지 않는다
@@ -934,9 +943,9 @@ for _lv in "" high; do
   _effout "$_lv" --json
   _wc=$(printf '%s' "$_EO" | jq -r '.warn_count' 2>/dev/null)
   _act=$(printf '%s' "$_EO" | jq -r '[.checks[]|select(.status!="ok")]|length' 2>/dev/null)
-  if printf '%s' "$_EO" | jq -e '(.checks|length)==9 and .schema_version==1 and (.checks[-1].id=="effort_env")' >/dev/null 2>&1 \
+  if printf '%s' "$_EO" | jq -e '(.checks|length)==10 and .schema_version==1 and (.checks[-1].id=="effort_env")' >/dev/null 2>&1 \
      && [ "$_wc" = "$_act" ]; then
-    ok "T-effort.d --json 9건·schema 1·마지막 effort_env·warn_count 정합 (env='${_lv:-빈}') (AC-3)"
+    ok "T-effort.d --json 10건·schema 1·마지막 effort_env·warn_count 정합 (env='${_lv:-빈}') (AC-3)"
   else nope "T-effort.d" "env='$_lv' wc=$_wc act=$_act"; fi
 done
 # 값에 구분자·개행이 있어도 표·JSON 행이 위조·분열되지 않고 `|` 는 단일 `/` 로 표시된다 (bash 3.2 에서도)
@@ -945,8 +954,8 @@ if [ "$(printf '%s\n' "$_EO" | grep -c '^| effort_env |')" = "1" ] && printf '%s
   ok "T-effort.f 값의 | · 개행이 표 행을 위조·분열시키지 않음 (표)"
 else nope "T-effort.f" "표='$(printf '%s\n' "$_EO" | grep -c '^| effort_env |')'행"; fi
 _effout $'x|y\nz' --json
-if printf '%s' "$_EO" | jq -e '(.checks|length)==9 and (.checks[-1].detail|test("=x/y z "))' >/dev/null 2>&1; then
-  ok "T-effort.g 값의 | · 개행이 --json 필드를 오염시키지 않음 (checks 9건 유지)"
+if printf '%s' "$_EO" | jq -e '(.checks|length)==10 and (.checks[-1].detail|test("=x/y z "))' >/dev/null 2>&1; then
+  ok "T-effort.g 값의 | · 개행이 --json 필드를 오염시키지 않음 (checks 10건 유지)"
 else nope "T-effort.g" "out=$_EO"; fi
 
 # T-ds.d (AC-5): 문서 SoT 가 관할 축을 기술한다
@@ -960,5 +969,34 @@ grep -q '미채움 문서 \${bad}개 (자리표시자가 남은 문서 수)' "$P
   && grep -q "scan-enrich-placeholders.sh' <문서>" "$PLUGIN/scripts/doctor.sh" \
   && grep -q '알려진 한계, 조치 없음' "$PLUGIN/scripts/doctor.sh" \
   && ok "T-ds.e memory 경고의 단위·가리킴 · git_hooks 경고의 한계 고지" || nope "T-ds.e" "doctor.sh 문구 누락"
+
+# ── console (FID 20261105-console-baseline T5): 관제판은 Claude Code 2.1.287 이상에서만 로드된다 ──
+# 각 케이스는 id=="console" 행을 골라 id·status 를 함께 단언한다(문자열 grep 은 다른 check 의 ok 에 일치한다).
+_console_case() {  # $1=라벨 $2=기대 status $3=detail 에 있어야 할 문구 · PATH 의 가짜 claude 로 --json 실행
+  local rr="$TMP/rcon-$1"; _mkrepo "$rr"
+  _OUT=$(cd "$rr" && SPECOPS_ROOT=".specops" bash "$SH" --json 2>&1)
+  printf '%s' "$_OUT" | jq -e --arg st "$2" --arg d "$3" '.checks[]|select(.id=="console")|(.status==$st) and (.detail|contains($d))' >/dev/null 2>&1 \
+    && ok "T-console.$1 → $2" || nope "T-console.$1" "want=$2/$3 out=$_OUT"
+}
+_fake_claude "2.1.286 (Claude Code)"; _console_case v286 warn "관제판 비활성"
+printf '%s' "$_OUT" | jq -e '.checks[]|select(.id=="console")|.fix|length>0' >/dev/null 2>&1 \
+  && ok "T-console.v286.fix warn 은 조치(fix)를 싣는다" || nope "T-console.v286.fix" "out=$_OUT"
+_fake_claude "2.1.287 (Claude Code)"; _console_case v287 ok "사용 가능"
+_fake_claude "2.1.318 (Claude Code)"; _console_case v318 ok "사용 가능"
+_fake_claude "2.1.9 (Claude Code)";   _console_case v9 warn "관제판 비활성"      # 사전식 비교면 ok 로 잘못 나온다
+_fake_claude "2.1.1000 (Claude Code)"; _console_case v1000 ok "사용 가능"
+_fake_claude "foo" 0;                  _console_case garbage unknown "판독하지 못함"
+_fake_claude "" 1;                     _console_case rc1 unknown "판독하지 못함"
+# claude 없음 — 실 claude 가 PATH 뒤쪽에 있어도 잡히지 않게 PATH 를 최소 도구 디렉터리 하나로 대체한다
+MINBIN="$TMP/minbin"; mkdir -p "$MINBIN"
+for _t in bash sh jq git sed sort head tail awk grep cat cut tr wc date find ls mkdir rm mv cp basename dirname stat uniq xargs readlink python3 env printf test chmod touch mktemp tee id uname expr; do
+  _p=$(command -v "$_t" 2>/dev/null) && [ -x "$_p" ] && ln -sf "$_p" "$MINBIN/$_t"
+done
+rm -f "$FAKEBIN/claude"
+_rn="$TMP/rcon-none"; _mkrepo "$_rn"
+_OUT=$(cd "$_rn" && PATH="$MINBIN" SPECOPS_ROOT=".specops" "$MINBIN/bash" "$SH" --json 2>&1)
+printf '%s' "$_OUT" | jq -e '.checks[]|select(.id=="console")|(.status=="unknown") and (.detail|contains("claude CLI 없음"))' >/dev/null 2>&1 \
+  && ok "T-console.none claude 없음 → unknown(\"claude CLI 없음\")" || nope "T-console.none" "out=$_OUT"
+_fake_claude "2.1.318 (Claude Code)"   # 이후 케이스 복구
 
 finish

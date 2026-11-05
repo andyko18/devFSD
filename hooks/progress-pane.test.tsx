@@ -158,14 +158,14 @@ test('a governed repo opens the pane at session start', async ($, on) => {
   const calls = opened(on)
   on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' }))
   await $.session.start({ cwd: '/repo', ...START })
-  expect(calls).toEqual(['devfsd-progress'])
+  expect(calls).toEqual(['devfsd-console'])
 })
 
 test('a worktree of a governed repo opens the pane', async ($, on) => {
   const calls = opened(on)
   on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' }))
   await $.session.start({ cwd: '/repo/.claude/worktrees/wt', ...START })
-  expect(calls).toEqual(['devfsd-progress'])
+  expect(calls).toEqual(['devfsd-console'])
 })
 
 test('another repo does not open the pane, the command still does', async ($, on) => {
@@ -181,16 +181,16 @@ test('a worktree with its own .specops opens the pane', async ($, on) => {
   const calls = opened(on)
   on('fs.exists', (_, e) => ({ value: e.path === '/repo/.claude/worktrees/wt/.specops' }))
   await $.session.start({ cwd: '/repo/.claude/worktrees/wt', ...START })
-  expect(calls).toEqual(['devfsd-progress'])
+  expect(calls).toEqual(['devfsd-console'])
 })
 
 test('a .worktrees worktree opens the pane, a look-alike folder does not', async ($, on) => {
   const calls = opened(on)
   on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' }))
   await $.session.start({ cwd: '/repo/.worktrees/20261030-x', ...START })
-  expect(calls).toEqual(['devfsd-progress'])
+  expect(calls).toEqual(['devfsd-console'])
   await $.session.start({ cwd: '/repo/.worktrees-old/x', ...START })
-  expect(calls).toEqual(['devfsd-progress'])
+  expect(calls).toEqual(['devfsd-console'])
 })
 
 test('a failing existence check keeps the pane closed without rejecting', async ($, on) => {
@@ -303,8 +303,9 @@ test('recent keeps the latest five, newest on top', async ($, on) => {
   const done = (await rowsOf($)).filter(row => row.includes('✓'))
   expect(done.length).toBe(5)
   expect(done.some(row => row.includes('작업 a1 '))).toBe(false)
-  expect(done[0]).toBe('  ✓ 작업 a6 · 1s')
-  expect(done[4]).toBe('  ✓ 작업 a2 · 1s')
+  // 관제판 훅도 같은 시계를 읽으므로 소요 초는 고정하지 않고 순서만 본다.
+  expect(done[0]).toMatch(/^  ✓ 작업 a6 · \d+s$/)
+  expect(done[4]).toMatch(/^  ✓ 작업 a2 · \d+s$/)
 })
 
 test('the hooks hand back exactly what the tool returned', async ($, on) => {
@@ -489,7 +490,7 @@ test('a failing clock at session start still opens the pane of a governed repo',
   on('ui.open', (_, e) => { opens.push(e.id); return { value: { isPlaced: true } } })
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/repo', ...START })
-  expect(opens).toEqual(['devfsd-progress'])
+  expect(opens).toEqual(['devfsd-console'])
 })
 
 const PROG = [
@@ -520,7 +521,7 @@ test('activeFid marker beats an earlier heading and bad shapes fall back', () =>
 
 test('stagesOf reads the newest record of each stage', () => {
   const line = stagesOf(PROG, '20261104-b').map(s => s.label + s.mark).join(' ')
-  expect(line).toBe('분석✓ 명세✓ 명확화– 설계– 분해✓ 구현● 검증○ 보안○ 통합○ 성능○ PR○')
+  expect(line).toBe('분석✓ 명세✓ 명확화– 설계– 분해✓ 구현● 검증○ 보안○ 통합○ 성능○ 데모○ PR○')
   const noAnalyze = PROG.replace('- 2026-11-04 10:00 /analyze 완료 (x)\n', '')
   expect(stagesOf(noAnalyze, '20261104-b')[0].label).toBe('명세')
   const failed = PROG.replace('/implement 진행 (T1)', '/verify FAIL (x)\n- 2026-11-04 10:05 /verify PASS (old)')
@@ -529,7 +530,7 @@ test('stagesOf reads the newest record of each stage', () => {
   expect(stagesOf(memo, '20261104-b').find(s => s.key === 'tasks')?.mark).toBe('●')
 })
 
-test('stagesOf maps all 11 stage commands and symbol words', () => {
+test('stagesOf maps all 12 stage commands and symbol words', () => {
   const full = [
     '## 20261104-f', '',
     '- d t /analyze 완료', '- d t /specify DONE', '- d t /clarify SKIP', '- d t /plan PASS',
@@ -537,7 +538,7 @@ test('stagesOf maps all 11 stage commands and symbol words', () => {
     '- d t /integration-test SKIP', '- d t /performance-test 진행', '- d t /lifecycle DONE', '',
   ].join('\n')
   const line = stagesOf(full, '20261104-f').map(s => s.label + s.mark).join(' ')
-  expect(line).toBe('분석✓ 명세✓ 명확화– 설계✓ 분해✗ 구현✗ 검증● 보안✓ 통합– 성능● PR✓')
+  expect(line).toBe('분석✓ 명세✓ 명확화– 설계✓ 분해✗ 구현✗ 검증● 보안✓ 통합– 성능● 데모○ PR✓')
   expect(stagesOf('## 20261104-f\n\n- d t /pr 완료\n', '20261104-f').find(s => s.key === 'pr')?.mark).toBe('○')
   const dir = '## 20261104-f\n\n- d t /verify PASS\n- d t /verify FAIL\n'
   expect(stagesOf(dir, '20261104-f').find(s => s.key === 'verify')?.mark).toBe('✓')
@@ -912,9 +913,9 @@ test('every refreshing tool recomputes only after its own call returned', async 
   expect(w.seen.slice(base)).toEqual(calls.map(() => true))
 })
 
-const BAR_B = '분석✓ 명세✓ 명확화– 설계– 분해✓ 구현● 검증○ 보안○ 통합○ 성능○ PR○'
-const BAR_NONE = '명세○ 명확화○ 설계○ 분해○ 구현○ 검증○ 보안○ 통합○ 성능○ PR○'
-const BAR_DONE = '명세○ 명확화○ 설계○ 분해○ 구현○ 검증✓ 보안○ 통합○ 성능○ PR✓'
+const BAR_B = '분석✓ 명세✓ 명확화– 설계– 분해✓ 구현● 검증○ 보안○ 통합○ 성능○ 데모○ PR○'
+const BAR_NONE = '명세○ 명확화○ 설계○ 분해○ 구현○ 검증○ 보안○ 통합○ 성능○ 데모○ PR○'
+const BAR_DONE = '명세○ 명확화○ 설계○ 분해○ 구현○ 검증✓ 보안○ 통합○ 성능○ 데모○ PR✓'
 
 /** 한 surface 로 마운트해 비지 않은 Text 줄을 trim 해 읽는다. */
 const rowsOn = async ($: Pane$, surface: (typeof SURFACES)[number]): Promise<string[]> => {
@@ -1029,4 +1030,25 @@ test('the badge is bold except for done and pass', async ($, on) => {
   await $.tool.call(editCall('toolu_b1'))
   await drain()
   for (const surface of SURFACES) expect(await boldOf(surface, /^검증 /)).not.toBe(true)
+})
+
+test('devFSD: stagesOf puts 데모 between 성능 and PR, marked by its own /demo row only', () => {
+  const prog = [
+    '# p', '', '## 20261105-d · 데모', '',
+    '- 2026-11-05 11:03 /demo DONE (screens)',
+    '- 2026-11-05 11:02 /performance-test SKIP (x)',
+    '- 2026-11-05 11:01 /verify PASS (x)', '',
+  ].join('\n')
+  const labels = stagesOf(prog, '20261105-d').map(s => s.label + s.mark)
+  expect(labels.slice(-4)).toEqual(['통합○', '성능–', '데모✓', 'PR○'])
+  // /demo 행이 없으면 ○ — 다른 단계 행(/lifecycle DONE 등)이 데모를 채우지 않는다
+  const none = prog.replace('- 2026-11-05 11:03 /demo DONE (screens)\n', '')
+  expect(stagesOf(none, '20261105-d').find(s => s.key === 'demo')).toEqual({ key: 'demo', label: '데모', mark: '○' })
+  expect(stagesOf(none, '20261105-d').find(s => s.key === 'pr')?.mark).toBe('○')
+})
+
+test('devFSD: stageOf names the demo skill 데모 (demo-ko)', () => {
+  expect(stageOf('devfsd:demo-ko')).toBe('데모 (demo-ko)')
+  expect(stageOf('specops-ko:demo-ko')).toBe('데모 (demo-ko)')
+  expect(stageOf('demolition-ko')).toBe(undefined) // 접두 일치로 번지지 않는다
 })

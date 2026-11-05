@@ -205,6 +205,7 @@
 - `skills/performance-test-ko/SKILL.md` — specops-ko 독자 추가 (test-master 패턴 번안)
 - `skills/release-ko/SKILL.md` — specops-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills
 - `skills/security-review-ko/SKILL.md` — specops-ko 독자 추가 (integration-test-ko 게이트 패턴 번안)
+- hooks/console.tsx·core.ts·rail.tsx·elapsed.tsx·console.test.ts — Claude Flightdeck v0.6.0 (MIT, Copyright 2026 Stephen Casella) 이식, devFSD 변경은 // devFSD: 주석 (hooks/register.tsx 는 devFSD 작성 진입점)
 
 ---
 

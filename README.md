@@ -308,7 +308,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | 슬래시 | 용도 |
 |---|---|
 | `/status` | 진행 중 FID 의 단계·아티팩트 현황 |
-| `/doctor` | 설치·환경 건강 진단 9항목 (read-only) |
+| `/doctor` | 설치·환경 건강 진단 10항목 (read-only) |
 | `/design-overview` | 설계 문서를 읽기 전용 HTML 한 장으로 — 구성도·프로세스 흐름·ERD 그림, 추적표, 미확정/가정 목록 (`--check` 로 낡음 확인) |
 | `/gbrain` · `/log` | 세션 인사이트 조회 · 즉석 기록 |
 | `/promote` | 자유작업 mini-FID 를 lifecycle 로 승격 |
@@ -381,6 +381,8 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 ## 라이선스
 
 **MIT** — [LICENSE](LICENSE). `Copyright (c) 2026 andyko18`.
+
+관제판(hooks/console.tsx 등)은 [Claude Flightdeck](https://github.com/scasella/claude-flightdeck) v0.6.0 (MIT) 을 이식했다 — NOTICE·LICENSE-flightdeck 참조.
 
 ---
 

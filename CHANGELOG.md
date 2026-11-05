@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 관제판(패널 8개) — Flightdeck v0.6.0 이식. 세션 시작 때 자동으로 열리고 예전 진행 패널은 /devfsd-progress. 진행 패널에 데모 단계 추가, /doctor 가 Claude Code 2.1.287 미만에서 경고.
+
 ## [3.1.7] — 2026-11-05
 
 ### Added

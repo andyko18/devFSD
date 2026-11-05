@@ -6,6 +6,7 @@
 #   C 절(양성 대조)이 매번 증명한다 — 본문 사본에 변이를 넣고 같은 검사 함수를 돌려 기대한 ID 가 FAIL 하는지 본다.
 set -u
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
+export LC_ALL=C   # macOS grep -xF 가 UTF-8 로캘에서 한글 줄을 다르게 맞춘다(CI macOS 실측 C7.e) — 바이트 비교로 고정
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd) || exit 1
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }

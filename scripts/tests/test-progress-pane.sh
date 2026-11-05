@@ -129,6 +129,143 @@ if want wiring; then
   pp="$WORK/wired"; mkdir -p "$pp/.claude-plugin"
   cp "$PJ" "$pp/.claude-plugin/"; cp -R "$PLUGIN/hooks" "$pp/"; cp -R "$PLUGIN/types" "$pp/" 2>/dev/null
   engine_check "$pp" wiring
+  # ── 보존 잠금 (FID 20261105-console-baseline T4) ──
+  # PP-L1: 셸 훅 등록 전체 등가 — modules 를 뺀 나머지가 이식 전 hooks.json 의 리터럴과 같다(키·matcher·command·async 값까지)
+  EXPECTED_SHELL_HOOKS=$(cat <<'LITERAL'
+{
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "idle_prompt"
+      },
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/notify.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "permission_prompt"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/posttool-governance.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash|Skill"
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/pretool-governance.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "SubagentHandback"
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "startup|clear|compact"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/ensure-session-progress.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/stop-governance.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/freecomment-capture.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "async": false,
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh\"",
+            "type": "command"
+          }
+        ],
+        "matcher": "devfsd:spec-reviewer-ko|devfsd:code-reviewer-ko|specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko"
+      }
+    ]
+  }
+}
+LITERAL
+)
+  [ "$(jq -S 'del(.modules)' "$HJ" 2>/dev/null)" = "$EXPECTED_SHELL_HOOKS" ] && ok "PP-L1 셸 훅 등록 전체 등가(값까지)" || ng "PP-L1 셸 훅 등록이 보존 리터럴과 다르다"
+  [ "$(jq -c '.modules' "$HJ" 2>/dev/null)" = '["./register.tsx"]' ] && ok "PP-L2 modules == [./register.tsx]" || ng "PP-L2 modules 가 [./register.tsx] 가 아니다"
+  # PP-L3: 출처 고지
+  { [ -s "$PLUGIN/NOTICE" ] && grep -qF 'Stephen Casella' "$PLUGIN/NOTICE" && grep -qF 'MIT' "$PLUGIN/NOTICE"; } && ok "PP-L3 NOTICE 존재·Stephen Casella·MIT" || ng "PP-L3 NOTICE 없음 또는 Stephen Casella/MIT 누락"
+  { [ -s "$PLUGIN/LICENSE-flightdeck" ] && grep -qF 'Stephen Casella' "$PLUGIN/LICENSE-flightdeck" && grep -qF 'MIT' "$PLUGIN/LICENSE-flightdeck"; } && ok "PP-L4 LICENSE-flightdeck 존재·Stephen Casella·MIT" || ng "PP-L4 LICENSE-flightdeck 없음/빈 파일 또는 Stephen Casella/MIT 누락"
+  # PP-L5: 이식 파일 5개 첫 3줄 머리말 (register.tsx 는 devFSD 작성이라 제외)
+  for f in console.tsx core.ts rail.tsx elapsed.tsx console.test.ts; do
+    head -3 "$PLUGIN/hooks/$f" 2>/dev/null | grep -qF 'Ported from Claude Flightdeck' && ok "PP-L5 $f 머리말" || ng "PP-L5 $f 머리말(Ported from Claude Flightdeck) 없음"
+  done
+  # PP-L6: 격리 5곳 — validate 의 'without .catch' 이름 집합이 정확히 범위 밖 둘 (CLI 없으면 SKIP)
+  if command -v "$CLAUDE_BIN" >/dev/null 2>&1 && "$CLAUDE_BIN" plugin test --help >/dev/null 2>&1; then
+    names=$("$CLAUDE_BIN" plugin validate "$pp" 2>&1 | sed -n 's/.*gating hook without \.catch: //p' | sort | tr '\n' ' ')
+    [ "$names" = "agent.offer session.compact " ] && ok "PP-L6 without .catch 이름 집합 == {agent.offer, session.compact}" || ng "PP-L6 without .catch 이름 집합이 다르다: ${names:-없음}"
+  else
+    echo "SKIP PP-L6 claude CLI 없음·plugin test 미지원 — validate 이름 집합 생략"
+  fi
 fi
 
 # ── docs ─────────────────────────────────────────────────────────────

@@ -57,8 +57,9 @@ import type { Check } from '../types'
 // ---------------------------------------------------------------- pure behaviour
 
 test('redaction masks credentials before anything is stored', () => {
-  expect(redact('curl -H "Authorization: Bearer abc.def.ghi123" x')).not.toContain('abc.def')
-  expect(redact('export OPENAI_API_KEY=sk-proj-1234567890abcdef')).not.toContain('1234567890')
+  // devFSD: 가짜 비밀을 조각으로 이어 만든다 — 비밀 검사기(gitleaks)가 테스트 값을 진짜 비밀로 읽는 오탐을 피한다
+  expect(redact('curl -H "Authorization: Bearer ' + 'abc.def.ghi123' + '" x')).not.toContain('abc.def')
+  expect(redact('export OPENAI_API_KEY=' + 'sk-proj-' + '1234567890abcdef')).not.toContain('1234567890')
   expect(redact('gh auth --token ghp_abcdefghijklmnop')).not.toContain('abcdefghijklmnop')
   expect(redact('psql postgres://bob:hunter2@db/x')).not.toContain('hunter2')
   expect(redact('password=hunter2 ls')).not.toContain('hunter2')
@@ -407,7 +408,7 @@ test('the gate strip fills from checks and a row opens its redacted drill-down',
   engine(on)
   on('tool.check', (_$, e) => ({ decision: e.tool === 'Read' ? 'allow' : 'ask' }))
   await $.tool.check({ tool: 'Read', input: { file_path: '/a/b.ts' }, tool_use_id: 'k1' })
-  await $.tool.check({ tool: 'Bash', input: { command: 'curl -H "Authorization: Bearer abcdefgh12345" api' }, tool_use_id: 'k2' })
+  await $.tool.check({ tool: 'Bash', input: { command: 'curl -H "Authorization: Bearer ' + 'abcdefgh12345' + '" api' }, tool_use_id: 'k2' })
   const ui = await $.ui.mount({ ...pane(64), surface: 'terminal' })
   expect(await ui.find({ text: /2 checks/ })).toBeDefined()
   expect(await ui.find({ text: /1 pending/ })).toBeDefined()

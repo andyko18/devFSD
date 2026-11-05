@@ -325,7 +325,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
   on('classic.UserPromptSubmit', async ($, e, next) => {
     await noteMode($, e.permission_mode)
     return next(e)
-  })
+  }).catch(($, e, next) => next(e)) // devFSD: 관제판은 관찰만 한다 — 처리기가 던져도 도구 호출·프롬프트는 통과한다
 
   on('agent.offer', async ($, e, next) => {
     const offered = await next(e)
@@ -495,7 +495,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       }
     }
     return verdict
-  })
+  }).catch(($, e, next) => next(e)) // devFSD: 관제판은 관찰만 한다 — 처리기가 던져도 도구 호출·프롬프트는 통과한다
 
   on('tool.call', async ($, e, next) => {
     callLoop.set(e.tool_use_id, e.agentId ?? null)
@@ -540,7 +540,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     else if (isEdit) await say($, await whoIs($, e.agentId), text, 'info', e.agentId ?? null)
     if (isSettled || !didRun) await refreshStatus($, cfg)
     return ran
-  })
+  }).catch(($, e, next) => next(e)) // devFSD: 관제판은 관찰만 한다 — 처리기가 던져도 도구 호출·프롬프트는 통과한다
 
   // A server-side review tool never reaches tool.call: it shows only in the assistant's rows.
   // Only response rows carry them. A managed plugin may pass user plugins over on other doors.
@@ -567,7 +567,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       }
     }
     return next(e)
-  })
+  }).catch(($, e, next) => next(e)) // devFSD: 관제판은 관찰만 한다 — 처리기가 던져도 도구 호출·프롬프트는 통과한다
 
   on('agent.spawn', async ($, e, next) => {
     const started = await next(e)
@@ -605,7 +605,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     if (isNew || isResumed) await say($, shorten(cardTitle(card), 12), isNew ? `spawned · ${card.type}` : 'resumed', 'info', id)
     await refreshStatus($, cfg)
     return started
-  })
+  }).catch(($, e, next) => next(e)) // devFSD: 관제판은 관찰만 한다 — 처리기가 던져도 도구 호출·프롬프트는 통과한다
 
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)

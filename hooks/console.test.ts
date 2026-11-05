@@ -1268,3 +1268,84 @@ test('a running connector keeps its length every frame: one face, clipped at its
     await ui.unmount()
   }
 })
+
+// ---------------------------------------------------------------- devFSD: 처리기 예외 격리 (AC-3)
+// 관제판은 관찰만 한다 — 처리기 본문이 던져도 다음 단계(next)는 정확히 1회 실행되고 그 반환값이 그대로 돌아온다.
+// next 를 이미 부른 뒤 던지는 처리기(tool.check·tool.call·agent.spawn)는 clock.now 를 던지게 해 만들고,
+// next 전에 던지는 처리기(session.append·classic.UserPromptSubmit)는 clock.now / state.set 으로 만든다.
+const boomClock = (on: On) =>
+  on('clock.now', () => {
+    throw new Error('boom: clock')
+  })
+
+test('devFSD: tool.check — a body that throws after next still returns next\'s verdict, next ran once', async ($, on) => {
+  let ran = 0
+  on('tool.check', () => (ran += 1, { decision: 'ask' as const }))
+  boomClock(on)
+  const verdict = await $.tool.check({ tool: 'Read', input: { file_path: '/a' }, tool_use_id: 'iso-check' })
+  expect(verdict).toEqual({ decision: 'ask' })
+  expect(ran).toBe(1)
+})
+
+test('devFSD: tool.call — a body that throws after next still returns next\'s answer, next ran once', async ($, on) => {
+  let ran = 0
+  const answer = { result: {}, text: 'sentinel-call' }
+  on('tool.call', () => (ran += 1, answer))
+  boomClock(on)
+  const out = await $.tool.call({ tool: 'Edit', file_path: '/x.ts', old_string: 'a', new_string: 'b', tool_use_id: 'iso-call' } as never)
+  expect(out).toEqual(answer)
+  expect(ran).toBe(1)
+})
+
+test('devFSD: agent.spawn — a body that throws after next still returns next\'s answer, next ran once', async ($, on) => {
+  let ran = 0
+  const answer = { model: 'claude-sonnet-5-5', agentId: 'iso-agent' }
+  on('agent.spawn', () => (ran += 1, answer))
+  boomClock(on)
+  const out = await $.agent.spawn(spawn('general-purpose', 'isolate me'))
+  expect(out).toEqual(answer)
+  expect(ran).toBe(1)
+})
+
+test('devFSD: session.append{response} — a body that throws before next still reaches next, once', async ($, on) => {
+  let ran = 0
+  on('session.append', { door: 'response' }, async (_$, e, next) => (ran += 1, next(e)))
+  boomClock(on)
+  const row = {
+    message: { type: 'assistant', role: 'assistant', content: [{ type: 'server_tool_use', id: 'iso-srv', name: 'advisor', input: {} }] as never },
+    door: 'response' as const,
+    origin: { kind: 'model', model: 'claude-opus-5-5' } as never,
+    uuid: 'iso-row',
+  }
+  const out = await $.session.append(row)
+  expect(out.uuid).toBe('iso-row')
+  expect(ran).toBe(1)
+})
+
+test('devFSD: classic.UserPromptSubmit — a body that throws before next still reaches next, once', async ($, on) => {
+  let ran = 0
+  const answer = { sentinel: 'classic-answer' }
+  on('classic.UserPromptSubmit', () => (ran += 1, { value: answer as never }))
+  // every write of the mode is refused (never "set"), so update() gives up and throws — before next
+  on('state.set', () => ({ deny: 'refused' }) as never)
+  const out = await $.classic.UserPromptSubmit({ prompt: 'hi', session_id: 's1', transcript_path: '/t', cwd: '/', hook_event_name: 'UserPromptSubmit', permission_mode: 'plan' } as never)
+  expect(out).toEqual({ value: answer })
+  expect(ran).toBe(1)
+})
+
+test('devFSD: a failure inside next itself is not swallowed — it reaches the caller and next is not retried', async ($, on) => {
+  let ran = 0
+  on('tool.call', () => {
+    ran += 1
+    throw new Error('downstream boom')
+  })
+  let caught: unknown
+  try {
+    await $.tool.call({ tool: 'Edit', file_path: '/x.ts', old_string: 'a', new_string: 'b', tool_use_id: 'iso-down' } as never)
+  } catch (e) {
+    caught = e
+  }
+  expect(caught).toBeDefined()
+  expect(ran).toBe(1)
+})
+

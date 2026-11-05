@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.6] — 2026-11-05
+
 ### Added
 
 - scripts/defect-rate.sh — FID 별 머지 후 30일 안 결함 fix 수를 git 기록만으로 집계 (줄 단위 귀속).
@@ -3540,7 +3542,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.5...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.6...HEAD
+[3.1.6]: https://github.com/andyko18/devFSD/compare/v3.1.5...v3.1.6
 [3.1.5]: https://github.com/andyko18/devFSD/compare/v3.1.4...v3.1.5
 [3.1.4]: https://github.com/andyko18/devFSD/compare/v3.1.3...v3.1.4
 [3.1.3]: https://github.com/andyko18/devFSD/compare/v3.1.2...v3.1.3

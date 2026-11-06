@@ -422,7 +422,7 @@ test('a fresh session draws on every surface and width, empty panels hidden', as
   }
 })
 
-test('inline above the prompt, the pane is a summary of at most 8 rows', async ($, on) => {
+test('inline above the prompt, the pane is a summary of at most 8 rows', { options: { panels: 'main,fid,architect,gate,agents,log' } }, async ($, on) => {
   engine(on)
   let n = 0
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: `m${++n}` }))
@@ -650,17 +650,17 @@ test('each rate-limit window shows the time to its reset where the main panel ha
   })
   for (const cols of [64, 120]) {
     const ui = await $.ui.mount({ ...pane(cols), surface: 'terminal' })
-    expect(await ui.find({ text: /19% ↻3h10m/ })).toBeDefined()
-    expect(await ui.find({ text: /3% ↻4d2h/ })).toBeDefined()
+    expect(await ui.find({ text: /19% resets 3h10m/ })).toBeDefined()
+    expect(await ui.find({ text: /3% resets 4d2h/ })).toBeDefined()
     await ui.unmount()
   }
   const narrow = await $.ui.mount({ ...pane(40), surface: 'terminal' })
   expect(await narrow.find({ text: /19%/ })).toBeDefined()
-  expect(await narrow.find({ text: /↻/ })).toBeUndefined() // no room: the gauges stay whole
+  expect(await narrow.find({ text: /resets/ })).toBeUndefined() // no room: the gauges stay whole
   await narrow.unmount()
 })
 
-test("the main box shows the last request's time to first token, and no tokens per second", async ($, on) => {
+test("the main box has no last-request line any more (FR-5): neither its time to first token nor tokens per second", async ($, on) => {
   const clock = engine(on)
   // The model beneath: 800 ms to its first words, then 2 s more to stop after 120 tokens.
   on('turn.step', async function* () {
@@ -685,7 +685,7 @@ test("the main box shows the last request's time to first token, and no tokens p
   await s.result
   for (const cols of [40, 64, 120]) {
     const ui = await $.ui.mount({ ...pane(cols), surface: 'terminal' })
-    expect(await ui.find({ text: /ttft 0\.8s$/ })).toBeDefined()
+    expect(await ui.find({ text: /ttft|last req/ })).toBeUndefined() // 렌더 단언 삭제 — main 4줄에 `last req` 줄이 없다(상태 단언은 core 의 stepSpeed·fmtSpeed 단위 테스트가 유지)
     expect(await ui.find({ text: /tok\/s/ })).toBeUndefined()
     await ui.unmount()
   }
@@ -721,7 +721,7 @@ test('on a graphical surface, rows of marks hold fewer marks, keep the newest an
       expect(strip?.props.wrap).toBe('truncate-start')
       expect(strip?.text.length).toBe(surface !== 'terminal' && cols === 40 ? 24 : 30)
       expect(strip?.text.endsWith('✗')).toBe(true)
-      expect((await ui.find({ type: 'Text', text: /^●$/ }))?.props.wrap).toBe('truncate-start')
+      // other-loops 점 줄(`●`)은 별도 패널이 없어졌다(흡수) — agents 패널 안 한 줄로 되살리는 단언은 T8 몫.
       expect((await ui.find({ type: 'Text', text: /^[─━◆]+$/ }))?.props.wrap).toBe('truncate-middle')
       expect(await ui.find({ key: 'legend' })).toBeUndefined() // 범례 줄은 없다
       await ui.unmount()
@@ -729,7 +729,7 @@ test('on a graphical surface, rows of marks hold fewer marks, keep the newest an
   }
 })
 
-test("the inline summary's strip holds fewer marks on a graphical surface and keeps the newest", async ($, on) => {
+test("the inline summary's strip holds fewer marks on a graphical surface and keeps the newest", { options: { panels: 'main,fid,architect,gate,agents,log' } }, async ($, on) => {
   engine(on)
   on('tool.check', (_$, e) => ({ decision: e.tool_use_id === 'n59' ? 'deny' : 'allow' }))
   for (let i = 0; i < 60; i += 1) await $.tool.check({ tool: 'Bash', input: { command: `ls ${i}` }, tool_use_id: `n${i}` })
@@ -2077,4 +2077,182 @@ test('devFSD: AC-4 with motion off the aurora line stays still while a turn runs
   await ui.unmount()
   expect(off.distinct).toBe(1)
   expect(off.cells.every(c => c === 64 + 4)).toBe(true)
+})
+
+// ---------------------------------------------------------------- devFSD: 레이아웃 ② (FID 20261106-console-layout-revamp, T6)
+
+/** 테두리 Box(패널 본체)의 자식 행. 실측: main 은 행당 Box 하나(제목 행 · line() 행 둘 · 요약 행)라 자식 하나가 곧 한 줄이다. */
+const borderedOf = (n: unknown): Drawn | undefined => {
+  if (!isDrawn(n)) return undefined
+  if (n.props?.borderStyle) return n
+  for (const c of n.children ?? []) {
+    const r = borderedOf(c)
+    if (r) return r
+  }
+
+  return undefined
+}
+const rowsOf = (n: unknown) => (borderedOf(n)?.children ?? []).filter(isDrawn)
+const textsOf = (n: unknown, out: Drawn[] = []): Drawn[] => {
+  if (!isDrawn(n)) return out
+  if (n.type === 'Text') out.push(n) // 여러 조각 줄은 바깥 Text 가 조각 Text 를 품는다 — 안쪽까지 모은다
+  ;(n.children ?? []).forEach(c => textsOf(c, out))
+
+  return out
+}
+const GAUGE_ON = /^[█▏▎▍▌▋▊▉]+$/
+
+/** ctx 72% · 5h 40%(3h29m 뒤 리셋) · 7d 85% · 턴 1회 끝 · BG 1 — main 네 줄이 전부 채워지는 세계. */
+const fullMainWorld = async ($: Parameters<TestBody>[0], on: On) => {
+  fidWorld(on)
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  await startFid($)
+  await $.turn.start({ text: 'go', turnId: 'R1' })
+  await $.tool.call(bg('r1'))
+  await $.turn.complete(finished('R1'))
+  const at = (ms: number) => new Date(ms).toISOString()
+  await $.session.measure({
+    context: { window: 200_000, tokens: 144_000, percent: 72 },
+    rateLimits: [
+      { kind: 'five_hour', percentUsed: 40, resetsAt: at(3 * 3_600_000 + 29 * 60_000) },
+      { kind: 'seven_day', percentUsed: 85, resetsAt: at(4 * 86_400_000) },
+    ],
+    changed: ['context', 'rateLimits'],
+  })
+}
+
+test('devFSD: AC-5 the main panel is four rows — title and state, context gauge, cost and limits, last turn', async ($, on) => {
+  await fullMainWorld($, on)
+  const C = PALETTES.theme
+  const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  const main = subtree(await ui.drawn(), 'panel-main')
+  const rows = rowsOf(main)
+  expect(rows.every(r => r.type === 'Box')).toBe(true) // 행당 자식 하나
+  expect(rows).toHaveLength(4)
+  expect(textOf(rows[0])).toMatch(/◌ 대기/)
+  expect(textOf(rows[1])).toMatch(/ctx .*72%/)
+  expect(textOf(rows[1])).toMatch(/effort/)
+  expect(textOf(rows[2])).toMatch(/5h.*40%.*resets 3h29m/)
+  expect(textOf(rows[2])).toMatch(/7d.*85%.*resets 4d0h/)
+  expect(textOf(rows[3])).toMatch(/last turn/)
+  expect(rows.map(textOf).join('')).not.toMatch(/↻|◐|last req|▮|▯/) // main 한정 — `↻ publish` 는 devFSD 카드의 몫(AC-9)
+  // 게이지 색 배선: ctx 72 → amber · 5h 40 → main · 7d 85 → warn
+  expect(textsOf(rows[1]).find(t => GAUGE_ON.test(textOf(t)))?.props?.color).toBe(C.amber)
+  const limitGauges = textsOf(rows[2]).filter(t => GAUGE_ON.test(textOf(t)))
+  expect(limitGauges.map(t => t.props?.color)).toEqual([C.main, C.warn])
+  await ui.unmount()
+})
+
+test('devFSD: AC-5 a running turn shows its clock on the last row, and an idle session has no empty rows', async ($, on) => {
+  fidWorld(on)
+  await startFid($)
+  const idle = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  const idleRows = rowsOf(subtree(await idle.drawn(), 'panel-main')).map(textOf)
+  await idle.unmount()
+  expect(idleRows[0]).toMatch(/○ idle/)
+  expect(idleRows.join('')).not.toMatch(/last turn|turn \d/)
+  await $.turn.start({ text: 'go', turnId: 'R2' })
+  const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  const rows = rowsOf(subtree(await ui.drawn(), 'panel-main'))
+  expect(textOf(rows[0])).toMatch(/● working/)
+  expect(textOf(rows[rows.length - 1])).toMatch(/● turn/)
+  await ui.unmount()
+})
+
+// AC-2 (T5 에서 미룬 단언): receipt·loops 는 별도 패널이 아니다 — 옵션에 적어도, 내용이 있어도.
+for (const [label, options] of [
+  ['unset', {}],
+  ['the old default', { panels: 'fid,main,architect,gate,agents,loops,receipt,log' }],
+] as const) {
+  test(`devFSD: AC-2 receipt and loops are absorbed — no panel of their own even with a finished turn and a loop (${label})`, { options }, async ($, on) => {
+    fidWorld(on)
+    const usage = { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, model: 'claude-opus-5-5' }
+    on('turn.step', async function* () {
+      return { turnId: 'L1', index: 0, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage }
+    })
+    await startFid($)
+    await $.turn.start({ text: 'go', turnId: 'R3' })
+    await $.turn.complete(finished('R3'))
+    const st = $.turn.step({ turnId: 'L1', index: 0, model: 'claude-opus-5-5', messageCount: 1, agentId: 'wf1' })
+    for await (const _ of st) void _
+    await st.result
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const ui = await $.ui.mount({ ...pane(80), surface })
+      const tree = await ui.drawn()
+      const keys = panelKeysOf(tree)
+      expect(keys).not.toContain('panel-receipt')
+      expect(keys).not.toContain('panel-loops')
+      // 양성 대조: 마지막 턴은 main 안에 있고(receipt 흡수), 같은 세계에 loop 이 실제로 있다(inline 요약이 센다).
+      expect(textOf(subtree(tree, 'panel-main'))).toMatch(/last turn/)
+      await ui.unmount()
+    }
+    const mini = await $.ui.mount({ ...pane(80), props: { ...pane(80).props, placement: 'inline' as const }, surface: 'terminal' })
+    expect(await mini.find({ text: /other loops 1/ })).toBeDefined()
+    await mini.unmount()
+  })
+}
+
+test('devFSD: FR-18 the inline summary says ◌ 대기 and BG N, colours its gauge by level, and shows the gate strip only when panels names gate', async ($, on) => {
+  fidWorld(on)
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  await startFid($)
+  for (let i = 0; i < 3; i += 1) await $.tool.check({ tool: 'Read', input: { file_path: `/f${i}.ts` }, tool_use_id: `c${i}` })
+  await $.turn.start({ text: 'go', turnId: 'R4' })
+  await $.tool.call(bg('i1'))
+  await $.turn.complete(finished('R4'))
+  const C = PALETTES.theme
+  const measure = (tokens: number) => $.session.measure({ context: { window: 200_000, tokens, percent: tokens / 2_000 }, rateLimits: [], changed: ['context'] })
+  const gaugeAt = async (tokens: number) => {
+    await measure(tokens)
+    const ui = await $.ui.mount({ ...inline(80), surface: 'terminal' })
+    const color = (await ui.find({ type: 'Text', text: GAUGE_ON }))?.props.color
+    const status = [await ui.find({ text: /◌ 대기/ }), await ui.find({ text: /BG 1/ }), await ui.find({ text: /allowed/ })]
+    await ui.unmount()
+
+    return { color, status }
+  }
+  const low = await gaugeAt(80_000) // 40%
+  expect(low.color).toBe(C.main)
+  expect(low.status[0]).toBeDefined()
+  expect(low.status[1]).toBeDefined()
+  expect(low.status[2]).toBeUndefined() // 기본 panels 에는 gate 가 없다 — 기록이 3건 있어도 strip 이 없다
+  expect((await gaugeAt(144_000)).color).toBe(C.amber) // 72%
+  expect((await gaugeAt(170_000)).color).toBe(C.warn) // 85%
+})
+
+test('devFSD: FR-18 the inline gate strip comes back when panels names gate', { options: { panels: 'main,fid,architect,gate,agents,log' } }, async ($, on) => {
+  fidWorld(on)
+  await startFid($)
+  for (let i = 0; i < 3; i += 1) await $.tool.check({ tool: 'Read', input: { file_path: `/f${i}.ts` }, tool_use_id: `c${i}` })
+  const ui = await $.ui.mount({ ...inline(80), surface: 'terminal' })
+  expect(await ui.find({ text: /3 allowed/ })).toBeDefined()
+  await ui.unmount()
+})
+
+// `used` — 고정 행 수에서 로그 줄 수가 나온다: 헤더 1 + 오로라 1 + 패널 높이(main 2+3 — 턴이 진행 중이라 제목·ctx 줄·`● turn` 줄 ·
+// devFSD 2+2 · agents 카드 모드 1+1+7+1) + 패널 사이 빈 줄 3 = 24 에 로그 테두리·제목 3 을 더한 27 을 bodyRows 에서 뺀다.
+test('devFSD: the log takes the rows the other panels leave, 4 to 8, counted from the new fixed layout', async ($, on) => {
+  fidWorld(on)
+  await startFid($)
+  for (let i = 0; i < 3; i += 1) await $.agent.spawn(spawn('general-purpose', `Task ${i}`)) // 80칸에 카드 3장 — 카드 모드
+  for (let i = 0; i < 12; i += 1) await $.turn.start({ text: `ask ${i}`, turnId: `U${i}` })
+  const logCount = async (bodyRows: number) => {
+    const props = { ...pane(80).props, scroll: { offset: 0, bodyRows } }
+    const ui = await $.ui.mount({ ...pane(80), props, surface: 'terminal' })
+    const tree = await ui.drawn()
+    const panels = panelKeysOf(tree)
+    const n = rowsOf(subtree(tree, 'panel-log')).length - 1 // 제목 줄 뺀 로그 줄
+    await ui.unmount()
+
+    return { panels, n }
+  }
+  expect((await logCount(80)).panels).toEqual(['panel-main', 'panel-fid', 'panel-agents', 'panel-log'])
+  const probe = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  const tree = await probe.drawn()
+  expect([rowsOf(subtree(tree, 'panel-main')).length, rowsOf(subtree(tree, 'panel-fid')).length]).toEqual([3, 2]) // 손으로 센 높이의 전제
+  await probe.unmount()
+  // bodyRows - 24 - 3: 40 → 13 → 상한 8 · 34 → 7 · 33 → 6 · 31 → 4 · 20 → 하한 4
+  const counts: number[] = []
+  for (const rows of [40, 34, 33, 31, 20]) counts.push((await logCount(rows)).n)
+  expect(counts).toEqual([8, 7, 6, 4, 4])
 })

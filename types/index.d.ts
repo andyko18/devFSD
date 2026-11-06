@@ -131,6 +131,7 @@ export type Job = {
   startedAt: number
   endedAt?: number
   isFailed?: boolean
+  outputPath?: string // 백그라운드 출력 파일 — 수정 시각이 활동 신호
 }
 
 export type StageMark = {
@@ -146,6 +147,8 @@ export type Board = {
   fid?: string
   stages?: StageMark[]
   verify?: string
+  activityAt?: number // 마지막 활동 시각(ms) — 훅 이벤트·출력 파일 중 늦은 쪽
+  working?: boolean // 메인 턴이 열려 있는 동안 true (시계가 계속 돌게)
 }
 
 declare module 'claude-code' {

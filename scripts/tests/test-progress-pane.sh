@@ -103,6 +103,21 @@ if want mod; then
   fi
 fi
 
+# ── PP-S1: STAT_SCRIPT 실제 실행 ─────────────────────────────────────
+if want mod; then
+  # PP-S1: STAT_SCRIPT 실제 실행 — 최댓값·부분 부재·전부 부재 (GNU/BSD 는 CI 두 러너가 각각 태운다)
+  SCRIPT=$(sed -n "s/^export const STAT_SCRIPT = '\(.*\)'\$/\1/p" "$PLUGIN/hooks/core.ts")
+  tmp=$(mktemp -d)
+  TZ=UTC touch -t 202601010000.00 "$tmp/a"; TZ=UTC touch -t 202601020000.00 "$tmp/b"
+  want_ts=$(TZ=UTC date -u -j -f '%Y%m%d%H%M%S' 20260102000000 +%s 2>/dev/null || date -u -d '2026-01-02 00:00:00' +%s)
+  [ -n "$SCRIPT" ] && [ "$(bash -c "$SCRIPT" _ "$tmp/a" "$tmp/b" | sort -n | tail -1)" = "$want_ts" ] && ok "PP-S1a stat 최댓값" || ng "PP-S1a stat 최댓값"
+  [ -n "$SCRIPT" ] && [ -n "$(bash -c "$SCRIPT" _ "$tmp/a" "$tmp/none")" ] && ok "PP-S1b 일부 부재여도 유효 값" || ng "PP-S1b 일부 부재"
+  [ -n "$SCRIPT" ] && [ -z "$(bash -c "$SCRIPT" _ "$tmp/none1" "$tmp/none2")" ] && ok "PP-S1c 전부 부재면 빈 출력" || ng "PP-S1c 전부 부재"
+  [ -n "$SCRIPT" ] && bash -c "$SCRIPT" _ "$tmp/a" "$tmp/none" >/dev/null 2>&1; rc=$?
+  [ -n "$SCRIPT" ] && [ "$rc" = 0 ] && ok "PP-S1d 마지막 인자가 부재여도 종료 코드 0" || ng "PP-S1d 종료 코드 (rc=$rc)"
+  rm -rf "$tmp"
+fi
+
 # ── wiring ───────────────────────────────────────────────────────────
 if want wiring; then
   HJ="$PLUGIN/hooks/hooks.json"; PJ="$PLUGIN/.claude-plugin/plugin.json"

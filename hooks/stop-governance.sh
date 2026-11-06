@@ -46,6 +46,9 @@ fi
 transcript=$(echo "$input" | jq -r '.transcript_path // empty')
 [ -n "$transcript" ] && [ -f "$transcript" ] || { echo '{"continue":true}'; exit 0; }
 
+# 셸이 자기 기록을 가진 worktree 면 기록 루트를 그쪽으로 — git 대상은 바꾸지 않는다 (20261106-worktree-specops-root)
+_gov_apply_record_root "$(_gov_git_target "$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)" "$PWD" | sed -n 1p)"
+
 fid=$(detect_fid)
 rules_path="$plugin_root/hooks/rules.jsonl"
 [ -f "$rules_path" ] || { echo '{"continue":true}'; exit 0; }

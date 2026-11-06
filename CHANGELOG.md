@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- 데스크톱 worktree 세션에서 커밋 검사 훅이 메인 폴더의 옛 FID 로 판정해 정상 커밋이 막히던 문제 — 자기 기록을 가진 worktree 는 그 `.specops` 로 판정·기록한다.
+
 ## [3.1.12] — 2026-11-06
 
 ### Changed

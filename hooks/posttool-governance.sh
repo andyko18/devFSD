@@ -65,7 +65,7 @@ if [ "$tool_name" = "Bash" ]; then
   fi
 fi
 _gov_cmd_moves_git "$(_strip_quoted_strings "$(_strip_heredoc_bodies "$tool_cmd")")" \
-  || _gov_apply_git_target "$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)"   # 감사 범위도 셸이 있는 worktree 기준 (20261016-hook-worktree-target)
+  || { _gov_apply_git_target "$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)"; _gov_apply_record_root; }   # 감사 범위·기록 루트도 셸이 있는 worktree 기준 (20261016-hook-worktree-target · 20261106-worktree-specops-root)
 
 fid=$(detect_fid)
 

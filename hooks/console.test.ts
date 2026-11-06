@@ -2794,14 +2794,15 @@ test('devFSD: BG end log — a secret in the command label never reaches the log
   on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
   on('tool.call', () => ({ result: {}, text: 'ok' }))
   await $.turn.start({ text: 'go', turnId: 'L1' })
-  await $.tool.call({ tool: 'Bash', tool_use_id: 's1', command: 'GITHUB_TOKEN=ghp_abcdef123456 npm publish', run_in_background: true } as never) // 설명 없음 — 명령 앞 40자가 라벨
-  await $.tool.call({ tool: 'Bash', tool_use_id: 's2', command: 'x', description: 'deploy token=ghp_abcdef123456', run_in_background: true } as never) // 설명에 든 비밀
+  const secret = ['ghp', 'abcdef123456'].join('_') // 가짜 토큰은 런타임 조립 — 이 소스에 완전체를 두지 않는다(보안 스캔 자기오탐 방지)
+  await $.tool.call({ tool: 'Bash', tool_use_id: 's1', command: ['GITHUB_TOKEN', secret].join('=') + ' npm publish', run_in_background: true } as never) // 설명 없음 — 명령 앞 40자가 라벨
+  await $.tool.call({ tool: 'Bash', tool_use_id: 's2', command: 'x', description: 'deploy ' + ['token', secret].join('='), run_in_background: true } as never) // 설명에 든 비밀
   await clock.advance(5_000)
   await $.session.append(taskDone('s1'))
   await $.session.append(taskDone('s2'))
   const log = (await bgLines($)).map(l => l.map(c => c.text).join(' ')).join('\n')
   expect(log).toMatch(/↻ bg/) // 양성 대조: 두 줄이 실제로 기록됐다
-  expect(log).not.toContain('ghp_abcdef123456')
+  expect(log).not.toContain(secret)
   expect(log).not.toContain('abcdef')
 })
 

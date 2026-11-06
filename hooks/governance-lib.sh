@@ -1998,10 +1998,21 @@ _gov_apply_git_target() {
   export GIT_DIR GIT_WORK_TREE
 }
 
+# 옮길 작업 트리의 브랜치가 feat/batch-… 이고 현재 루트(PWD)에 그 이름의 ACTIVE 마커가 있는가 (20261106-hook-root-batch-freecomment)
+#   배치 게이트(_batch_pr_gate·release-ready)가 PWD 상대로 마커를 읽고 `feat/$(basename 마커 디렉터리)` 로 브랜치와 대조한다 —
+#   루트를 옮기면 프로젝트 폴더의 마커가 안 보여 게이트가 조용히 꺼졌다(v3.1.13). 마커 디렉터리 이름이 이미 batch-… 이므로 접두를 더 붙이지 않는다.
+#   $1 = 작업 트리 최상위. rc 0 = 있음.
+_gov_batch_marker_here() {
+  local br
+  br=$(git -C "${1:-}" symbolic-ref --short HEAD 2>/dev/null) || return 1
+  case "$br" in feat/batch-?*) [ -f "$PWD/.specops/${br#feat/}/ACTIVE" ] ;; *) return 1 ;; esac
+}
+
 # 셸이 자기 기록을 가진 다른 작업 트리면 판정·기록 루트를 그쪽으로 (20261106-worktree-specops-root)
 #   기록 스크립트(specops-root.sh)는 자기 기록 worktree 에 쓴다 — 훅이 프로젝트 폴더를 읽으면 다른 FID 로 판정했다
 #   (데스크톱 worktree 세션 실측: 커밋 우회 21건). 자기 기록이 없으면(없음·빈 폴더·추적 사본·링크) 종전 판정이고,
 #   프로젝트 폴더가 관할 밖이면 옮기지 않는다 — 판정을 옮겨 관할을 넓히거나 "없음 → allow" 구멍을 만들지 않는다.
+#   배치 마커가 현재 루트에 있으면 옮기지 않는다(_gov_batch_marker_here) — 배치 게이트가 프로젝트 폴더의 마커를 읽는다.
 #   호출자 셸에서 직접 부른다(cd 가 살아야 한다). $1 = 작업 트리 최상위(기본 _GOV_TARGET_WT). 항상 rc 0.
 _gov_apply_record_root() {
   local wt="${1:-${_GOV_TARGET_WT:-}}" fid
@@ -2013,6 +2024,7 @@ _gov_apply_record_root() {
   fid=$(cd "$wt" 2>/dev/null && detect_fid 2>/dev/null) || return 0
   [ -n "$fid" ] || return 0
   _sr_wt_owns_record "$fid" "$wt" || return 0
+  _gov_batch_marker_here "$wt" && return 0   # 배치 마커가 현재 루트에 있으면 옮기지 않는다 — 종전 판정 (더 막는 쪽)
   cd "$wt" 2>/dev/null || return 0
   _GOV_RECORD_ROOT=$wt
 }
@@ -2031,7 +2043,9 @@ _gov_target_note() {
     local _wfid
     _wfid=$(cd "$_GOV_TARGET_WT" 2>/dev/null && detect_fid 2>/dev/null)
     # 링크 가드(_gov_apply_record_root 첫 줄)로 안 옮긴 경우엔 'git 추적' 사유가 거짓이다 — 가드 c 검사를 함께 본다
-    if [ -n "$_wfid" ] && git -C "$_GOV_TARGET_WT" ls-files --error-unmatch -- .specops/session-progress.md >/dev/null 2>&1 \
+    if _gov_batch_marker_here "$_GOV_TARGET_WT"; then
+      printf '\n⚠️ 프로젝트 폴더에 이 브랜치의 배치 마커가 있어 worktree 기록으로 옮기지 않고 프로젝트 폴더 기록으로 판정했습니다.'
+    elif [ -n "$_wfid" ] && git -C "$_GOV_TARGET_WT" ls-files --error-unmatch -- .specops/session-progress.md >/dev/null 2>&1 \
        && declare -F _sr_wt_owns_record >/dev/null 2>&1 && _sr_wt_owns_record "$_wfid" "$_GOV_TARGET_WT"; then
       printf '\n⚠️ worktree .specops/<FID> 에 추적 안 된 기록이 있지만 session-progress.md 가 git 추적 파일이라 프로젝트 폴더 기록으로 판정했습니다 — 기록 스크립트는 worktree 에 씁니다(추적 안 된 파일을 지우면 둘 다 메인 기록을 씁니다).'
     else

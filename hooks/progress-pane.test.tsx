@@ -1169,7 +1169,7 @@ test('devFSD: a fresh output-file mtime beats a 9m30s-old hook signal and clears
   mtimeSec = 541 // 지금(571s)의 30초 전
   await clock.advance(5_000)
   ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 마지막 활동 35초 전')
+  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 9분 경과 · 마지막 활동 35초 전')
   expect(await ui.find({ type: 'Text', text: /정체 의심/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -1183,7 +1183,7 @@ test('devFSD: a task notification counts as activity while another job still run
   await notify($, 'b1', 'completed')
   await clock.advance(290_000)
   const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 마지막 활동 4분 전')
+  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 9분 경과 · 마지막 활동 4분 전')
   expect(await ui.find({ type: 'Text', text: /정체 의심/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -1259,8 +1259,8 @@ test('devFSD: a mounted console redraws its badge as the clock moves (nowTick su
   await startedClock($, clock)
   await $.tool.call(bgBash('rd1'))
   const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 마지막 활동 방금')
+  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 0초 경과 · 마지막 활동 방금')
   await clock.advance(65_000) // 같은 ui — 다시 마운트하지 않는다
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 마지막 활동 1분 전')
+  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 1분 경과 · 마지막 활동 1분 전')
   await ui.unmount()
 })

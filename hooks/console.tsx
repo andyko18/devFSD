@@ -75,6 +75,8 @@ import {
   stepSpeed,
   stepLoop,
   activityBadge,
+  jobRow,
+  oldestStart,
   withActivity,
 } from './core'
 import type { Config, Panel } from './core'
@@ -712,7 +714,10 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     ])
     // The body's own width, down to the narrowest dock Claude Code seats (24): a wider drawing is cut off at the frame.
     const W = Math.max(24, e.props.bodyColumns)
-    const badge = activityBadge({ jobs: b.running.length, isRunning: m.isRunning, activityAt: b.activityAt, now, compact: W < 60 })
+    const badge = activityBadge({ jobs: b.running.length, isRunning: m.isRunning, activityAt: b.activityAt, now, compact: W < 60, since: oldestStart(b.running) })
+    // 메인 턴은 쉬지만 백그라운드 작업(또는 CI 대기)이 도는 중 — 완전한 idle 과 구분해 보인다.
+    const bgTotal = b.running.length + ciPending(b.ci)
+    const isWaiting = !m.isRunning && bgTotal > 0
     const badgeColor = badge?.stalled ? C.warn : C.dim
     const layout = v.layout ?? cfg.layout
     const isWide = layout === 'wide' || (layout === 'auto' && W >= 110)
@@ -819,7 +824,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             {modelName} · main
           </Text>
           <Box flexShrink={0} columnGap={1}>
-            <Text color={m.isRunning ? C.main : C.dim}>{m.isRunning ? '● working' : '○ idle'}</Text>
+            <Text color={m.isRunning || isWaiting ? C.main : C.dim}>{m.isRunning ? '● working' : isWaiting ? '◐ 대기' : '○ idle'}</Text>
             {badge && W >= 40 ? <Text color={badgeColor}>{`· ${badge.text}`}</Text> : null}
           </Box>
         </Box>
@@ -1258,11 +1263,20 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
               {[bgCount > 0 ? `백그라운드 작업 ${bgCount}개 실행 중` : '', ciLine(b.ci)].filter(Boolean).join(' · ')}
             </Text>
           ) : null}
+          {/* 작업별 한 줄 — 먼저 시작한 순으로 3개까지, 나머지는 개수로 */}
+          {b.running.slice(0, 3).map(j => (
+            <Text key={j.id} dimColor wrap="truncate">
+              {jobRow(j, now, w < 60)}
+            </Text>
+          ))}
+          {b.running.length > 3 ? (
+            <Text dimColor wrap="truncate">{`… 외 ${b.running.length - 3}개`}</Text>
+          ) : null}
         </Box>
       )
     }
 
-    const draw = (p: Panel, w: number) =>
+    const draw =(p: Panel, w: number) =>
       p === 'fid'
         ? fidPanel(w)
         : p === 'main'
@@ -1344,7 +1358,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
               {
                 spans: [
                   { text: modelName, color: C.main, bold: true },
-                  { text: m.isRunning ? ' ● working' : ' ○ idle', color: m.isRunning ? C.main : C.dim },
+                  { text: m.isRunning ? ' ● working' : isWaiting ? ' ◐ 대기' : ' ○ idle', color: m.isRunning || isWaiting ? C.main : C.dim },
                 ],
               },
               mg
@@ -1436,6 +1450,8 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
                   ],
                 }
               : null,
+            // 맨 뒤 — 좁은 폭에서는 다른 조각을 밀어내지 않고 이 조각이 먼저 빠진다.
+            bgTotal > 0 ? { spans: [{ text: `· BG ${bgTotal}`, color: C.main, bold: true }] } : null,
           ],
           W,
           1,

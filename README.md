@@ -320,6 +320,8 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 
 **진행 패널** — devFSD 관할 repo(`.specops/` 가 있는 폴더와 그 worktree)에서 세션을 열면 채팅 옆에 "devFSD 진행" 패널이 자동으로 뜬다. 메인 대화가 띄운 서브에이전트·백그라운드 명령의 실행 중 목록과 경과 시간, 최근 완료 5개(✓/✗), 현재 단계·FID 를 보여 준다. lifecycle 단계 막대(✓ 완료 · – 생략 · ✗ 실패 · ● 진행 · ○ 남음)와 verify 상태 배지(PASS·STALE 등 — 끝난 FID 는 완료)도 함께 보여 주고, 코드를 바꾸는 도구 호출이 끝날 때마다 갱신한다. 관찰만 하며 어떤 호출도 막거나 바꾸지 않는다. Claude Code 2.1.309 이상(mod 지원)에서 동작하고, mod API 는 early access 다. 같은 패널을 개인 mod 로 쓰던 경우 `~/.claude/settings.json` 의 `CLAUDE_CODE_PLUGIN_DIRS` 에서 그 폴더를 지운다(두 번 뜬다).
 
+**관제판** — 세션 시작 때 자동으로 열리는 관제판은 패널을 main → devFSD → Advisor → agents → log 순으로 한 칸에 쌓고, 패널 사이는 연결선 대신 빈 줄로 나눈다. gate 패널은 설정 `panels` 에 `gate` 를 적을 때만 나타난다. 종전 ARCHITECT 패널은 Advisor 로 이름이 바뀌었고 설정 `architectLabel` 로 다른 이름을 줄 수 있다. 맨 위 헤더는 한 줄 요약(상태·현재 단계·검증·BG)이고 그 아래에 오로라 선이 흐른다.
+
 ---
 
 ## 자산 구조

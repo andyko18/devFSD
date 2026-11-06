@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Changed
+- 관제판 구성 개편 — main → devFSD → Advisor → agents → log 한 칸, 패널 사이 연결선 대신 빈 줄, 헤더 한 줄 요약(상태·현재 단계·검증·BG)과 그 아래 오로라 선. GATE 는 설정 `panels` 에 적을 때만, ARCHITECT 는 Advisor 로 이름 변경(설정 `architectLabel`). 블록 게이지(60%·80% 색 단계)·현재 단계 강조·`검증!`(STALE)·`BG N` 표기 통일·끝난 작업 1분 표시.
+
 ## [3.1.11] — 2026-11-06
 
 ### Added

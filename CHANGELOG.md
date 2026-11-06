@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.10] — 2026-11-06
+
 ### Added
 - 관제판 CI 잡 합산 표시 — 플러그인 옵션 `ciWatch`(기본 꺼짐)를 켜면 `ciIntervalSec`(기본 60, 최소 30)마다 `gh pr checks` 로 현재 브랜치 PR 의 CI 잡을 읽어 `백그라운드 작업 N개 실행 중 · CI 3/4 통과`(실패는 `CI ✗ 이름`)로 합산한다. PR·gh·권한이 없으면 조용히 무표시 (FID 20261106-console-ci-jobs)
 
@@ -3564,7 +3566,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.9...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.10...HEAD
+[3.1.10]: https://github.com/andyko18/devFSD/compare/v3.1.9...v3.1.10
 [3.1.9]: https://github.com/andyko18/devFSD/compare/v3.1.8...v3.1.9
 [3.1.8]: https://github.com/andyko18/devFSD/compare/v3.1.7...v3.1.8
 [3.1.7]: https://github.com/andyko18/devFSD/compare/v3.1.6...v3.1.7

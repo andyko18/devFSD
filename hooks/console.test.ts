@@ -1480,6 +1480,29 @@ test('devFSD: jobs show as a count that follows the running list down to idle', 
   expect(await shows($, 86, /○ idle/)).toBeDefined()
 })
 
+test('every panel with a background job fits the pane and keeps its badge free of edge spaces, before and after a stall', { timeoutMs: 60_000 }, async ($, on) => {
+  const clock = await busySession($, on)
+  await $.tool.call(bg('fit1'))
+  const failures: string[] = []
+  const check = async (label: string) => {
+    for (const surface of ['terminal', 'desktop'] as const) {
+      for (const cols of [24, 32, 40, 45, 59, 60, 64, 80, 120]) {
+        for (const placement of ['dock', 'inline'] as const) {
+          const ui = await $.ui.mount({ ...pane(cols), props: { ...pane(cols).props, placement }, surface })
+          const tree = await ui.drawn()
+          for (const s of spillsOf(tree, cols)) failures.push(`${label} ${surface} ${placement} ${cols}: ${s}`)
+          if (surface === 'desktop') for (const f of desktopFaults(tree, [])) failures.push(`${label} ${surface} ${placement} ${cols}: ${f}`)
+          await ui.unmount()
+        }
+      }
+    }
+  }
+  await check('job, fresh')
+  await clock.advance(360_000)
+  await check('job, stalled')
+  expect(failures).toEqual([])
+})
+
 test('devFSD: five quiet minutes with a job turns the badge into a stall warning, clearing on new activity', async ($, on) => {
   const clock = engine(on)
   on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))

@@ -817,9 +817,9 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
           <Text color={C.main} bold wrap="truncate">
             {modelName} · main
           </Text>
-          <Box flexShrink={0}>
+          <Box flexShrink={0} columnGap={1}>
             <Text color={m.isRunning ? C.main : C.dim}>{m.isRunning ? '● working' : '○ idle'}</Text>
-            {badge && W >= 40 ? <Text color={badgeColor}> · {badge.text}</Text> : null}
+            {badge && W >= 40 ? <Text color={badgeColor}>{`· ${badge.text}`}</Text> : null}
           </Box>
         </Box>
         {line(

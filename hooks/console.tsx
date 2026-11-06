@@ -37,6 +37,7 @@ import {
   endConsult,
   fmtClock,
   fmtDuration,
+  durationLabel,
   fmtTimer,
   fmtUsd,
   plural,
@@ -80,8 +81,11 @@ import {
   withActivity,
 } from './core'
 import type { Config, Panel } from './core'
+// 이름·시간 글자색 — 어두운 바탕에서도 읽히게 core 의 SVG_COLORS.label 보다 밝게 둔다.
+const SVG_LABEL = '#888780'
+
 // devFSD: 진행 기록(FID·단계·verify)은 progress-pane 이 채우는 board 를 읽기만 한다.
-import { progressStart } from './progress-pane'
+import { notificationOf, progressStart, textOf } from './progress-pane'
 import { ciLine, ciPending } from './ci-watch'
 import type { Board, StageMark } from '../types'
 
@@ -564,7 +568,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     }
     // The log keeps what is worth a glance: refusals, errors and edits; the rest is on the cards.
     if (ran.deny !== undefined) await say($, await whoIs($, e.agentId), `${text}  denied`, 'error', e.agentId ?? null)
-    else if (hasFailed) await say($, await whoIs($, e.agentId), `${text}  ✗`, 'error', e.agentId ?? null)
+    else if (hasFailed) await say($, await whoIs($, e.agentId), `✗ ${text}`, 'error', e.agentId ?? null)
     else if (isEdit) await say($, await whoIs($, e.agentId), text, 'info', e.agentId ?? null)
     if (isSettled || !didRun) await refreshStatus($, cfg)
     return ran
@@ -595,6 +599,24 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       }
     }
     return next(e)
+  }).catch(($, e, next) => next(e)) // devFSD: 관제판은 관찰만 한다 — 처리기가 던져도 도구 호출·프롬프트는 통과한다
+
+  // devFSD: 백그라운드 작업 종료 알림 → 로그 한 줄. 종료 처리는 progress-pane 이 하고, 여기서는 board 를 읽어 기록만 한다.
+  // 처리기 순서와 무관하게 running·recent 둘 다 본다. 같은 id 는 한 번만 — 실패해도 원 호출은 그대로 통과한다.
+  // 종료 알림은 delivery 문으로 들어온다(progress-pane 의 처리기와 같은 행) — 엔진이 matcher 없는 같은 이벤트 둘째 등록을 막으므로 문으로 좁힌다.
+  const endLogged = new Set<string>()
+  on('session.append', { door: 'delivery' }, async ($, e, next) => {
+    const stored = await next(e)
+    if (e.agentId || e.message.type !== 'user') return stored
+    const note = notificationOf(textOf(e.message.content))
+    if (!note || endLogged.has(note.id)) return stored
+    const b = await read($, board)
+    const job = [...b.running, ...b.recent].find(j => j.id === note.id)
+    if (!job) return stored
+    const endedAt = job.endedAt ?? (await $.clock.now())
+    endLogged.add(note.id)
+    await say($, '↻ bg', `${note.isFailed ? '✗' : '✓'} ${job.label.trim() || job.id} · ${durationLabel(endedAt - job.startedAt, false)}`, note.isFailed ? 'error' : 'info')
+    return stored
   }).catch(($, e, next) => next(e)) // devFSD: 관제판은 관찰만 한다 — 처리기가 던져도 도구 호출·프롬프트는 통과한다
 
   on('agent.spawn', async ($, e, next) => {
@@ -856,7 +878,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             // 오른쪽 — 좁으면 먼저 빠진다.
             { spans: [{ text: `effort ${m.effort || '—'}${m.mode ? ` · mode ${m.mode}` : ''}`, dim: true }], lead: 1 },
             // Left out first when the line is short; the ~ in the mark still says it.
-            u.compactions > 0 && u.isCompactEstimate ? { spans: [{ text: '(estimated)', color: C.faint }] } : null,
+            u.compactions > 0 && u.isCompactEstimate ? { spans: [{ text: '(estimated)', color: C.dim }] } : null,
           ],
           w - 4,
         ),
@@ -954,7 +976,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
                   </Text>
                 )
               })}
-              <Text color={C.faint}>(inferred)</Text>
+              <Text color={C.dim}>(inferred)</Text>
             </Box>
           ) : null}
           {a.lastAdvice ? (
@@ -998,8 +1020,8 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
               <Text dimColor>{`${s.total} checks`}</Text>
             </Box>
           </Box>
-          {strip.length === 0 ? <Text color={C.faint}>no checks yet</Text> : markRow(strip.map(checkMark))}
-          {line([...totals, !isShort && w >= 80 && g.recent.some(c => c.inSubagent) ? { spans: [{ text: 'dim: in subagents', color: C.faint }] } : null], w - 4, 2)}
+          {strip.length === 0 ? <Text color={C.dim}>no checks yet</Text> : markRow(strip.map(checkMark))}
+          {line([...totals, !isShort && w >= 80 && g.recent.some(c => c.inSubagent) ? { spans: [{ text: 'dim: in subagents', color: C.dim }] } : null], w - 4, 2)}
           {/* Below about 44 columns the three rows' buttons take two lines rather than run past the box. */}
           <Box columnGap={2} flexWrap="wrap">
             {(['file', 'shell', 'other'] as const).map((b: Bucket) => {
@@ -1042,9 +1064,17 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
 
     // ---- agents: cards up to the limit, swimlanes beyond it
     const statusColor = (c: AgentCard) => (c.status === 'failed' ? C.warn : c.status === 'done' ? C.gate : C.agent)
-    const glyph = (c: AgentCard) => (c.status === 'running' ? '◐' : c.status === 'done' ? '✓' : c.status === 'failed' ? '✗' : '■')
+    const glyph = (c: AgentCard) => (c.status === 'running' ? '●' : c.status === 'done' ? '✓' : c.status === 'failed' ? '✗' : '■')
     const expandOnPress = (id: string) => () =>
       update($, view, x => ({ ...normalize(DEFAULT_VIEW, x), expanded: normalize(DEFAULT_VIEW, x).expanded === id ? null : id }))
+
+    // 활성 loop 가 있을 때만 agents 패널 맨 아래에 한 줄 (별도 패널이 아니다).
+    const activeLoops = lp.filter(l => isLoopActive(l, now)).length
+    const loopsLine = (w: number) =>
+      activeLoops > 0 ? (
+        <Text key="other-loops" dimColor wrap="truncate">{`other loops ${lp.length} · ${activeLoops} active`}</Text>
+      ) : null
+    const hasFanRails = running.length >= 2
 
     const agentsPanel = (w: number) => {
       // Cards need 20 columns each; when the pane can't hold the limit, lanes take over.
@@ -1058,7 +1088,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
           </Text>
           {cards.length > 0 ? (
             <Box flexShrink={0}>
-              <Text color={C.faint}>{`1-${Math.min(cards.length, useLanes ? 6 : fit)}${isNarrow ? '' : ' expand'}`}</Text>
+              <Text color={C.dim}>{`1-${Math.min(cards.length, useLanes ? 6 : fit)}${isNarrow ? '' : ' expand'}`}</Text>
             </Box>
           ) : null}
         </Box>
@@ -1067,7 +1097,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
         return (
           <Box flexDirection="column" width={w}>
             {header}
-            <Text color={C.faint}>no subagents yet</Text>
+            <Text color={C.dim}>no subagents yet</Text>
           </Box>
         )
       }
@@ -1081,7 +1111,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
         return (
           <Box flexDirection="column" width={w}>
             {header}
-            {cards.length > shown.length ? <Text color={C.faint}>{`+${cards.length - shown.length} earlier`}</Text> : null}
+            {cards.length > shown.length ? <Text color={C.dim}>{`+${cards.length - shown.length} earlier`}</Text> : null}
             {shown.map((c, i) => {
               const gm = geo[i]
               const isViewed = viewed === c.id
@@ -1104,6 +1134,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
                 </Box>
               )
             })}
+            {loopsLine(w)}
           </Box>
         )
       }
@@ -1113,7 +1144,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       return (
         <Box flexDirection="column" width={w}>
           {header}
-          {rail('fan-out', running.length > 0, C.agent, w, centers)}
+          {hasFanRails ? rail('fan-out', true, C.agent, w, centers) : null}
           <Box columnGap={1}>
             {shown.map((c, i) => {
               const isViewed = viewed === c.id
@@ -1128,9 +1159,11 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
                   paddingX={1}
                 >
                   <Button key={`card-${c.id}`} plain hotkey={String(i + 1)} label={titleLines(cardTitle(c), cardW - 7, cardW - 4)[0]} onPress={expandOnPress(c.id)} />
-                  <Text bold wrap="truncate">
-                    {titleLines(cardTitle(c), cardW - 7, cardW - 4)[1]}
-                  </Text>
+                  {titleLines(cardTitle(c), cardW - 7, cardW - 4)[1] ? (
+                    <Text bold wrap="truncate">
+                      {titleLines(cardTitle(c), cardW - 7, cardW - 4)[1]}
+                    </Text>
+                  ) : null}
                   <Text color={C.dim} wrap="truncate">
                     {sameModel ? c.type : `${c.type} · ${prettyModel(c.model)}`}
                   </Text>
@@ -1147,7 +1180,8 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
               )
             })}
           </Box>
-          {rail('merge', running.length > 0, C.agent, w, centers, true)}
+          {hasFanRails ? rail('merge', true, C.agent, w, centers, true) : null}
+          {loopsLine(w)}
         </Box>
       )
     }
@@ -1160,7 +1194,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             {expandedCard.description || expandedCard.type}
           </Text>
           <Text dimColor wrap="truncate">{`${expandedCard.type} · ${prettyModel(expandedCard.model)} · ${expandedCard.status} · ${expandedCard.steps} steps`}</Text>
-          {expandedCard.tools.length === 0 ? <Text color={C.faint}>no tool calls yet</Text> : null}
+          {expandedCard.tools.length === 0 ? <Text color={C.dim}>no tool calls yet</Text> : null}
           {expandedCard.tools.map(n => (
             <Text color={n.isError ? C.warn : C.text} wrap="truncate">
               {`${n.isError ? '✗' : '·'} ${n.text}`}
@@ -1186,7 +1220,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       architect: 2 + 3 + (cfg.moments ? 1 : 0) + (a.lastAdvice ? 1 : 0),
       gate: 2 + 4 + (v.gateOpen ? Math.min(5, g.recent.filter(c => c.bucket === v.gateOpen).length) : 0),
       // 테두리 없음: 머리 1 + (줄 모드: 이전 표시 1 + 줄 · 카드 모드: 카드 7줄 + 위아래 rail)
-      agents: cards.length > fitCards ? 1 + (cards.length > 6 ? 1 : 0) + Math.min(6, cards.length) : 1 + 1 + 7 + 1,
+      agents: (cards.length > fitCards ? 1 + (cards.length > 6 ? 1 : 0) + Math.min(6, cards.length) : 1 + (hasFanRails ? 2 : 0) + 7) + (activeLoops > 0 ? 1 : 0),
       loops: 0,
       receipt: 0,
       log: 0,
@@ -1196,18 +1230,18 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const nLog = logRows(bodyRows, used)
     const shownLines = (viewed ? lines.filter(l => l.agentId === viewed) : lines).slice(-nLog)
     const colorOf = (l: LogLine) =>
-      l.kind === 'error' ? C.warn : l.kind === 'consult' ? C.arch : l.who === 'main' ? C.main : l.who === 'gate' ? C.gate : l.who === 'you' ? C.text : C.agent
+      l.kind === 'error' ? C.warn : l.kind === 'consult' ? C.arch : l.who === 'main' || l.who === '↻ bg' ? C.main : l.who === 'gate' ? C.gate : l.who === 'you' ? C.text : C.agent
     // Below 40 columns a line keeps its minute, not its second, and a shorter name.
     const logPanel = (w: number) => (
       <Box flexDirection="column" borderStyle="round" borderColor={C.faint} paddingX={1} width={w}>
         <Text dimColor wrap="truncate">
           {viewed ? 'session log · this agent' : 'session log'}
         </Text>
-        {shownLines.length === 0 ? <Text color={C.faint}>nothing yet</Text> : null}
+        {shownLines.length === 0 ? <Text color={C.dim}>nothing yet</Text> : null}
         {shownLines.map(l => (
           <Box>
             <Box width={w < 40 ? 6 : 9} flexShrink={0}>
-              <Text color={C.faint}>{w < 40 ? fmtClock(l.at).slice(0, 5) : fmtClock(l.at)}</Text>
+              <Text color={C.dim}>{w < 40 ? fmtClock(l.at).slice(0, 5) : fmtClock(l.at)}</Text>
             </Box>
             <Box width={w < 40 ? 9 : 13} flexShrink={0}>
               <Text color={colorOf(l)} bold wrap="truncate">
@@ -1324,35 +1358,25 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
               ? agentsPanel(w)
               : logPanel(w)
 
-    // 패널은 한 칸으로 쌓고 첫 패널 외에는 위에 빈 줄 1칸을 둔다. 패널 사이 rail 은 없다(agents 패널이 자기 rail 을 그린다).
-    const column = (ps: Panel[], w: number) => (
-      <Box flexDirection="column" width={w}>
-        {ps.map((p, i) => (
-          <Box key={`panel-${p}`} flexDirection="column" marginTop={i === 0 ? 0 : 1}>
-            {draw(p, w)}
-            {p === 'agents' ? expandedPanel(w) : null}
-          </Box>
-        ))}
-      </Box>
-    )
-
     // Desktop draws the agents' time axis as SVG under the panels.
     const svgLanes =
-      e.surface !== 'terminal' && cards.length > 0
+      e.surface !== 'terminal' && cards.length >= 2
         ? (() => {
             const { Svg } = $.ui.resolve(e)
             const rowH = 18
             const pxW = 520
+            const barMax = pxW - 160 - 44 // 막대 끝 옆에 실행 시간 글자가 들어갈 자리
             const geo = lanes(cards.slice(-10), now, 100)
             const rects = cards
               .slice(-10)
               .map((c, i) => {
                 const gm = geo[i]
-                const x = 150 + ((gm?.before ?? 0) / 100) * (pxW - 160)
-                const wpx = Math.max(3, ((gm?.bar ?? 1) / 100) * (pxW - 160))
+                const x = 150 + ((gm?.before ?? 0) / 100) * barMax
+                const wpx = Math.max(3, ((gm?.bar ?? 1) / 100) * barMax)
                 const fill = c.status === 'running' ? SVG_COLORS.running : c.status === 'done' ? SVG_COLORS.done : c.status === 'failed' ? SVG_COLORS.failed : SVG_COLORS.other
                 const label = shorten(cardTitle(c), 22).replace(/[<&>]/g, '')
-                return `<text x="4" y="${i * rowH + 13}" font-size="11" fill="${SVG_COLORS.label}">${label}</text><rect x="${x}" y="${i * rowH + 4}" width="${wpx}" height="10" rx="3" fill="${fill}"/>`
+                const took = fmtDuration((c.endedAt ?? now) - c.spawnedAt)
+                return `<text x="4" y="${i * rowH + 13}" font-size="11" fill="${SVG_LABEL}">${label}</text><rect x="${x}" y="${i * rowH + 4}" width="${wpx}" height="10" rx="3" fill="${fill}"/><text x="${x + wpx + 4}" y="${i * rowH + 13}" font-size="10" fill="${SVG_LABEL}">${took}</text>`
               })
               .join('')
             const svgH = Math.min(10, cards.length) * rowH + 4
@@ -1366,6 +1390,19 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             )
           })()
         : null
+
+    // 패널은 한 칸으로 쌓고 첫 패널 외에는 위에 빈 줄 1칸을 둔다. 패널 사이 rail 은 없다(agents 패널이 자기 rail 을 그린다).
+    const column = (ps: Panel[], w: number) => (
+      <Box flexDirection="column" width={w}>
+        {ps.map((p, i) => (
+          <Box key={`panel-${p}`} flexDirection="column" marginTop={i === 0 ? 0 : 1}>
+            {draw(p, w)}
+            {p === 'agents' ? expandedPanel(w) : null}
+            {p === 'agents' ? svgLanes : null}
+          </Box>
+        ))}
+      </Box>
+    )
 
     // Inline above the prompt (the terminal's main screen), the pane is a summary of at most 8 rows.
     const isMini = layout === 'mini' || (layout === 'auto' && e.props.placement === 'inline')
@@ -1423,9 +1460,9 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             </Box>
           ))}
           {cards.length > live.length ? (
-            <Text color={C.faint} wrap="truncate">{`+${cards.length - live.length} more agents · /devfsd layout compact for all`}</Text>
+            <Text color={C.dim} wrap="truncate">{`+${cards.length - live.length} more agents · /devfsd layout compact for all`}</Text>
           ) : null}
-          {lp.length > 0 ? <Text dimColor wrap="truncate">{`other loops ${lp.length} · ${lp.filter(l => isLoopActive(l, now)).length} active`}</Text> : null}
+          {loopsLine(W)}
           {!m.isRunning && r ? (
             <Text dimColor wrap="truncate">
               {`last turn ${fmtDuration(r.durationMs)} · ${plural(r.agents, 'agent')} · ${plural(r.edits, 'edit')} · ${plural(r.errors, 'error')}${r.costDelta !== null ? ` · +${fmtUsd(r.costDelta)}` : ''}`}
@@ -1478,7 +1515,6 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
           </Text>
         )}
         {column(order, W)}
-        {svgLanes}
       </Box>
     )
   }).catch(($, e, next) => {

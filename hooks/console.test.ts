@@ -699,6 +699,8 @@ test('on a graphical surface, rows of marks hold fewer marks, keep the newest an
   on('turn.step', async function* () {
     return { turnId: 'G1', index: 0, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage }
   })
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'card1' }))
+  await $.agent.spawn(spawn('general-purpose', 'Hold the agents panel open'))
   for (let i = 0; i < 30; i += 1) await $.tool.check({ tool: 'Read', input: { file_path: `/f${i}.ts` }, tool_use_id: `g${i}` })
   // A loop that is no card and no architect: a dot on the "other loops" row.
   const s = $.turn.step({ turnId: 'G1', index: 0, model: 'claude-opus-5-5', messageCount: 1, agentId: 'wf1' })
@@ -721,7 +723,8 @@ test('on a graphical surface, rows of marks hold fewer marks, keep the newest an
       expect(strip?.props.wrap).toBe('truncate-start')
       expect(strip?.text.length).toBe(surface !== 'terminal' && cols === 40 ? 24 : 30)
       expect(strip?.text.endsWith('✗')).toBe(true)
-      // other-loops 점 줄(`●`)은 별도 패널이 없어졌다(흡수) — agents 패널 안 한 줄로 되살리는 단언은 T8 몫.
+      // other-loops 는 agents 패널 맨 아래 한 줄이다(활성 loop 가 있을 때만 · 카드가 있어야 패널이 선다).
+      expect(await ui.find({ type: 'Text', text: /^other loops 1 · 1 active$/ })).toBeDefined()
       expect((await ui.find({ type: 'Text', text: /^[─━◆]+$/ }))?.props.wrap).toBe('truncate-middle')
       expect(await ui.find({ key: 'legend' })).toBeUndefined() // 범례 줄은 없다
       await ui.unmount()
@@ -782,7 +785,7 @@ test('a finished agent that takes another step (resumed by SendMessage) runs aga
   await step()
   expect(status[status.length - 1]).toMatch(/agents 1\/1/)
   const ui = await $.ui.mount({ ...pane(64), surface: 'terminal' })
-  expect(await ui.find({ text: /◐ running/ })).toBeDefined()
+  expect(await ui.find({ text: /● running/ })).toBeDefined()
   expect(await ui.find({ text: /✓ done/ })).toBeUndefined()
   expect(await ui.find({ text: /^resumed$/ })).toBeDefined()
   expect(await ui.find({ text: /ctx 10 · out 10 · 2 st/ })).toBeDefined()
@@ -1354,12 +1357,14 @@ test('every panel fits the pane at every width from 24 columns, on every surface
   expect([...new Set(failures.map(f => f.replace(/ (terminal|desktop|vscode|mobile) /, ' ')))]).toEqual([])
 })
 
-test('a single agent card fits from 24 columns, and the time axis scales to the pane', async ($, on) => {
+test('agent cards fit from 24 columns, and the time axis scales to the pane', async ($, on) => {
   const clock = engine(on)
   await clock.advance(3_600_000)
-  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'one' }))
+  let oneN = 0
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: oneN++ === 0 ? 'one' : 'two' }))
   await $.turn.start({ text: 'go', turnId: 'O1' })
   await $.agent.spawn(spawn('general-purpose', 'Write the configuration loader regression tests'))
+  await $.agent.spawn(spawn('general-purpose', 'Map the call sites')) // 시간축 SVG 는 에이전트 2개부터 — 카드 하나의 폭 검사는 위 카드에서 이어진다
   const failures: string[] = []
   for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
     for (let cols = 24; cols <= 40; cols += 1) {
@@ -2465,3 +2470,342 @@ test('devFSD: AC-10 with no FID the card holds only the background part — no t
   await $.session.append(taskDone('f1'))
   expect(panelKeysOf(await drawFid($))).not.toContain('panel-fid')
 })
+
+// ---------------------------------------------------------------- devFSD: agents·로그·흐린 글자 대비 (FID 20261106-console-layout-revamp, T8)
+
+/** 그려진 트리의 문자열 잎을 문서 순서로 — Button 같은 합성 노드의 글자까지 센다. */
+const leavesOf = (n: unknown, out: string[] = []): string[] => {
+  if (typeof n === 'string' || typeof n === 'number') out.push(String(n))
+  else if (isDrawn(n)) {
+    if (n.type === 'Button') out.push(String(n.props?.label ?? '')) // 버튼의 글자는 label 속성이다
+    ;(n.children ?? []).forEach(c => leavesOf(c, out))
+  }
+
+  return out
+}
+const findType = (n: unknown, type: string): Drawn | undefined => {
+  if (!isDrawn(n)) return undefined
+  if (n.type === type) return n
+  for (const c of n.children ?? []) {
+    const r = findType(c, type)
+    if (r) return r
+  }
+
+  return undefined
+}
+/** 글자(영숫자·한글)를 가진 Text 중 faint 색인 것 — 게이지 빈칸·`─`·`·`·`░` 같은 장식은 센 대상이 아니다. */
+const HAS_LETTER = /[\p{L}\p{N}]/u
+const faintTexts = (n: unknown, faint: string, stats = { inspected: 0 }, out: string[] = []) => {
+  if (!isDrawn(n)) return { hits: out, inspected: stats.inspected }
+  if (n.type === 'Text') {
+    stats.inspected += 1
+    if (n.props?.color === faint && HAS_LETTER.test(textOf(n))) out.push(textOf(n))
+  }
+  ;(n.children ?? []).forEach(c => faintTexts(c, faint, stats, out))
+
+  return { hits: out, inspected: stats.inspected }
+}
+
+test('devFSD: AC-11 faintTexts (the walker itself) finds a faint word, skips decoration, counts what it looked at', () => {
+  const F = 'F'
+  const text = (color: string, s: string): Drawn => ({ type: 'Text', props: { color }, children: [s] })
+  // FAIL 사례 — 흐린 시각 글자는 잡는다
+  expect(faintTexts({ type: 'Box', children: [text(F, '12:00')] }, F)).toEqual({ hits: ['12:00'], inspected: 1 })
+  // 공전 방지 — 훑은 Text 가 0 이 아니고, dim 글자는 0개
+  expect(faintTexts({ type: 'Box', children: [text('D', 'x')] }, F)).toEqual({ hits: [], inspected: 1 })
+  // 우회 변형 — 장식 문자만 든 faint Text 는 제외, 중첩 Text 안쪽의 faint 글자는 포함
+  expect(faintTexts({ type: 'Box', children: [text(F, '░ ─ · ━')] }, F).hits).toEqual([])
+  const nested: Drawn = { type: 'Text', props: {}, children: [text(F, 'ab')] }
+  expect(faintTexts(nested, F).hits).toEqual(['ab'])
+})
+
+/** AC-11 세계: 서브에이전트 셋(처음 둘은 끝나고 하나가 running)·BG 종료 1건. 시각은 손 계산 가능하게 고정한다. */
+const ac11World = async ($: Parameters<TestBody>[0], on: On, o: { loop?: boolean } = {}) => {
+  const clock = fidWorld(on)
+  await clock.advance(3_600_000)
+  const usage = { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, model: 'claude-sonnet-5-5' }
+  on('turn.step', async function* () {
+    return { turnId: 'Q1', index: 0, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage }
+  })
+  await startFid($)
+  await $.turn.start({ text: 'go', turnId: 'Q1' })
+  const main = $.turn.step({ turnId: 'Q1', index: 0, model: 'claude-sonnet-5-5', messageCount: 1 }) // 메인도 sonnet — 카드 둘째 줄이 type 만이다
+  for await (const _ of main) void _
+  await main.result
+  await $.agent.spawn(spawn('general-purpose', 'AC 준수 검토')) // fw1
+  await $.agent.spawn(spawn('Explore', 'Write tests')) // fw2 — running 으로 남는다
+  await $.agent.spawn(spawn('general-purpose', 'Review diff')) // fw3
+  await clock.advance(90_000)
+  await $.turn.complete(finished('Q-a', 'fw1')) // 1m30s
+  await clock.advance(45_000)
+  await $.turn.complete(finished('Q-c', 'fw3')) // 2m15s
+  await clock.advance(15_000) // fw2 은 지금 2m30s
+  await $.tool.call(bgNamed('q1', 'publish'))
+  await clock.advance(5_000)
+  await $.session.append(taskDone('q1'))
+  if (o.loop) {
+    const st = $.turn.step({ turnId: 'Q1', index: 0, model: 'claude-opus-5-5', messageCount: 1, agentId: 'wf1' })
+    for await (const _ of st) void _
+    await st.result
+  }
+
+  return clock
+}
+
+test('devFSD: AC-11 agents — description first, type second, ● for running, no loops line, no rails for one running', { timeoutMs: 60_000 }, async ($, on) => {
+  await ac11World($, on)
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const ui = await $.ui.mount({ ...pane(80), surface })
+    const tree = await ui.drawn()
+    const agents = subtree(tree, 'panel-agents')
+    const leaves = leavesOf(agents)
+    const at = leaves.indexOf('AC 준수 검토')
+    expect(at).toBeGreaterThanOrEqual(0)
+    expect(leaves.slice(at, at + 2)).toEqual(['AC 준수 검토', 'general-purpose'])
+    expect(leaves.filter(t => /^● running$/.test(t))).toHaveLength(1)
+    expect(leaves.filter(t => /^✓ done$/.test(t))).toHaveLength(2)
+    expect(leaves.join('\n')).not.toMatch(/◐|other loops/)
+    expect(keysOf(tree).filter(k => /fan-out|merge/.test(k))).toEqual([])
+    await ui.unmount()
+  }
+})
+
+test('devFSD: AC-11 agents — other loops is the last line of the agents panel, and only for an active loop', { timeoutMs: 60_000 }, async ($, on) => {
+  await ac11World($, on, { loop: true })
+  const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  const leaves = leavesOf(subtree(await ui.drawn(), 'panel-agents'))
+  expect(leaves[leaves.length - 1]).toBe('other loops 1 · 1 active')
+  await ui.unmount()
+})
+
+test('devFSD: AC-11 agents — a loop that has gone quiet draws no line', { timeoutMs: 60_000 }, async ($, on) => {
+  const clock = await ac11World($, on, { loop: true })
+  await clock.advance(60_000) // 활성 판정(15초)을 넘긴다
+  const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  expect(leavesOf(subtree(await ui.drawn(), 'panel-agents')).join('\n')).not.toMatch(/other loops/)
+  await ui.unmount()
+})
+
+test('devFSD: AC-11 agents — fan-out and merge rails appear with two running agents, not with one', { timeoutMs: 60_000 }, async ($, on) => {
+  const clock = fidWorld(on)
+  await clock.advance(3_600_000)
+  await startFid($)
+  await $.agent.spawn(spawn('general-purpose', 'First worker')) // fw1
+  await $.agent.spawn(spawn('general-purpose', 'Second worker')) // fw2
+  const railsAt = async () => {
+    const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+    const rails = keysOf(await ui.drawn()).filter(k => /fan-out|merge/.test(k))
+    await ui.unmount()
+
+    return rails.sort()
+  }
+  expect(await railsAt()).toEqual(['fan-out', 'merge']) // 양성 대조 — running 2
+  await $.turn.complete(finished('W-1', 'fw1'))
+  expect(await railsAt()).toEqual([]) // running 1
+})
+
+test('devFSD: AC-11 desktop — the time axis follows the agents panel, shows each bar\'s run time, and needs two agents', { timeoutMs: 60_000 }, async ($, on) => {
+  await ac11World($, on)
+  const ui = await $.ui.mount({ ...pane(80), surface: 'desktop' })
+  const tree = await ui.drawn()
+  const agents = subtree(tree, 'panel-agents')!
+  const kids = (agents.children ?? []).filter(isDrawn)
+  expect(kids[kids.length - 1]?.type).toBe('Svg') // agents 패널 바로 뒤 — 같은 칸 끝
+  const keys = panelKeysOf(tree)
+  expect(keys[keys.indexOf('panel-agents') + 1]).toBe('panel-log') // 바닥(body 끝)으로 가지 않았다
+  const svg = findType(tree, 'Svg')
+  expect([svg?.props?.width, svg?.props?.height]).toEqual([undefined, undefined])
+  const source = String(svg?.props?.source)
+  const words = [...source.matchAll(/<text [^>]*>([^<]+)<\/text>/g)].map(m => m[1])
+  expect(words).toEqual(['AC 준수 검토', '1m30s', 'Write tests', '2m35s', 'Review diff', '2m15s'])
+  expect(source).toContain('fill="#888780"')
+  expect(source).not.toContain('#6b7280')
+  await ui.unmount()
+  const term = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  expect(findType(await term.drawn(), 'Svg')).toBeUndefined()
+  await term.unmount()
+})
+
+test('devFSD: AC-11 desktop — one agent draws no time axis', async ($, on) => {
+  const clock = fidWorld(on)
+  await clock.advance(3_600_000)
+  await startFid($)
+  await $.agent.spawn(spawn('general-purpose', 'Only one'))
+  const ui = await $.ui.mount({ ...pane(80), surface: 'desktop' })
+  expect(findType(await ui.drawn(), 'Svg')).toBeUndefined()
+  await ui.unmount()
+})
+
+// FR-17: faint 는 장식에만 — 세 세계 × 표면 × 폭 × 팔레트에서 글자 포함 Text 의 faint 색이 0개
+for (const palette of ['theme', 'pastel'] as const) {
+  const sweep = async ($: Parameters<TestBody>[0], label: string, expectKeys: string[]) => {
+    const failures: string[] = []
+    let inspected = 0
+    for (const surface of ['terminal', 'desktop'] as const) {
+      for (const cols of [24, 40, 64, 86]) {
+        const ui = await $.ui.mount({ ...pane(cols), surface })
+        const tree = await ui.drawn()
+        const found = faintTexts(tree, PALETTES[palette].faint)
+        inspected += found.inspected
+        for (const t of found.hits) failures.push(`${label} ${surface} ${cols}: ${t}`)
+        if (cols === 86) for (const k of expectKeys) expect(keysOf(tree)).toContain(k) // 그 상태가 실제로 그려졌다
+        await ui.unmount()
+      }
+    }
+    expect(inspected).toBeGreaterThan(0)
+    expect(failures).toEqual([])
+  }
+  test(`devFSD: AC-11 no letter or digit is drawn in faint — a new session (${palette})`, { options: { palette } }, async ($, on) => {
+    engine(on)
+    await sweep($, 'new', ['panel-main', 'panel-log'])
+  })
+  test(`devFSD: AC-11 no letter or digit is drawn in faint — a busy session (${palette})`, { timeoutMs: 120_000, options: { palette, panels: 'main,fid,architect,gate,agents,loops,log' } }, async ($, on) => {
+    await busySession($, on)
+    const opener = await $.ui.mount({ ...pane(64), surface: 'terminal' })
+    await opener.press({ key: 'gate-shell' })
+    await opener.press({ key: 'card-b1' })
+    await opener.unmount()
+    await sweep($, 'busy', ['panel-gate', 'panel-agents', 'panel-architect'])
+  })
+  test(`devFSD: AC-11 no letter or digit is drawn in faint — the AC-11 fixture (${palette})`, { timeoutMs: 120_000, options: { palette, panels: 'main,fid,architect,gate,agents,log' } }, async ($, on) => {
+    await ac11World($, on, { loop: true })
+    await sweep($, 'ac11', ['panel-agents', 'panel-fid'])
+  })
+}
+
+// FR-16: 로그
+const logLinesOf = (tree: unknown) =>
+  rowsOf(subtree(tree, 'panel-log'))
+    .slice(1)
+    .map(row => textsOf(row).map(t => ({ text: textOf(t), color: t.props?.color })))
+    .filter(parts => parts.length >= 3)
+
+test('devFSD: AC-11 the log — time in dim, a failed tool call starts with ✗ (no trailing mark), other error lines unchanged', { timeoutMs: 60_000 }, async ($, on) => {
+  engine(on)
+  const C = PALETTES.theme
+  on('tool.call', () => ({ result: {}, text: 'boom', isError: true }) as never)
+  on('tool.check', (_$, e) => ({ decision: e.tool_use_id === 'deny1' ? 'deny' : 'allow' }))
+  await $.tool.call({ tool: 'Bash', command: 'make test', tool_use_id: 'fail1' } as never)
+  await $.tool.check({ tool: 'Read', input: { file_path: '/secret' }, tool_use_id: 'deny1' })
+  const ui = await $.ui.mount({ ...pane(86), surface: 'terminal' })
+  const lines = logLinesOf(await ui.drawn())
+  await ui.unmount()
+  const failed = lines.find(l => /make test/.test(l[2]!.text))
+  expect(failed?.[2]?.text).toBe('✗ Bash → make test')
+  expect(failed?.[2]?.color).toBe(C.warn)
+  expect(failed?.[0]?.color).toBe(C.dim) // 시각
+  const denied = lines.find(l => /denied by rule/.test(l[2]!.text))
+  expect(denied?.[2]?.text).toMatch(/^denied by rule/) // 다른 오류 줄은 그대로
+})
+
+// 지적 11: BG 종료 로그 — 처리기 5건
+const bgLogWorld = async ($: Parameters<TestBody>[0], on: On) => {
+  const clock = engine(on)
+  await clock.advance(3_600_000)
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.turn.start({ text: 'go', turnId: 'L1' })
+  await $.tool.call(bgNamed('r1', 'publish'))
+  await $.tool.call(bgNamed('r2', 'lint'))
+
+  return clock
+}
+const bgLines = async ($: Parameters<TestBody>[0]) => {
+  const ui = await $.ui.mount({ ...pane(86), surface: 'terminal' })
+  const lines = logLinesOf(await ui.drawn())
+  await ui.unmount()
+
+  return lines
+}
+
+test('devFSD: BG end log — a finished command logs one "↻ bg" line with its label and run time, info colour', async ($, on) => {
+  const clock = await bgLogWorld($, on)
+  await clock.advance(90_000)
+  await $.session.append(taskDone('r1'))
+  const lines = (await bgLines($)).filter(l => l[1]!.text === '↻ bg')
+  expect(lines.map(l => l[2]!.text)).toEqual(['✓ publish · 1분'])
+  expect(lines[0]![1]!.color).toBe(PALETTES.theme.main)
+  expect(lines[0]![2]!.color).toBe(PALETTES.theme.text)
+})
+
+test('devFSD: BG end log — a failed command shows ✗ once, in the error colour', async ($, on) => {
+  const clock = await bgLogWorld($, on)
+  await clock.advance(30_000)
+  await $.session.append(taskDone('r2', 'failed'))
+  const lines = (await bgLines($)).filter(l => l[1]!.text === '↻ bg')
+  expect(lines).toHaveLength(1)
+  expect(lines[0]![2]!.text).toBe('✗ lint · 30초')
+  expect(lines[0]![2]!.text.split('✗')).toHaveLength(2) // ✗ 한 번 — 오류 줄 규칙이 하나 더 붙이지 않는다
+  expect(lines[0]![2]!.color).toBe(PALETTES.theme.warn)
+})
+
+test('devFSD: BG end log — an unknown id logs nothing, the same id twice logs once', async ($, on) => {
+  const clock = await bgLogWorld($, on)
+  await clock.advance(5_000)
+  await $.session.append(taskDone('zzz'))
+  expect((await bgLines($)).filter(l => l[1]!.text === '↻ bg')).toEqual([])
+  await $.session.append(taskDone('r1'))
+  await $.session.append(taskDone('r1'))
+  expect((await bgLines($)).filter(l => l[1]!.text === '↻ bg')).toHaveLength(1)
+})
+
+test('devFSD: BG end log — a body that throws still hands the row on, next ran once', async ($, on) => {
+  let ran = 0
+  let isBoom = false
+  on('session.append', async (_$, e, next) => (ran += 1, next(e)))
+  // 작업 등록 뒤에 시계를 던지게 하려고 mock.clock 대신 스위치 달린 시계를 쓴다 — 첫 $ 호출 뒤에는 처리기를 더 등록할 수 없다.
+  on('clock.now', () => {
+    if (isBoom) throw new Error('boom: clock')
+
+    return { value: 3_600_000 }
+  })
+  on('ui.status', () => ({ value: undefined }))
+  on('turn.start', (_$, e) => ({ turnId: e.turnId }))
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.turn.start({ text: 'go', turnId: 'L1' })
+  await $.tool.call(bgNamed('r1', 'publish'))
+  isBoom = true
+  const out = await $.session.append(taskDone('r1'))
+  expect(out.uuid).toBe('row-r1-completed')
+  expect(ran).toBe(1)
+})
+
+test('devFSD: BG end log — the notification text itself is not copied into the log', async ($, on) => {
+  const clock = await bgLogWorld($, on)
+  await clock.advance(5_000)
+  await $.session.append(taskDone('r1'))
+  const text = (await bgLines($)).map(l => l.map(p => p.text).join(' ')).join('\n')
+  expect(text).not.toMatch(/tool-use-id|<status>|completed/)
+})
+
+// AC-13 (지적 12): Advisor 라벨
+test('devFSD: AC-13 the Advisor panel says Advisor, keeps a saved label, follows a custom one, and needs a consult', { timeoutMs: 60_000 }, async ($, on) => {
+  fidWorld(on)
+  await startFid($)
+  expect(panelKeysOf(await (async () => { const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' }); const t = await ui.drawn(); await ui.unmount(); return t })())).not.toContain('panel-architect')
+  await consultOnce($, { isPending: false })
+  await consultOnce($, { isPending: true })
+  for (const [surface, placement] of [['terminal', 'dock'], ['terminal', 'inline'], ['desktop', 'dock']] as const) {
+    const ui = await $.ui.mount({ ...pane(80), props: { ...pane(80).props, placement }, surface })
+    const tree = await ui.drawn()
+    expect(leavesOf(tree).join('\n')).not.toMatch(/ARCHITECT/i)
+    expect(leavesOf(tree).join('\n')).toMatch(/advisor/i) // 양성 대조 — 같은 화면에 Advisor 가 있다
+    if (placement === 'dock') {
+      expect(panelKeysOf(tree)).toContain('panel-architect')
+      expect(leavesOf(subtree(tree, 'panel-architect')).join('')).toMatch(/Advisor · advising/)
+    }
+    await ui.unmount()
+  }
+})
+
+for (const label of ['ARCHITECT', 'Coach']) {
+  test(`devFSD: AC-13 a saved architectLabel "${label}" is kept as the panel title`, { options: { architectLabel: label } }, async ($, on) => {
+    fidWorld(on)
+    await startFid($)
+    await consultOnce($, { isPending: true })
+    const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+    expect(leavesOf(subtree(await ui.drawn(), 'panel-architect')).join('')).toMatch(new RegExp(`${label} · advising`))
+    await ui.unmount()
+  })
+}

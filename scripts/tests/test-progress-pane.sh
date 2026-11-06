@@ -113,6 +113,8 @@ if want mod; then
   [ -n "$SCRIPT" ] && [ "$(bash -c "$SCRIPT" _ "$tmp/a" "$tmp/b" | sort -n | tail -1)" = "$want_ts" ] && ok "PP-S1a stat 최댓값" || ng "PP-S1a stat 최댓값"
   [ -n "$SCRIPT" ] && [ -n "$(bash -c "$SCRIPT" _ "$tmp/a" "$tmp/none")" ] && ok "PP-S1b 일부 부재여도 유효 값" || ng "PP-S1b 일부 부재"
   [ -n "$SCRIPT" ] && [ -z "$(bash -c "$SCRIPT" _ "$tmp/none1" "$tmp/none2")" ] && ok "PP-S1c 전부 부재면 빈 출력" || ng "PP-S1c 전부 부재"
+  [ -n "$SCRIPT" ] && bash -c "$SCRIPT" _ "$tmp/a" "$tmp/none" >/dev/null 2>&1; rc=$?
+  [ -n "$SCRIPT" ] && [ "$rc" = 0 ] && ok "PP-S1d 마지막 인자가 부재여도 종료 코드 0" || ng "PP-S1d 종료 코드 (rc=$rc)"
   rm -rf "$tmp"
 fi
 

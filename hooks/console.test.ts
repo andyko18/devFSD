@@ -1588,6 +1588,10 @@ test('devFSD: the badge never takes pieces away from a narrow line (AC-R-1)', as
         if (cols >= 40) expect(base[key].some(r => /ctx/.test(r))).toBe(true) // 양성 대조: 시드가 실제로 ctx 조각을 만들었다
         const badge = rows.find(r => /작업 1/.test(r))
         if (make === pane && cols < 40) expect(badge).toBeUndefined() // dock 은 40 미만에서 배지 없음
+        if (make === inline) { // 미니(inline)는 어떤 폭에서도 배지 줄이 보여야 한다 — 부재가 아니라 존재를 요구
+          expect(badge).toBeDefined()
+          expect(badge).toBe(cols < 60 ? (stalled ? '⚠ 작업 1 · 7m' : '작업 1 · 2m') : (stalled ? '⚠ 정체 의심 · 작업 1 · 7분 전' : '작업 1 · 마지막 활동 2분 전'))
+        }
         if (badge) {
           sawBadge = true
           expect(badge).toMatch(cols < 60 ? (stalled ? /⚠ 작업 1 · \d+m/ : /작업 1 · \d+m/) : /작업 1 · /)

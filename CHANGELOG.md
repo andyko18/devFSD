@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.9] — 2026-11-06
+
 ### Fixed
 - 관제판 검증 배지가 워크트리 안에만 FID 기록이 있을 때 `검증 ?` 로 나오던 결함 — `verifyFor` 가 `[cwd, 프로젝트 폴더]` 순으로 FID 폴더를 찾는다 (PR #261)
 
@@ -3557,7 +3559,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.8...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.9...HEAD
+[3.1.9]: https://github.com/andyko18/devFSD/compare/v3.1.8...v3.1.9
 [3.1.8]: https://github.com/andyko18/devFSD/compare/v3.1.7...v3.1.8
 [3.1.7]: https://github.com/andyko18/devFSD/compare/v3.1.6...v3.1.7
 [3.1.6]: https://github.com/andyko18/devFSD/compare/v3.1.5...v3.1.6

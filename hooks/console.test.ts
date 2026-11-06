@@ -305,14 +305,14 @@ test('devFSD: agoLabel reads seconds, then minutes, at every boundary', () => {
 test('devFSD: activityBadge shows jobs and age, and warns exactly at five minutes', () => {
   const at = 1_000_000
   const base = { jobs: 1, isRunning: false, activityAt: at, compact: false }
-  expect(activityBadge({ ...base, now: at + 150_000 })).toEqual({ text: '작업 1 · 마지막 활동 2분 전', stalled: false })
+  expect(activityBadge({ ...base, now: at + 150_000 })).toEqual({ text: 'BG 1 · 마지막 활동 2분 전', stalled: false })
   expect(activityBadge({ ...base, now: at + 299_999 })?.stalled).toBe(false)
-  expect(activityBadge({ ...base, now: at + 300_000 })).toEqual({ text: '⚠ 정체 의심 · 작업 1 · 5분 전', stalled: true })
-  expect(activityBadge({ ...base, now: at + 150_000, compact: true })).toEqual({ text: '작업 1 · 2m', stalled: false })
-  expect(activityBadge({ ...base, now: at + 7 * 60_000, compact: true })).toEqual({ text: '⚠ 작업 1 · 7m', stalled: true })
-  expect(activityBadge({ ...base, now: at + 5_000, activityAt: undefined })).toEqual({ text: '작업 1', stalled: false })
-  expect(activityBadge({ ...base, jobs: 2, isRunning: true, now: at + 30_000 })).toEqual({ text: '작업 2 · 마지막 활동 30초 전', stalled: false })
-  expect(activityBadge({ ...base, now: at - 60_000 })).toEqual({ text: '작업 1 · 마지막 활동 방금', stalled: false }) // 미래 시각은 0 으로
+  expect(activityBadge({ ...base, now: at + 300_000 })).toEqual({ text: '⚠ 정체 의심 · BG 1 · 5분 전', stalled: true })
+  expect(activityBadge({ ...base, now: at + 150_000, compact: true })).toEqual({ text: 'BG 1 · 2m', stalled: false })
+  expect(activityBadge({ ...base, now: at + 7 * 60_000, compact: true })).toEqual({ text: '⚠ BG 1 · 7m', stalled: true })
+  expect(activityBadge({ ...base, now: at + 5_000, activityAt: undefined })).toEqual({ text: 'BG 1', stalled: false })
+  expect(activityBadge({ ...base, jobs: 2, isRunning: true, now: at + 30_000 })).toEqual({ text: 'BG 2 · 마지막 활동 30초 전', stalled: false })
+  expect(activityBadge({ ...base, now: at - 60_000 })).toEqual({ text: 'BG 1 · 마지막 활동 방금', stalled: false }) // 미래 시각은 0 으로
 })
 
 test('devFSD: durationLabel counts run length, not time since last activity', () => {
@@ -337,13 +337,23 @@ test('devFSD: oldestStart picks the earliest running job', () => {
 test('devFSD: activityBadge with since shows run length apart from last activity', () => {
   const start = 1_000_000
   const base = { jobs: 1, isRunning: false, activityAt: start + 20_000, compact: false, since: start }
-  expect(activityBadge({ ...base, now: start + 23_000 })).toEqual({ text: '작업 1 · 23초 경과 · 마지막 활동 방금', stalled: false })
-  expect(activityBadge({ ...base, now: start + 23_000, compact: true })).toEqual({ text: '작업 1 · 23s', stalled: false })
+  expect(activityBadge({ ...base, now: start + 23_000 })).toEqual({ text: 'BG 1 · 23초 경과 · 마지막 활동 방금', stalled: false })
+  expect(activityBadge({ ...base, now: start + 23_000, compact: true })).toEqual({ text: 'BG 1 · 23s', stalled: false })
   // 작업은 7분째, 마지막 활동은 5분 전 — 두 값이 따로 보인다
-  expect(activityBadge({ ...base, now: start + 20_000 + 300_000, compact: true })).toEqual({ text: '⚠ 작업 1 · 5m · 정체 5m', stalled: true })
-  expect(activityBadge({ ...base, now: start + 20_000 + 300_000 })).toEqual({ text: '⚠ 정체 의심 · 작업 1 · 5분 경과 · 5분 전', stalled: true })
+  expect(activityBadge({ ...base, now: start + 20_000 + 300_000, compact: true })).toEqual({ text: '⚠ BG 1 · 5m · 정체 5m', stalled: true })
+  expect(activityBadge({ ...base, now: start + 20_000 + 300_000 })).toEqual({ text: '⚠ 정체 의심 · BG 1 · 5분 경과 · 5분 전', stalled: true })
   // 작업이 없으면 since 가 있어도 경과를 보이지 않는다
   expect(activityBadge({ ...base, jobs: 0, now: start + 23_000 })).toBeNull()
+})
+
+test('devFSD: activityBadge text never contains 작업 in any width or mode', () => {
+  const base = { jobs: 1, isRunning: true, activityAt: 1_000_000, now: 1_000_000 + 150_000, compact: false }
+  for (const compact of [false, true]) for (const stalled of [false, true]) for (const since of [undefined, 1_000_000 - 20_000]) {
+    const now = stalled ? 1_000_000 + 400_000 : base.now
+    const t = activityBadge({ ...base, compact, now, since })?.text
+    expect(t).toMatch(/BG 1/)
+    expect(t).not.toContain('작업')
+  }
 })
 
 test('devFSD: activityBadge is silent without jobs unless a running turn has gone quiet', () => {
@@ -1505,7 +1515,7 @@ test('devFSD: baseline — idle and working text on every width and placement', 
   await clock.advance(600_000)
   const idle = await $.ui.mount({ ...pane(86), surface: 'terminal' })
   expect(await idle.find({ type: 'Text', text: /IDLE/ })).toBeDefined()
-  expect(await idle.find({ type: 'Text', text: /작업 \d|정체 의심/ })).toBeUndefined() // 작업 0 이면 10분 뒤에도 배지 없음
+  expect(await idle.find({ type: 'Text', text: /BG \d|정체 의심/ })).toBeUndefined() // BG 0 이면 10분 뒤에도 배지 없음
   await idle.unmount()
 })
 
@@ -1535,18 +1545,18 @@ test('devFSD: jobs show as a count that follows the running list down to idle', 
   await $.tool.call(bg('j1')); await $.tool.call(bg('j2'))
   await clock.advance(30_000)
   expect(await shows($, 86, /● working/)).toBeDefined()
-  expect((await shows($, 86, /작업 2/))?.text).toContain('작업 2 · 30초 경과 · 마지막 활동 30초 전')
+  expect((await shows($, 86, /BG 2 · /))?.text).toContain('BG 2 · 30초 경과 · 마지막 활동 30초 전')
   expect(await shows($, 86, /BG 2/)).toBeDefined() // 턴이 도는 중에도 헤더 BG 는 보인다
   await $.turn.complete(finished('J1'))
   // 턴은 끝났지만 작업이 도는 중 — 완전한 idle 이 아니라 대기, 헤더에 BG 개수
   expect(await shows($, 86, /◐ 대기/)).toBeDefined()
   expect(await shows($, 86, /○ idle/)).toBeUndefined()
   expect((await shows($, 86, /BG 2/))?.text).toContain('· BG 2')
-  await $.session.append(taskDone('j1')); expect(await shows($, 86, /작업 1/)).toBeDefined()
+  await $.session.append(taskDone('j1')); expect(await shows($, 86, /BG 1 · /)).toBeDefined()
   expect((await shows($, 86, /BG 1/))?.text).toContain('· BG 1')
   await $.session.append(taskDone('j2'))
-  expect(await shows($, 86, /작업 \d/)).toBeUndefined()
-  expect(await shows($, 86, /BG \d/)).toBeUndefined()
+  expect(await shows($, 86, /BG \d · /)).toBeUndefined()
+  expect(await shows($, 86, /BG \d · /)).toBeUndefined()
   expect(await shows($, 86, /◐ 대기/)).toBeUndefined()
   expect(await shows($, 86, /○ idle/)).toBeDefined()
 })
@@ -1582,7 +1592,7 @@ test('devFSD: five quiet minutes with a job turns the badge into a stall warning
   await clock.advance(299_000)
   expect(await shows($, 86, /정체 의심/)).toBeUndefined()
   await clock.advance(1_000)
-  expect((await shows($, 86, /정체 의심/))?.text).toContain('⚠ 정체 의심 · 작업 1 · 5분 경과 · 5분 전')
+  expect((await shows($, 86, /정체 의심/))?.text).toContain('⚠ 정체 의심 · BG 1 · 5분 경과 · 5분 전')
   await $.tool.call({ tool: 'Read', tool_use_id: 'r1', file_path: '/x' } as never)
   expect(await shows($, 86, /정체 의심/)).toBeUndefined()
 })
@@ -1612,7 +1622,7 @@ for (const [name, fire] of eventCases) {
     await clock.advance(290_000)
     await fire($)
     await clock.advance(20_000)
-    expect((await shows($, 86, /작업 1/))?.text).toContain('작업 1 · 5분 경과 · 마지막 활동 20초 전')
+    expect((await shows($, 86, /BG 1 · /))?.text).toContain('BG 1 · 5분 경과 · 마지막 활동 20초 전')
     expect(await shows($, 86, /정체 의심/)).toBeUndefined()
   })
 }
@@ -1659,15 +1669,15 @@ test('devFSD: the badge never takes pieces away from a narrow line (AC-R-1)', as
         const rows = await rowsFor(cols, make)
         for (const piece of base[key].filter(r => /(Opus|Sonnet|idle|IDLE|ctx|\$|architect)/i.test(r))) expect(rows).toContain(whileWaiting(piece)) // 기준선 조각(모델·상태·ctx·비용·architect) 보존
         if (cols >= 40) expect(base[key].some(r => /ctx/.test(r))).toBe(true) // 양성 대조: 시드가 실제로 ctx 조각을 만들었다
-        const badge = rows.find(r => /작업 1/.test(r))
+        const badge = rows.find(r => /BG 1 · /.test(r))
         if (make === pane && cols < 40) expect(badge).toBeUndefined() // dock 은 40 미만에서 배지 없음
         if (make === inline) { // 미니(inline)는 어떤 폭에서도 배지 줄이 보여야 한다 — 부재가 아니라 존재를 요구
           expect(badge).toBeDefined()
-          expect(badge).toBe(cols < 60 ? (stalled ? '⚠ 작업 1 · 7m · 정체 7m' : '작업 1 · 2m') : (stalled ? '⚠ 정체 의심 · 작업 1 · 7분 경과 · 7분 전' : '작업 1 · 2분 경과 · 마지막 활동 2분 전'))
+          expect(badge).toBe(cols < 60 ? (stalled ? '⚠ BG 1 · 7m · 정체 7m' : 'BG 1 · 2m') : (stalled ? '⚠ 정체 의심 · BG 1 · 7분 경과 · 7분 전' : 'BG 1 · 2분 경과 · 마지막 활동 2분 전'))
         }
         if (badge) {
           sawBadge = true
-          expect(badge).toMatch(cols < 60 ? (stalled ? /⚠ 작업 1 · \d+m/ : /작업 1 · \d+m/) : /작업 1 · /)
+          expect(badge).toMatch(cols < 60 ? (stalled ? /⚠ BG 1 · \d+m/ : /BG 1 · \d+m/) : /BG 1 · /)
         }
       }
     }

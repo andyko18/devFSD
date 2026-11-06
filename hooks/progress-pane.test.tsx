@@ -1171,7 +1171,7 @@ test('devFSD: a fresh output-file mtime beats a 9m30s-old hook signal and clears
   mtimeSec = 541 // 지금(571s)의 30초 전
   await clock.advance(5_000)
   ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 9분 경과 · 마지막 활동 35초 전')
+  expect((await ui.find({ type: 'Text', text: /BG 1 · / }))?.text).toContain('BG 1 · 9분 경과 · 마지막 활동 35초 전')
   expect(await ui.find({ type: 'Text', text: /정체 의심/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -1185,7 +1185,7 @@ test('devFSD: a task notification counts as activity while another job still run
   await notify($, 'b1', 'completed')
   await clock.advance(290_000)
   const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 9분 경과 · 마지막 활동 4분 전')
+  expect((await ui.find({ type: 'Text', text: /BG 1 · / }))?.text).toContain('BG 1 · 9분 경과 · 마지막 활동 4분 전')
   expect(await ui.find({ type: 'Text', text: /정체 의심/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -1200,7 +1200,7 @@ test('devFSD: the tick runs while the main turn is open and stops once it ends',
   await $.turn.start({ text: 'go', turnId: 'W1' })
   let before = nowCalls
   await clock.advance(5_000)
-  expect(nowCalls - before).toBeGreaterThanOrEqual(1) // 작업 0 인데도 working 이라 시계가 돈다
+  expect(nowCalls - before).toBeGreaterThanOrEqual(1) // BG 0 인데도 working 이라 시계가 돈다
   await $.turn.complete(mainDone('W1'))
   before = nowCalls
   await clock.advance(60_000)
@@ -1222,11 +1222,11 @@ test('devFSD: an old-shaped board (no new fields) renders without a badge, and g
   const clock = clockWorld(on, () => ({ result: {}, text: 'ok' }))
   await startedClock($, clock)
   const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect(await ui.find({ type: 'Text', text: /작업 \d|정체 의심/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /BG \d|정체 의심/ })).toBeUndefined()
   await ui.unmount()
   await $.tool.call(bgBash('o1')) // 양성 대조: 같은 경로에서 작업이 생기면 배지가 뜬다
   const after = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect(await after.find({ type: 'Text', text: /작업 1/ })).toBeDefined()
+  expect(await after.find({ type: 'Text', text: /BG 1 · / })).toBeDefined()
   await after.unmount()
 })
 
@@ -1249,7 +1249,7 @@ test('devFSD: a working turn with no jobs warns after five quiet minutes and cle
   expect(await shown(/● working/)).toBeDefined()
   await clock.advance(1_000)
   expect((await shown(/⚠ 정체 의심/))?.text).toContain('⚠ 정체 의심 · 5분 전')
-  expect(await shown(/작업 \d/)).toBeUndefined()
+  expect(await shown(/BG \d/)).toBeUndefined()
   await $.turn.complete(mainDone('W1'))
   expect(await shown(/정체 의심/)).toBeUndefined()
   expect(await shown(/○ idle/)).toBeDefined()
@@ -1261,9 +1261,9 @@ test('devFSD: a mounted console redraws its badge as the clock moves (nowTick su
   await startedClock($, clock)
   await $.tool.call(bgBash('rd1'))
   const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 0초 경과 · 마지막 활동 방금')
+  expect((await ui.find({ type: 'Text', text: /BG 1 · / }))?.text).toContain('BG 1 · 0초 경과 · 마지막 활동 방금')
   await clock.advance(65_000) // 같은 ui — 다시 마운트하지 않는다
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 1분 경과 · 마지막 활동 1분 전')
+  expect((await ui.find({ type: 'Text', text: /BG 1 · / }))?.text).toContain('BG 1 · 1분 경과 · 마지막 활동 1분 전')
   await ui.unmount()
 })
 
@@ -1300,7 +1300,7 @@ test('devFSD: the tick keeps running for a minute after a background job ends, t
   await notify($, 'k1', 'completed')
   let before = nowCalls
   await clock.advance(30_000)
-  expect(nowCalls - before).toBeGreaterThanOrEqual(1) // 작업 0·턴 닫힘인데도 끝난 작업이 1분 안이라 시계가 돈다
+  expect(nowCalls - before).toBeGreaterThanOrEqual(1) // BG 0·턴 닫힘인데도 끝난 작업이 1분 안이라 시계가 돈다
   await clock.advance(40_000)
   before = nowCalls
   await clock.advance(60_000)

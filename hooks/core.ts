@@ -726,7 +726,7 @@ export const activityBadge = (i: {
   const idle = i.activityAt === undefined ? undefined : Math.max(0, i.now - i.activityAt)
   const stalled = idle !== undefined && idle >= STALL_MS
   if (i.jobs === 0 && !(i.isRunning && stalled)) return null
-  const jobs = i.jobs > 0 ? `작업 ${i.jobs}` : ''
+  const jobs = i.jobs > 0 ? `BG ${i.jobs}` : ''
   const ago = idle === undefined ? '' : agoLabel(idle, i.compact)
   const run = i.jobs > 0 && i.since !== undefined ? durationLabel(i.now - i.since, i.compact) : ''
   if (i.compact) {

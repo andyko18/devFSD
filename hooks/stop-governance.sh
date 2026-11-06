@@ -36,6 +36,9 @@ if ! echo "$input" | jq -e . >/dev/null 2>&1; then
   safe_exit "stdin JSON parse 실패"
 fi
 
+# 셸이 자기 기록을 가진 worktree 면 기록 루트를 그쪽으로 — git 대상은 바꾸지 않는다 (20261106-worktree-specops-root)
+_gov_apply_record_root "$(_gov_git_target "$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)" "$PWD" | sed -n 1p)"
+
 # 멱등 가드 (NFR-4)
 active=$(echo "$input" | jq -r '.stop_hook_active // false')
 if [ "$active" = "true" ]; then

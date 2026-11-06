@@ -320,6 +320,63 @@ r=$(_prem "$M5" "git commit -m 'feat: nojur'" "$w" "$TR")
 [ -n "$r" ] && [ "$(_dec "$r")" = "allow" ] && [ -z "$(find "$M5" -maxdepth 1 -name .specops)" ] \
   && ok "RR-10a ★ 관할 밖 프로젝트 → allow · 프로젝트 폴더에 .specops 안 생김" || nope "RR-10a" "dec=$(_dec "$r") out=${r:0:60}"
 
+# ── posttool·stop 도 같은 루트에 기록 (T3) ─────────────────────────────────────
+STOP="$PLUGIN/hooks/stop-governance.sh"
+W5P=$w   # RR-10a 의 관할 밖 프로젝트(M5) 자기 기록 worktree
+_lines() { [ -f "$1" ] && wc -l < "$1" | tr -d ' ' || echo 0; }
+FW="$W2P/.specops/$FIDW/friction-log.jsonl"; FM="$M2P/.specops/$FIDM/friction-log.jsonl"
+_post2() { _in "$@" | (cd "$M2" && CLAUDE_PROJECT_DIR="$M2" bash "$POST" >/dev/null 2>&1); }
+
+# RR-3 ★ posttool 감사 기록이 worktree FIDW 에
+(cd "$W2P" && _g commit -qm 'feat: wt code')   # 방금 커밋(HEAD~1..HEAD)에 코드 변경이 있어야 scope_class=code (WT-8 과 같은 방식)
+bw=$(_lines "$FW"); bm=$(_lines "$FM")
+_post2 "git commit -m 'feat: audit-post'" "$W2P" "$TR"   # 메시지를 RR-2b 와 달리 — friction dedup(같은 규칙·snippet)
+new=$(tail -n +"$((bw + 1))" "$FW" 2>/dev/null | grep '"rule_id":"R-1"'); sc=$(printf '%s\n' "$new" | tail -1 | jq -r '.scope_class // "-"' 2>/dev/null)
+[ -n "$new" ] && [ "$sc" = "code" ] && [ "$(_lines "$FM")" -eq "$bm" ] \
+  && ok "RR-3 ★ posttool 감사 R-1 기록 → worktree $FIDW (scope_class=code) · 메인 불변" || nope "RR-3" "rec=$(printf '%s' "$new" | grep -c .) sc=$sc main $bm→$(_lines "$FM")"
+
+# RR-5p 이동 5형태 posttool → worktree 줄 수 불변 · 메인 증가
+bw=$(_lines "$FW"); bm=$(_lines "$FM"); i=0
+for mv in "cd $M2P && git commit -m 'feat: p1 (Task: T1)'" \
+          "pushd $M2P >/dev/null && git commit -m 'feat: p2 (Task: T1)'" \
+          "GIT_DIR=$M2P/.git git commit -m 'feat: p3 (Task: T1)'" \
+          "git --work-tree=$M2P commit -m 'feat: p4 (Task: T1)'" \
+          "git -C $M2P commit -m 'feat: p5 (Task: T1)'"; do
+  _post2 "$mv" "$W2P" "$TR"
+done
+[ "$(_lines "$FW")" -eq "$bw" ] && [ "$(_lines "$FM")" -gt "$bm" ] \
+  && ok "RR-5p ★ posttool 이동 5형태 → 메인 FIDM 기록 +$(($(_lines "$FM") - bm)) · worktree 불변" || nope "RR-5p" "wt $bw→$(_lines "$FW") main $bm→$(_lines "$FM")"
+
+# RR-7 stop
+TR7="$TD/tr7.jsonl"; cp "$FIXT/r4-claim-without-runner.jsonl" "$TR7"
+_stop2() {  # $1=프로젝트 $2=cwd
+  jq -nc --arg tp "$TR7" --arg w "$2" '{session_id:"s",transcript_path:$tp,hook_event_name:"Stop",stop_hook_active:false,cwd:$w}' \
+    | (cd "$1" && CLAUDE_PROJECT_DIR="$1" bash "$STOP" 2>/dev/null)
+}
+_r4() { grep -c '"rule_id":"R-4"' "$1" 2>/dev/null || true; }
+bw=$(_r4 "$FW"); bm=$(_lines "$FM")
+_stop2 "$M2" "$W2P" >/dev/null
+[ "$(_r4 "$FW")" -eq $((bw + 1)) ] && [ "$(_lines "$FM")" -eq "$bm" ] \
+  && ok "RR-7a ★ stop cwd=자기 기록 worktree → $FIDW R-4 +1 · 메인 불변" || nope "RR-7a" "wt R-4 $bw→$(_r4 "$FW") main $bm→$(_lines "$FM")"
+W4A=$(cd "$M2/.claude/worktrees/w4a" && pwd -P); bm=$(_r4 "$FM")
+_stop2 "$M2" "$W4A" >/dev/null
+[ "$(_r4 "$FM")" -eq $((bm + 1)) ] && [ ! -e "$W4A/.specops" ] \
+  && ok "RR-7b stop cwd=자기 기록 없는 worktree → 메인 FIDM R-4 +1 · worktree .specops 없음" || nope "RR-7b" "main R-4 $bm→$(_r4 "$FM")"
+M4="$TD/main4"; git init -q "$M4" && git -C "$M4" symbolic-ref HEAD refs/heads/main; : > "$M4/f"; (cd "$M4" && git add f && _g commit -qm i)
+git -C "$M4" worktree add -q "$M4/.claude/worktrees/w" -b feat/w4 2>/dev/null
+o=$(_stop2 "$M4" "$M4/.claude/worktrees/w")
+[ "$(printf '%s' "$o" | jq -c . 2>/dev/null)" = '{"continue":true}' ] && [ -z "$(find "$M4" -name .specops)" ] \
+  && ok "RR-7c 관할 밖(.specops 없음) → continue · .specops 안 생김" || nope "RR-7c" "out=$o"
+o=$(printf 'not json' | (cd "$M2" && CLAUDE_PROJECT_DIR="$M2" bash "$STOP" 2>/dev/null)); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$o" | grep -q '"continue":true' && ok "RR-7d 잘못된 JSON → continue · rc 0" || nope "RR-7d" "rc=$rc out=$o"
+
+# RR-10b 메인 .specops 없음 + 자기 기록 worktree → posttool·stop 기록 없음
+F5="$W5P/.specops/$FIDW/friction-log.jsonl"; b5=$(_lines "$F5")
+_in "git commit -m 'feat: nojur'" "$W5P" "$TR" | (cd "$M5" && CLAUDE_PROJECT_DIR="$M5" bash "$POST" >/dev/null 2>&1)
+_stop2 "$M5" "$W5P" >/dev/null
+[ "$(_lines "$F5")" -eq "$b5" ] && [ -z "$(find "$M5" -maxdepth 1 -name .specops)" ] \
+  && ok "RR-10b ★ 관할 밖 프로젝트 → posttool·stop 이 worktree 에 기록 안 함 · 프로젝트에 .specops 안 생김" || nope "RR-10b" "wt $b5→$(_lines "$F5")"
+
 # RR-P 패리티 — 훅이 고르는 판정 루트 = 기록 스크립트(specops_root_dir)가 쓰는 곳 (성공지표 M-1)
 _par() {  # $1=이름 $2=프로젝트 $3=입력 cwd
   local H FIDL S

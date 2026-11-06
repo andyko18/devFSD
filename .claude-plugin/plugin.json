@@ -105,6 +105,18 @@
       "type": "boolean",
       "default": false
     },
+    "ciWatch": {
+      "title": "CI watch",
+      "description": "현재 브랜치 PR 의 CI 잡을 gh 로 읽어 관제판 백그라운드 작업에 합산 — 기본 꺼짐, PR·gh·권한이 없으면 조용히 무표시",
+      "type": "boolean",
+      "default": false
+    },
+    "ciIntervalSec": {
+      "title": "CI watch interval (sec)",
+      "description": "CI 조회 주기(초) — 최소 30",
+      "type": "number",
+      "default": 60
+    },
     "statusLine": {
       "title": "Status line",
       "description": "Show context, agents, consults and denials in the status line",

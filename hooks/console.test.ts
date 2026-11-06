@@ -1350,3 +1350,75 @@ test('devFSD: a failure inside next itself is not swallowed — it reaches the c
   expect(ran).toBe(1)
 })
 
+
+// ---------------------------------------------------------------- devFSD: CI 잡 합산 (FID 20261106-console-ci-jobs)
+
+const CI_OUT = JSON.stringify([
+  { name: 'run-all', bucket: 'pass' },
+  { name: 'mac', bucket: 'pending' },
+  { name: 'lint', bucket: 'pending' },
+])
+
+/** 활성 FID 가 있는 /w 세계: gh 호출을 기록하고 answer 로 답한다. */
+const ciWorld = (on: On, answer: () => unknown) => {
+  engine(on)
+  const gh: string[][] = []
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('command.register', (_$, e) => ({ value: { command: e.name } }))
+  on('ui.open', () => ({ value: { isPlaced: true as const } }))
+  on('fs.exists', () => ({ value: true }))
+  on('fs.read', () => ({ value: '# p\n<!-- active-fid: 20261106-x -->\n\n## 20261106-x · y\n\n- 2026-11-06 10:00 /analyze 완료 (x)\n' }))
+  on('process.run', (_$, e) => {
+    const argv = (e as unknown as { argv: string[] }).argv
+    if (argv[0] !== 'gh') return { value: { exitCode: 1, stdout: '', stderr: '' } }
+    gh.push(argv)
+
+    return { value: answer() as never }
+  })
+
+  return gh
+}
+const settle = async () => { for (let i = 0; i < 300; i++) await Promise.resolve() }
+const fidLine = async ($: Parameters<TestBody>[0]) => {
+  const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  const node = await ui.find({ text: /백그라운드 작업|CI / })
+  await ui.unmount()
+
+  return node?.props?.children ?? node?.text
+}
+
+test('AC-5 ciWatch on: pending CI jobs join the background count, with the CI line', { options: { ciWatch: true } }, async ($, on) => {
+  const gh = ciWorld(on, () => ({ exitCode: 0, stdout: CI_OUT, stderr: '' }))
+  await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+  await settle()
+  expect(gh.length).toBe(1)
+  expect(String(await fidLine($))).toContain('백그라운드 작업 2개 실행 중 · CI 1/3 통과')
+})
+
+test('AC-5 a lost PR (gh fails) clears the line, quietly', { options: { ciWatch: true } }, async ($, on) => {
+  let ok = true
+  const gh = ciWorld(on, () => (ok ? { exitCode: 0, stdout: CI_OUT, stderr: '' } : { exitCode: 1, stdout: '', stderr: 'no pull requests found' }))
+  await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+  await settle()
+  ok = false
+  await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+  await settle()
+  expect(gh.length).toBe(2)
+  expect(await fidLine($)).toBeUndefined()
+})
+
+test('AC-4 ciWatch off (default): gh is never called and nothing is drawn', async ($, on) => {
+  const gh = ciWorld(on, () => ({ exitCode: 0, stdout: CI_OUT, stderr: '' }))
+  await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+  await settle()
+  expect(gh.length).toBe(0)
+  expect(await fidLine($)).toBeUndefined()
+})
+
+test('AC-4 parseConfig: ciWatch defaults off, interval defaults 60 and never goes under 30', () => {
+  expect(parseConfig({}).ciWatch).toBe(false)
+  expect(parseConfig({}).ciIntervalSec).toBe(60)
+  expect(parseConfig({ ciWatch: true, ciIntervalSec: 5 })).toMatchObject({ ciWatch: true, ciIntervalSec: 30 })
+  expect(parseConfig({ ciIntervalSec: 120 }).ciIntervalSec).toBe(120)
+  expect(parseConfig({ ciIntervalSec: 'x' }).ciIntervalSec).toBe(60)
+})

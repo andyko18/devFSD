@@ -78,6 +78,7 @@ import {
 import type { Config, Panel } from './core'
 // devFSD: 진행 기록(FID·단계·verify)은 progress-pane 이 채우는 board 를 읽기만 한다.
 import { progressStart } from './progress-pane'
+import { ciLine, ciPending } from './ci-watch'
 import type { Board } from '../types'
 
 // devFSD: progress-pane 이 쓰는 board 와 같은 상태(같은 ref·shape) — 여기서는 읽기만 한다.
@@ -281,7 +282,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     if (cfg.openOnStart) void openPane($, cfg).catch(() => undefined)
     await refreshStatus($, cfg)
     const done = await next(e)
-    await progressStart($, e.cwd)
+    await progressStart($, e.cwd, { watch: cfg.ciWatch, intervalSec: cfg.ciIntervalSec })
     if (resumedWindow > 0) {
       await readCompactWindow($, resumedWindow)
       await refreshStatus($, cfg)
@@ -1204,6 +1205,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
 
     // devFSD: 활성 FID 와 lifecycle 단계 막대 · verify 배지 · 백그라운드 작업 수.
     const fidPanel = (w: number) => {
+      const bgCount = b.running.length + ciPending(b.ci)
       const isGreen = b.verify === '완료' || b.verify === '검증 PASS'
       return (
         <Box flexDirection="column" borderStyle="round" borderColor={C.gate} paddingX={1} width={w}>
@@ -1220,7 +1222,11 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
           {b.stages && b.stages.length > 0 ? (
             <Text wrap="wrap">{b.stages.map(s => `${s.label}${s.mark}`).join(' ')}</Text>
           ) : null}
-          {b.running.length > 0 ? <Text dimColor wrap="truncate">{`백그라운드 작업 ${b.running.length}개 실행 중`}</Text> : null}
+          {bgCount > 0 || ciLine(b.ci) ? (
+            <Text dimColor wrap="truncate">
+              {[bgCount > 0 ? `백그라운드 작업 ${bgCount}개 실행 중` : '', ciLine(b.ci)].filter(Boolean).join(' · ')}
+            </Text>
+          ) : null}
         </Box>
       )
     }

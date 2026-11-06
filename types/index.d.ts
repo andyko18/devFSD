@@ -139,6 +139,8 @@ export type StageMark = {
   mark: '✓' | '–' | '✗' | '●' | '○'
 }
 
+export type CiCheck = { name: string; bucket: 'pass' | 'pending' | 'fail' | 'skipping' | 'cancel' }
+
 export type Board = {
   running: Job[]
   recent: Job[]
@@ -146,6 +148,8 @@ export type Board = {
   fid?: string
   stages?: StageMark[]
   verify?: string
+  /** devFSD: 현재 브랜치 PR 의 CI 잡 — ciWatch 를 켠 세션만 채운다. */
+  ci?: CiCheck[]
 }
 
 declare module 'claude-code' {

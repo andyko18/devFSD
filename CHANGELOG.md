@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- 관제판 CI 잡 합산 표시 — 플러그인 옵션 `ciWatch`(기본 꺼짐)를 켜면 `ciIntervalSec`(기본 60, 최소 30)마다 `gh pr checks` 로 현재 브랜치 PR 의 CI 잡을 읽어 `백그라운드 작업 N개 실행 중 · CI 3/4 통과`(실패는 `CI ✗ 이름`)로 합산한다. PR·gh·권한이 없으면 조용히 무표시 (FID 20261106-console-ci-jobs)
+
 ## [3.1.9] — 2026-11-06
 
 ### Fixed

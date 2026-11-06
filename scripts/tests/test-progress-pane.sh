@@ -81,7 +81,7 @@ if [ "$PART" = engine ] || [ "$PART" = mod ]; then
   echo '{ "modules": ["./register.tsx"] }' > "$pp/hooks/hooks.json"
   if [ "$PART" = engine ] && ! command -v "$CLAUDE_BIN" >/dev/null 2>&1; then
     engine_check "$pp" mod
-  elif cp "$PLUGIN"/hooks/{register.tsx,console.tsx,core.ts,rail.tsx,elapsed.tsx,console.test.ts,progress-pane.tsx,progress-pane.test.tsx} "$pp/hooks/" 2>/dev/null && cp "$PLUGIN/types/index.d.ts" "$pp/types/" 2>/dev/null; then
+  elif cp "$PLUGIN"/hooks/{register.tsx,console.tsx,core.ts,ci-watch.ts,rail.tsx,elapsed.tsx,console.test.ts,progress-pane.tsx,progress-pane.test.tsx} "$pp/hooks/" 2>/dev/null && cp "$PLUGIN/types/index.d.ts" "$pp/types/" 2>/dev/null; then
     engine_check "$pp" mod
   else
     ng "PP-7 (mod) 소스 파일 없음 — hooks/progress-pane*.tsx · types/index.d.ts"

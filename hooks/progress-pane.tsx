@@ -127,6 +127,28 @@ export function stagesOf(progress: string, fid: string): StageMark[] {
   })
 }
 
+/** devFSD: 지금 하는 단계 — 가장 최근 기록의 단계, 그 기록이 완료면 다음 미완 단계. lifecycle 완료면 null. */
+export function currentStageKey(progress: string, fid: string): string | null {
+  if (isLifecycleDone(progress, fid)) return null
+  const newest = recordsOf(progress, fid).find(r => STAGES.some(s => s.cmd === r.cmd))
+  if (!newest) return null
+  const at = STAGES.findIndex(s => s.cmd === newest.cmd)
+  if (markOf(newest.word) !== '✓' && markOf(newest.word) !== '–') return STAGES[at]?.key ?? null
+
+  return STAGES[at + 1]?.key ?? null
+}
+
+/** devFSD: 검증 배지 상태를 단계 막대에 맞춘다(기록 없는 ○ 는 그대로) + 현재 단계 표시. */
+export function withVerifyMark(stages: StageMark[], verify: string | undefined, current: string | null): StageMark[] {
+  const vm: StageMark['mark'] | null = verify === '검증 FAIL' ? '✗' : verify === '검증 STALE' || verify === '검증 PARTIAL' ? '!' : null
+
+  return stages.map(s => ({
+    ...s,
+    ...(s.key === 'verify' && vm && s.mark !== '○' ? { mark: vm } : {}),
+    ...(s.key === current ? { isCurrent: true } : {}),
+  }))
+}
+
 export function isLifecycleDone(progress: string, fid: string): boolean {
   const top = recordsOf(progress, fid)[0]
 
@@ -253,7 +275,8 @@ async function refreshStatus($: EngineInterface, cwd: string, gate: RefreshGate)
       }
       const stages = stagesOf(progress, fid)
       const verify = isLifecycleDone(progress, fid) ? '완료' : await verifyFor($, cwd, fid).catch(() => '검증 ?')
-      await update($, board, b => ({ ...b, fid, stages, verify }))
+      const marked = withVerifyMark(stages, verify, currentStageKey(progress, fid))
+      await update($, board, b => ({ ...b, fid, stages: marked, verify }))
     } while (gate.again)
   } catch {
     await safe(() => update($, board, b => ({ ...b, verify: '검증 ?' })))
@@ -284,7 +307,7 @@ async function endJob($: EngineInterface, id: string, isFailed: boolean): Promis
   })
 }
 
-function textOf(content: readonly { type: string; [field: string]: unknown }[]): string {
+export function textOf(content: readonly { type: string; [field: string]: unknown }[]): string {
   return content
     .filter(block => block.type === 'text' && typeof block.text === 'string')
     .map(block => block.text as string)
@@ -362,7 +385,9 @@ export async function progressStart($: EngineInterface, cwdNow: string, ciOpt?: 
       ticker = $.clock.every(TICK_MS, () => {
         void safe(async () => {
           const b = await read($, board)
-          if (b.running.length > 0 || b.working === true) {
+          const lastNow = await read($, now) // 저장된 시계 — clock.now() 를 새로 부르지 않는다
+          const isRecentEnd = b.recent.some(j => j.kind === 'bash' && j.endedAt !== undefined && lastNow - j.endedAt < 61_000)
+          if (b.running.length > 0 || b.working === true || isRecentEnd) {
             const t = await $.clock.now()
             await update($, now, () => t)
             const paths = b.running.flatMap(j => (j.outputPath ? [j.outputPath] : []))

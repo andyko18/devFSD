@@ -137,7 +137,8 @@ export type Job = {
 export type StageMark = {
   key: string
   label: string
-  mark: '✓' | '–' | '✗' | '●' | '○'
+  mark: '✓' | '–' | '✗' | '●' | '○' | '!'
+  isCurrent?: boolean
 }
 
 export type CiCheck = { name: string; bucket: 'pass' | 'pending' | 'fail' | 'skipping' | 'cancel' }

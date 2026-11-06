@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.14] — 2026-11-06
+
 ### Fixed
 - 데스크톱 worktree 의 훅 판정 루트 이동(v3.1.13)이 혼합 배치(마커=프로젝트 폴더 · 브랜치=worktree)에서 배치 PR 게이트를 조용히 끄던 회귀 — 배치 마커가 있으면 옮기지 않고, 그때의 안내 문구도 실제 이유를 말한다.
 
@@ -3584,7 +3586,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.13...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.14...HEAD
+[3.1.14]: https://github.com/andyko18/devFSD/compare/v3.1.13...v3.1.14
 [3.1.13]: https://github.com/andyko18/devFSD/compare/v3.1.12...v3.1.13
 [3.1.12]: https://github.com/andyko18/devFSD/compare/v3.1.11...v3.1.12
 [3.1.11]: https://github.com/andyko18/devFSD/compare/v3.1.10...v3.1.11

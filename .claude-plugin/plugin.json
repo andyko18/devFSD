@@ -29,7 +29,7 @@
       "title": "Architect label",
       "description": "Name shown for the architect role",
       "type": "string",
-      "default": "ARCHITECT"
+      "default": "Advisor"
     },
     "gateLabel": {
       "title": "Gate label",
@@ -39,9 +39,9 @@
     },
     "panels": {
       "title": "Panels",
-      "description": "표시할 패널과 순서(쉼표 구분): fid, main, architect, gate, agents, loops, receipt, log. 빼면 숨김.",
+      "description": "표시할 패널과 순서(쉼표 구분): main, fid, architect(Advisor), agents, log. gate 는 적을 때만 보임. receipt·loops 는 main·agents 에 흡수. 빼면 숨김.",
       "type": "string",
-      "default": "fid,main,architect,gate,agents,loops,receipt,log"
+      "default": "main,fid,architect,agents,log"
     },
     "motion": {
       "title": "Motion",

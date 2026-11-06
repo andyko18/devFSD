@@ -103,6 +103,8 @@ export const normalizeLog = (stored: unknown): LogLine[] =>
 
 export type Panel = 'fid' | 'main' | 'architect' | 'gate' | 'agents' | 'loops' | 'receipt' | 'log'
 const PANELS: readonly Panel[] = ['fid', 'main', 'architect', 'gate', 'agents', 'loops', 'receipt', 'log']
+/** devFSD: 기본 패널 — gate 는 적은 사람만, receipt·loops 는 받아들이되 main·agents 에 흡수. */
+const DEFAULT_PANELS: readonly Panel[] = ['main', 'fid', 'architect', 'agents', 'log']
 
 export type Config = {
   architect: RegExp
@@ -135,7 +137,7 @@ const safeRegExp = (source: string, fallback: string) => {
 export const parseConfig = (o: Readonly<Record<string, unknown>>): Config => {
   const str = (k: string, d: string) => (typeof o[k] === 'string' && o[k] !== '' ? (o[k] as string) : d)
   const bool = (k: string, d: boolean) => (typeof o[k] === 'boolean' ? (o[k] as boolean) : d)
-  const panels = str('panels', PANELS.join(','))
+  const panels = str('panels', DEFAULT_PANELS.join(','))
     .split(',')
     .map(s => s.trim())
     .filter((p): p is Panel => (PANELS as readonly string[]).includes(p))
@@ -144,9 +146,9 @@ export const parseConfig = (o: Readonly<Record<string, unknown>>): Config => {
   const cols = typeof o.paneColumns === 'number' && Number.isFinite(o.paneColumns) ? Math.round(o.paneColumns) : 66
   return {
     architect: safeRegExp(str('architectPattern', ''), 'advisor|architect'),
-    architectLabel: str('architectLabel', 'ARCHITECT'),
+    architectLabel: str('architectLabel', 'Advisor'),
     gateLabel: str('gateLabel', 'GATE'),
-    panels: panels.length > 0 ? [...new Set(panels)] : [...PANELS],
+    panels: panels.length > 0 ? [...new Set(panels)] : [...DEFAULT_PANELS],
     motion: str('motion', 'while-active') !== 'off',
     moments: bool('moments', true),
     matchDescriptions: bool('matchDescriptions', false),
@@ -337,10 +339,14 @@ export const afterCompactHooked = (u: Usage): Usage =>
 export const compactMark = (u: Pick<Usage, 'compactions' | 'isCompactEstimate'>) =>
   u.compactions > 0 ? `⟲${u.isCompactEstimate ? '~' : ''}${u.compactions}` : ''
 
-/** A gauge of `width` cells: ▰ filled, ▱ empty. */
+const EIGHTHS = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉'] as const
+/** devFSD: 1/8 칸 정밀도 게이지 — on 은 색칠할 구간(부분 블록 포함), off 는 빈칸(░). 길이는 항상 width. */
 export const gauge = (pct: number, width: number) => {
-  const full = Math.max(0, Math.min(width, Math.round((pct / 100) * width)))
-  return { on: '▰'.repeat(full), off: '▱'.repeat(width - full) }
+  const eighths = Math.max(0, Math.min(width * 8, Math.floor((pct * width * 8) / 100)))
+  const full = eighths >> 3
+  const part = eighths & 7
+  const on = '█'.repeat(full) + (EIGHTHS[part] ?? '')
+  return { on, off: '░'.repeat(width - [...on].length) }
 }
 
 /** A rate-limit reading as the pane keeps it, its ISO reset time turned into ms since the epoch. */
@@ -697,7 +703,7 @@ export const durationLabel = (ms: number, compact: boolean): string => {
 
 /** 작업별 한 줄: `◐ publish · 23초`. 이름이 비면 id 로 대신한다. */
 export const jobRow = (j: { id: string; label: string; startedAt: number }, now: number, compact: boolean): string =>
-  `◐ ${j.label.trim() || j.id} · ${durationLabel(now - j.startedAt, compact)}`
+  `↻ ${j.label.trim() || j.id} · ${durationLabel(now - j.startedAt, compact)}`
 
 /** 실행 중 작업 중 가장 먼저 시작한 시각. 작업이 없으면 undefined. */
 export const oldestStart = (jobs: readonly { startedAt: number }[]): number | undefined =>

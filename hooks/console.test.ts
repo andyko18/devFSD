@@ -60,6 +60,7 @@ import {
   latestMtimeMs,
   outputPathOf,
   withActivity,
+  gauge,
   gaugeColor,
   stageProgress,
   PALETTES,
@@ -178,13 +179,37 @@ test('consults open, close by id, and draw on a shared timeline', () => {
 
 test('config is read leniently: bad values fall back to defaults', () => {
   const d = parseConfig({})
-  expect([d.maxCards, d.paneColumns, d.layout, d.motion, d.moments, d.panels.length]).toEqual([3, 66, 'auto', true, true, 8])
+  expect([d.maxCards, d.paneColumns, d.layout, d.motion, d.moments, d.panels.length]).toEqual([3, 66, 'auto', true, true, 5])
   expect(d.architect.test('fable-advisor:fable-advisor')).toBe(true)
   const c = parseConfig({ architectPattern: '([', maxCards: 99, layout: 'diagonal', panels: 'log, gate ,nope,gate', motion: 'off' })
   expect(c.architect.test('advisor')).toBe(true) // invalid regex → default
   expect([c.maxCards, c.layout, c.motion]).toEqual([6, 'auto', false])
   expect([46.4, 12, Number.NaN, '90'].map(n => parseConfig({ paneColumns: n }).paneColumns)).toEqual([46, 40, 66, 66])
   expect(c.panels).toEqual(['log', 'gate'])
+})
+
+test('devFSD: gauge fills in eighths of a cell and keeps its width', () => {
+  const g2 = (p: number, w: number) => { const x = gauge(p, w); return x.on + x.off }
+  // 손 계산 표 — 팔분 = floor(pct*width*8/100), 내림(100% 전에 꽉 차지 않음)
+  const table: [number, string, string][] = [
+    [0, '', '░'.repeat(10)], [5, '▌', '░'.repeat(9)], [59, '█████▉', '░'.repeat(4)], [60, '██████', '░'.repeat(4)],
+    [72, '███████▏', '░░'], [79, '███████▉', '░░'], [80, '████████', '░░'], [100, '█'.repeat(10), ''],
+  ]
+  for (const [p, on, off] of table) expect(gauge(p, 10)).toEqual({ on, off })
+  for (const w of [5, 6, 10]) for (const p of [-5, 0, 33, 99.99, 100, 150]) expect([...g2(p, w)].length).toBe(w)
+  expect(gauge(99.99, 10).on).not.toBe('█'.repeat(10))
+})
+
+test('devFSD: the advisor panel is named Advisor unless the person saved another label', () => {
+  expect(parseConfig({}).architectLabel).toBe('Advisor')
+  expect(parseConfig({ architectLabel: 'ARCHITECT' }).architectLabel).toBe('ARCHITECT') // 저장값 보존
+})
+
+test('devFSD: panels default to main, fid, architect, agents, log and old saved values still read', () => {
+  expect(parseConfig({}).panels).toEqual(['main', 'fid', 'architect', 'agents', 'log'])
+  expect(parseConfig({ panels: 'fid,main,architect,gate,agents,loops,receipt,log' }).panels).toEqual(['fid', 'main', 'architect', 'gate', 'agents', 'loops', 'receipt', 'log'])
+  expect(parseConfig({ panels: 'main,bogus,log' }).panels).toEqual(['main', 'log'])
+  expect(parseConfig({ panels: 'bogus' }).panels).toEqual(['main', 'fid', 'architect', 'agents', 'log']) // 새 기본값으로 폴백
 })
 
 test('state saved under an older shape still reads', () => {
@@ -299,9 +324,9 @@ test('devFSD: durationLabel counts run length, not time since last activity', ()
 })
 
 test('devFSD: jobRow names the job and how long it has run', () => {
-  expect(jobRow({ id: 'a', label: 'publish', startedAt: 1_000 }, 24_000, false)).toBe('◐ publish · 23초')
-  expect(jobRow({ id: 'a', label: 'publish', startedAt: 1_000 }, 24_000, true)).toBe('◐ publish · 23s')
-  expect(jobRow({ id: 'a', label: '  ', startedAt: 1_000 }, 61_000, false)).toBe('◐ a · 1분') // 이름이 비면 id
+  expect(jobRow({ id: 'a', label: 'publish', startedAt: 1_000 }, 24_000, false)).toBe('↻ publish · 23초')
+  expect(jobRow({ id: 'a', label: 'publish', startedAt: 1_000 }, 24_000, true)).toBe('↻ publish · 23s')
+  expect(jobRow({ id: 'a', label: '  ', startedAt: 1_000 }, 61_000, false)).toBe('↻ a · 1분') // 이름이 비면 id
 })
 
 test('devFSD: oldestStart picks the earliest running job', () => {
@@ -472,13 +497,13 @@ test('the server-side advisor is read from assistant rows: consulting, then on c
       .catch(() => undefined) // the test has no transcript to store rows in
   await row([{ type: 'server_tool_use', id: 'srv1', name: 'advisor', input: {} }])
   const mid = await $.ui.mount({ ...pane(64), surface: 'terminal' })
-  expect(await mid.find({ text: /ARCHITECT · advising/ })).toBeDefined()
+  expect(await mid.find({ text: /Advisor · advising/ })).toBeDefined()
   expect(await mid.find({ text: /◆ before a plan/ })).toBeDefined()
   await mid.unmount()
 
   await row([{ type: 'advisor_tool_result', tool_use_id: 'srv1', content: { type: 'advisor_redacted_result' } }])
   const after = await $.ui.mount({ ...pane(64), surface: 'terminal' })
-  expect(await after.find({ text: /ARCHITECT · on call/ })).toBeDefined()
+  expect(await after.find({ text: /Advisor · on call/ })).toBeDefined()
   expect(await after.find({ text: /^1$/ })).toBeDefined()
   await after.unmount()
 })
@@ -499,16 +524,16 @@ test('the server-side advisor is read only from rows that come in by the respons
       .catch(() => undefined) // the test has no transcript to store rows in
   await row('hook-context', 'srvH')
   const before = await $.ui.mount({ ...pane(64), surface: 'terminal' })
-  expect(await before.find({ text: /ARCHITECT · advising/ })).toBeUndefined()
+  expect(await before.find({ text: /Advisor · advising/ })).toBeUndefined()
   await before.unmount()
 
   await row('response', 'srvR')
   const after = await $.ui.mount({ ...pane(64), surface: 'terminal' })
-  expect(await after.find({ text: /ARCHITECT · advising/ })).toBeDefined()
+  expect(await after.find({ text: /Advisor · advising/ })).toBeDefined()
   await after.unmount()
 })
 
-test('the gate strip fills from checks and a row opens its redacted drill-down', async ($, on) => {
+test('the gate strip fills from checks and a row opens its redacted drill-down', { options: { panels: 'main,fid,architect,gate,agents,log' } }, async ($, on) => {
   engine(on)
   on('tool.check', (_$, e) => ({ decision: e.tool === 'Read' ? 'allow' : 'ask' }))
   await $.tool.check({ tool: 'Read', input: { file_path: '/a/b.ts' }, tool_use_id: 'k1' })
@@ -557,7 +582,7 @@ test('a consult whose start and result share one row closes, and its review flag
     })
     .catch(() => undefined)
   const ui = await $.ui.mount({ ...pane(64), surface: 'terminal' })
-  expect(await ui.find({ text: /ARCHITECT · on call/ })).toBeDefined()
+  expect(await ui.find({ text: /Advisor · on call/ })).toBeDefined()
   expect(await ui.find({ text: /◆ before done/ })).toBeDefined()
   expect(await ui.find({ text: /reviewing before done/ })).toBeUndefined()
   await ui.unmount()
@@ -566,7 +591,7 @@ test('a consult whose start and result share one row closes, and its review flag
 test('with no architect anywhere, the panel, legend entry and status field stay hidden', async ($, on) => {
   engine(on)
   const ui = await $.ui.mount({ ...pane(64), surface: 'terminal' })
-  expect(await ui.find({ text: /ARCHITECT/ })).toBeUndefined()
+  expect(await ui.find({ text: /Advisor/ })).toBeUndefined()
   expect(await ui.find({ text: /^ architect$/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -656,7 +681,7 @@ test("the main box shows the last request's time to first token, and no tokens p
   }
 })
 
-test('on a graphical surface, rows of marks hold fewer marks, keep the newest and clip at their box', async ($, on) => {
+test('on a graphical surface, rows of marks hold fewer marks, keep the newest and clip at their box', { options: { panels: 'main,fid,architect,gate,agents,loops,log' } }, async ($, on) => {
   engine(on)
   // The newest check is the one refused: its ✗ must stay in sight.
   on('tool.check', (_$, e) => ({ decision: e.tool_use_id === 'g29' ? 'deny' : 'allow' }))
@@ -837,7 +862,7 @@ test('the gauge, status and inline summary measure against the compaction window
   // Past 80% of the compaction window the gauge warns, though the model's window has room.
   await measure(340_000)
   const warn = await $.ui.mount({ ...pane(64), surface: 'terminal' })
-  expect((await warn.find({ type: 'Text', text: /^▰+$/ }))?.props.color).toBe('error')
+  expect((await warn.find({ type: 'Text', text: /^[█▏▎▍▌▋▊▉]+$/ }))?.props.color).toBe('error')
   expect(await warn.find({ text: / 85%/ })).toBeDefined()
   await warn.unmount()
   // A model with a smaller window: read again, and a compaction window above it no longer counts.
@@ -1141,7 +1166,7 @@ test('a resume through agent.spawn logs once, whether its spawn or its first ste
   expect(await lines(/^done · 1m30s$/)).toBe(1)
 })
 
-test("a subagent's turn start is its own: no prompt line, and the main turn keeps its count", async ($, on) => {
+test("a subagent's turn start is its own: no prompt line, and the main turn keeps its count", { options: { panels: 'main,fid,architect,gate,agents,receipt,log' } }, async ($, on) => {
   engine(on)
   on('tool.call', () => ({ result: {}, text: 'ok' }))
   await $.turn.start({ text: 'refactor it', turnId: 'T1' })
@@ -1279,7 +1304,7 @@ const busySession = async ($: Parameters<TestBody>[0], on: On) => {
   return clock
 }
 
-test('every panel fits the pane at every width from 24 columns, on every surface and placement, in lines a graphical surface keeps whole', { timeoutMs: 60_000 }, async ($, on) => {
+test('every panel fits the pane at every width from 24 columns, on every surface and placement, in lines a graphical surface keeps whole', { timeoutMs: 60_000, options: { panels: 'main,fid,architect,gate,agents,log' } }, async ($, on) => {
   await busySession($, on)
   const failures: string[] = []
   const check = async (label: string) => {
@@ -1341,7 +1366,7 @@ test('a single agent card fits from 24 columns, and the time axis scales to the 
   expect(failures).toEqual([])
 })
 
-test('a running connector keeps its length every frame: one face, clipped at its width, the dot still moving', async ($, on) => {
+test('a running connector keeps its length every frame: one face, clipped at its width, the dot still moving', { options: { panels: 'main,fid,architect,gate,agents,log' } }, async ($, on) => {
   engine(on)
   on('tool.check', () => ({ decision: 'allow' }))
   await $.tool.check({ tool: 'Read', input: { file_path: '/a' }, tool_use_id: 'r1' })
@@ -1721,7 +1746,7 @@ test('devFSD: the FID card lists each running job with its run length, up to thr
   await settle()
   const rows = async () => {
     const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
-    const found = (await ui.findAll({ type: 'Text' })).map(t => t.text ?? '').filter(r => /^◐ publish · |^… 외/.test(r))
+    const found = (await ui.findAll({ type: 'Text' })).map(t => t.text ?? '').filter(r => /^↻ publish · |^… 외/.test(r))
     await ui.unmount()
 
     return found
@@ -1730,9 +1755,9 @@ test('devFSD: the FID card lists each running job with its run length, up to thr
   await $.tool.call(bg('r1'))
   await clock.advance(30_000)
   await $.tool.call(bg('r2'))
-  expect(await rows()).toEqual(['◐ publish · 30초', '◐ publish · 0초'])
+  expect(await rows()).toEqual(['↻ publish · 30초', '↻ publish · 0초'])
   await $.tool.call(bg('r3')); await $.tool.call(bg('r4')); await $.tool.call(bg('r5'))
-  expect(await rows()).toEqual(['◐ publish · 30초', '◐ publish · 0초', '◐ publish · 0초', '… 외 2개'])
+  expect(await rows()).toEqual(['↻ publish · 30초', '↻ publish · 0초', '↻ publish · 0초', '… 외 2개'])
   await $.session.append(taskDone('r1')); await $.session.append(taskDone('r2')); await $.session.append(taskDone('r3')); await $.session.append(taskDone('r4')); await $.session.append(taskDone('r5'))
   expect(await rows()).toEqual([])
 })

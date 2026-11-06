@@ -1288,7 +1288,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             ? line(
                 [
                   gaugeW > 0 ? { spans: [{ text: prog.on, color: C.gate }, { text: prog.off, color: C.faint }] } : null,
-                  { spans: [{ text: `${sp.step}/${sp.total} ${sp.current ?? (sp.isDone ? '완료' : '')}`.trimEnd() + (sp.next ? ` · 다음 ${sp.next}` : '') }], fill: true },
+                  { spans: [{ text: `${sp.step}/${sp.total} ${sp.current ?? (sp.isDone ? '완료' : '')}`.trimEnd() + (sp.next ? ` · 다음 ${sp.next}` : ''), ...(sp.isDone ? { color: C.gate } : {}) }], fill: true },
                 ],
                 w - 4,
               )
@@ -1490,11 +1490,12 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
               { spans: [{ text: status, color: C.main, bold: true }] },
               stageWord ? { spans: [{ text: '· ', color: C.dim, bold: true }, { text: stageWord, color: C.text, bold: true }] } : null,
               // 단계가 이미 `완료` 면 같은 낱말을 두 번 쓰지 않는다.
-              verifyWord && !(stageWord === '완료' && verifyWord === '완료')
+              // 검증은 40칸 이상에서만(DEVFSD 와 같은 문턱) — 좁은 폭의 검증 정보는 devFSD 카드 배지가 맡는다.
+              W >= 40 && verifyWord && !(stageWord === '완료' && verifyWord === '완료')
                 ? { spans: [{ text: '· ', color: C.dim, bold: true }, { text: verifyWord, color: verifyColor, bold: verifyColor !== C.gate }] }
                 : null,
-              // 맨 뒤 — 좁은 폭에서는 다른 조각을 밀어내지 않고 이 조각이 먼저 빠진다.
-              bgTotal > 0 ? { spans: [{ text: `· BG ${bgTotal}`, color: C.main, bold: true }] } : null,
+              // 맨 뒤 — 좁은 폭에서는 다른 조각을 밀어내지 않고 이 조각이 먼저 빠진다. 가장 좁은 24칸(dock 하한)에서는 상태·단계만 남긴다(AC-3).
+              W > 24 && bgTotal > 0 ? { spans: [{ text: `· BG ${bgTotal}`, color: C.main, bold: true }] } : null,
             ],
             W,
             1,

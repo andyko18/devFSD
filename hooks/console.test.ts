@@ -1357,14 +1357,34 @@ test('every panel fits the pane at every width from 24 columns, on every surface
   expect([...new Set(failures.map(f => f.replace(/ (terminal|desktop|vscode|mobile) /, ' ')))]).toEqual([])
 })
 
-test('agent cards fit from 24 columns, and the time axis scales to the pane', async ($, on) => {
+test('a single agent card fits from 24 columns', async ($, on) => {
+  const clock = engine(on)
+  await clock.advance(3_600_000)
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'one' }))
+  await $.turn.start({ text: 'go', turnId: 'O1' })
+  await $.agent.spawn(spawn('general-purpose', 'Write the configuration loader regression tests'))
+  const failures: string[] = []
+  // 폭 24~40 은 수용 카드 수가 1 — 카드 하나짜리 카드 모드의 넘침을 본다(에이전트 2개면 레인 모드로 간다).
+  for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
+    for (let cols = 24; cols <= 40; cols += 1) {
+      const ui = await $.ui.mount({ ...pane(cols), surface })
+      const tree = await ui.drawn()
+      for (const s of spillsOf(tree, cols)) failures.push(`${surface} ${cols}: ${s}`)
+      if (surface === 'desktop') for (const f of desktopFaults(tree, [])) failures.push(`${surface} ${cols}: ${f}`)
+      await ui.unmount()
+    }
+  }
+  expect(failures).toEqual([])
+})
+
+test('two agent cards fit from 24 columns, and the time axis scales to the pane', async ($, on) => {
   const clock = engine(on)
   await clock.advance(3_600_000)
   let oneN = 0
   on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: oneN++ === 0 ? 'one' : 'two' }))
   await $.turn.start({ text: 'go', turnId: 'O1' })
   await $.agent.spawn(spawn('general-purpose', 'Write the configuration loader regression tests'))
-  await $.agent.spawn(spawn('general-purpose', 'Map the call sites')) // 시간축 SVG 는 에이전트 2개부터 — 카드 하나의 폭 검사는 위 카드에서 이어진다
+  await $.agent.spawn(spawn('general-purpose', 'Map the call sites')) // 시간축 SVG 는 에이전트 2개부터
   const failures: string[] = []
   for (const surface of ['terminal', 'desktop', 'vscode', 'mobile'] as const) {
     for (let cols = 24; cols <= 40; cols += 1) {
@@ -1553,7 +1573,7 @@ test('devFSD: jobs show as a count that follows the running list down to idle', 
   await clock.advance(30_000)
   expect(await shows($, 86, /● working/)).toBeDefined()
   expect((await shows($, 86, /BG 2 · /))?.text).toContain('BG 2 · 30초 경과 · 마지막 활동 30초 전')
-  expect(await shows($, 86, /BG 2/)).toBeDefined() // 턴이 도는 중에도 헤더 BG 는 보인다
+  expect(await headerAt($, 86)).toMatch(/BG 2/) // 턴이 도는 중에도 헤더 BG 는 보인다
   await $.turn.complete(finished('J1'))
   // 턴은 끝났지만 작업이 도는 중 — 완전한 idle 이 아니라 대기, 헤더에 BG 개수
   expect(await shows($, 86, /◌ 대기/)).toBeDefined()
@@ -1562,8 +1582,8 @@ test('devFSD: jobs show as a count that follows the running list down to idle', 
   await $.session.append(taskDone('j1')); expect(await shows($, 86, /BG 1 · /)).toBeDefined()
   expect((await shows($, 86, /BG 1/))?.text).toContain('· BG 1')
   await $.session.append(taskDone('j2'))
-  expect(await shows($, 86, /BG \d · /)).toBeUndefined()
-  expect(await shows($, 86, /BG \d · /)).toBeUndefined()
+  expect(await shows($, 86, /BG \d · /)).toBeUndefined() // 배지
+  expect(await headerAt($, 86)).not.toMatch(/BG/) // 헤더 — 배지 finder 와 따로 본다
   expect(await shows($, 86, /◌ 대기/)).toBeUndefined()
   expect(await shows($, 86, /○ idle/)).toBeDefined()
 })
@@ -1998,17 +2018,18 @@ test('devFSD: AC-3 with no FID the header has no stage or verification piece', a
   expect(d).not.toMatch(/구현|검증|STALE|완료/)
 })
 
-test('devFSD: AC-3 a narrow header drops the background count from the end, the status stays', async ($, on) => {
+test('devFSD: AC-3 a narrow header drops verification and background first, the status and stage stay', async ($, on) => {
   fidWorld(on, { verify: 'STALE' })
   await startFid($)
   await $.turn.start({ text: 'go', turnId: 'H2' })
   await $.tool.call(bg('n1')); await $.tool.call(bg('n2'))
-  // 조각 폭(코드포인트): `DEVFSD ·`8 `WORKS`5 `· 구현`4 `· STALE`7 `· BG 2`6, 조각 사이 1칸.
-  //   40칸 이상: 전부 = 8+5+4+7+6+4 = 34. 40 미만은 DEVFSD 가 빠져 5+4+7+6+3 = 25.
-  const fits = async (cols: number) => headerAt($, cols)
-  for (const cols of [25, 39, 40, 80]) expect(await fits(cols)).toMatch(/WORKS.*구현.*STALE.*BG 2/)
-  const narrow = await fits(24) // 25칸이 필요한 줄 — 뒤 조각(BG)부터 빠진다
-  expect(narrow).toMatch(/WORKS/); expect(narrow).toMatch(/구현/); expect(narrow).toMatch(/STALE/); expect(narrow).not.toMatch(/BG/)
+  // 검증 조각은 40칸 이상에서만 그린다(DEVFSD 조각과 같은 문턱) — 검증 정보는 devFSD 카드 배지에 계속 있다.
+  //   40칸 이상: `DEVFSD ·` `WORKS` `· 구현` `· STALE` `· BG 2` 전부. 25~39: DEVFSD·검증이 빠진다. 24: BG 도 빠져 `WORKS` `· 구현` 만 남는다.
+  for (const cols of [40, 80]) expect(await headerAt($, cols)).toMatch(/WORKS.*구현.*STALE.*BG 2/)
+  const w39 = await headerAt($, 39)
+  expect(w39).toMatch(/WORKS.*구현.*BG 2/); expect(w39).not.toMatch(/STALE/)
+  const narrow = await headerAt($, 24) // dock 하한 — 검증(40 미만)과 BG(24 이하)가 모두 빠지고 상태·단계만 남는다
+  expect(narrow).toMatch(/WORKS/); expect(narrow).toMatch(/구현/); expect(narrow).not.toMatch(/STALE/); expect(narrow).not.toMatch(/BG/)
 })
 
 // AC-4: 오로라 선 — 헤더 바로 아래 Client 1개, 상태별 흐름
@@ -2373,6 +2394,28 @@ test('devFSD: AC-12 a finished FID reads n/n 완료 on the card and 완료 in th
   expect(await headerAt($, 80)).toMatch(/완료/)
 })
 
+const DONE_ALL = ['/lifecycle DONE (x)', '/demo 완료', '/performance-test 완료', '/integration-test 완료', '/security-review 완료', '/verify PASS', '/implement 완료', '/tasks 완료', '/plan 완료', '/clarify 완료', '/specify 완료', '/analyze 완료']
+const progressTexts = async ($: Parameters<TestBody>[0]) => {
+  await startFid($)
+
+  return textsOf(subtree(await drawFid($), 'panel-fid')).filter(t => /^\d+\/\d+ /.test(textOf(t)))
+}
+for (const palette of ['theme', 'pastel'] as const) {
+  test(`devFSD: AC-12 the n/n 완료 text is drawn in the gate colour (${palette})`, { options: { palette } }, async ($, on) => {
+    fidWorld(on, { progress: progOf(DONE_ALL) })
+    const found = await progressTexts($)
+    expect(found.map(textOf)).toEqual(['12/12 완료'])
+    expect(found[0]?.props?.color).toBe(PALETTES[palette].gate)
+  })
+
+  test(`devFSD: AC-12 an unfinished FID's progress text is not in the gate colour (${palette})`, { options: { palette } }, async ($, on) => {
+    fidWorld(on, { progress: PROG_B })
+    const found = await progressTexts($) // 양성 대조: 미완 FID 에도 진행 글자는 있다
+    expect(found).toHaveLength(1)
+    expect(found[0]?.props?.color).not.toBe(PALETTES[palette].gate)
+  })
+}
+
 // AC-9: BG 표기 통일과 작업 줄
 const bgNamed = (id: string, description: string) => ({ tool: 'Bash', tool_use_id: id, command: 'x', description, run_in_background: true }) as never
 
@@ -2445,6 +2488,23 @@ test('devFSD: AC-10 a finished background command stays on the card for a minute
   await clock.advance(59_000) // 끝난 지 59초
   expect((await endedOf()).map(r => r[0])).toEqual(['✗ lint · 방금 끝남', '✓ publish'])
   await clock.advance(2_000) // 61초 — 같은 mount 에서 사라진다
+  expect(await endedOf()).toEqual([])
+  await ui.unmount()
+})
+
+test('devFSD: AC-10 the minute is exact when the end falls just after a tick — present at 59s, gone at 61s', { timeoutMs: 60_000 }, async ($, on) => {
+  const clock = fidWorld(on)
+  await startFid($)
+  await $.tool.call(bgNamed('e1', 'publish'))
+  await clock.advance(5_000)
+  await clock.advance(1) // 틱 경계 1ms 뒤에 끝낸다 — 5초 틱 정렬이 어긋난 경우
+  await $.session.append(taskDone('e1'))
+  const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  const endedOf = async () => textsOf(subtree(await ui.drawn(), 'panel-fid')).map(textOf).filter(t => /^[✓✗] /.test(t))
+  expect(await endedOf()).toEqual(['✓ publish'])
+  await clock.advance(59_000)
+  expect(await endedOf()).toEqual(['✓ publish'])
+  await clock.advance(2_000)
   expect(await endedOf()).toEqual([])
   await ui.unmount()
 })
@@ -2726,6 +2786,23 @@ test('devFSD: BG end log — a finished command logs one "↻ bg" line with its 
   expect(lines.map(l => l[2]!.text)).toEqual(['✓ publish · 1분'])
   expect(lines[0]![1]!.color).toBe(PALETTES.theme.main)
   expect(lines[0]![2]!.color).toBe(PALETTES.theme.text)
+})
+
+test('devFSD: BG end log — a secret in the command label never reaches the log', async ($, on) => {
+  const clock = engine(on)
+  await clock.advance(3_600_000)
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.turn.start({ text: 'go', turnId: 'L1' })
+  await $.tool.call({ tool: 'Bash', tool_use_id: 's1', command: 'GITHUB_TOKEN=ghp_abcdef123456 npm publish', run_in_background: true } as never) // 설명 없음 — 명령 앞 40자가 라벨
+  await $.tool.call({ tool: 'Bash', tool_use_id: 's2', command: 'x', description: 'deploy token=ghp_abcdef123456', run_in_background: true } as never) // 설명에 든 비밀
+  await clock.advance(5_000)
+  await $.session.append(taskDone('s1'))
+  await $.session.append(taskDone('s2'))
+  const log = (await bgLines($)).map(l => l.map(c => c.text).join(' ')).join('\n')
+  expect(log).toMatch(/↻ bg/) // 양성 대조: 두 줄이 실제로 기록됐다
+  expect(log).not.toContain('ghp_abcdef123456')
+  expect(log).not.toContain('abcdef')
 })
 
 test('devFSD: BG end log — a failed command shows ✗ once, in the error colour', async ($, on) => {

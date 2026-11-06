@@ -437,6 +437,26 @@ _stale "$M6"; _wtrec "$W6P"
 r=$(_prem "$M6" "$C1" "$W6P" "$TR"); w=$(_why "$r")
 [ -n "$r" ] && [ "$(_dec "$r")" = deny ] && printf '%s' "$w" | grep -q "$FIDM" && ! printf '%s' "$w" | grep -q "$FIDW" \
   && ok "RR-B5 혼합 배치 worktree 일반 커밋 → 메인 FIDM 기준 deny (의도된 변경)" || nope "RR-B5" "dec=$(_dec "$r") why=$w"
+# RR-B6 ★ 안내는 실제 이유를 말한다 — 마커=메인 · 브랜치 일치 · worktree 에 .specops 는 있으나 자기 기록 없음 (앞선 가드가 막았다)
+M11="$TD/main11"; _mkmain "$M11"; _mkbatch "$M11"; W11P=$(_mkwt "$M11" batch-p)
+mkdir -p "$W11P/.specops"; : > "$W11P/.specops/.DS_Store"
+r=$(_prem "$M11" "$GHPR" "$W11P" "$TR"); w=$(_why "$r")
+[ -n "$r" ] && [ "$(_dec "$r")" = deny ] && printf '%s' "$w" | grep -q '자기 기록이 없어' && ! printf '%s' "$w" | grep -q '배치 마커' \
+  && ok "RR-B6 ★ 자기 기록 없음 + 마커 일치 → 안내는 '자기 기록이 없어' (배치 마커 아님)" || nope "RR-B6" "dec=$(_dec "$r") why=$w"
+# RR-B6b session-progress 가 git 추적(Argus 형태) + 자기 기록 + 마커 일치 → 안내는 'git 추적'
+M12="$TD/main12"; _mkmain "$M12" 0; (cd "$M12" && git add .specops/session-progress.md && _g commit -qm sp)
+_mkbatch "$M12"; W12P=$(_mkwt "$M12" batch-p); _ownrec "$W12P"
+r=$(_prem "$M12" "$GHPR" "$W12P" "$TR"); w=$(_why "$r")
+[ -n "$r" ] && [ "$(_dec "$r")" = deny ] && printf '%s' "$w" | grep -q 'git 추적' && ! printf '%s' "$w" | grep -q '배치 마커' \
+  && ok "RR-B6b session-progress 추적 + 마커 일치 → 안내는 'git 추적' (배치 마커 아님)" || nope "RR-B6b" "dec=$(_dec "$r") why=$w"
+# RR-B7 게이트 경계 — (a) queue.md 없는 마커는 게이트가 꺼진 상태 → 가드 불작용(루트 이동) → receipt 로 allow
+M13="$TD/main13"; _mkmain "$M13"; _mkbatch "$M13"; rm -f "$M13/.specops/batch-p/queue.md"; _stale "$M13"
+W13P=$(_mkwt "$M13" batch-p); _ownrec "$W13P"; _wtrec "$W13P"
+r=$(_prem "$M13" "$C1" "$W13P" "$TR")
+[ -n "$r" ] && [ "$(_dec "$r")" = allow ] && ok "RR-B7a queue.md 없는 마커 → 가드 불작용 · 옮겨 receipt 로 allow" || nope "RR-B7a" "dec=$(_dec "$r") why=$(_why "$r")"
+# RR-B7b (b) 중첩 브랜치 feat/batch-p/x 는 feat/batch-p 가 있으면 git 이 만들지 못한다 → 가드 경계가 될 수 없다
+if git -C "$M6" worktree add -q "$M6/.claude/worktrees/nest" -b feat/batch-p/x >/dev/null 2>&1; then nope "RR-B7b" "중첩 브랜치가 만들어졌다"
+else ok "RR-B7b 중첩 브랜치 feat/batch-p/x → git 이 거부 (게이트 경계 아님)"; fi
 
 # FC 자유 코멘트·진행 기록 귀속 고정 (AC-4 · 코드 무변경) — 실제 훅을 별도 프로세스로 돌린다
 FCH="$PLUGIN/hooks/freecomment-capture.sh"; ENS="$PLUGIN/hooks/ensure-session-progress.sh"

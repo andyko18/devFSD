@@ -51,6 +51,12 @@ import {
   trimRecent,
   startConsult,
   stepSpeed,
+  STALL_MS,
+  activityBadge,
+  agoLabel,
+  latestMtimeMs,
+  outputPathOf,
+  withActivity,
 } from './core'
 import type { Check } from '../types'
 
@@ -231,6 +237,66 @@ test('a window keeps its reset time, drawn as the time left', () => {
   expect(limitOf({ kind: 'spend_limit', percentUsed: 1, resetsAt: 'soon' }).resetsAt).toBe(null)
   expect([fmtResetIn(11_400_000, 0), fmtResetIn(25 * 60_000 + 5_000, 0), fmtResetIn(4 * 86_400_000 + 2 * 3_600_000, 0)]).toEqual(['3h10m', '25m', '4d2h'])
   expect([fmtResetIn(null, 0), fmtResetIn(undefined, 0), fmtResetIn(5, 10)]).toEqual(['', '', ''])
+})
+
+// ---------------------------------------------------------------- devFSD: 백그라운드 활동 배지
+test('devFSD: STALL_MS is five minutes', () => {
+  expect(STALL_MS).toBe(300_000)
+})
+
+test('devFSD: outputPathOf pulls the task output path out of a tool result', () => {
+  const bash = 'Command running in background with ID: b1. Output is being written to: /private/tmp/claude-501/-p/s1/tasks/b1.output. You will be notified'
+  expect(outputPathOf(bash)).toBe('/private/tmp/claude-501/-p/s1/tasks/b1.output')
+  const agent = 'Async agent launched successfully.\noutput_file: /private/tmp/claude-501/-p/s1/tasks/a9c1.output\nDo NOT Read'
+  expect(outputPathOf(agent)).toBe('/private/tmp/claude-501/-p/s1/tasks/a9c1.output')
+  expect(outputPathOf('Command running in background')).toBeUndefined()
+  expect(outputPathOf(undefined)).toBeUndefined()
+  expect(outputPathOf('see /tmp/x/tasks/b1.txt')).toBeUndefined()
+})
+
+test('devFSD: latestMtimeMs takes the newest stat line and ignores junk', () => {
+  expect(latestMtimeMs('1000\n1500\n1200\n')).toBe(1_500_000)
+  expect(latestMtimeMs('')).toBeNull()
+  expect(latestMtimeMs('stat: no such file\nabc\n')).toBeNull()
+  expect(latestMtimeMs('abc\n2000\n')).toBe(2_000_000)
+})
+
+test('devFSD: agoLabel reads seconds, then minutes, at every boundary', () => {
+  const cases: [number, boolean, string][] = [
+    [0, false, '방금'], [4_999, false, '방금'], [5_000, false, '5초 전'], [59_999, false, '59초 전'],
+    [60_000, false, '1분 전'], [119_999, false, '1분 전'], [150_000, false, '2분 전'],
+    [4_999, true, '0s'], [5_000, true, '5s'], [150_000, true, '2m'],
+  ]
+  for (const [ms, compact, want] of cases) expect(agoLabel(ms, compact)).toBe(want)
+})
+
+test('devFSD: activityBadge shows jobs and age, and warns exactly at five minutes', () => {
+  const at = 1_000_000
+  const base = { jobs: 1, isRunning: false, activityAt: at, compact: false }
+  expect(activityBadge({ ...base, now: at + 150_000 })).toEqual({ text: '작업 1 · 마지막 활동 2분 전', stalled: false })
+  expect(activityBadge({ ...base, now: at + 299_999 })?.stalled).toBe(false)
+  expect(activityBadge({ ...base, now: at + 300_000 })).toEqual({ text: '⚠ 정체 의심 · 작업 1 · 5분 전', stalled: true })
+  expect(activityBadge({ ...base, now: at + 150_000, compact: true })).toEqual({ text: '작업 1 · 2m', stalled: false })
+  expect(activityBadge({ ...base, now: at + 7 * 60_000, compact: true })).toEqual({ text: '⚠ 작업 1 · 7m', stalled: true })
+  expect(activityBadge({ ...base, now: at + 5_000, activityAt: undefined })).toEqual({ text: '작업 1', stalled: false })
+  expect(activityBadge({ ...base, jobs: 2, isRunning: true, now: at + 30_000 })).toEqual({ text: '작업 2 · 마지막 활동 30초 전', stalled: false })
+  expect(activityBadge({ ...base, now: at - 60_000 })).toEqual({ text: '작업 1 · 마지막 활동 방금', stalled: false }) // 미래 시각은 0 으로
+})
+
+test('devFSD: activityBadge is silent without jobs unless a running turn has gone quiet', () => {
+  const at = 1_000_000
+  const quiet = { jobs: 0, activityAt: at, compact: false }
+  expect(activityBadge({ ...quiet, isRunning: false, now: at + 600_000 })).toBeNull()
+  expect(activityBadge({ ...quiet, isRunning: true, now: at + 60_000 })).toBeNull()
+  expect(activityBadge({ ...quiet, isRunning: true, now: at + 300_000 })).toEqual({ text: '⚠ 정체 의심 · 5분 전', stalled: true })
+})
+
+test('devFSD: withActivity keeps the newest time and skips sub-second repeats', () => {
+  const first = withActivity({ running: [], recent: [] }, 5_000)
+  expect(first.activityAt).toBe(5_000)
+  expect(withActivity(first, 5_500)).toBe(first)
+  expect(withActivity(first, 4_000)).toBe(first)
+  expect(withActivity(first, 6_000).activityAt).toBe(6_000)
 })
 
 // ---------------------------------------------------------------- drawing

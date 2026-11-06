@@ -6,6 +6,7 @@
 import type {
   AgentCard,
   Architect,
+  Board,
   Bucket,
   Check,
   Gate,
@@ -646,3 +647,64 @@ export const adviceLine = (report: string) => {
 }
 
 export const elapsedOf = (c: AgentCard, now: number) => (c.endedAt ?? now) - c.spawnedAt
+
+// ---- devFSD: 백그라운드 활동 배지
+
+/** 마지막 활동 후 이 시간이 지나면 정체 의심 (5분). */
+export const STALL_MS = 300_000
+
+/** 출력 파일들의 수정 시각(epoch 초, 줄마다). 종료 코드는 마지막 파일 기준이라 `; true` 로 무시하고 stdout 만 읽는다. */
+export const STAT_SCRIPT = 'for f in "$@"; do stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null; done; true'
+
+/** 도구 결과 문구에서 백그라운드 작업 출력 파일 경로(`…/tasks/<id>.output`)를 뽑는다. */
+export const outputPathOf = (text: string | undefined): string | undefined =>
+  text?.match(/(\/[^\s"'<>]+\/tasks\/[A-Za-z0-9_-]+\.output)/)?.[1]
+
+/** `stat` 출력(줄마다 epoch 초)에서 가장 늦은 시각을 ms 로. 읽을 수 있는 줄이 없으면 null. */
+export const latestMtimeMs = (stdout: string): number | null => {
+  const secs = stdout
+    .split('\n')
+    .map(line => Number(line.trim()))
+    .filter(n => Number.isFinite(n) && n > 0)
+
+  return secs.length > 0 ? Math.max(...secs) * 1000 : null
+}
+
+/** 경과를 `방금`·`30초 전`·`2분 전`, 좁은 폭은 `30s`·`2m`. */
+export const agoLabel = (ms: number, compact: boolean): string => {
+  const s = Math.max(0, Math.floor(ms / 1000))
+  if (s < 5) return compact ? '0s' : '방금'
+  if (s < 60) return compact ? `${s}s` : `${s}초 전`
+  const m = Math.floor(s / 60)
+
+  return compact ? `${m}m` : `${m}분 전`
+}
+
+export type ActivityBadge = { text: string; stalled: boolean }
+
+/** 상태 옆 배지. 작업이 없고 정체도 아니면 null — 기존 표시를 그대로 둔다. */
+export const activityBadge = (i: {
+  jobs: number
+  isRunning: boolean
+  activityAt: number | undefined
+  now: number
+  compact: boolean
+}): ActivityBadge | null => {
+  const idle = i.activityAt === undefined ? undefined : Math.max(0, i.now - i.activityAt)
+  const stalled = idle !== undefined && idle >= STALL_MS
+  if (i.jobs === 0 && !(i.isRunning && stalled)) return null
+  const jobs = i.jobs > 0 ? `작업 ${i.jobs}` : ''
+  const ago = idle === undefined ? '' : agoLabel(idle, i.compact)
+  if (i.compact) {
+    const head = [stalled ? '⚠' : '', jobs].filter(Boolean).join(' ')
+
+    return { text: [head, ago].filter(Boolean).join(' · '), stalled }
+  }
+  const tail = stalled ? ago : ago ? `마지막 활동 ${ago}` : ''
+
+  return { text: [stalled ? '⚠ 정체 의심' : '', jobs, tail].filter(Boolean).join(' · '), stalled }
+}
+
+/** 활동 시각을 올린다. 1초 미만 간격이나 과거 시각은 같은 객체를 돌려줘 불필요한 쓰기를 막는다. */
+export const withActivity = (b: Board, at: number): Board =>
+  b.activityAt !== undefined && at < b.activityAt + 1000 ? b : { ...b, activityAt: at }

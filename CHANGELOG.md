@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.13] — 2026-11-06
+
 ### Fixed
 - 데스크톱 worktree 세션에서 커밋 검사 훅이 메인 폴더의 옛 FID 로 판정해 정상 커밋이 막히던 문제 — 자기 기록을 가진 worktree 는 그 `.specops` 로 판정·기록한다.
 
@@ -3579,7 +3581,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.12...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.13...HEAD
+[3.1.13]: https://github.com/andyko18/devFSD/compare/v3.1.12...v3.1.13
 [3.1.12]: https://github.com/andyko18/devFSD/compare/v3.1.11...v3.1.12
 [3.1.11]: https://github.com/andyko18/devFSD/compare/v3.1.10...v3.1.11
 [3.1.10]: https://github.com/andyko18/devFSD/compare/v3.1.9...v3.1.10

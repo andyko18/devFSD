@@ -438,6 +438,52 @@ r=$(_prem "$M6" "$C1" "$W6P" "$TR"); w=$(_why "$r")
 [ -n "$r" ] && [ "$(_dec "$r")" = deny ] && printf '%s' "$w" | grep -q "$FIDM" && ! printf '%s' "$w" | grep -q "$FIDW" \
   && ok "RR-B5 혼합 배치 worktree 일반 커밋 → 메인 FIDM 기준 deny (의도된 변경)" || nope "RR-B5" "dec=$(_dec "$r") why=$w"
 
+# FC 자유 코멘트·진행 기록 귀속 고정 (AC-4 · 코드 무변경) — 실제 훅을 별도 프로세스로 돌린다
+FCH="$PLUGIN/hooks/freecomment-capture.sh"; ENS="$PLUGIN/hooks/ensure-session-progress.sh"
+_fc_tr() {  # $1=편집 파일 경로(훅이 보는 문자열 그대로) → transcript 경로
+  local t="$TD/fc-$RANDOM.jsonl"
+  printf '%s\n' \
+    '{"type":"user","message":{"role":"user","content":"버그 고쳐줘"}}' \
+    "$(jq -nc --arg f "$1" '{type:"assistant",message:{content:[{type:"tool_use",id:"e1",name:"Edit",input:{file_path:$f}}]}}')" > "$t"
+  printf '%s' "$t"
+}
+_fc_in() { jq -nc --arg c "$1" --arg t "$2" '{cwd:$c,transcript_path:$t,stop_hook_active:false}'; }
+_fc_run() { local out; out=$(_fc_in "$2" "$3" | (cd "$1" && CLAUDE_PROJECT_DIR="$1" bash "$FCH" 2>/dev/null)); printf '%s' "$out" | grep -q '"continue":true'; }  # rc 0 = 훅이 돌았다
+# 순서 의존: FC-1 → FC-2 는 한 메인 MF 를 공유한다(FC-2 가 메인에 pending 을 만든다) — 순서를 바꾸지 말 것.
+MF="$TD/mainF"; _mkmain "$MF"
+# FC-1 자유 코멘트는 cwd(worktree) 자기 기록에 귀속
+WFP=$(_mkwt "$MF" wtf); _ownrec "$WFP"
+tr=$(_fc_tr "$WFP/src/foo.sh")
+if _fc_run "$MF" "$WFP" "$tr"; then
+  tail -1 "$WFP/.specops/pending-capture.jsonl" 2>/dev/null | jq -e '.fid == "'"$FIDW"'" and .files == ["src/foo.sh"]' >/dev/null 2>&1 \
+    && [ ! -e "$MF/.specops/pending-capture.jsonl" ] \
+    && ok "FC-1 자유 코멘트 → worktree 자기 기록에 귀속 · 메인 무기록" || nope "FC-1" "wt=$(tail -1 "$WFP/.specops/pending-capture.jsonl" 2>&1) main=$(ls "$MF/.specops" 2>&1)"
+else nope "FC-1" "훅 미실행(rc≠0)"; fi
+# FC-2 worktree 에 .specops 가 없으면 훅은 프로젝트 폴더의 변경만 본다 — 현재 동작의 고정 (메인을 더티로: 훅이 거기서 git diff HEAD)
+WGP=$(_mkwt "$MF" wtg); printf 'q\n' > "$MF/src/foo.sh"
+tr=$(_fc_tr "$MF/src/foo.sh")
+if _fc_run "$MF" "$WGP" "$tr"; then
+  tail -1 "$MF/.specops/pending-capture.jsonl" 2>/dev/null | jq -e '.files == ["src/foo.sh"] and .fid == "'"$FIDM"'"' >/dev/null 2>&1 \
+    && [ ! -e "$WGP/.specops" ] \
+    && ok "FC-2 worktree .specops 없음 → 프로젝트 폴더에 귀속 · worktree 무흔적" || nope "FC-2" "main=$(tail -1 "$MF/.specops/pending-capture.jsonl" 2>&1) wtspecops=$(ls -d "$WGP/.specops" 2>&1)"
+else nope "FC-2" "훅 미실행(rc≠0)"; fi
+# FC-3 ensure 는 worktree 자기 .specops 에 만든다
+WHP=$(_mkwt "$MF" wth); mkdir -p "$WHP/.specops"
+before=$(cksum < "$MF/.specops/session-progress.md")
+(cd "$WHP" && CLAUDE_PROJECT_DIR="$MF" bash "$ENS") >/dev/null 2>&1
+[ -f "$WHP/.specops/session-progress.md" ] && [ "$(cksum < "$MF/.specops/session-progress.md")" = "$before" ] \
+  && ok "FC-3 ensure → worktree 자기 .specops 에 생성 · 메인 불변" || nope "FC-3" "wt=$(ls "$WHP/.specops" 2>&1)"
+# FC-4 ensure 가 관할을 넓히지 않는다
+WIP=$(_mkwt "$MF" wti); mkdir "$TD/nospec"
+(cd "$WIP" && CLAUDE_PROJECT_DIR="$TD/nospec" bash "$ENS") >/dev/null 2>&1
+[ ! -e "$WIP/.specops" ] && [ ! -e "$TD/nospec/.specops" ] \
+  && ok "FC-4 .specops 없는 worktree·프로젝트 → ensure 가 만들지 않음" || nope "FC-4" "wt=$(ls -d "$WIP/.specops" 2>&1) proj=$(ls -d "$TD/nospec/.specops" 2>&1)"
+# FC-4b 양성 대조 — 프로젝트 폴더에 .specops 가 있으면 폴백이 거기에 만든다
+MJ="$TD/mainJ"; mkdir -p "$MJ/.specops"
+(cd "$WIP" && CLAUDE_PROJECT_DIR="$MJ" bash "$ENS") >/dev/null 2>&1
+[ -f "$MJ/.specops/session-progress.md" ] && [ ! -e "$WIP/.specops" ] \
+  && ok "FC-4b 양성 대조 — 폴백이 프로젝트 폴더에 생성 · worktree 무흔적" || nope "FC-4b" "proj=$(ls "$MJ/.specops" 2>&1) wt=$(ls -d "$WIP/.specops" 2>&1)"
+
 # RR-P 패리티 — 훅이 고르는 판정 루트 = 기록 스크립트(specops_root_dir)가 쓰는 곳 (성공지표 M-1)
 _par() {  # $1=이름 $2=프로젝트 $3=입력 cwd
   local H FIDL S

@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Board, Job, StageMark } from '../types'
+import { STAT_SCRIPT, outputPathOf, latestMtimeMs, withActivity } from './core'
 
 const PANE = 'devfsd-progress'
 const TITLE = 'devFSD 진행'
@@ -286,6 +287,20 @@ async function safe(work: () => Promise<unknown>): Promise<void> {
   }
 }
 
+/** 백그라운드 출력 파일들의 수정 시각을 읽어 활동 시각에 반영한다. 종료 코드는 보지 않고 stdout 만 해석한다. 던지면 호출자의 safe 가 삼킨다. */
+async function scanOutputs($: EngineInterface, paths: readonly string[], at: number): Promise<void> {
+  const r = await $.process.run(['bash', '-c', STAT_SCRIPT, '_', ...paths], { timeoutMs: 3_000 })
+  const ms = latestMtimeMs(r.stdout)
+  if (ms !== null) await update($, board, b => withActivity(b, Math.min(ms, at))) // 미래 시각은 지금으로 자른다
+}
+
+/** 시작한 작업에 출력 경로를 적는다. 경로가 없으면 아무것도 하지 않는다. */
+async function noteOutput($: EngineInterface, id: string, text: string | undefined): Promise<void> {
+  const outputPath = outputPathOf(text)
+  if (!outputPath) return
+  await update($, board, b => ({ ...b, running: b.running.map(j => (j.id === id ? { ...j, outputPath } : j)) }))
+}
+
 /** 진행 패널의 세션 시작 — 관제판(console.tsx)의 session.start 가 엔진 동작 뒤에 부른다.
  *  엔진은 같은 이벤트를 matcher 없이 두 번 등록하는 것을 거부하므로 session.start 는 한 곳에만 둔다. */
 // 진행 패널의 세션 값 — 모듈 변수는 재로드 때 새로 시작하고, registerProgress 가 다시 비운다.
@@ -309,9 +324,11 @@ export async function progressStart($: EngineInterface, cwdNow: string): Promise
       ticker = $.clock.every(TICK_MS, () => {
         void safe(async () => {
           const b = await read($, board)
-          if (b.running.length > 0) {
+          if (b.running.length > 0 || b.working === true) {
             const t = await $.clock.now()
             await update($, now, () => t)
+            const paths = b.running.flatMap(j => (j.outputPath ? [j.outputPath] : []))
+            if (paths.length > 0) await scanOutputs($, paths, t)
           }
         })
       })
@@ -350,6 +367,8 @@ export function registerProgress(on: Parameters<Register>[0]): void {
     if (!isLaunched) {
       await safe(() => endJob($, e.tool_use_id, ran.deny !== undefined || ran.isError === true))
       void refreshStatus($, cwd, gate)
+    } else {
+      await safe(() => noteOutput($, e.tool_use_id, ran.text))
     }
 
     return ran
@@ -376,6 +395,7 @@ export function registerProgress(on: Parameters<Register>[0]): void {
     })
     const ran = await next(e)
     if (ran.deny !== undefined) await safe(() => endJob($, e.tool_use_id, true))
+    else await safe(() => noteOutput($, e.tool_use_id, ran.text))
     void refreshStatus($, cwd, gate)
 
     return ran
@@ -410,6 +430,10 @@ export function registerProgress(on: Parameters<Register>[0]): void {
     if (!e.agentId && e.message.type === 'user') {
       const note = notificationOf(textOf(e.message.content))
       if (note) {
+        await safe(async () => {
+          const t = await $.clock.now() // update 콜백은 동기여야 하므로 시각을 먼저 읽는다
+          await update($, board, b => withActivity(b, t))
+        })
         await safe(() => endJob($, note.id, note.isFailed))
         void refreshStatus($, cwd, gate)
       }

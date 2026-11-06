@@ -685,29 +685,52 @@ export const agoLabel = (ms: number, compact: boolean): string => {
   return compact ? `${m}m` : `${m}분 전`
 }
 
+/** 작업이 돈 길이: `23초`·`2분`, 좁은 폭은 `23s`·`2m`. 미래 시각은 0 으로. */
+export const durationLabel = (ms: number, compact: boolean): string => {
+  const s = Math.max(0, Math.floor(ms / 1000))
+  if (s < 60) return compact ? `${s}s` : `${s}초`
+  const m = Math.floor(s / 60)
+
+  return compact ? `${m}m` : `${m}분`
+}
+
+/** 작업별 한 줄: `◐ publish · 23초`. 이름이 비면 id 로 대신한다. */
+export const jobRow = (j: { id: string; label: string; startedAt: number }, now: number, compact: boolean): string =>
+  `◐ ${j.label.trim() || j.id} · ${durationLabel(now - j.startedAt, compact)}`
+
+/** 실행 중 작업 중 가장 먼저 시작한 시각. 작업이 없으면 undefined. */
+export const oldestStart = (jobs: readonly { startedAt: number }[]): number | undefined =>
+  jobs.length === 0 ? undefined : Math.min(...jobs.map(j => j.startedAt))
+
 export type ActivityBadge = { text: string; stalled: boolean }
 
-/** 상태 옆 배지. 작업이 없고 정체도 아니면 null — 기존 표시를 그대로 둔다. */
+/**
+ * 상태 옆 배지. 작업이 없고 정체도 아니면 null — 기존 표시를 그대로 둔다.
+ * `since`(작업 시작 시각)를 주면 작업 경과를 함께 보인다 — 마지막 활동 시각과 다른 값이다.
+ */
 export const activityBadge = (i: {
   jobs: number
   isRunning: boolean
   activityAt: number | undefined
   now: number
   compact: boolean
+  since?: number
 }): ActivityBadge | null => {
   const idle = i.activityAt === undefined ? undefined : Math.max(0, i.now - i.activityAt)
   const stalled = idle !== undefined && idle >= STALL_MS
   if (i.jobs === 0 && !(i.isRunning && stalled)) return null
   const jobs = i.jobs > 0 ? `작업 ${i.jobs}` : ''
   const ago = idle === undefined ? '' : agoLabel(idle, i.compact)
+  const run = i.jobs > 0 && i.since !== undefined ? durationLabel(i.now - i.since, i.compact) : ''
   if (i.compact) {
     const head = [stalled ? '⚠' : '', jobs].filter(Boolean).join(' ')
+    if (run) return { text: [head, run, stalled ? `정체 ${ago}` : ''].filter(Boolean).join(' · '), stalled }
 
     return { text: [head, ago].filter(Boolean).join(' · '), stalled }
   }
   const tail = stalled ? ago : ago ? `마지막 활동 ${ago}` : ''
 
-  return { text: [stalled ? '⚠ 정체 의심' : '', jobs, tail].filter(Boolean).join(' · '), stalled }
+  return { text: [stalled ? '⚠ 정체 의심' : '', jobs, run ? `${run} 경과` : '', tail].filter(Boolean).join(' · '), stalled }
 }
 
 /** 활동 시각을 올린다. 1초 미만 간격이나 과거 시각은 같은 객체를 돌려줘 불필요한 쓰기를 막는다. */

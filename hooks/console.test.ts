@@ -54,6 +54,9 @@ import {
   STALL_MS,
   activityBadge,
   agoLabel,
+  durationLabel,
+  jobRow,
+  oldestStart,
   latestMtimeMs,
   outputPathOf,
   withActivity,
@@ -281,6 +284,37 @@ test('devFSD: activityBadge shows jobs and age, and warns exactly at five minute
   expect(activityBadge({ ...base, now: at + 5_000, activityAt: undefined })).toEqual({ text: '작업 1', stalled: false })
   expect(activityBadge({ ...base, jobs: 2, isRunning: true, now: at + 30_000 })).toEqual({ text: '작업 2 · 마지막 활동 30초 전', stalled: false })
   expect(activityBadge({ ...base, now: at - 60_000 })).toEqual({ text: '작업 1 · 마지막 활동 방금', stalled: false }) // 미래 시각은 0 으로
+})
+
+test('devFSD: durationLabel counts run length, not time since last activity', () => {
+  const cases: [number, boolean, string][] = [
+    [0, false, '0초'], [23_000, false, '23초'], [59_999, false, '59초'], [60_000, false, '1분'], [150_000, false, '2분'],
+    [23_000, true, '23s'], [150_000, true, '2m'], [-5_000, true, '0s'],
+  ]
+  for (const [ms, compact, want] of cases) expect(durationLabel(ms, compact)).toBe(want)
+})
+
+test('devFSD: jobRow names the job and how long it has run', () => {
+  expect(jobRow({ id: 'a', label: 'publish', startedAt: 1_000 }, 24_000, false)).toBe('◐ publish · 23초')
+  expect(jobRow({ id: 'a', label: 'publish', startedAt: 1_000 }, 24_000, true)).toBe('◐ publish · 23s')
+  expect(jobRow({ id: 'a', label: '  ', startedAt: 1_000 }, 61_000, false)).toBe('◐ a · 1분') // 이름이 비면 id
+})
+
+test('devFSD: oldestStart picks the earliest running job', () => {
+  expect(oldestStart([])).toBeUndefined()
+  expect(oldestStart([{ startedAt: 30 }, { startedAt: 10 }, { startedAt: 20 }])).toBe(10)
+})
+
+test('devFSD: activityBadge with since shows run length apart from last activity', () => {
+  const start = 1_000_000
+  const base = { jobs: 1, isRunning: false, activityAt: start + 20_000, compact: false, since: start }
+  expect(activityBadge({ ...base, now: start + 23_000 })).toEqual({ text: '작업 1 · 23초 경과 · 마지막 활동 방금', stalled: false })
+  expect(activityBadge({ ...base, now: start + 23_000, compact: true })).toEqual({ text: '작업 1 · 23s', stalled: false })
+  // 작업은 7분째, 마지막 활동은 5분 전 — 두 값이 따로 보인다
+  expect(activityBadge({ ...base, now: start + 20_000 + 300_000, compact: true })).toEqual({ text: '⚠ 작업 1 · 5m · 정체 5m', stalled: true })
+  expect(activityBadge({ ...base, now: start + 20_000 + 300_000 })).toEqual({ text: '⚠ 정체 의심 · 작업 1 · 5분 경과 · 5분 전', stalled: true })
+  // 작업이 없으면 since 가 있어도 경과를 보이지 않는다
+  expect(activityBadge({ ...base, jobs: 0, now: start + 23_000 })).toBeNull()
 })
 
 test('devFSD: activityBadge is silent without jobs unless a running turn has gone quiet', () => {
@@ -1472,11 +1506,19 @@ test('devFSD: jobs show as a count that follows the running list down to idle', 
   await $.tool.call(bg('j1')); await $.tool.call(bg('j2'))
   await clock.advance(30_000)
   expect(await shows($, 86, /● working/)).toBeDefined()
-  expect((await shows($, 86, /작업 2/))?.text).toContain('작업 2 · 마지막 활동 30초 전')
+  expect((await shows($, 86, /작업 2/))?.text).toContain('작업 2 · 30초 경과 · 마지막 활동 30초 전')
+  expect(await shows($, 86, /BG 2/)).toBeDefined() // 턴이 도는 중에도 헤더 BG 는 보인다
   await $.turn.complete(finished('J1'))
+  // 턴은 끝났지만 작업이 도는 중 — 완전한 idle 이 아니라 대기, 헤더에 BG 개수
+  expect(await shows($, 86, /◐ 대기/)).toBeDefined()
+  expect(await shows($, 86, /○ idle/)).toBeUndefined()
+  expect((await shows($, 86, /BG 2/))?.text).toContain('· BG 2')
   await $.session.append(taskDone('j1')); expect(await shows($, 86, /작업 1/)).toBeDefined()
+  expect((await shows($, 86, /BG 1/))?.text).toContain('· BG 1')
   await $.session.append(taskDone('j2'))
   expect(await shows($, 86, /작업 \d/)).toBeUndefined()
+  expect(await shows($, 86, /BG \d/)).toBeUndefined()
+  expect(await shows($, 86, /◐ 대기/)).toBeUndefined()
   expect(await shows($, 86, /○ idle/)).toBeDefined()
 })
 
@@ -1511,7 +1553,7 @@ test('devFSD: five quiet minutes with a job turns the badge into a stall warning
   await clock.advance(299_000)
   expect(await shows($, 86, /정체 의심/)).toBeUndefined()
   await clock.advance(1_000)
-  expect((await shows($, 86, /정체 의심/))?.text).toContain('⚠ 정체 의심 · 작업 1 · 5분 전')
+  expect((await shows($, 86, /정체 의심/))?.text).toContain('⚠ 정체 의심 · 작업 1 · 5분 경과 · 5분 전')
   await $.tool.call({ tool: 'Read', tool_use_id: 'r1', file_path: '/x' } as never)
   expect(await shows($, 86, /정체 의심/)).toBeUndefined()
 })
@@ -1541,7 +1583,7 @@ for (const [name, fire] of eventCases) {
     await clock.advance(290_000)
     await fire($)
     await clock.advance(20_000)
-    expect((await shows($, 86, /작업 1/))?.text).toContain('작업 1 · 마지막 활동 20초 전')
+    expect((await shows($, 86, /작업 1/))?.text).toContain('작업 1 · 5분 경과 · 마지막 활동 20초 전')
     expect(await shows($, 86, /정체 의심/)).toBeUndefined()
   })
 }
@@ -1572,6 +1614,8 @@ test('devFSD: the badge never takes pieces away from a narrow line (AC-R-1)', as
     await ui.unmount()
     return rows
   }
+  // 작업이 도는 동안 idle 조각은 대기 표시로 바뀐다(의도) — 그 밖의 조각은 그대로여야 한다.
+  const whileWaiting = (piece: string) => piece.replace('○ idle', '◐ 대기')
   const widths = [24, 26, 27, 40, 59, 60, 86]
   const base: Record<string, string[]> = {}
   for (const cols of widths) for (const make of [pane, inline]) base[`${make === pane ? 'dock' : 'inline'}-${cols}`] = await rowsFor(cols, make)
@@ -1584,13 +1628,13 @@ test('devFSD: the badge never takes pieces away from a narrow line (AC-R-1)', as
       for (const make of [pane, inline]) {
         const key = `${make === pane ? 'dock' : 'inline'}-${cols}`
         const rows = await rowsFor(cols, make)
-        for (const piece of base[key].filter(r => /(Opus|Sonnet|idle|IDLE|ctx|\$|architect)/i.test(r))) expect(rows).toContain(piece) // 기준선 조각(모델·상태·ctx·비용·architect) 보존
+        for (const piece of base[key].filter(r => /(Opus|Sonnet|idle|IDLE|ctx|\$|architect)/i.test(r))) expect(rows).toContain(whileWaiting(piece)) // 기준선 조각(모델·상태·ctx·비용·architect) 보존
         if (cols >= 40) expect(base[key].some(r => /ctx/.test(r))).toBe(true) // 양성 대조: 시드가 실제로 ctx 조각을 만들었다
         const badge = rows.find(r => /작업 1/.test(r))
         if (make === pane && cols < 40) expect(badge).toBeUndefined() // dock 은 40 미만에서 배지 없음
         if (make === inline) { // 미니(inline)는 어떤 폭에서도 배지 줄이 보여야 한다 — 부재가 아니라 존재를 요구
           expect(badge).toBeDefined()
-          expect(badge).toBe(cols < 60 ? (stalled ? '⚠ 작업 1 · 7m' : '작업 1 · 2m') : (stalled ? '⚠ 정체 의심 · 작업 1 · 7분 전' : '작업 1 · 마지막 활동 2분 전'))
+          expect(badge).toBe(cols < 60 ? (stalled ? '⚠ 작업 1 · 7m · 정체 7m' : '작업 1 · 2m') : (stalled ? '⚠ 정체 의심 · 작업 1 · 7분 경과 · 7분 전' : '작업 1 · 2분 경과 · 마지막 활동 2분 전'))
         }
         if (badge) {
           sawBadge = true
@@ -1632,7 +1676,7 @@ const CI_OUT = JSON.stringify([
 
 /** 활성 FID 가 있는 /w 세계: gh 호출을 기록하고 answer 로 답한다. */
 const ciWorld = (on: On, answer: () => unknown) => {
-  engine(on)
+  const clock = engine(on)
   const gh: string[][] = []
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
@@ -1647,7 +1691,7 @@ const ciWorld = (on: On, answer: () => unknown) => {
     return { value: answer() as never }
   })
 
-  return gh
+  return Object.assign(gh, { clock })
 }
 const settle = async () => { for (let i = 0; i < 300; i++) await Promise.resolve() }
 const fidLine = async ($: Parameters<TestBody>[0]) => {
@@ -1664,6 +1708,29 @@ test('AC-5 ciWatch on: pending CI jobs join the background count, with the CI li
   await settle()
   expect(gh.length).toBe(1)
   expect(String(await fidLine($))).toContain('백그라운드 작업 2개 실행 중 · CI 1/3 통과')
+})
+
+test('devFSD: the FID card lists each running job with its run length, up to three', async ($, on) => {
+  const { clock } = ciWorld(on, () => ({ exitCode: 1, stdout: '', stderr: '' }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+  await settle()
+  const rows = async () => {
+    const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+    const found = (await ui.findAll({ type: 'Text' })).map(t => t.text ?? '').filter(r => /^◐ publish · |^… 외/.test(r))
+    await ui.unmount()
+
+    return found
+  }
+  expect(await rows()).toEqual([])
+  await $.tool.call(bg('r1'))
+  await clock.advance(30_000)
+  await $.tool.call(bg('r2'))
+  expect(await rows()).toEqual(['◐ publish · 30초', '◐ publish · 0초'])
+  await $.tool.call(bg('r3')); await $.tool.call(bg('r4')); await $.tool.call(bg('r5'))
+  expect(await rows()).toEqual(['◐ publish · 30초', '◐ publish · 0초', '◐ publish · 0초', '… 외 2개'])
+  await $.session.append(taskDone('r1')); await $.session.append(taskDone('r2')); await $.session.append(taskDone('r3')); await $.session.append(taskDone('r4')); await $.session.append(taskDone('r5'))
+  expect(await rows()).toEqual([])
 })
 
 test('AC-5 a lost PR (gh fails) clears the line, quietly', { options: { ciWatch: true } }, async ($, on) => {

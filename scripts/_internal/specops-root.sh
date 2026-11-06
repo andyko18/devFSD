@@ -18,17 +18,34 @@
 #   체크아웃된 추적 파일은 기록이 아니다) 메인에 있을 때만 rc 0. FID 가 없거나 형식이 틀리거나 git 조회가 실패하면 rc 1(종전).
 #   자기 기록이 있는 worktree(이 repo — .specops 전체 ignore)는 추적하지 않는 파일이 있어 rc 1 이다.
 #   한계: worktree 의 .specops/<FID> 에 누가 파일을 하나라도 쓰면(rsync 사본·직접 쓴 리포트) 자기 기록으로 보아 이동하지 않는다.
+# 추적하지 않는 기록 파일 목록 — 이동·판정 공용 (20261106-worktree-specops-root)
+_sr_untracked_records() {
+  local fid=${1:-} wt=${2:-} u
+  printf '%s' "$fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || return 1
+  # --exclude-standard 를 붙이지 않는다 — 이 repo 처럼 .specops 를 통째로 ignore 하면 자기 기록이 목록에서 빠져 메인으로 샌다
+  u=$(git -C "$wt" ls-files --others -- ".specops/$fid" 2>/dev/null) || return 1
+  # macOS Finder 가 만드는 .DS_Store 는 기록이 아니다 — 하나 때문에 종전 동작(추적 사본에 쓰기)으로 돌아가지 않게 뺀다
+  u=$(printf '%s\n' "$u" | grep -Ev '^$|(^|/)\.DS_Store$')
+  [ $? -le 1 ] || return 1   # grep 오류(rc 2)는 판정 불가 — 이동하지 않는다
+  printf '%s' "$u"
+}
+
 _sr_fid_only_in_main() {
   local fid=$1 wt=$2 main=$3 untracked
   printf '%s' "$fid" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || return 1
   [ -d "$main/.specops/$fid" ] && [ ! -L "$main/.specops/$fid" ] || return 1
   [ ! -L "$wt/.specops/$fid" ] || return 1
-  # --exclude-standard 를 붙이지 않는다 — 이 repo 처럼 .specops 를 통째로 ignore 하면 자기 기록이 목록에서 빠져 메인으로 샌다
-  untracked=$(git -C "$wt" ls-files --others -- ".specops/$fid" 2>/dev/null) || return 1
-  # macOS Finder 가 만드는 .DS_Store 는 기록이 아니다 — 하나 때문에 종전 동작(추적 사본에 쓰기)으로 돌아가지 않게 뺀다
-  untracked=$(printf '%s\n' "$untracked" | grep -Ev '^$|(^|/)\.DS_Store$')
-  [ $? -le 1 ] || return 1   # grep 오류(rc 2)는 판정 불가 — 이동하지 않는다
+  untracked=$(_sr_untracked_records "$fid" "$wt") || return 1
   [ -z "$untracked" ]
+}
+
+# 이 worktree 가 그 FID 의 자기 기록을 갖는가 — 훅이 판정 루트를 고를 때 쓴다(_sr_fid_only_in_main 의 반대편)
+_sr_wt_owns_record() {
+  local fid=${1:-} wt=${2:-} untracked
+  [ -n "$wt" ] && [ -d "$wt/.specops" ] && [ ! -L "$wt/.specops" ] || return 1
+  [ -d "$wt/.specops/$fid" ] && [ ! -L "$wt/.specops/$fid" ] || return 1
+  untracked=$(_sr_untracked_records "$fid" "$wt") || return 1
+  [ -n "$untracked" ]
 }
 
 specops_root_enter() {

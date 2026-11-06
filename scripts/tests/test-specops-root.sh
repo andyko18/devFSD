@@ -492,4 +492,31 @@ n=0; for w in scripts/new-a.sh scripts/new-b.sh scripts/_internal/init-project/z
 rm -rf "$FK/scripts"; mkdir -p "$FK/scripts"; _sr_scan "$FK"
 [ "$n" = 4 ] && [ "$SCANNED" = 0 ] && ok "SR-29e 양성 대조: 위반 4변형 적발 · 대상 0개는 SCANNED=0" || nope "SR-29e" "caught=$n/4 scanned_empty=$SCANNED"
 
+# ── 20261106-worktree-specops-root T1: 자기 기록 판정 공용 함수 ──
+FID40=20261106-own
+R40="$TD/r40"; git init -q "$R40" && git -C "$R40" symbolic-ref HEAD refs/heads/main
+printf '.specops/\n.worktrees/\n' > "$R40/.gitignore"; (cd "$R40" && git add -A && _g commit -qm init)
+for n in 40 41 42 44 45 46; do git -C "$R40" worktree add -q "$R40/.worktrees/w$n" -b "sr$n" 2>/dev/null; done
+W40="$R40/.worktrees/w40"; W41="$R40/.worktrees/w41"; W42="$R40/.worktrees/w42"; W44="$R40/.worktrees/w44"; W45="$R40/.worktrees/w45"; W46="$R40/.worktrees/w46"
+R43="$TD/r43"; git init -q "$R43" && git -C "$R43" symbolic-ref HEAD refs/heads/main
+printf '.worktrees/\n' > "$R43/.gitignore"; mkdir -p "$R43/.specops/$FID40"; printf 'i\n' > "$R43/.specops/$FID40/intent.md"
+(cd "$R43" && git add -A && _g commit -qm init)
+git -C "$R43" worktree add -q "$R43/.worktrees/w43" -b sr43 2>/dev/null; W43="$R43/.worktrees/w43"
+declare -F _sr_wt_owns_record >/dev/null && ok "SR-39 _sr_wt_owns_record 정의" || nope "SR-39" "미정의"
+mkdir -p "$W40/.specops/$FID40" && printf 'x\n' > "$W40/.specops/$FID40/spec.md"
+_sr_wt_owns_record "$FID40" "$W40"; rc=$?; [ "$rc" -eq 0 ] && ok "SR-40 자기 기록 → rc 0" || nope "SR-40" "rc=$rc"
+mkdir -p "$W41/.specops/$FID40" && : > "$W41/.specops/$FID40/.DS_Store"
+_sr_wt_owns_record "$FID40" "$W41"; rc=$?; [ "$rc" -eq 1 ] && ok "SR-41 .DS_Store 만 → rc 1" || nope "SR-41" "rc=$rc"
+mkdir -p "$W42/.specops"
+_sr_wt_owns_record "$FID40" "$W42"; rc=$?; [ "$rc" -eq 1 ] && ok "SR-42 FID 폴더 없음 → rc 1" || nope "SR-42" "rc=$rc"
+_sr_wt_owns_record "$FID40" "$W43"; rc=$?; [ "$rc" -eq 1 ] && ok "SR-43 추적 파일만 → rc 1" || nope "SR-43" "rc=$rc"
+mkdir -p "$W44/.specops" "$TD/elsewhere44" && printf x > "$TD/elsewhere44/f" && ln -s "$TD/elsewhere44" "$W44/.specops/$FID40"
+_sr_wt_owns_record "$FID40" "$W44"; rc=$?; [ "$rc" -eq 1 ] && ok "SR-44 FID 폴더 링크 → rc 1" || nope "SR-44" "rc=$rc"
+mkdir -p "$W45/.specops" "$W45/x" && printf 1 > "$W45/x/f"
+_sr_wt_owns_record '../x' "$W45"; rc=$?; [ "$rc" -eq 1 ] && ok "SR-45 FID 형식 오류 → rc 1" || nope "SR-45" "rc=$rc"
+mkdir -p "$TD/elsewhere46/$FID40" && printf x > "$TD/elsewhere46/$FID40/spec.md" && ln -s "$TD/elsewhere46" "$W46/.specops"
+_sr_wt_owns_record "$FID40" "$W46"; rc=$?; [ "$rc" -eq 1 ] && ok "SR-46 .specops 링크 → rc 1" || nope "SR-46" "rc=$rc"
+mkdir -p "$TD/notgit"; out=$(_sr_untracked_records "$FID40" "$TD/notgit"); rc=$?
+[ "$rc" -eq 1 ] && [ -z "$out" ] && ok "SR-47 git 아님 → rc 1 · 빈 출력" || nope "SR-47" "rc=$rc out=$out"
+
 finish

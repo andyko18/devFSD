@@ -1416,3 +1416,181 @@ test('devFSD: a failure inside next itself is not swallowed — it reaches the c
   expect(ran).toBe(1)
 })
 
+
+// ---------------------------------------------------------------- activity badge (baseline)
+
+// 엔진이 next() 인자의 { answer } 를 검사하므로 turn.complete 는 완전한 모양으로 부른다(tasks.md 의 `{ turnId } as never` 대체).
+const finished = (turnId: string, agentId?: string) => ({ answer: '', durationMs: 10, isAborted: false, turnId, reason: 'answer' as const, ...(agentId ? { agentId } : {}) })
+
+const inline = (cols: number) => ({ ...pane(cols), props: { ...pane(cols).props, placement: 'inline' as const } })
+
+test('devFSD: baseline — idle and working text on every width and placement', async ($, on) => {
+  const clock = engine(on)
+  for (const cols of [40, 86]) {
+    for (const make of [pane, inline]) {
+      const ui = await $.ui.mount({ ...make(cols), surface: 'terminal' })
+      expect(await ui.findAll({ type: 'Text', text: /○ idle/ })).toHaveLength(make === pane ? 1 : 2) // 실측: 메인 패널 Text 1개 · 미니는 조각 Text 와 그 부모 Text 2개(중첩)
+      await ui.unmount()
+    }
+  }
+  await $.turn.start({ text: 'go', turnId: 'B1' })
+  const ui = await $.ui.mount({ ...pane(86), surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /● working/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /WORKS/ })).toBeDefined()
+  await ui.unmount()
+  await $.turn.complete(finished('B1'))
+  await clock.advance(600_000)
+  const idle = await $.ui.mount({ ...pane(86), surface: 'terminal' })
+  expect(await idle.find({ type: 'Text', text: /IDLE/ })).toBeDefined()
+  expect(await idle.find({ type: 'Text', text: /작업 \d|정체 의심/ })).toBeUndefined() // 작업 0 이면 10분 뒤에도 배지 없음
+  await idle.unmount()
+})
+
+// ---------------------------------------------------------------- activity badge
+
+const bg = (id: string) => ({ tool: 'Bash', tool_use_id: id, command: 'x', description: 'publish', run_in_background: true }) as never
+const shows = async ($: Parameters<TestBody>[0], cols: number, re: RegExp, make: typeof pane | typeof inline = pane) => {
+  const ui = await $.ui.mount({ ...make(cols), surface: 'terminal' })
+  const found = await ui.find({ type: 'Text', text: re }) // Text 만 — 조상 Box 의 합쳐진 글이 정규식에 걸리지 않게
+  await ui.unmount()
+  return found
+}
+/** progress-pane 의 `notify` 와 같은 session.append 인자 — 백그라운드 작업 종료 알림. */
+const taskDone = (id: string) =>
+  ({
+    door: 'delivery',
+    origin: { kind: 'task-notification' },
+    uuid: `row-${id}-completed`,
+    message: { type: 'user', content: [{ type: 'text', text: `<tool-use-id>${id}</tool-use-id><status>completed</status>` }] },
+  }) as never
+
+test('devFSD: jobs show as a count that follows the running list down to idle', async ($, on) => {
+  const clock = engine(on)
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.turn.start({ text: 'go', turnId: 'J1' })
+  await $.tool.call(bg('j1')); await $.tool.call(bg('j2'))
+  await clock.advance(30_000)
+  expect(await shows($, 86, /● working/)).toBeDefined()
+  expect((await shows($, 86, /작업 2/))?.text).toContain('작업 2 · 마지막 활동 30초 전')
+  await $.turn.complete(finished('J1'))
+  await $.session.append(taskDone('j1')); expect(await shows($, 86, /작업 1/)).toBeDefined()
+  await $.session.append(taskDone('j2'))
+  expect(await shows($, 86, /작업 \d/)).toBeUndefined()
+  expect(await shows($, 86, /○ idle/)).toBeDefined()
+})
+
+test('devFSD: five quiet minutes with a job turns the badge into a stall warning, clearing on new activity', async ($, on) => {
+  const clock = engine(on)
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.tool.call(bg('s1'))
+  await clock.advance(299_000)
+  expect(await shows($, 86, /정체 의심/)).toBeUndefined()
+  await clock.advance(1_000)
+  expect((await shows($, 86, /정체 의심/))?.text).toContain('⚠ 정체 의심 · 작업 1 · 5분 전')
+  await $.tool.call({ tool: 'Read', tool_use_id: 'r1', file_path: '/x' } as never)
+  expect(await shows($, 86, /정체 의심/)).toBeUndefined()
+})
+
+// 이벤트별: 290초 무활동 뒤 이벤트 X → 20초 뒤 `마지막 활동 20초 전` 이고 정체 아님 (X 가 없었다면 310초 = 정체)
+const eventCases: [string, ($: Parameters<TestBody>[0]) => Promise<unknown>][] = [
+  ['turn.start', $ => $.turn.start({ text: 'again', turnId: 'E1' })],
+  ['main tool.call', $ => $.tool.call({ tool: 'Read', tool_use_id: 'e2', file_path: '/x' } as never)],
+  ['subagent tool.call', $ => $.tool.call({ tool: 'Read', tool_use_id: 'e3', file_path: '/x', agentId: 'sub1' } as never)],
+  ['agent.spawn', $ => $.agent.spawn(spawn('general-purpose', 'x'))],
+  ['turn.step', async $ => {
+    const s = $.turn.step({ turnId: 'E1', index: 0, model: 'claude-opus-5-5', messageCount: 1 }) // 스트림을 끝까지 소비해야 처리기 본문이 돈다
+    for await (const _ of s) void _
+    await s.result
+  }],
+]
+for (const [name, fire] of eventCases) {
+  test(`devFSD: ${name} counts as activity`, async ($, on) => {
+    const clock = engine(on)
+    on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
+    on('tool.call', () => ({ result: {}, text: 'ok' }))
+    on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'c1' }))
+    on('turn.step', async function* () {
+      return { turnId: 'E1', index: 0, answer: '', toolUses: [], stopReason: 'end_turn' as const, usage: { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, model: 'claude-opus-5-5' } }
+    })
+    await $.tool.call(bg('ev'))
+    await clock.advance(290_000)
+    await fire($)
+    await clock.advance(20_000)
+    expect((await shows($, 86, /작업 1/))?.text).toContain('작업 1 · 마지막 활동 20초 전')
+    expect(await shows($, 86, /정체 의심/)).toBeUndefined()
+  })
+}
+
+test('devFSD: a subagent turn.complete is not activity', async ($, on) => {
+  const clock = engine(on)
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await $.tool.call(bg('na'))
+  await clock.advance(290_000)
+  await $.turn.complete(finished('sub', 'sub1'))
+  await clock.advance(20_000)
+  expect(await shows($, 86, /⚠ 정체 의심/)).toBeDefined()
+})
+
+test('devFSD: the badge never takes pieces away from a narrow line (AC-R-1)', async ($, on) => {
+  const clock = engine(on)
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('agent.spawn', () => ({ model: 'claude-fable-5-1', agentId: 'fab1' }))
+  // 기준선 행에 ctx·비용·architect 조각이 있어야 의미가 있다 — 세 조각이 나오게 시드한다.
+  await $.session.measure({ context: { window: 200_000, tokens: 100_000, percent: 50 }, rateLimits: [], cost: { usd: 1.5 }, changed: ['context', 'cost'] } as never)
+  await $.agent.spawn(spawn('fable-advisor:fable-advisor', 'review'))
+  const rowsFor = async (cols: number, make: typeof pane) => {
+    const ui = await $.ui.mount({ ...make(cols), surface: 'terminal' })
+    const rows = (await ui.findAll({ type: 'Text' })).map(one => one.text ?? '')
+    await ui.unmount()
+    return rows
+  }
+  const widths = [24, 26, 27, 40, 59, 60, 86]
+  const base: Record<string, string[]> = {}
+  for (const cols of widths) for (const make of [pane, inline]) base[`${make === pane ? 'dock' : 'inline'}-${cols}`] = await rowsFor(cols, make)
+  await clock.advance(1_000) // 시드(spawn)의 활동과 작업 호출 사이를 띄운다
+  await $.tool.call(bg('nw'))
+  let sawBadge = false
+  for (const [stalled, ms] of [[false, 150_000], [true, 270_000]] as const) {
+    await clock.advance(ms)
+    for (const cols of widths) {
+      for (const make of [pane, inline]) {
+        const key = `${make === pane ? 'dock' : 'inline'}-${cols}`
+        const rows = await rowsFor(cols, make)
+        for (const piece of base[key].filter(r => /(Opus|Sonnet|idle|IDLE|ctx|\$|architect)/i.test(r))) expect(rows).toContain(piece) // 기준선 조각(모델·상태·ctx·비용·architect) 보존
+        if (cols >= 40) expect(base[key].some(r => /ctx/.test(r))).toBe(true) // 양성 대조: 시드가 실제로 ctx 조각을 만들었다
+        const badge = rows.find(r => /작업 1/.test(r))
+        if (make === pane && cols < 40) expect(badge).toBeUndefined() // dock 은 40 미만에서 배지 없음
+        if (badge) {
+          sawBadge = true
+          expect(badge).toMatch(cols < 60 ? (stalled ? /⚠ 작업 1 · \d+m/ : /작업 1 · \d+m/) : /작업 1 · /)
+        }
+      }
+    }
+  }
+  expect(sawBadge).toBe(true) // 양성 대조: 배지가 한 번도 안 뜨면 위 보존 검사는 아무것도 보지 않은 것
+})
+
+test('devFSD: a clock that fails inside the activity write neither blocks nor repeats the tool call', async ($, on) => {
+  let broken = false
+  const flaky = ((event: string, ...rest: unknown[]) => {
+    const last = rest.length - 1
+    const hook = rest[last] as (...a: unknown[]) => unknown
+    if (event === 'clock.now') rest[last] = (...a: unknown[]) => { if (broken) throw new Error('clock down'); return hook(...a) }
+    return (on as (...a: unknown[]) => unknown)(event, ...rest)
+  }) as On
+  engine(flaky)
+  let ran = 0
+  on('tool.call', () => { ran += 1; return { result: {}, text: 'ok' } })
+  broken = true
+  const out = await $.tool.call({ tool: 'Read', tool_use_id: 'tr2', file_path: '/x' } as never)
+  expect(out.text).toBe('ok')
+  expect(ran).toBe(1)
+  broken = false
+  await $.tool.call({ tool: 'Read', tool_use_id: 'tr3', file_path: '/x' } as never)
+  expect(ran).toBe(2) // 이후 호출도 정상
+})

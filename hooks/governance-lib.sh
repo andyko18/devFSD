@@ -5,6 +5,8 @@
 # Sourced library — strict mode 는 caller 에 위임 (set -u/-e 생략).
 # Requires: jq 1.6+, bash 3.2+, coreutils (date, grep, sed, cut, mkdir).
 _GOV_LIB_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# 기록 루트 판정 공용 함수 (20261106-worktree-specops-root) — 로드 실패면 _gov_apply_record_root 가 종전 동작
+. "$_GOV_LIB_DIR/../scripts/_internal/specops-root.sh" 2>/dev/null || true
 _VERIFICATION_STATE_SH="$_GOV_LIB_DIR/../scripts/_internal/verification-state.sh"
 _RECORD_METRIC_SH="$_GOV_LIB_DIR/../scripts/_internal/record-metric.sh"
 _CHECK_TASK_RECEIPT_SH="$_GOV_LIB_DIR/../scripts/_internal/check-task-receipt.sh"
@@ -1996,6 +1998,25 @@ _gov_apply_git_target() {
   export GIT_DIR GIT_WORK_TREE
 }
 
+# 셸이 자기 기록을 가진 다른 작업 트리면 판정·기록 루트를 그쪽으로 (20261106-worktree-specops-root)
+#   기록 스크립트(specops-root.sh)는 자기 기록 worktree 에 쓴다 — 훅이 프로젝트 폴더를 읽으면 다른 FID 로 판정했다
+#   (데스크톱 worktree 세션 실측: 커밋 우회 21건). 자기 기록이 없으면(없음·빈 폴더·추적 사본·링크) 종전 판정이고,
+#   프로젝트 폴더가 관할 밖이면 옮기지 않는다 — 판정을 옮겨 관할을 넓히거나 "없음 → allow" 구멍을 만들지 않는다.
+#   호출자 셸에서 직접 부른다(cd 가 살아야 한다). $1 = 작업 트리 최상위(기본 _GOV_TARGET_WT). 항상 rc 0.
+_gov_apply_record_root() {
+  local wt="${1:-${_GOV_TARGET_WT:-}}" fid
+  [ -d "$PWD/.specops" ] && [ ! -L "$PWD/.specops" ] || return 0
+  [ -n "$wt" ] && [ -d "$wt/.specops" ] && [ ! -L "$wt/.specops" ] || return 0
+  ! [ "$wt/.specops" -ef "$PWD/.specops" ] || return 0
+  declare -F _sr_wt_owns_record >/dev/null 2>&1 || return 0
+  git -C "$wt" ls-files --error-unmatch -- .specops/session-progress.md >/dev/null 2>&1 && return 0
+  fid=$(cd "$wt" 2>/dev/null && detect_fid 2>/dev/null) || return 0
+  [ -n "$fid" ] || return 0
+  _sr_wt_owns_record "$fid" "$wt" || return 0
+  cd "$wt" 2>/dev/null || return 0
+  _GOV_RECORD_ROOT=$wt
+}
+
 # deny 사유 끝에 붙인다 — 막혔을 때 어디를 봤는지 알아야 우회로 가지 않는다. 대상이 그대로면 빈 값.
 #   $1 = 플러그인 루트 · $2 = FID(빈 값 가능).
 _gov_target_note() {
@@ -2007,7 +2028,7 @@ _gov_target_note() {
   printf '\n   이 판정과 같은 값으로 조회하려면: cd %q && GIT_DIR=%q GIT_WORK_TREE=%q bash %q current %s' \
     "$PWD" "${GIT_DIR:-}" "$_GOV_TARGET_WT" "$root/scripts/_internal/verification-state.sh" "${fid:-<FID>}"
   if [ -d "$_GOV_TARGET_WT/.specops" ] && ! [ "$_GOV_TARGET_WT/.specops" -ef "$PWD/.specops" ]; then
-    printf '\n⚠️ worktree 에 .specops 사본이 있습니다 — 기록 스크립트가 사본에 쓰면 이 판정과 갈라집니다. 사본을 지우면 기록 스크립트도 메인 기록을 씁니다.'
+    printf '\n⚠️ worktree 에 .specops 가 있지만 이 FID 의 자기 기록이 없어(없음·빈 폴더·링크·추적 사본) 프로젝트 폴더 기록으로 판정했습니다.'
   fi
 }
 

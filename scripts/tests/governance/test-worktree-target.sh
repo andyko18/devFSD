@@ -120,8 +120,8 @@ _why "$r" | grep -qF "판정 기준 worktree: $WP" && _why "$r" | grep -qF "GIT_
 # WT-6 (AC-6)
 mkdir -p "$W/.specops" && printf 'copy\n' > "$W/.specops/session-progress.md"
 r=$(_pre "$C4" "$W" "$TR")
-[ "$(_dec "$r")" = "deny" ] && _why "$r" | grep -qF '.specops 사본' \
-  && ok "WT-6 worktree 에 .specops 사본 → 판정 그대로 · 사본 안내" || nope "WT-6" "$(_why "$r" | tail -3)"
+[ "$(_dec "$r")" = "deny" ] && _why "$r" | grep -qF '자기 기록이 없어' && ! _why "$r" | grep -qF '사본을 지우면' \
+  && ok "WT-6 worktree 에 .specops 사본 → 판정 그대로 · 자기 기록 없음 안내" || nope "WT-6" "$(_why "$r" | tail -3)"
 rm -rf "$W/.specops"
 (cd "$W" && git reset -q extra.sh) && rm -f "$W/extra.sh"
 
@@ -188,5 +188,155 @@ done
 a=$(_dec "$(_pre "cd src && git commit -m 'docs: r7'" "$M" "$TR")")
 [ "$n" -eq 6 ] && [ "$a" = "allow" ] \
   && ok "WT-16 ★ 셸=worktree 상대 경로·--work-tree 만 6형태 → deny · 셸=프로젝트 상대 경로 문서 커밋 → allow" || nope "WT-16" "deny=$n/6 rel=$a"
+
+# ── 자기 기록 worktree 판정 루트 (20261106-worktree-specops-root · T2 pretool) ─────────────
+#   데스크톱 worktree(<프로젝트>/.claude/worktrees/<이름>)는 자기 .specops 에 기록하는데(specops-root.sh)
+#   훅은 프로젝트 폴더 .specops 를 읽어 다른 FID 로 판정했다(커밋 우회 21건). 자기 기록이 있을 때만 그쪽으로 판정한다.
+# shellcheck source=/dev/null
+source "$PLUGIN/scripts/_internal/specops-root.sh"   # specops_root_dir — RR-P 의 기대값(기록 스크립트가 쓰는 곳)
+FIDM=20261106-main-old; FIDW=20261106-wt-own; FIDX=20261106-tracked
+_mkmain() {  # $1=경로 $2=0 이면 .specops 를 ignore 하지 않는다(Argus 형태) — 메인 + FIDM(검증 STALE)
+  git init -q "$1" && git -C "$1" symbolic-ref HEAD refs/heads/main
+  if [ "${2:-1}" = 0 ]; then printf '.claude/\n' > "$1/.gitignore"; else printf '.specops/\n.claude/\n' > "$1/.gitignore"; fi
+  mkdir -p "$1/scripts/tests" "$1/src" "$1/.specops/$FIDM"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$1/scripts/tests/test-foo.sh"; chmod +x "$1/scripts/tests/test-foo.sh"
+  printf 'x\n' > "$1/src/foo.sh"
+  (cd "$1" && git add -A && _g commit -qm init)
+  printf '# spec\n' > "$1/.specops/$FIDM/spec.md"; _tasks_md "$1/.specops/$FIDM/tasks.md"
+  printf '<!-- active-fid: %s -->\n## %s\n- 2026-11-06 08:00 /verify PASS\n' "$FIDM" "$FIDM" > "$1/.specops/session-progress.md"
+}
+_mkwt() {  # $1=메인 $2=이름 → worktree 물리 경로(.claude/worktrees/<이름>, 코드 변경 staged)
+  local w="$1/.claude/worktrees/$2"
+  git -C "$1" worktree add -q "$w" -b "feat/$2" 2>/dev/null
+  printf 'y\n' > "$w/src/foo.sh"; (cd "$w" && git add src/foo.sh)
+  (cd "$w" && pwd -P)
+}
+_ownrec() {  # $1=worktree — FIDW 자기 기록(spec·tasks·session-progress)
+  mkdir -p "$1/.specops/$FIDW"; printf '# spec\n' > "$1/.specops/$FIDW/spec.md"; _tasks_md "$1/.specops/$FIDW/tasks.md"
+  printf '<!-- active-fid: %s -->\n## %s\n- 2026-11-06 15:28 /implement 진행 (T1)\n' "$FIDW" "$FIDW" > "$1/.specops/session-progress.md"
+}
+_prem() {  # $1=프로젝트 폴더, 나머지 = _in 인자
+  local m="$1"; shift
+  _in "$@" | (cd "$m" && CLAUDE_PROJECT_DIR="$m" bash "$PRE" 2>/dev/null)
+}
+M2="$TD/main2"; _mkmain "$M2"; M2P=$(cd "$M2" && pwd -P)
+(cd "$M2" && bash "$VS" record "$FIDM" PASS >/dev/null 2>&1); printf 'z\n' > "$M2/src/foo.sh"   # FIDM → STALE (WT-7 방식)
+W2P=$(_mkwt "$M2" wt1); _ownrec "$W2P"
+(cd "$W2P" && git add scripts/tests/test-foo.sh && bash "$REC" "$FIDW" T1) >/dev/null 2>&1
+_pre2() { _prem "$M2" "$@"; }
+
+# RR-0 픽스처 전제
+[ -f "$W2P/.specops/$FIDW/receipts/T1.json" ] && ok "RR-0 전제: worktree 자기 기록에 receipt" || nope "RR-0" "receipt 없음"
+vs0=$(cd "$M2" && bash "$VS" current "$FIDM" 2>&1)
+printf '%s' "$vs0" | grep -q STALE && ok "RR-0b 전제: 메인 FIDM verify = STALE" || nope "RR-0b" "$vs0"
+git -C "$W2P" check-ignore -q .specops/x && ok "RR-0c 전제: worktree 에서 .specops ignore" || nope "RR-0c" "ignore 아님"
+
+# RR-1 ★ 자기 기록 worktree · 유효 receipt → allow (종전: 메인 FIDM 기준 deny)
+r=$(_pre2 "$C1" "$W2P" "$TR")
+{ [ -n "$r" ] && printf '%s' "$r" | jq -e . >/dev/null 2>&1 && [ "$(_dec "$r")" = "allow" ]; } \
+  && ok "RR-1 ★ 자기 기록 worktree · 유효 receipt → allow (출력 JSON)" || nope "RR-1" "dec=$(_dec "$r") $(_why "$r" | head -3)"
+mkdir -p "$W2P/sub"; r=$(_pre2 "$C1" "$W2P/sub" "$TR")
+[ "$(_dec "$r")" = "allow" ] && ok "RR-1b 하위 폴더 cwd → allow" || nope "RR-1b" "dec=$(_dec "$r")"
+
+# RR-2 ★ 막을 때는 FIDW 기준
+mv "$W2P/.specops/$FIDW/receipts/T1.json" "$TD/T1.json.bk"
+r=$(_pre2 "$C1" "$W2P" "$TR"); R2A=$(_why "$r")
+[ "$(_dec "$r")" = "deny" ] && printf '%s' "$R2A" | grep -qF "$FIDW" && ! printf '%s' "$R2A" | grep -qF "$FIDM" \
+  && ok "RR-2a ★ receipt 없음 → deny · 사유는 $FIDW (메인 FIDM 아님)" || nope "RR-2a" "dec=$(_dec "$r") $(printf '%s' "$R2A" | head -3)"
+mv "$TD/T1.json.bk" "$W2P/.specops/$FIDW/receipts/T1.json"
+r=$(_pre2 "git commit -m 'feat: audit'" "$W2P" "$TR")
+[ "$(_dec "$r")" = "deny" ] && _why "$r" | grep -qF "$FIDW" && ! _why "$r" | grep -qF "$FIDM" \
+  && ok "RR-2b ★ Task 줄 없는 코드 커밋 → deny · 사유는 $FIDW" || nope "RR-2b" "dec=$(_dec "$r") $(_why "$r" | head -3)"
+
+# RR-3b BYPASS 기록도 자기 기록 worktree 에
+mw0=$(grep -c '"phase":"governance-bypass"' "$W2P/.specops/$FIDW/metrics.jsonl" 2>/dev/null); mm0=$(grep -c '"phase":"governance-bypass"' "$M2P/.specops/$FIDM/metrics.jsonl" 2>/dev/null)
+_in "git commit -m 'feat: b'" "$W2P" "$TR" | (cd "$M2" && CLAUDE_PROJECT_DIR="$M2" SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=test bash "$PRE" >/dev/null 2>&1)
+mw1=$(grep -c '"phase":"governance-bypass"' "$W2P/.specops/$FIDW/metrics.jsonl" 2>/dev/null); mm1=$(grep -c '"phase":"governance-bypass"' "$M2P/.specops/$FIDM/metrics.jsonl" 2>/dev/null)
+[ "${mw1:-0}" -eq $((${mw0:-0} + 1)) ] && [ "${mm1:-0}" -eq "${mm0:-0}" ] \
+  && ok "RR-3b BYPASS 기록은 worktree FID 에 +1 · 메인 FID 불변" || nope "RR-3b" "wt $mw0→$mw1 main $mm0→$mm1"
+
+# RR-4 ★ 자기 기록이 없는 worktree 는 종전 판정(메인 FIDM) — 구멍 없음
+_chk4() {  # $1=이름 $2=프로젝트 $3=worktree $4=불포함 FID(선택) — deny · FIDM 포함
+  local r; r=$(_prem "$2" "$C1" "$3" "$TR"); R4=$(_why "$r")
+  [ "$(_dec "$r")" = "deny" ] && printf '%s' "$R4" | grep -qF "$FIDM" && { [ -z "${4:-}" ] || ! printf '%s' "$R4" | grep -qF "$4"; } \
+    && ok "RR-$1 자기 기록 없음 → 종전 판정(deny · $FIDM)" || nope "RR-$1" "dec=$(_dec "$r") $(printf '%s' "$R4" | head -3)"
+}
+w=$(_mkwt "$M2" w4a); _chk4 4a "$M2" "$w"
+w=$(_mkwt "$M2" w4b); mkdir -p "$w/.specops"; : > "$w/.specops/.DS_Store"; _chk4 4b "$M2" "$w"
+w=$(_mkwt "$M2" w4bp); mkdir -p "$w/.specops"; printf '<!-- active-fid: %s -->\n## %s\n' "$FIDW" "$FIDW" > "$w/.specops/session-progress.md"; _chk4 4b\' "$M2" "$w"
+w=$(_mkwt "$M2" w4c); mkdir -p "$w/.specops/$FIDW"; : > "$w/.specops/$FIDW/.DS_Store"
+printf '<!-- active-fid: %s -->\n## %s\n' "$FIDW" "$FIDW" > "$w/.specops/session-progress.md"; _chk4 4c "$M2" "$w"; R4C=$R4
+W4C=$w
+w=$(_mkwt "$M2" w4d); ln -s "$M2P/.specops" "$w/.specops"; _chk4 4d "$M2" "$w"; W4D=$w
+w=$(_mkwt "$M2" w4dp); mkdir -p "$TD/else4d"; _ownrec "$TD/else4d"; mv "$TD/else4d/.specops/"* "$TD/else4d/" 2>/dev/null; ln -s "$TD/else4d" "$w/.specops"; _chk4 4d\' "$M2" "$w"; W4DP=$w
+M3="$TD/main3"; _mkmain "$M3" 0; (cd "$M3" && git add .specops/session-progress.md && _g commit -qm sp)
+w=$(_mkwt "$M3" w4e); _chk4 4e "$M3" "$w"; W4E=$w; M3P=$(cd "$M3" && pwd -P)
+M3F="$TD/main3f"; _mkmain "$M3F" 0
+mkdir -p "$M3F/.specops/$FIDX"; printf 'i\n' > "$M3F/.specops/$FIDX/intent.md"
+printf '<!-- active-fid: %s -->\n## %s\n' "$FIDX" "$FIDX" > "$M3F/.specops/session-progress.md"
+(cd "$M3F" && git add .specops/session-progress.md ".specops/$FIDX/intent.md" && _g commit -qm sp)
+printf '<!-- active-fid: %s -->\n## %s\n- 2026-11-06 08:00 /verify PASS\n' "$FIDM" "$FIDM" > "$M3F/.specops/session-progress.md"
+w=$(_mkwt "$M3F" w4f); mkdir -p "$w/.specops/$FIDX/receipts"; printf x > "$w/.specops/$FIDX/receipts/T1.json"
+_chk4 4f "$M3F" "$w" "$FIDX"; W4F=$w; M3FP=$(cd "$M3F" && pwd -P)
+
+# RR-5 ★ 명령이 git 대상을 옮기면 종전(메인) — 자기 기록 worktree 에서도
+n=0; nf=0
+for mv in "cd $M2P && git commit -m 'feat: m (Task: T1)'" \
+          "pushd $M2P >/dev/null && git commit -m 'feat: m (Task: T1)'" \
+          "GIT_DIR=$M2P/.git git commit -m 'feat: m (Task: T1)'" \
+          "git --work-tree=$M2P commit -m 'feat: m (Task: T1)'" \
+          "git -C $M2P commit -m 'feat: m (Task: T1)'"; do
+  r=$(_pre2 "$mv" "$W2P" "$TR")
+  [ "$(_dec "$r")" = "deny" ] && n=$((n + 1))
+  _why "$r" | grep -qF "$FIDM" && ! _why "$r" | grep -qF "$FIDW" && nf=$((nf + 1))
+done
+[ "$n" -eq 5 ] && [ "$nf" -eq 5 ] && ok "RR-5 ★ 이동 5형태 · cwd=자기 기록 worktree → 종전(deny · $FIDM)" || nope "RR-5" "deny=$n/5 fid=$nf/5"
+
+# RR-6 안내 문구
+printf '%s' "$R2A" | grep -qF "판정 기준 worktree: $W2P" && printf '%s' "$R2A" | grep -qF "기록·관할은 $W2P/.specops" \
+  && ! printf '%s' "$R2A" | grep -qF "기록·관할은 $M2P/.specops" && ! printf '%s' "$R2A" | grep -qF '사본을 지우면' \
+  && printf '%s' "$R4C" | grep -qF '자기 기록이 없어' \
+  && ok "RR-6 안내: 자기 기록 worktree 는 판정 루트 명시 · 자기 기록 없으면 '자기 기록이 없어'" || nope "RR-6" "$(printf '%s' "$R2A" | tail -3) // $(printf '%s' "$R4C" | tail -2)"
+
+# RR-8 (NFR-2) 대상이 없으면 git 을 부르지 않는다
+REALGIT=$(command -v git); FG="$TD/fakegit"; mkdir -p "$FG"; CNT="$TD/rr.count"
+printf '#!/bin/sh\necho x >> "%s"\nexec "%s" "$@"\n' "$CNT" "$REALGIT" > "$FG/git"; chmod +x "$FG/git"
+: > "$CNT"; (export PATH="$FG:$PATH"; source "$PLUGIN/hooks/governance-lib.sh"; cd "$M2"; _GOV_TARGET_WT=; : > "$CNT"; _gov_apply_record_root)
+c0=$(wc -l < "$CNT" | tr -d ' ')
+: > "$CNT"; (export PATH="$FG:$PATH"; source "$PLUGIN/hooks/governance-lib.sh"; cd "$M2"; : > "$CNT"; _gov_apply_record_root "$W2P" >/dev/null 2>&1)
+c1=$(wc -l < "$CNT" | tr -d ' ')
+[ "$c0" -eq 0 ] && [ "$c1" -ge 1 ] && ok "RR-8 ★ 대상 없으면 git 0회 · 대조군(대상 있음) ≥1회 (c0=$c0 c1=$c1)" || nope "RR-8" "c0=$c0 c1=$c1"
+
+# RR-9 (NFR-3) git 조회 실패 → 옮기지 않는다
+FG9="$TD/fakegit9"; mkdir -p "$FG9"
+printf '#!/bin/sh\ncase " $* " in *" ls-files "*"--others"*) exit 1;; esac\nexec "%s" "$@"\n' "$REALGIT" > "$FG9/git"; chmod +x "$FG9/git"
+o9=$(export PATH="$FG9:$PATH"; source "$PLUGIN/hooks/governance-lib.sh"; cd "$M2"; _gov_apply_record_root "$W2P"; printf '%s|%s' "$(pwd -P)" "${_GOV_RECORD_ROOT:-}")
+[ "$o9" = "$M2P|" ] && ok "RR-9 ★ git 조회 실패 → 옮기지 않음(종전)" || nope "RR-9" "$o9"
+
+# RR-10a 관할 밖 프로젝트 폴더는 자기 기록 worktree 가 있어도 넓히지 않는다
+M5="$TD/main5"; _mkmain "$M5"; rm -rf "$M5/.specops"
+w=$(_mkwt "$M5" w5); _ownrec "$w"
+r=$(_prem "$M5" "git commit -m 'feat: nojur'" "$w" "$TR")
+[ -n "$r" ] && [ "$(_dec "$r")" = "allow" ] && [ -z "$(find "$M5" -maxdepth 1 -name .specops)" ] \
+  && ok "RR-10a ★ 관할 밖 프로젝트 → allow · 프로젝트 폴더에 .specops 안 생김" || nope "RR-10a" "dec=$(_dec "$r") out=${r:0:60}"
+
+# RR-P 패리티 — 훅이 고르는 판정 루트 = 기록 스크립트(specops_root_dir)가 쓰는 곳 (성공지표 M-1)
+_par() {  # $1=이름 $2=프로젝트 $3=입력 cwd
+  local H FIDL S
+  H=$( (source "$PLUGIN/hooks/governance-lib.sh"; cd "$2"; _gov_apply_git_target "$3"; _gov_apply_record_root; pwd -P) )
+  FIDL=$(cd "$H" && detect_fid)
+  S=$(cd "$3" && unset GIT_DIR GIT_WORK_TREE; cd "$(git rev-parse --show-toplevel)"; specops_root_dir "$FIDL")   # 하위 폴더 cwd 도 최상위 기준 — 비리다이렉트 기본값이 $PWD/.specops 라 하위 폴더에서 호출하면 sub/.specops 를 낸다(기존 동작·범위 밖)
+  [ "$(cd "$H/.specops" && pwd -P)" = "$(cd "$S" && pwd -P)" ] && ok "RR-P $1 패리티 (훅=$H · 기록=$S)" || nope "RR-P $1" "H=$H S=$S"
+}
+_par "W2P" "$M2" "$W2P"; _par "W2P/sub" "$M2" "$W2P/sub"
+_par "4a" "$M2" "$(cd "$M2/.claude/worktrees/w4a" && pwd -P)"; _par "4b" "$M2" "$(cd "$M2/.claude/worktrees/w4b" && pwd -P)"
+_par "4b'" "$M2" "$(cd "$M2/.claude/worktrees/w4bp" && pwd -P)"; _par "4c" "$M2" "$W4C"; _par "4d" "$M2" "$W4D"
+_par "4e" "$M3" "$W4E"
+_par "프로젝트=W2P 자신" "$W2P" "$W2P"; _par "메인 cwd" "$M2" "$M2P"; _par "프로젝트=W2P · cwd=메인" "$W2P" "$M2P"
+for t in "4d'(의도된 불일치: 링크 .specops — 가드 a)|$M2|$W4DP|$M2P" "4f(의도된 불일치: 추적 session-progress — 가드 c)|$M3F|$W4F|$M3FP"; do
+  IFS='|' read -r nm pj cw want <<< "$t"
+  H=$( (source "$PLUGIN/hooks/governance-lib.sh"; cd "$pj"; _gov_apply_git_target "$cw"; _gov_apply_record_root; pwd -P) )
+  [ "$H" = "$want" ] && ok "RR-P $nm → 프로젝트 폴더 고정" || nope "RR-P $nm" "H=$H want=$want"
+done
 
 finish

@@ -723,7 +723,7 @@ test('on a graphical surface, rows of marks hold fewer marks, keep the newest an
       expect(strip?.text.endsWith('✗')).toBe(true)
       expect((await ui.find({ type: 'Text', text: /^●$/ }))?.props.wrap).toBe('truncate-start')
       expect((await ui.find({ type: 'Text', text: /^[─━◆]+$/ }))?.props.wrap).toBe('truncate-middle')
-      expect((await ui.find({ key: 'legend' }))?.props.marginBottom).toBe(surface === 'terminal' ? 0 : 1)
+      expect(await ui.find({ key: 'legend' })).toBeUndefined() // 범례 줄은 없다
       await ui.unmount()
     }
   }
@@ -1378,15 +1378,17 @@ test('a single agent card fits from 24 columns, and the time axis scales to the 
 
 test('a running connector keeps its length every frame: one face, clipped at its width, the dot still moving', { options: { panels: 'main,fid,architect,gate,agents,log' } }, async ($, on) => {
   engine(on)
-  on('tool.check', () => ({ decision: 'allow' }))
-  await $.tool.check({ tool: 'Read', input: { file_path: '/a' }, tool_use_id: 'r1' })
+  let agentN = 0
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: `rc${++agentN}` }))
   await $.turn.start({ text: 'go', turnId: 'R1' }) // a turn running: the connectors animate
+  await $.agent.spawn(spawn('general-purpose', 'Write the tests'))
+  await $.agent.spawn(spawn('general-purpose', 'Review the diff')) // two running agents: the agents panel draws its fan-out rail
   for (const surface of ['desktop', 'terminal'] as const) {
     const ui = await $.ui.mount({ ...pane(64), surface })
-    expect((await ui.find({ key: 'link-gate' }))?.type).toBe('Client')
+    expect((await ui.find({ key: 'fan-out' }))?.type).toBe('Client')
     const heads = new Set<number>()
     for (let frame = 0; frame < 30; frame += 1) {
-      const tree = (await ui.drawn({ in: 'link-gate' })) as Drawn
+      const tree = (await ui.drawn({ in: 'fan-out' })) as Drawn
       const texts: Drawn[] = []
       const walk = (n: unknown) => {
         if (!isDrawn(n)) return
@@ -1529,12 +1531,12 @@ const shows = async ($: Parameters<TestBody>[0], cols: number, re: RegExp, make:
   return found
 }
 /** progress-pane 의 `notify` 와 같은 session.append 인자 — 백그라운드 작업 종료 알림. */
-const taskDone = (id: string) =>
+const taskDone = (id: string, status = 'completed') =>
   ({
     door: 'delivery',
     origin: { kind: 'task-notification' },
-    uuid: `row-${id}-completed`,
-    message: { type: 'user', content: [{ type: 'text', text: `<tool-use-id>${id}</tool-use-id><status>completed</status>` }] },
+    uuid: `row-${id}-${status}`,
+    message: { type: 'user', content: [{ type: 'text', text: `<tool-use-id>${id}</tool-use-id><status>${status}</status>` }] },
   }) as never
 
 test('devFSD: jobs show as a count that follows the running list down to idle', async ($, on) => {
@@ -1549,7 +1551,7 @@ test('devFSD: jobs show as a count that follows the running list down to idle', 
   expect(await shows($, 86, /BG 2/)).toBeDefined() // 턴이 도는 중에도 헤더 BG 는 보인다
   await $.turn.complete(finished('J1'))
   // 턴은 끝났지만 작업이 도는 중 — 완전한 idle 이 아니라 대기, 헤더에 BG 개수
-  expect(await shows($, 86, /◐ 대기/)).toBeDefined()
+  expect(await shows($, 86, /◌ 대기/)).toBeDefined()
   expect(await shows($, 86, /○ idle/)).toBeUndefined()
   expect((await shows($, 86, /BG 2/))?.text).toContain('· BG 2')
   await $.session.append(taskDone('j1')); expect(await shows($, 86, /BG 1 · /)).toBeDefined()
@@ -1557,7 +1559,7 @@ test('devFSD: jobs show as a count that follows the running list down to idle', 
   await $.session.append(taskDone('j2'))
   expect(await shows($, 86, /BG \d · /)).toBeUndefined()
   expect(await shows($, 86, /BG \d · /)).toBeUndefined()
-  expect(await shows($, 86, /◐ 대기/)).toBeUndefined()
+  expect(await shows($, 86, /◌ 대기/)).toBeUndefined()
   expect(await shows($, 86, /○ idle/)).toBeDefined()
 })
 
@@ -1654,7 +1656,7 @@ test('devFSD: the badge never takes pieces away from a narrow line (AC-R-1)', as
     return rows
   }
   // 작업이 도는 동안 idle 조각은 대기 표시로 바뀐다(의도) — 그 밖의 조각은 그대로여야 한다.
-  const whileWaiting = (piece: string) => piece.replace('○ idle', '◐ 대기')
+  const whileWaiting = (piece: string) => piece.replace('○ idle', '◌ 대기').replace('IDLE', '◌ 대기')
   const widths = [24, 26, 27, 40, 59, 60, 86]
   const base: Record<string, string[]> = {}
   for (const cols of widths) for (const make of [pane, inline]) base[`${make === pane ? 'dock' : 'inline'}-${cols}`] = await rowsFor(cols, make)
@@ -1826,4 +1828,253 @@ test('devFSD: aurora flows fast while working, slowly while waiting, and rests o
   for (const mode of ['working', 'waiting', 'idle'] as const) for (const w of [1, 8, 24, 40, 120]) for (const p of [0, 7, 99]) expect(auroraCells(p, w, mode)).toHaveLength(w)
   // 사양 hex 리터럴(구현 상수 import 금지) — 띠 12칸: 0~3 #D4537E, 4~7 #D85A30, 8~11 #EF9F27
   expect(auroraCells(12, 40, 'working').filter(c => c.isLit).map(c => c.color)).toEqual([...Array(4).fill('#D4537E'), ...Array(4).fill('#D85A30'), ...Array(4).fill('#EF9F27')])
+})
+
+// ---------------------------------------------------------------- devFSD: 레이아웃 ① (FID 20261106-console-layout-revamp, T5)
+
+/** drawn 트리를 문서 순서(깊이 우선)로 걸어 key 를 모은다. */
+const keysOf = (n: unknown, out: string[] = []): string[] => {
+  if (!isDrawn(n)) return out
+  if (typeof n.props?.key === 'string') out.push(n.props.key)
+  ;(n.children ?? []).forEach(c => keysOf(c, out))
+
+  return out
+}
+const subtree = (n: unknown, key: string): Drawn | undefined => {
+  if (!isDrawn(n)) return undefined
+  if (n.props?.key === key) return n
+  for (const c of n.children ?? []) {
+    const r = subtree(c, key)
+    if (r) return r
+  }
+
+  return undefined
+}
+
+const PROG_IMPLEMENT = '# p\n<!-- active-fid: 20261106-x -->\n\n## 20261106-x · y\n\n- 2026-11-06 10:00 /implement 진행 (x)\n'
+
+/** 활성 FID 가 있는 세계: progress 는 넘긴 문자열, verification-state.sh 는 verify 낱말, hasFid:false 는 FID 없는 progress. */
+const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean } = {}) => {
+  const clock = engine(on)
+  const progress = o.progress ?? PROG_IMPLEMENT
+  const hasFid = o.hasFid ?? (() => true)
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('command.register', (_$, e) => ({ value: { command: e.name } }))
+  on('ui.open', () => ({ value: { isPlaced: true as const } }))
+  on('fs.exists', () => ({ value: true }))
+  on('fs.read', () => ({ value: hasFid() ? progress : '# p\n' }))
+  on('process.run', (_$, e) => {
+    const argv = (e as unknown as { argv: string[] }).argv
+    if (argv.some(a => a.endsWith('verification-state.sh'))) return { value: { exitCode: 0, stdout: `${o.verify ?? 'PASS'}\n`, stderr: '' } }
+
+    return { value: { exitCode: 1, stdout: '', stderr: '' } }
+  })
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  on('tool.check', () => ({ decision: 'allow' }))
+  let n = 0
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: `fw${++n}` }))
+
+  return clock
+}
+const startFid = async ($: Parameters<TestBody>[0]) => {
+  await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+  await settle()
+}
+
+/** 서버측 advisor 상담 1건 — 시작 행, isPending 이 아니면 결과 행까지. */
+const consultOnce = async ($: Parameters<TestBody>[0], o: { isPending: boolean }) => {
+  const row = (content: unknown[]) =>
+    $.session
+      .append({
+        message: { type: 'assistant', role: 'assistant', content: content as never },
+        door: 'response',
+        origin: { kind: 'model', model: 'claude-opus-5-5' } as never,
+        uuid: `u${++spawnN}`,
+      })
+      .catch(() => undefined) // 테스트에는 기록을 저장할 transcript 가 없다
+  const id = `srv${++spawnN}`
+  await row([{ type: 'server_tool_use', id, name: 'advisor', input: {} }])
+  if (!o.isPending) await row([{ type: 'advisor_tool_result', tool_use_id: id, content: { type: 'advisor_redacted_result' } }])
+}
+
+const panelKeysOf = (tree: unknown) => keysOf(tree).filter(k => k.startsWith('panel-'))
+
+// AC-1: 네 패널 순서와 균일 간격 — 설정 `layout: wide` 를 줘도 한 칸
+for (const [label, options] of [['default layout', {}], ['layout: wide', { layout: 'wide' }]] as const) {
+  test(`devFSD: AC-1 panels run main, devFSD, Advisor, agents, log with one blank row between and no rail (${label})`, { timeoutMs: 60_000, options }, async ($, on) => {
+    fidWorld(on)
+    await startFid($)
+    await $.turn.start({ text: 'go', turnId: 'P1' })
+    await consultOnce($, { isPending: false })
+    await $.agent.spawn(spawn('general-purpose', 'Write the tests'))
+    await $.agent.spawn(spawn('general-purpose', 'Review the diff'))
+    for (const surface of ['terminal', 'desktop'] as const) {
+      for (const cols of [24, 40, 60, 80, 120]) {
+        const ui = await $.ui.mount({ ...pane(cols), surface })
+        const tree = await ui.drawn()
+        const panelKeys = panelKeysOf(tree)
+        expect(panelKeys).toEqual(['panel-main', 'panel-fid', 'panel-architect', 'panel-agents', 'panel-log'])
+        expect(panelKeys.map(k => subtree(tree, k)?.props?.marginTop ?? 0)).toEqual([0, 1, 1, 1, 1])
+        const keys = keysOf(tree)
+        expect(keys.filter(k => k.startsWith('link-'))).toEqual([])
+        expect(keys.filter(k => k === 'aurora')).toHaveLength(1)
+        expect(await ui.find({ key: 'legend' })).toBeUndefined()
+        expect(spillsOf(tree, cols)).toEqual([])
+        await ui.unmount()
+      }
+      // 양성 대조: 카드 둘이 들어가는 폭에서는 같은 키 필터가 agents 패널 자신의 rail 을 센다 — 위 `link-*` 0 이 공전이 아니다.
+      const wide = await $.ui.mount({ ...pane(80), surface })
+      expect(keysOf(await wide.drawn()).filter(k => /fan-out|merge/.test(k)).length).toBeGreaterThanOrEqual(1)
+      await wide.unmount()
+    }
+  })
+}
+
+// AC-2: 설정 panels 호환과 GATE opt-in — 세 케이스 모두 같은 시드(tool.check 3건)
+for (const [label, options, expected] of [
+  ['unset', {}, ['panel-main', 'panel-fid', 'panel-agents', 'panel-log']],
+  ['the old default (gate, loops, receipt named)', { panels: 'fid,main,architect,gate,agents,loops,receipt,log' }, ['panel-main', 'panel-fid', 'panel-agents', 'panel-gate', 'panel-log']],
+  ['gate named after log', { panels: 'main,fid,agents,log,gate' }, ['panel-main', 'panel-fid', 'panel-agents', 'panel-gate', 'panel-log']],
+] as const) {
+  test(`devFSD: AC-2 GATE shows only when panels names it, just above the log (${label})`, { options }, async ($, on) => {
+    fidWorld(on)
+    await startFid($)
+    for (let i = 0; i < 3; i += 1) await $.tool.check({ tool: 'Read', input: { file_path: `/f${i}.ts` }, tool_use_id: `c${i}` })
+    await $.agent.spawn(spawn('general-purpose', 'Write the tests'))
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const ui = await $.ui.mount({ ...pane(80), surface })
+      expect(panelKeysOf(await ui.drawn())).toEqual([...expected])
+      await ui.unmount()
+    }
+  })
+}
+
+// AC-3: 헤더 한 줄 요약
+const headerAt = async ($: Parameters<TestBody>[0], cols: number) => {
+  const ui = await $.ui.mount({ ...pane(cols), surface: 'terminal' })
+  const text = textOf(subtree(await ui.drawn(), 'header'))
+  await ui.unmount()
+
+  return text
+}
+
+test('devFSD: AC-3 the header sums up status, stage, verification and background work in one line', async ($, on) => {
+  fidWorld(on, { verify: 'STALE' })
+  await startFid($)
+  await $.turn.start({ text: 'go', turnId: 'H1' })
+  await $.tool.call(bg('h1')); await $.tool.call(bg('h2'))
+  // (a) 턴 진행 · 구현 단계 · 검증 STALE · BG 2
+  const a = await headerAt($, 80)
+  expect(a).toMatch(/DEVFSD/); expect(a).toMatch(/WORKS/); expect(a).toMatch(/구현/); expect(a).toMatch(/STALE/); expect(a).toMatch(/BG 2/)
+  expect(a).not.toMatch(/OPUS|SONNET|FABLE/i) // 모델명은 main 패널 제목
+  // (b) 턴 끝 · BG 1
+  await $.turn.complete(finished('H1'))
+  await $.session.append(taskDone('h1'))
+  const b = await headerAt($, 80)
+  expect(b).toMatch(/◌ 대기/); expect(b).toMatch(/BG 1/); expect(b).not.toMatch(/IDLE/); expect(b).not.toMatch(/WORKS/)
+  // (c) 턴 끝 · BG 0
+  await $.session.append(taskDone('h2'))
+  const c = await headerAt($, 80)
+  expect(c).toMatch(/IDLE/); expect(c).not.toMatch(/BG/); expect(c).not.toMatch(/◌ 대기/)
+  // 단계·검증 조각은 FID 가 있는 동안 남는다(양성 대조 — (d) 의 부재 단언과 같은 정규식)
+  expect(c).toMatch(/구현|STALE/)
+})
+
+test('devFSD: AC-3 with no FID the header has no stage or verification piece', async ($, on) => {
+  let hasFid = true
+  fidWorld(on, { verify: 'STALE', hasFid: () => hasFid })
+  await startFid($)
+  expect(await headerAt($, 80)).toMatch(/구현.*STALE|STALE/) // 양성 대조: FID 가 있을 땐 둘 다 있다
+  hasFid = false
+  await startFid($)
+  const d = await headerAt($, 80)
+  expect(d).toMatch(/IDLE/)
+  expect(d).not.toMatch(/구현|검증|STALE|완료/)
+})
+
+test('devFSD: AC-3 a narrow header drops the background count from the end, the status stays', async ($, on) => {
+  fidWorld(on, { verify: 'STALE' })
+  await startFid($)
+  await $.turn.start({ text: 'go', turnId: 'H2' })
+  await $.tool.call(bg('n1')); await $.tool.call(bg('n2'))
+  // 조각 폭(코드포인트): `DEVFSD ·`8 `WORKS`5 `· 구현`4 `· STALE`7 `· BG 2`6, 조각 사이 1칸.
+  //   40칸 이상: 전부 = 8+5+4+7+6+4 = 34. 40 미만은 DEVFSD 가 빠져 5+4+7+6+3 = 25.
+  const fits = async (cols: number) => headerAt($, cols)
+  for (const cols of [25, 39, 40, 80]) expect(await fits(cols)).toMatch(/WORKS.*구현.*STALE.*BG 2/)
+  const narrow = await fits(24) // 25칸이 필요한 줄 — 뒤 조각(BG)부터 빠진다
+  expect(narrow).toMatch(/WORKS/); expect(narrow).toMatch(/구현/); expect(narrow).toMatch(/STALE/); expect(narrow).not.toMatch(/BG/)
+})
+
+// AC-4: 오로라 선 — 헤더 바로 아래 Client 1개, 상태별 흐름
+const auroraFrames = async (ui: Awaited<ReturnType<Parameters<TestBody>[0]['ui']['mount']>>, n: number) => {
+  const frames: string[] = []
+  const cells: number[] = []
+  for (let f = 0; f < n; f += 1) {
+    const texts: Drawn[] = []
+    const walk = (x: unknown) => {
+      if (!isDrawn(x)) return
+      if (x.type === 'Text') texts.push(x)
+      else (x.children ?? []).forEach(walk)
+    }
+    walk(await ui.drawn({ in: 'aurora' }))
+    frames.push(JSON.stringify(texts.map(t => [textOf(t), t.props?.color ?? null])))
+    cells.push(cellsOf(texts.map(textOf).join('')))
+    await ui.advance(110)
+  }
+
+  return { distinct: new Set(frames).size, cells }
+}
+
+test('devFSD: AC-4 the aurora under the header keeps its width every frame and paints hex colours while a turn runs', async ($, on) => {
+  engine(on)
+  await $.turn.start({ text: 'go', turnId: 'A1' })
+  const ui = await $.ui.mount({ ...pane(64), surface: 'terminal' })
+  expect((await ui.find({ key: 'aurora' }))?.type).toBe('Client')
+  const seen = new Set<string>()
+  for (let f = 0; f < 20; f += 1) {
+    const tree = (await ui.drawn({ in: 'aurora' })) as Drawn
+    const texts: Drawn[] = []
+    const walk = (n: unknown) => { if (!isDrawn(n)) return; if (n.type === 'Text') texts.push(n); else (n.children ?? []).forEach(walk) }
+    walk(tree)
+    expect(cellsOf(texts.map(textOf).join(''))).toBe(64 + 4)
+    for (const t of texts) if (typeof t.props?.color === 'string' && t.props.color.startsWith('#')) seen.add(t.props.color)
+    await ui.advance(110)
+  }
+  expect(new Set([...seen])).toEqual(new Set(['#D4537E', '#D85A30', '#EF9F27']))
+  await ui.unmount()
+})
+
+test('devFSD: AC-4 the aurora moves every frame while a turn runs, slower while only background work waits, and not at all when idle', async ($, on) => {
+  engine(on)
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  // idle 부터 — 정지 선
+  const idleUi = await $.ui.mount({ ...pane(64), surface: 'terminal' })
+  const idle = await auroraFrames(idleUi, 20)
+  await idleUi.unmount()
+  expect(idle.distinct).toBe(1)
+  expect(idle.cells.every(c => c === 64 + 4)).toBe(true)
+  // 턴 진행 — 빠르게
+  await $.turn.start({ text: 'go', turnId: 'M1' })
+  await $.tool.call(bg('m1'))
+  const workUi = await $.ui.mount({ ...pane(64), surface: 'terminal' })
+  const working = await auroraFrames(workUi, 20)
+  await workUi.unmount()
+  // 턴 끝 + BG 1 — 대기, 느리게
+  await $.turn.complete(finished('M1'))
+  const waitUi = await $.ui.mount({ ...pane(64), surface: 'terminal' })
+  const waiting = await auroraFrames(waitUi, 20)
+  await waitUi.unmount()
+  expect(working.distinct).toBeGreaterThan(waiting.distinct)
+  expect(waiting.distinct).toBeGreaterThan(1)
+  expect(working.cells.concat(waiting.cells).every(c => c === 64 + 4)).toBe(true)
+})
+
+test('devFSD: AC-4 with motion off the aurora line stays still while a turn runs', { options: { motion: 'off' } }, async ($, on) => {
+  engine(on)
+  await $.turn.start({ text: 'go', turnId: 'M2' })
+  const ui = await $.ui.mount({ ...pane(64), surface: 'terminal' })
+  const off = await auroraFrames(ui, 20)
+  await ui.unmount()
+  expect(off.distinct).toBe(1)
+  expect(off.cells.every(c => c === 64 + 4)).toBe(true)
 })

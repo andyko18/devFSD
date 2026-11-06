@@ -35,7 +35,6 @@ import {
   consultTimeline,
   describeInput,
   endConsult,
-  fitLegend,
   fmtClock,
   fmtDuration,
   fmtTimer,
@@ -63,6 +62,7 @@ import {
   PALETTES,
   SVG_COLORS,
   parseConfig,
+  stageProgress,
   prettyModel,
   promptLine,
   handbackOf,
@@ -720,8 +720,6 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const isWaiting = !m.isRunning && bgTotal > 0
     const badgeColor = badge?.stalled ? C.warn : C.dim
     const layout = v.layout ?? cfg.layout
-    const isWide = layout === 'wide' || (layout === 'auto' && W >= 110)
-    const colW = isWide ? Math.floor((W - 2) / 2) : W
     const modelName = prettyModel(m.model)
     const viewed = e.props.view?.agentId ?? null
     const advising = isAdvising(a)
@@ -733,13 +731,20 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       fid: !b.fid,
       main: false,
       architect: !showArchitect,
-      gate: g.recent.length === 0 && gateSummary(g).total === 0,
+      // GATE 는 opt-in — 설정 panels 에 gate 를 넣은 사람만, 그 안에서도 기록이 있을 때만 그린다.
+      gate: !cfg.panels.includes('gate') || (g.recent.length === 0 && gateSummary(g).total === 0),
       agents: cards.length === 0,
       loops: lp.length === 0,
       receipt: !m.isRunning && !r,
       log: false,
     }
-    const panels = cfg.panels.filter(p => !isEmpty[p])
+    // main 이 맨 위, GATE 는 session log 바로 위, log 가 맨 아래 — 나머지는 설정 순서.
+    const order = [
+      ...cfg.panels.filter(p => p === 'main'),
+      ...cfg.panels.filter(p => p !== 'main' && p !== 'gate' && p !== 'log'),
+      ...cfg.panels.filter(p => p === 'gate'),
+      ...cfg.panels.filter(p => p === 'log'),
+    ].filter(p => !isEmpty[p])
     const decider = m.mode === 'auto' ? 'classifier' : 'you'
 
     // A connector between panels: animated while its flow is live, a dim line otherwise.
@@ -824,7 +829,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             {modelName} · main
           </Text>
           <Box flexShrink={0} columnGap={1}>
-            <Text color={m.isRunning || isWaiting ? C.main : C.dim}>{m.isRunning ? '● working' : isWaiting ? '◐ 대기' : '○ idle'}</Text>
+            <Text color={m.isRunning || isWaiting ? C.main : C.dim}>{m.isRunning ? '● working' : isWaiting ? '◌ 대기' : '○ idle'}</Text>
             {badge && W >= 40 ? <Text color={badgeColor}>{`· ${badge.text}`}</Text> : null}
           </Box>
         </Box>
@@ -1216,7 +1221,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       l.kind === 'error' ? C.warn : l.kind === 'consult' ? C.arch : l.who === 'main' ? C.main : l.who === 'gate' ? C.gate : l.who === 'you' ? C.text : C.agent
     // Below 40 columns a line keeps its minute, not its second, and a shorter name.
     const logPanel = (w: number) => (
-      <Box flexDirection="column" borderStyle="round" borderColor={C.faint} paddingX={1} marginTop={1} width={w}>
+      <Box flexDirection="column" borderStyle="round" borderColor={C.faint} paddingX={1} width={w}>
         <Text dimColor wrap="truncate">
           {viewed ? 'session log · this agent' : 'session log'}
         </Text>
@@ -1293,23 +1298,15 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
                   ? receiptPanel(w)
                   : logPanel(w)
 
-    // Panels with the flow between them; the agents panel draws its own rails.
+    // 패널은 한 칸으로 쌓고 첫 패널 외에는 위에 빈 줄 1칸을 둔다. 패널 사이 rail 은 없다(agents 패널이 자기 rail 을 그린다).
     const column = (ps: Panel[], w: number) => (
       <Box flexDirection="column" width={w}>
-        {ps.map((p, i) => {
-          const prev = ps[i - 1]
-          const link =
-            i === 0 || prev === 'fid' || p === 'agents' || prev === 'agents' || p === 'log' || p === 'loops' || prev === 'loops'
-              ? null
-              : rail(`link-${p}`, p === 'architect' ? advising : m.isRunning, p === 'architect' ? C.arch : C.main, w)
-          return (
-            <Box flexDirection="column">
-              {link}
-              {draw(p, w)}
-              {p === 'agents' ? expandedPanel(w) : null}
-            </Box>
-          )
-        })}
+        {ps.map((p, i) => (
+          <Box key={`panel-${p}`} flexDirection="column" marginTop={i === 0 ? 0 : 1}>
+            {draw(p, w)}
+            {p === 'agents' ? expandedPanel(w) : null}
+          </Box>
+        ))}
       </Box>
     )
 
@@ -1358,7 +1355,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
               {
                 spans: [
                   { text: modelName, color: C.main, bold: true },
-                  { text: m.isRunning ? ' ● working' : isWaiting ? ' ◐ 대기' : ' ○ idle', color: m.isRunning || isWaiting ? C.main : C.dim },
+                  { text: m.isRunning ? ' ● working' : isWaiting ? ' ◌ 대기' : ' ○ idle', color: m.isRunning || isWaiting ? C.main : C.dim },
                 ],
               },
               mg
@@ -1412,62 +1409,49 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       )
     }
 
-    const legend = fitLegend(
-      [
-        { label: 'main', color: C.main },
-        { label: 'agents', color: C.agent },
-        { label: cfg.gateLabel.toLowerCase(), color: C.gate },
-        ...(showArchitect ? [{ label: cfg.architectLabel.toLowerCase(), color: C.arch }] : []),
-      ],
-      W,
-    )
-
-    const body = isWide ? (
-      <Box flexDirection="column">
-        <Box columnGap={2}>
-          {column(panels.filter(p => p === 'fid' || p === 'main' || p === 'architect' || p === 'gate'), colW)}
-          {column(panels.filter(p => p === 'agents' || p === 'loops' || p === 'receipt'), colW)}
-        </Box>
-        {panels.includes('log') ? logPanel(W) : null}
-      </Box>
-    ) : (
-      column(panels, W)
-    )
+    // ---- 헤더: 한 줄 요약 `DEVFSD · 상태 · 단계 · 검증 · BG N` (좁으면 뒤 조각부터 빠진다)
+    const status = m.isRunning ? 'WORKS' : isWaiting ? '◌ 대기' : 'IDLE'
+    const sp = stageProgress(b.stages ?? [])
+    const stageWord = b.fid ? sp.current ?? (sp.isDone ? '완료' : null) : null
+    const verifyWord = b.fid && b.verify ? b.verify.replace(/^검증 /, '') : null
+    const verifyColor = verifyWord === 'PASS' || verifyWord === '완료' ? C.gate : verifyWord === 'FAIL' ? C.warn : C.amber
+    const mode = cfg.motion ? (m.isRunning ? 'working' : isWaiting ? 'waiting' : 'idle') : 'idle'
 
     return (
       <Box flexDirection="column" width={W}>
-        {/* Below 40 columns the frame's own title names the pane, so the header starts at the model. */}
-        {line(
-          [
-            W >= 40 ? { spans: [{ text: 'DEVFSD', bold: true }, { text: ' ·', color: C.dim, bold: true }] } : null,
-            { spans: [{ text: modelName.toUpperCase(), color: C.main, bold: true }, { text: m.isRunning ? ' WORKS' : ' IDLE', bold: true }] },
-            showArchitect
-              ? {
-                  spans: [
-                    { text: '· ', color: C.dim, bold: true },
-                    { text: cfg.architectLabel, color: C.arch, bold: true },
-                    { text: advising ? ' ADVISING' : ' ON CALL', bold: true },
-                  ],
-                }
-              : null,
-            // 맨 뒤 — 좁은 폭에서는 다른 조각을 밀어내지 않고 이 조각이 먼저 빠진다.
-            bgTotal > 0 ? { spans: [{ text: `· BG ${bgTotal}`, color: C.main, bold: true }] } : null,
-          ],
-          W,
-          1,
-          'center',
-        )}
-        <Box key="legend" justifyContent="center" columnGap={2} marginBottom={legendGap}>
-          {legend.map(l => (
-            <Box flexShrink={0}>
-              <Text>
-                <Text color={l.color}>■</Text>
-                <Text dimColor>{` ${l.label}`}</Text>
-              </Text>
-            </Box>
-          ))}
+        {/* Below 40 columns the frame's own title names the pane, so the header starts at the status. */}
+        <Box key="header" flexDirection="column">
+          {line(
+            [
+              W >= 40 ? { spans: [{ text: 'DEVFSD', bold: true }, { text: ' ·', color: C.dim, bold: true }] } : null,
+              { spans: [{ text: status, color: C.main, bold: true }] },
+              stageWord ? { spans: [{ text: '· ', color: C.dim, bold: true }, { text: stageWord, color: C.text, bold: true }] } : null,
+              // 단계가 이미 `완료` 면 같은 낱말을 두 번 쓰지 않는다.
+              verifyWord && !(stageWord === '완료' && verifyWord === '완료')
+                ? { spans: [{ text: '· ', color: C.dim, bold: true }, { text: verifyWord, color: verifyColor, bold: verifyColor !== C.gate }] }
+                : null,
+              // 맨 뒤 — 좁은 폭에서는 다른 조각을 밀어내지 않고 이 조각이 먼저 빠진다.
+              bgTotal > 0 ? { spans: [{ text: `· BG ${bgTotal}`, color: C.main, bold: true }] } : null,
+            ],
+            W,
+            1,
+            'center',
+          )}
         </Box>
-        {body}
+        {hasRail ? (
+          <els.Client
+            key="aurora"
+            module="./rail.tsx"
+            width={W}
+            height={1}
+            props={{ variant: 'aurora', mode, active: mode !== 'idle', width: W, color: C.main, dim: C.faint, marks: [], isMerge: false }}
+          />
+        ) : (
+          <Text color={C.faint} mono>
+            {'─'.repeat(W)}
+          </Text>
+        )}
+        {column(order, W)}
         {svgLanes}
       </Box>
     )

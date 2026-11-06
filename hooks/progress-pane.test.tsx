@@ -1093,3 +1093,174 @@ test('devFSD: stageOf names the demo skill 데모 (demo-ko)', () => {
   expect(stageOf('specops-ko:demo-ko')).toBe('데모 (demo-ko)')
   expect(stageOf('demolition-ko')).toBe(undefined) // 접두 일치로 번지지 않는다
 })
+
+const outOf = (id: string) => `/private/tmp/claude-501/-p/s1/tasks/${id}.output`
+const launched = (id: string) => ({ result: {}, text: `Command running in background with ID: ${id}. Output is being written to: ${outOf(id)}.` })
+/** 스캔 호출만 골라낸다 — verifyFor 의 `bash verification-state.sh …` 와 구별. */
+const isScan = (argv: string[]) => argv[0] === 'bash' && argv[1] === '-c' && argv[3] === '_'
+
+test('devFSD: each running background job gets its own output path, and an ended job leaves the scan', async ($, on) => {
+  const scans: string[][] = []
+  const clock = clockWorld(on, (_, e) => launched(String((e as { tool_use_id: string }).tool_use_id)))
+  on('process.run', (_, e) => {
+    const argv = (e as unknown as { argv: string[] }).argv
+    if (isScan(argv)) scans.push(argv.slice(4))
+    return { value: { exitCode: 0, stdout: '', stderr: '' } }
+  })
+  await startedClock($, clock)
+  await $.tool.call(bgBash('b1'))
+  await $.tool.call(bgBash('b2'))
+  await clock.advance(5_000)
+  expect(scans.at(-1)).toEqual([outOf('b1'), outOf('b2')])
+  await notify($, 'b1', 'completed')
+  await clock.advance(5_000)
+  expect(scans.at(-1)).toEqual([outOf('b2')])
+})
+
+test('devFSD: no output path in the result means no scan', async ($, on) => {
+  const clock = clockWorld(on, () => ({ result: {}, text: 'Command running in background' }))
+  let scans = 0
+  on('process.run', (_, e) => {
+    if (isScan((e as unknown as { argv: string[] }).argv)) scans += 1
+    return { value: { exitCode: 0, stdout: '', stderr: '' } }
+  })
+  await startedClock($, clock)
+  await $.tool.call(bgBash('b3'))
+  await clock.advance(10_000)
+  expect(scans).toBe(0)
+})
+
+test('devFSD: a throwing scan is retried on the next tick and the job stays listed', async ($, on) => {
+  const clock = clockWorld(on, (_, e) => launched(String((e as { tool_use_id: string }).tool_use_id)))
+  let calls = 0
+  on('process.run', (_, e) => {
+    if (!isScan((e as unknown as { argv: string[] }).argv)) return { value: { exitCode: 0, stdout: '', stderr: '' } }
+    calls += 1
+    if (calls === 1) throw new Error('spawn failed')
+    return { value: { exitCode: 0, stdout: '5\n', stderr: '' } }
+  })
+  await startedClock($, clock)
+  await $.tool.call(bgBash('b1'))
+  await clock.advance(5_000)
+  expect(calls).toBeGreaterThanOrEqual(1) // 스캔이 시도됐다
+  expect((await rowsOf($)).find(row => row.startsWith('▶ 실행 중'))).toBe('▶ 실행 중 (1)')
+  await clock.advance(5_000)
+  expect(calls).toBeGreaterThanOrEqual(2) // 던진 뒤에도 시계가 살아 있다
+})
+
+// ---------------------------------------------------------------- activity badge on the console pane
+
+const CONSOLE = { ...PANE, requestId: 'devfsd-console', props: { ...PANE.props, title: 'devFSD 관제판', bodyColumns: 86 } } as const
+const mainDone = (turnId: string) => ({ answer: '', durationMs: 1000, isAborted: false, turnId, reason: 'answer' as const })
+
+test('devFSD: a fresh output-file mtime beats a 9m30s-old hook signal and clears the stall', async ($, on) => {
+  const clock = clockWorld(on, (_, e) => launched(String((e as { tool_use_id: string }).tool_use_id)))
+  let mtimeSec = 1
+  on('process.run', (_, e) => {
+    const argv = (e as unknown as { argv: string[] }).argv
+    return { value: { exitCode: 0, stdout: isScan(argv) ? `${mtimeSec}\n` : '', stderr: '' } }
+  })
+  await startedClock($, clock)
+  await $.tool.call(bgBash('b1'))
+  await clock.advance(570_000)
+  let ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /⚠ 정체 의심/ })).toBeDefined() // 양성 대조
+  await ui.unmount()
+  mtimeSec = 541 // 지금(571s)의 30초 전
+  await clock.advance(5_000)
+  ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 마지막 활동 35초 전')
+  expect(await ui.find({ type: 'Text', text: /정체 의심/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('devFSD: a task notification counts as activity while another job still runs', async ($, on) => {
+  const clock = clockWorld(on, (_, e) => launched(String((e as { tool_use_id: string }).tool_use_id)))
+  on('process.run', () => ({ value: { exitCode: 0, stdout: '', stderr: '' } }))
+  await startedClock($, clock)
+  await $.tool.call(bgBash('b1')); await $.tool.call(bgBash('b2'))
+  await clock.advance(290_000)
+  await notify($, 'b1', 'completed')
+  await clock.advance(290_000)
+  const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 마지막 활동 4분 전')
+  expect(await ui.find({ type: 'Text', text: /정체 의심/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('devFSD: the tick runs while the main turn is open and stops once it ends', async ($, on) => {
+  let nowCalls = 0
+  const clock = clockWorld(on, () => ({ result: {}, text: 'ok' }), 1_000, () => { nowCalls += 1 })
+  on('ui.status', () => ({ value: undefined }))
+  on('turn.start', (_$, e) => ({ turnId: e.turnId }))
+  on('turn.complete', () => ({ text: '' }))
+  await startedClock($, clock)
+  await $.turn.start({ text: 'go', turnId: 'W1' })
+  let before = nowCalls
+  await clock.advance(5_000)
+  expect(nowCalls - before).toBeGreaterThanOrEqual(1) // 작업 0 인데도 working 이라 시계가 돈다
+  await $.turn.complete(mainDone('W1'))
+  before = nowCalls
+  await clock.advance(60_000)
+  expect(nowCalls).toBe(before)
+})
+
+test('devFSD: a background agent without an output path falls back to hook signals only', async ($, on) => {
+  const clock = clockWorld(on, () => ({ result: {}, text: 'Async agent launched successfully' }))
+  on('process.run', () => ({ value: { exitCode: 0, stdout: '', stderr: '' } }))
+  await startedClock($, clock)
+  await $.tool.call(agentCall('a1'))
+  await clock.advance(300_000)
+  const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /⚠ 정체 의심/ })).toBeDefined() // 의도된 한계
+  await ui.unmount()
+})
+
+test('devFSD: an old-shaped board (no new fields) renders without a badge, and gains one when a job runs', async ($, on) => {
+  const clock = clockWorld(on, () => ({ result: {}, text: 'ok' }))
+  await startedClock($, clock)
+  const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
+  expect(await ui.find({ type: 'Text', text: /작업 \d|정체 의심/ })).toBeUndefined()
+  await ui.unmount()
+  await $.tool.call(bgBash('o1')) // 양성 대조: 같은 경로에서 작업이 생기면 배지가 뜬다
+  const after = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
+  expect(await after.find({ type: 'Text', text: /작업 1/ })).toBeDefined()
+  await after.unmount()
+})
+
+test('devFSD: a working turn with no jobs warns after five quiet minutes and clears when the turn ends', async ($, on) => {
+  const clock = clockWorld(on, () => ({ result: {}, text: 'ok' }))
+  on('ui.status', () => ({ value: undefined }))
+  on('turn.start', (_$, e) => ({ turnId: e.turnId }))
+  on('turn.complete', () => ({ text: '' }))
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
+  const shown = async (re: RegExp) => {
+    const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
+    const found = await ui.find({ type: 'Text', text: re })
+    await ui.unmount()
+    return found
+  }
+  await startedClock($, clock) // 틱 시작
+  await $.turn.start({ text: 'go', turnId: 'W1' })
+  await clock.advance(299_000)
+  expect(await shown(/정체 의심/)).toBeUndefined()
+  expect(await shown(/● working/)).toBeDefined()
+  await clock.advance(1_000)
+  expect((await shown(/⚠ 정체 의심/))?.text).toContain('⚠ 정체 의심 · 5분 전')
+  expect(await shown(/작업 \d/)).toBeUndefined()
+  await $.turn.complete(mainDone('W1'))
+  expect(await shown(/정체 의심/)).toBeUndefined()
+  expect(await shown(/○ idle/)).toBeDefined()
+})
+
+test('devFSD: a mounted console redraws its badge as the clock moves (nowTick subscription)', async ($, on) => {
+  const clock = clockWorld(on, (_, e) => launched(String((e as { tool_use_id: string }).tool_use_id)))
+  on('process.run', () => ({ value: { exitCode: 0, stdout: '', stderr: '' } }))
+  await startedClock($, clock)
+  await $.tool.call(bgBash('rd1'))
+  const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
+  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 마지막 활동 방금')
+  await clock.advance(65_000) // 같은 ui — 다시 마운트하지 않는다
+  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 마지막 활동 1분 전')
+  await ui.unmount()
+})

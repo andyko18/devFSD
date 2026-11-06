@@ -8,3 +8,4 @@ openOnStart 기본값 false(.specops 저장소에서만 자동으로 연다), �
 
 devFSD 추가 (20261106): console.tsx·core.ts·types 에 CI 잡 합산 표시(옵션 ciWatch·ciIntervalSec — 기본 꺼짐)를 더했다.
 신규 hooks/ci-watch.ts·ci-watch.test.ts 는 devFSD 원작이다(Flightdeck 코드 아님).
+백그라운드 활동 배지(작업 수·마지막 활동·정체 의심)는 devFSD 가 core.ts·console.tsx·progress-pane.tsx 에 더했다.

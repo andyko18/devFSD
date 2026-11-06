@@ -74,6 +74,8 @@ import {
   startConsult,
   stepSpeed,
   stepLoop,
+  activityBadge,
+  withActivity,
 } from './core'
 import type { Config, Panel } from './core'
 // devFSD: 진행 기록(FID·단계·verify)은 progress-pane 이 채우는 board 를 읽기만 한다.
@@ -84,6 +86,9 @@ import type { Board } from '../types'
 // devFSD: progress-pane 이 쓰는 board 와 같은 상태(같은 ref·shape) — 여기서는 읽기만 한다.
 // 검증기는 atom 을 읽는 파일 안에 그 정의가 있기를 요구한다.
 const board = atom({ plugin: 'devfsd', key: 'board' } as const, { running: [], recent: [] } as Board, { shape: 'board-2' })
+
+// devFSD: progress-pane 의 시계 atom 과 같은 ref·shape — 읽어 두면 시계가 돌 때 배지가 다시 그려진다.
+const nowTick = atom({ plugin: 'devfsd', key: 'now' } as const, 0, { shape: 'now-1' })
 
 const PANE = 'devfsd-console'
 const TITLE = 'devFSD 관제판'
@@ -138,6 +143,23 @@ async function getView($: EngineInterface): Promise<View> {
 async function getRoster($: EngineInterface): Promise<Roster> {
   const r = normalize(DEFAULT_ROSTER, await read($, roster))
   return { architectTypes: listOf(r.architectTypes) }
+}
+
+/** 활동 시각을 올리고(선택) 메인 턴 열림 표시를 바꾼다. 관찰만 하므로 어떤 실패도 삼킨다. */
+const touch = async ($: EngineInterface, working?: boolean): Promise<void> => {
+  try {
+    const at = await $.clock.now()
+    const b = await read($, board)
+    const next = withActivity(b, at)
+    if (next === b && (working === undefined || b.working === working)) return
+    await update($, board, cur => {
+      const raised = withActivity(cur, at)
+
+      return working === undefined || cur.working === working ? raised : { ...raised, working }
+    })
+  } catch {
+    // 표시만 어긋날 뿐 도구 호출·턴은 그대로 간다.
+  }
 }
 
 /** A stored shape older than this build's: drop what cannot be read, keep the rest. */
@@ -342,6 +364,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
   on('turn.start', async ($, e, next) => {
     // A subagent's turn (its spawn, or a resume by SendMessage) is its card's, not the main turn's.
     if (e.agentId !== undefined) return next(e)
+    await touch($, true)
     const [now, cost] = await Promise.all([$.clock.now(), costNow($)])
     await update($, turn, () => ({ ...DEFAULT_TURN, startedAt: now, costAtStart: cost }))
     await update($, main, m => ({ ...normalize(DEFAULT_MAIN, m), isRunning: true }))
@@ -362,6 +385,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
   on('turn.step', async function* ($, e, next) {
     // The main loop's model is known when its request starts; a long first request shouldn't read "—".
     if (!e.agentId) {
+      await touch($)
       let isNewModel = false
       await update($, main, m => {
         const x = normalize(DEFAULT_MAIN, m)
@@ -500,6 +524,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
 
   on('tool.call', async ($, e, next) => {
     callLoop.set(e.tool_use_id, e.agentId ?? null)
+    await touch($)
     const ran = await next(e).finally(() => callLoop.delete(e.tool_use_id))
     const didRun = ran.deny === undefined
     // Settle this call's pending ask, if it had one; skip the write (and the redraw) otherwise.
@@ -571,6 +596,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
   }).catch(($, e, next) => next(e)) // devFSD: 관제판은 관찰만 한다 — 처리기가 던져도 도구 호출·프롬프트는 통과한다
 
   on('agent.spawn', async ($, e, next) => {
+    await touch($)
     const started = await next(e)
     if (!e.parentAgentId) await noteMode($, e.permissionMode)
     if (started.deny !== undefined || !started.agentId) return started
@@ -622,6 +648,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       })
       await update($, receipt, () => r)
       await update($, main, m => ({ ...normalize(DEFAULT_MAIN, m), isRunning: false }))
+      await touch($, false)
       await refreshStatus($, cfg)
       return done
     }
@@ -681,9 +708,12 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       getView($),
       $.clock.now(),
       read($, board),
+      read($, nowTick), // 구독만 — 값은 쓰지 않는다
     ])
     // The body's own width, down to the narrowest dock Claude Code seats (24): a wider drawing is cut off at the frame.
     const W = Math.max(24, e.props.bodyColumns)
+    const badge = activityBadge({ jobs: b.running.length, isRunning: m.isRunning, activityAt: b.activityAt, now, compact: W < 60 })
+    const badgeColor = badge?.stalled ? C.warn : C.dim
     const layout = v.layout ?? cfg.layout
     const isWide = layout === 'wide' || (layout === 'auto' && W >= 110)
     const colW = isWide ? Math.floor((W - 2) / 2) : W
@@ -788,8 +818,9 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
           <Text color={C.main} bold wrap="truncate">
             {modelName} · main
           </Text>
-          <Box flexShrink={0}>
+          <Box flexShrink={0} columnGap={1}>
             <Text color={m.isRunning ? C.main : C.dim}>{m.isRunning ? '● working' : '○ idle'}</Text>
+            {badge && W >= 40 ? <Text color={badgeColor}>{`· ${badge.text}`}</Text> : null}
           </Box>
         </Box>
         {line(
@@ -1334,6 +1365,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             ],
             W,
           )}
+          {badge ? <Text color={badgeColor} wrap="truncate">{badge.text}</Text> : null}
           {strip.length > 0 ? (
             <Box columnGap={1}>
               <Text dimColor>{cfg.gateLabel.toLowerCase()}</Text>

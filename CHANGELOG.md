@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.11] — 2026-11-06
+
 ### Added
 - 관제판: 백그라운드 작업이 도는 동안 메인 턴이 쉬면 `○ idle` 대신 `◐ 대기`, 헤더에 `BG N`, 배지에 작업 경과(`작업 1 · 23초 경과 · 마지막 활동 방금`)를 보이고, FID 카드에 작업별 한 줄(`◐ 이름 · 경과`, 최대 3개)을 추가한다. 종전 배지의 `0s` 는 작업 경과가 아니라 마지막 활동 후 경과였다
 
@@ -3569,7 +3571,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.10...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.11...HEAD
+[3.1.11]: https://github.com/andyko18/devFSD/compare/v3.1.10...v3.1.11
 [3.1.10]: https://github.com/andyko18/devFSD/compare/v3.1.9...v3.1.10
 [3.1.9]: https://github.com/andyko18/devFSD/compare/v3.1.8...v3.1.9
 [3.1.8]: https://github.com/andyko18/devFSD/compare/v3.1.7...v3.1.8

@@ -388,6 +388,122 @@ _stop2 "$M5" "$W5P" >/dev/null
 [ "$(_lines "$F5")" -eq "$b5" ] && [ -z "$(find "$M5" -maxdepth 1 -name .specops)" ] \
   && ok "RR-10b ★ 관할 밖 프로젝트 → posttool·stop 이 worktree 에 기록 안 함 · 프로젝트에 .specops 안 생김" || nope "RR-10b" "wt $b5→$(_lines "$F5")"
 
+# RR-B 배치 마커 가드 (20261106-hook-root-batch-freecomment) — 브랜치 feat/X ↔ 마커 .specops/X/ACTIVE (X=batch-…)
+_mkbatch() {  # $1=프로젝트 루트(.specops 가 있는 곳). 마커 디렉터리 이름 = batch-p, 브랜치 = feat/batch-p
+  mkdir -p "$1/.specops/batch-p" "$1/.specops/memory"
+  printf '| FR-ID | FID | 설명 | Status |\n|---|---|---|---|\n| FR-4 | 20260721-login | 로그인 | DONE |\n' > "$1/.specops/batch-p/queue.md"
+  printf '| FR-4 | a | M1 | must | s | f |\n' > "$1/.specops/memory/requirements.md"
+  : > "$1/.specops/batch-p/ACTIVE"
+}
+GHPR="gh pr create --fill"
+_stale() {  # $1=메인 — FIDM 을 STALE 로 (WT-7 방식)
+  (cd "$1" && bash "$VS" record "$FIDM" PASS >/dev/null 2>&1); printf 'z\n' > "$1/src/foo.sh"
+}
+_wtrec() {  # $1=worktree — receipt 작성
+  (cd "$1" && git add scripts/tests/test-foo.sh && bash "$REC" "$FIDW" T1) >/dev/null 2>&1
+}
+# RR-B0 픽스처 전제
+M6="$TD/main6"; _mkmain "$M6"; _mkbatch "$M6"; W6P=$(_mkwt "$M6" batch-p); _ownrec "$W6P"
+b6=$(git -C "$W6P" symbolic-ref --short HEAD 2>/dev/null)
+[ "$b6" = "feat/batch-p" ] && [ -f "$M6/.specops/${b6#feat/}/ACTIVE" ] && [ ! -e "$W6P/.specops/batch-p" ] \
+  && ok "RR-B0 전제: 브랜치 $b6 ↔ 메인 마커 존재 · worktree 쪽 마커 없음" || nope "RR-B0" "br=$b6"
+# RR-B1 ★ 혼합 배치(마커=메인, 자기 기록=worktree) → 배치 게이트 작동
+r=$(_prem "$M6" "$GHPR" "$W6P" "$TR"); w=$(_why "$r")
+[ -n "$r" ] && [ "$(_dec "$r")" = deny ] && printf '%s' "$w" | grep -q 'BATCH-GATE' && printf '%s' "$w" | grep -q 'FR-4' \
+  && ! printf '%s' "$w" | grep -q '자기 기록이 없어' && printf '%s' "$w" | grep -q '배치 마커' \
+  && ok "RR-B1 ★ 혼합 배치 → BATCH-GATE deny (메인 queue FR-4) · 안내가 배치 마커를 말함" || nope "RR-B1" "dec=$(_dec "$r") why=$w"
+# RR-B2 마커가 worktree 쪽 → 종전
+M7="$TD/main7"; _mkmain "$M7"; W7P=$(_mkwt "$M7" batch-p); _ownrec "$W7P"; _mkbatch "$W7P"
+r=$(_prem "$M7" "$GHPR" "$W7P" "$TR"); w=$(_why "$r")
+[ -n "$r" ] && [ "$(_dec "$r")" = deny ] && printf '%s' "$w" | grep -q 'BATCH-GATE' && printf '%s' "$w" | grep -q 'FR-4' \
+  && ok "RR-B2 마커가 worktree 쪽 → BATCH-GATE deny (종전)" || nope "RR-B2" "dec=$(_dec "$r") why=$w"
+# RR-B3 브랜치 불일치 → 옮겨 판정(과차단 없음)
+M8="$TD/main8"; _mkmain "$M8"; _mkbatch "$M8"; _stale "$M8"; W8P=$(_mkwt "$M8" wt8); _ownrec "$W8P"; _wtrec "$W8P"
+r=$(_prem "$M8" "$C1" "$W8P" "$TR")
+[ -n "$r" ] && [ "$(_dec "$r")" = allow ] && ok "RR-B3 브랜치 feat/wt8 ≠ feat/batch-p → 옮겨 receipt 로 allow" || nope "RR-B3" "dec=$(_dec "$r") why=$(_why "$r")"
+# RR-B3b feat/ 접두 없는 브랜치
+M9="$TD/main9"; _mkmain "$M9"; _mkbatch "$M9"; _stale "$M9"
+git -C "$M9" worktree add -q "$M9/.claude/worktrees/w9" -b batch-p 2>/dev/null
+printf 'y\n' > "$M9/.claude/worktrees/w9/src/foo.sh"; (cd "$M9/.claude/worktrees/w9" && git add src/foo.sh)
+W9P=$(cd "$M9/.claude/worktrees/w9" && pwd -P); _ownrec "$W9P"; _wtrec "$W9P"
+r=$(_prem "$M9" "$C1" "$W9P" "$TR")
+[ -n "$r" ] && [ "$(_dec "$r")" = allow ] && ok "RR-B3b feat/ 없는 브랜치 batch-p → 옮겨 판정 allow" || nope "RR-B3b" "dec=$(_dec "$r") why=$(_why "$r")"
+# RR-B4 detached HEAD → 가드 불작용
+W10P=$(_mkwt "$M8" wt10); _ownrec "$W10P"; git -C "$W10P" checkout -q --detach; _wtrec "$W10P"
+r=$(_prem "$M8" "$C1" "$W10P" "$TR")
+[ -n "$r" ] && [ "$(_dec "$r")" = allow ] && ok "RR-B4 detached HEAD → 가드 불작용 · 종전 allow" || nope "RR-B4" "dec=$(_dec "$r") why=$(_why "$r")"
+# RR-B5 의도한 변경 고정 — 혼합 배치 worktree 의 일반 커밋은 메인 기준 판정
+_stale "$M6"; _wtrec "$W6P"
+r=$(_prem "$M6" "$C1" "$W6P" "$TR"); w=$(_why "$r")
+[ -n "$r" ] && [ "$(_dec "$r")" = deny ] && printf '%s' "$w" | grep -q "$FIDM" && ! printf '%s' "$w" | grep -q "$FIDW" \
+  && ok "RR-B5 혼합 배치 worktree 일반 커밋 → 메인 FIDM 기준 deny (의도된 변경)" || nope "RR-B5" "dec=$(_dec "$r") why=$w"
+# RR-B6 ★ 안내는 실제 이유를 말한다 — 마커=메인 · 브랜치 일치 · worktree 에 .specops 는 있으나 자기 기록 없음 (앞선 가드가 막았다)
+M11="$TD/main11"; _mkmain "$M11"; _mkbatch "$M11"; W11P=$(_mkwt "$M11" batch-p)
+mkdir -p "$W11P/.specops"; : > "$W11P/.specops/.DS_Store"
+r=$(_prem "$M11" "$GHPR" "$W11P" "$TR"); w=$(_why "$r")
+[ -n "$r" ] && [ "$(_dec "$r")" = deny ] && printf '%s' "$w" | grep -q '자기 기록이 없어' && ! printf '%s' "$w" | grep -q '배치 마커' \
+  && ok "RR-B6 ★ 자기 기록 없음 + 마커 일치 → 안내는 '자기 기록이 없어' (배치 마커 아님)" || nope "RR-B6" "dec=$(_dec "$r") why=$w"
+# RR-B6b session-progress 가 git 추적(Argus 형태) + 자기 기록 + 마커 일치 → 안내는 'git 추적'
+M12="$TD/main12"; _mkmain "$M12" 0; (cd "$M12" && git add .specops/session-progress.md && _g commit -qm sp)
+_mkbatch "$M12"; W12P=$(_mkwt "$M12" batch-p); _ownrec "$W12P"
+r=$(_prem "$M12" "$GHPR" "$W12P" "$TR"); w=$(_why "$r")
+[ -n "$r" ] && [ "$(_dec "$r")" = deny ] && printf '%s' "$w" | grep -q 'git 추적' && ! printf '%s' "$w" | grep -q '배치 마커' \
+  && ok "RR-B6b session-progress 추적 + 마커 일치 → 안내는 'git 추적' (배치 마커 아님)" || nope "RR-B6b" "dec=$(_dec "$r") why=$w"
+# RR-B7 게이트 경계 — (a) queue.md 없는 마커는 게이트가 꺼진 상태 → 가드 불작용(루트 이동) → receipt 로 allow
+M13="$TD/main13"; _mkmain "$M13"; _mkbatch "$M13"; rm -f "$M13/.specops/batch-p/queue.md"; _stale "$M13"
+W13P=$(_mkwt "$M13" batch-p); _ownrec "$W13P"; _wtrec "$W13P"
+r=$(_prem "$M13" "$C1" "$W13P" "$TR")
+[ -n "$r" ] && [ "$(_dec "$r")" = allow ] && ok "RR-B7a queue.md 없는 마커 → 가드 불작용 · 옮겨 receipt 로 allow" || nope "RR-B7a" "dec=$(_dec "$r") why=$(_why "$r")"
+# RR-B7b (b) 중첩 브랜치 feat/batch-p/x 는 feat/batch-p 가 있으면 git 이 만들지 못한다 → 가드 경계가 될 수 없다
+if git -C "$M6" worktree add -q "$M6/.claude/worktrees/nest" -b feat/batch-p/x >/dev/null 2>&1; then nope "RR-B7b" "중첩 브랜치가 만들어졌다"
+else ok "RR-B7b 중첩 브랜치 feat/batch-p/x → git 이 거부 (게이트 경계 아님)"; fi
+
+# FC 자유 코멘트·진행 기록 귀속 고정 (AC-4 · 코드 무변경) — 실제 훅을 별도 프로세스로 돌린다
+FCH="$PLUGIN/hooks/freecomment-capture.sh"; ENS="$PLUGIN/hooks/ensure-session-progress.sh"
+_fc_tr() {  # $1=편집 파일 경로(훅이 보는 문자열 그대로) → transcript 경로
+  local t="$TD/fc-$RANDOM.jsonl"
+  printf '%s\n' \
+    '{"type":"user","message":{"role":"user","content":"버그 고쳐줘"}}' \
+    "$(jq -nc --arg f "$1" '{type:"assistant",message:{content:[{type:"tool_use",id:"e1",name:"Edit",input:{file_path:$f}}]}}')" > "$t"
+  printf '%s' "$t"
+}
+_fc_in() { jq -nc --arg c "$1" --arg t "$2" '{cwd:$c,transcript_path:$t,stop_hook_active:false}'; }
+_fc_run() { local out; out=$(_fc_in "$2" "$3" | (cd "$1" && CLAUDE_PROJECT_DIR="$1" bash "$FCH" 2>/dev/null)); printf '%s' "$out" | grep -q '"continue":true'; }  # rc 0 = 훅이 돌았다
+# 순서 의존: FC-1 → FC-2 는 한 메인 MF 를 공유한다(FC-2 가 메인에 pending 을 만든다) — 순서를 바꾸지 말 것.
+MF="$TD/mainF"; _mkmain "$MF"
+# FC-1 자유 코멘트는 cwd(worktree) 자기 기록에 귀속
+WFP=$(_mkwt "$MF" wtf); _ownrec "$WFP"
+tr=$(_fc_tr "$WFP/src/foo.sh")
+if _fc_run "$MF" "$WFP" "$tr"; then
+  tail -1 "$WFP/.specops/pending-capture.jsonl" 2>/dev/null | jq -e '.fid == "'"$FIDW"'" and .files == ["src/foo.sh"]' >/dev/null 2>&1 \
+    && [ ! -e "$MF/.specops/pending-capture.jsonl" ] \
+    && ok "FC-1 자유 코멘트 → worktree 자기 기록에 귀속 · 메인 무기록" || nope "FC-1" "wt=$(tail -1 "$WFP/.specops/pending-capture.jsonl" 2>&1) main=$(ls "$MF/.specops" 2>&1)"
+else nope "FC-1" "훅 미실행(rc≠0)"; fi
+# FC-2 worktree 에 .specops 가 없으면 훅은 프로젝트 폴더의 변경만 본다 — 현재 동작의 고정 (메인을 더티로: 훅이 거기서 git diff HEAD)
+WGP=$(_mkwt "$MF" wtg); printf 'q\n' > "$MF/src/foo.sh"
+tr=$(_fc_tr "$MF/src/foo.sh")
+if _fc_run "$MF" "$WGP" "$tr"; then
+  tail -1 "$MF/.specops/pending-capture.jsonl" 2>/dev/null | jq -e '.files == ["src/foo.sh"] and .fid == "'"$FIDM"'"' >/dev/null 2>&1 \
+    && [ ! -e "$WGP/.specops" ] \
+    && ok "FC-2 worktree .specops 없음 → 프로젝트 폴더에 귀속 · worktree 무흔적" || nope "FC-2" "main=$(tail -1 "$MF/.specops/pending-capture.jsonl" 2>&1) wtspecops=$(ls -d "$WGP/.specops" 2>&1)"
+else nope "FC-2" "훅 미실행(rc≠0)"; fi
+# FC-3 ensure 는 worktree 자기 .specops 에 만든다
+WHP=$(_mkwt "$MF" wth); mkdir -p "$WHP/.specops"
+before=$(cksum < "$MF/.specops/session-progress.md")
+(cd "$WHP" && CLAUDE_PROJECT_DIR="$MF" bash "$ENS") >/dev/null 2>&1
+[ -f "$WHP/.specops/session-progress.md" ] && [ "$(cksum < "$MF/.specops/session-progress.md")" = "$before" ] \
+  && ok "FC-3 ensure → worktree 자기 .specops 에 생성 · 메인 불변" || nope "FC-3" "wt=$(ls "$WHP/.specops" 2>&1)"
+# FC-4 ensure 가 관할을 넓히지 않는다
+WIP=$(_mkwt "$MF" wti); mkdir "$TD/nospec"
+(cd "$WIP" && CLAUDE_PROJECT_DIR="$TD/nospec" bash "$ENS") >/dev/null 2>&1
+[ ! -e "$WIP/.specops" ] && [ ! -e "$TD/nospec/.specops" ] \
+  && ok "FC-4 .specops 없는 worktree·프로젝트 → ensure 가 만들지 않음" || nope "FC-4" "wt=$(ls -d "$WIP/.specops" 2>&1) proj=$(ls -d "$TD/nospec/.specops" 2>&1)"
+# FC-4b 양성 대조 — 프로젝트 폴더에 .specops 가 있으면 폴백이 거기에 만든다
+MJ="$TD/mainJ"; mkdir -p "$MJ/.specops"
+(cd "$WIP" && CLAUDE_PROJECT_DIR="$MJ" bash "$ENS") >/dev/null 2>&1
+[ -f "$MJ/.specops/session-progress.md" ] && [ ! -e "$WIP/.specops" ] \
+  && ok "FC-4b 양성 대조 — 폴백이 프로젝트 폴더에 생성 · worktree 무흔적" || nope "FC-4b" "proj=$(ls "$MJ/.specops" 2>&1) wt=$(ls -d "$WIP/.specops" 2>&1)"
+
 # RR-P 패리티 — 훅이 고르는 판정 루트 = 기록 스크립트(specops_root_dir)가 쓰는 곳 (성공지표 M-1)
 _par() {  # $1=이름 $2=프로젝트 $3=입력 cwd
   local H FIDL S

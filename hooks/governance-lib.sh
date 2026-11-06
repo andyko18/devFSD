@@ -2028,7 +2028,13 @@ _gov_target_note() {
   printf '\n   이 판정과 같은 값으로 조회하려면: cd %q && GIT_DIR=%q GIT_WORK_TREE=%q bash %q current %s' \
     "$PWD" "${GIT_DIR:-}" "$_GOV_TARGET_WT" "$root/scripts/_internal/verification-state.sh" "${fid:-<FID>}"
   if [ -d "$_GOV_TARGET_WT/.specops" ] && ! [ "$_GOV_TARGET_WT/.specops" -ef "$PWD/.specops" ]; then
-    printf '\n⚠️ worktree 에 .specops 가 있지만 이 FID 의 자기 기록이 없어(없음·빈 폴더·링크·추적 사본) 프로젝트 폴더 기록으로 판정했습니다.'
+    local _wfid
+    _wfid=$(cd "$_GOV_TARGET_WT" 2>/dev/null && detect_fid 2>/dev/null)
+    if [ -n "$_wfid" ] && declare -F _sr_wt_owns_record >/dev/null 2>&1 && _sr_wt_owns_record "$_wfid" "$_GOV_TARGET_WT"; then
+      printf '\n⚠️ worktree .specops/<FID> 에 추적 안 된 기록이 있지만 session-progress.md 가 git 추적 파일이라 프로젝트 폴더 기록으로 판정했습니다 — 기록 스크립트는 worktree 에 씁니다(추적 안 된 파일을 지우면 둘 다 메인 기록을 씁니다).'
+    else
+      printf '\n⚠️ worktree 에 .specops 가 있지만 이 FID 의 자기 기록이 없어(없음·빈 폴더·링크·추적 사본) 프로젝트 폴더 기록으로 판정했습니다.'
+    fi
   fi
 }
 

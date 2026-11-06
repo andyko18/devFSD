@@ -277,7 +277,7 @@ printf '<!-- active-fid: %s -->\n## %s\n' "$FIDX" "$FIDX" > "$M3F/.specops/sessi
 (cd "$M3F" && git add .specops/session-progress.md ".specops/$FIDX/intent.md" && _g commit -qm sp)
 printf '<!-- active-fid: %s -->\n## %s\n- 2026-11-06 08:00 /verify PASS\n' "$FIDM" "$FIDM" > "$M3F/.specops/session-progress.md"
 w=$(_mkwt "$M3F" w4f); mkdir -p "$w/.specops/$FIDX/receipts"; printf x > "$w/.specops/$FIDX/receipts/T1.json"
-_chk4 4f "$M3F" "$w" "$FIDX"; W4F=$w; M3FP=$(cd "$M3F" && pwd -P)
+_chk4 4f "$M3F" "$w" "$FIDX"; R4F=$R4; W4F=$w; M3FP=$(cd "$M3F" && pwd -P)
 
 # RR-5 ★ 명령이 git 대상을 옮기면 종전(메인) — 자기 기록 worktree 에서도
 n=0; nf=0
@@ -297,6 +297,9 @@ printf '%s' "$R2A" | grep -qF "판정 기준 worktree: $W2P" && printf '%s' "$R2
   && ! printf '%s' "$R2A" | grep -qF "기록·관할은 $M2P/.specops" && ! printf '%s' "$R2A" | grep -qF '사본을 지우면' \
   && printf '%s' "$R4C" | grep -qF '자기 기록이 없어' \
   && ok "RR-6 안내: 자기 기록 worktree 는 판정 루트 명시 · 자기 기록 없으면 '자기 기록이 없어'" || nope "RR-6" "$(printf '%s' "$R2A" | tail -3) // $(printf '%s' "$R4C" | tail -2)"
+# RR-6f 추적 session-progress + 추적 안 된 FID 기록 → 안내가 사실대로 (자기 기록이 없다고 말하지 않는다)
+printf '%s' "$R4F" | grep -qF 'session-progress.md 가 git 추적' && ! printf '%s' "$R4F" | grep -qF '자기 기록이 없어' \
+  && ok "RR-6f 안내: 추적 session-progress + 추적 안 된 기록 → 'git 추적' 사유 · '자기 기록이 없어' 아님" || nope "RR-6f" "$(printf '%s' "$R4F" | tail -2)"
 
 # RR-8 (NFR-2) 대상이 없으면 git 을 부르지 않는다
 REALGIT=$(command -v git); FG="$TD/fakegit"; mkdir -p "$FG"; CNT="$TD/rr.count"

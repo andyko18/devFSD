@@ -35,9 +35,9 @@ import {
   consultTimeline,
   describeInput,
   endConsult,
-  fitLegend,
   fmtClock,
   fmtDuration,
+  durationLabel,
   fmtTimer,
   fmtUsd,
   plural,
@@ -50,7 +50,6 @@ import {
   limitLabel,
   limitOf,
   fmtResetIn,
-  fmtSpeed,
   listOf,
   logRows,
   marksIn,
@@ -63,6 +62,7 @@ import {
   PALETTES,
   SVG_COLORS,
   parseConfig,
+  stageProgress,
   prettyModel,
   promptLine,
   handbackOf,
@@ -77,13 +77,17 @@ import {
   activityBadge,
   jobRow,
   oldestStart,
+  gaugeColor,
   withActivity,
 } from './core'
 import type { Config, Panel } from './core'
+// 이름·시간 글자색 — 어두운 바탕에서도 읽히게 core 의 SVG_COLORS.label 보다 밝게 둔다.
+const SVG_LABEL = '#888780'
+
 // devFSD: 진행 기록(FID·단계·verify)은 progress-pane 이 채우는 board 를 읽기만 한다.
-import { progressStart } from './progress-pane'
+import { notificationOf, progressStart, textOf } from './progress-pane'
 import { ciLine, ciPending } from './ci-watch'
-import type { Board } from '../types'
+import type { Board, StageMark } from '../types'
 
 // devFSD: progress-pane 이 쓰는 board 와 같은 상태(같은 ref·shape) — 여기서는 읽기만 한다.
 // 검증기는 atom 을 읽는 파일 안에 그 정의가 있기를 요구한다.
@@ -564,7 +568,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     }
     // The log keeps what is worth a glance: refusals, errors and edits; the rest is on the cards.
     if (ran.deny !== undefined) await say($, await whoIs($, e.agentId), `${text}  denied`, 'error', e.agentId ?? null)
-    else if (hasFailed) await say($, await whoIs($, e.agentId), `${text}  ✗`, 'error', e.agentId ?? null)
+    else if (hasFailed) await say($, await whoIs($, e.agentId), `✗ ${text}`, 'error', e.agentId ?? null)
     else if (isEdit) await say($, await whoIs($, e.agentId), text, 'info', e.agentId ?? null)
     if (isSettled || !didRun) await refreshStatus($, cfg)
     return ran
@@ -595,6 +599,24 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       }
     }
     return next(e)
+  }).catch(($, e, next) => next(e)) // devFSD: 관제판은 관찰만 한다 — 처리기가 던져도 도구 호출·프롬프트는 통과한다
+
+  // devFSD: 백그라운드 작업 종료 알림 → 로그 한 줄. 종료 처리는 progress-pane 이 하고, 여기서는 board 를 읽어 기록만 한다.
+  // 처리기 순서와 무관하게 running·recent 둘 다 본다. 같은 id 는 한 번만 — 실패해도 원 호출은 그대로 통과한다.
+  // 종료 알림은 delivery 문으로 들어온다(progress-pane 의 처리기와 같은 행) — 엔진이 matcher 없는 같은 이벤트 둘째 등록을 막으므로 문으로 좁힌다.
+  const endLogged = new Set<string>()
+  on('session.append', { door: 'delivery' }, async ($, e, next) => {
+    const stored = await next(e)
+    if (e.agentId || e.message.type !== 'user') return stored
+    const note = notificationOf(textOf(e.message.content))
+    if (!note || endLogged.has(note.id)) return stored
+    const b = await read($, board)
+    const job = [...b.running, ...b.recent].find(j => j.id === note.id)
+    if (!job) return stored
+    const endedAt = job.endedAt ?? (await $.clock.now())
+    endLogged.add(note.id)
+    await say($, '↻ bg', `${note.isFailed ? '✗' : '✓'} ${job.label.trim() || job.id} · ${durationLabel(endedAt - job.startedAt, false)}`, note.isFailed ? 'error' : 'info')
+    return stored
   }).catch(($, e, next) => next(e)) // devFSD: 관제판은 관찰만 한다 — 처리기가 던져도 도구 호출·프롬프트는 통과한다
 
   on('agent.spawn', async ($, e, next) => {
@@ -714,14 +736,15 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     ])
     // The body's own width, down to the narrowest dock Claude Code seats (24): a wider drawing is cut off at the frame.
     const W = Math.max(24, e.props.bodyColumns)
-    const badge = activityBadge({ jobs: b.running.length, isRunning: m.isRunning, activityAt: b.activityAt, now, compact: W < 60, since: oldestStart(b.running) })
     // 메인 턴은 쉬지만 백그라운드 작업(또는 CI 대기)이 도는 중 — 완전한 idle 과 구분해 보인다.
     const bgTotal = b.running.length + ciPending(b.ci)
+    // 배지의 BG N 도 헤더·카드와 같은 개수(실행 중 작업 + CI 대기)를 센다.
+    const badge = activityBadge({ jobs: bgTotal, isRunning: m.isRunning, activityAt: b.activityAt, now, compact: W < 60, since: oldestStart(b.running) })
     const isWaiting = !m.isRunning && bgTotal > 0
+    // 끝난 지 1분 안의 백그라운드 명령(bash)만 — 에이전트 종료는 agents 패널의 몫이다.
+    const endedJobs = b.recent.filter(j => j.kind === 'bash' && j.endedAt !== undefined && now - j.endedAt < 60_000).slice(0, 3)
     const badgeColor = badge?.stalled ? C.warn : C.dim
     const layout = v.layout ?? cfg.layout
-    const isWide = layout === 'wide' || (layout === 'auto' && W >= 110)
-    const colW = isWide ? Math.floor((W - 2) / 2) : W
     const modelName = prettyModel(m.model)
     const viewed = e.props.view?.agentId ?? null
     const advising = isAdvising(a)
@@ -730,16 +753,25 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const motion = cfg.motion && hasRail
     // A panel with nothing to show yet takes no room: most sessions never spawn an agent.
     const isEmpty: Record<Panel, boolean> = {
-      fid: !b.fid,
+      // FID 가 없어도 BG·CI 가 있으면 카드를 BG 구역만으로 그린다.
+      fid: !b.fid && bgTotal === 0 && !ciLine(b.ci),
       main: false,
       architect: !showArchitect,
-      gate: g.recent.length === 0 && gateSummary(g).total === 0,
+      // GATE 는 opt-in — 설정 panels 에 gate 를 넣은 사람만, 그 안에서도 기록이 있을 때만 그린다.
+      gate: !cfg.panels.includes('gate') || (g.recent.length === 0 && gateSummary(g).total === 0),
       agents: cards.length === 0,
-      loops: lp.length === 0,
-      receipt: !m.isRunning && !r,
+      // receipt·loops 는 별도 패널이 아니다 — receipt 는 main 넷째 줄로, loops 는 agents 패널로 흡수(설정에 적어도 그리지 않는다).
+      loops: true,
+      receipt: true,
       log: false,
     }
-    const panels = cfg.panels.filter(p => !isEmpty[p])
+    // main 이 맨 위, GATE 는 session log 바로 위, log 가 맨 아래 — 나머지는 설정 순서.
+    const order = [
+      ...cfg.panels.filter(p => p === 'main'),
+      ...cfg.panels.filter(p => p !== 'main' && p !== 'gate' && p !== 'log'),
+      ...cfg.panels.filter(p => p === 'gate'),
+      ...cfg.panels.filter(p => p === 'log'),
+    ].filter(p => !isEmpty[p])
     const decider = m.mode === 'auto' ? 'classifier' : 'you'
 
     // A connector between panels: animated while its flow is live, a dim line otherwise.
@@ -776,9 +808,6 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
         <Text wrap="truncate-start">{marks}</Text>
       </Box>
     )
-    // A terminal's border row stands apart from the text above it; a graphical surface draws the
-    // border flush against it, so the legend keeps one row of air there.
-    const legendGap = isTerminal ? 0 : 1
 
     // A line of coloured pieces, drawn as a row of boxes the way the log draws its lines. A Text nesting
     // coloured Texts truncates as one line in a terminal, but the desktop app wraps each nested piece on its
@@ -813,59 +842,52 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       )
     }
 
-    // ---- main
-    const effortN = { low: 1, medium: 2, high: 3, xhigh: 4, max: 4 }[m.effort] ?? 0
+    // ---- main: 네 줄 — 제목+상태 · ctx 게이지 | effort·mode · 비용 | 사용 한도 · 마지막 턴(receipt)
     const ctxFill = contextFill(u)
     const ctxGauge = ctxFill.pct !== null ? gauge(ctxFill.pct, 10) : null
-    const mainPanel = (w: number) => (
-      <Box flexDirection="column" borderStyle="round" borderColor={C.main} paddingX={1} width={w}>
+    const ctxColor = ctxFill.pct !== null ? gaugeColor(ctxFill.pct, C) : C.main
+    const waitSince = oldestStart(b.running)
+    const mainRows = (w: number) => {
+      // 비용 증분: 턴 진행 중이면 시작 이후 쌓인 값, 끝났으면 마지막 턴의 값.
+      const delta = m.isRunning ? (u.costUsd !== null && t.costAtStart !== null && u.costUsd - t.costAtStart >= 0.005 ? u.costUsd - t.costAtStart : null) : (r?.costDelta ?? null)
+      const state = m.isRunning ? '● working' : isWaiting ? `◌ 대기${waitSince !== undefined && waitSince > 0 ? ` ${fmtDuration(now - waitSince)}` : ''}` : '○ idle'
+      return [
         <Box justifyContent="space-between">
           <Text color={C.main} bold wrap="truncate">
             {modelName} · main
           </Text>
           <Box flexShrink={0} columnGap={1}>
-            <Text color={m.isRunning || isWaiting ? C.main : C.dim}>{m.isRunning ? '● working' : isWaiting ? '◐ 대기' : '○ idle'}</Text>
+            <Text color={m.isRunning || isWaiting ? C.main : C.dim} bold={m.isRunning}>{state}</Text>
             {badge && W >= 40 ? <Text color={badgeColor}>{`· ${badge.text}`}</Text> : null}
           </Box>
-        </Box>
-        {line(
+        </Box>,
+        line(
           [
-            {
-              spans: [
-                { text: 'effort ', dim: true },
-                { text: `${'▮'.repeat(effortN) + '▯'.repeat(4 - effortN)} `, color: C.main },
-                { text: m.effort || '—', color: C.main, bold: true },
-              ],
-            },
-            m.mode ? { spans: [{ text: `mode ${m.mode}`, dim: true }] } : null,
-            { spans: [{ text: `${m.steps} req`, dim: true }] },
-          ],
-          w - 4,
-          3,
-        )}
-        {ctxGauge
-          ? line(
-              [
-                {
+            ctxGauge
+              ? {
                   spans: [
                     { text: 'ctx ', dim: true },
-                    { text: ctxGauge.on, color: ctxFill.pct !== null && ctxFill.pct >= 80 ? C.warn : C.main },
+                    { text: ctxGauge.on, color: ctxColor },
                     { text: ctxGauge.off, color: C.faint },
                     { text: ` ${Math.round(ctxFill.pct ?? 0)}%`, bold: true },
                   ],
-                },
-                u.tokens !== null ? { spans: [{ text: `${kTokens(u.tokens)}/${kTokens(ctxFill.window)}`, dim: true }] } : null,
-                u.compactions > 0 ? { spans: [{ text: compactMark(u), color: C.amber }], lead: 1 } : null,
-                // Left out first when the line is short; the ~ in the mark still says it.
-                u.compactions > 0 && u.isCompactEstimate ? { spans: [{ text: '(estimated)', color: C.faint }] } : null,
-              ],
-              w - 4,
-            )
-          : null}
-        {u.costUsd !== null || u.limits.length > 0
+                }
+              : null,
+            ctxGauge && u.tokens !== null ? { spans: [{ text: `${kTokens(u.tokens)}/${kTokens(ctxFill.window)}`, dim: true }] } : null,
+            u.compactions > 0 ? { spans: [{ text: compactMark(u), color: C.amber }], lead: 1 } : null,
+            // 오른쪽 — 좁으면 먼저 빠진다.
+            { spans: [{ text: `effort ${m.effort || '—'}${m.mode ? ` · mode ${m.mode}` : ''}`, dim: true }], lead: 1 },
+            // Left out first when the line is short; the ~ in the mark still says it.
+            u.compactions > 0 && u.isCompactEstimate ? { spans: [{ text: '(estimated)', color: C.dim }] } : null,
+          ],
+          w - 4,
+        ),
+        u.costUsd !== null || u.limits.length > 0
           ? line(
               [
-                u.costUsd !== null ? { spans: [{ text: fmtUsd(u.costUsd), color: C.text }] } : null,
+                u.costUsd !== null
+                  ? { spans: [{ text: fmtUsd(u.costUsd), color: C.text }, ...(delta !== null ? [{ text: ` (+${fmtUsd(delta)})`, dim: true }] : [])] }
+                  : null,
                 ...u.limits.slice(0, 2).map((l, i): Piece => {
                   const lg = gauge(l.pct, 5)
                   // The time to each reset where the line has room for it: both windows fit from 56 columns,
@@ -875,17 +897,40 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
                     lead: i > 0 ? 1 : u.costUsd !== null ? 2 : 0,
                     spans: [
                       { text: `${limitLabel(l.kind)} `, dim: true },
-                      { text: lg.on, color: l.pct >= 80 ? C.warn : C.main },
+                      { text: lg.on, color: gaugeColor(l.pct, C) },
                       { text: lg.off, color: C.faint },
-                      { text: ` ${Math.round(l.pct)}%${resetIn ? ` ↻${resetIn}` : ''}`, dim: true },
+                      { text: ` ${Math.round(l.pct)}%${resetIn ? ` resets ${resetIn}` : ''}`, dim: true },
                     ],
                   }
                 }),
               ],
               w - 4,
             )
-          : null}
-        {m.speed ? <Text dimColor wrap="truncate">{`last req  ${fmtSpeed(m.speed)}`}</Text> : null}
+          : null,
+        m.isRunning ? (
+          <Box width={w - 4} columnGap={1} overflow="hidden">
+            <Text color={C.main} wrap="truncate">● turn</Text>
+            <Box flexShrink={0}>{clock('turn-clock', t.startedAt, null, C.main)}</Box>
+            {w >= 60 ? <Text dimColor wrap="truncate">{`· ${plural(t.edits, 'edit')} · ${plural(t.errors, 'error')}`}</Text> : null}
+          </Box>
+        ) : r ? (
+          line(
+            [
+              { spans: [{ text: r.reason === 'answer' ? '✓' : '✗', color: r.reason === 'answer' ? C.gate : C.warn }] },
+              {
+                spans: [{ text: `last turn ${fmtDuration(r.durationMs)} · ${plural(r.agents, 'agent')} · ${plural(r.edits, 'edit')} · ${plural(r.errors, 'error')}` }],
+                fill: true,
+              },
+              r.costDelta !== null ? { spans: [{ text: `· +${fmtUsd(r.costDelta)}`, color: C.main }] } : null,
+            ],
+            w - 4,
+          )
+        ) : null,
+      ].filter(row => row !== null)
+    }
+    const mainPanel = (w: number) => (
+      <Box flexDirection="column" borderStyle="round" borderColor={C.main} paddingX={1} width={w}>
+        {mainRows(w)}
       </Box>
     )
 
@@ -931,7 +976,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
                   </Text>
                 )
               })}
-              <Text color={C.faint}>(inferred)</Text>
+              <Text color={C.dim}>(inferred)</Text>
             </Box>
           ) : null}
           {a.lastAdvice ? (
@@ -975,8 +1020,8 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
               <Text dimColor>{`${s.total} checks`}</Text>
             </Box>
           </Box>
-          {strip.length === 0 ? <Text color={C.faint}>no checks yet</Text> : markRow(strip.map(checkMark))}
-          {line([...totals, !isShort && w >= 80 && g.recent.some(c => c.inSubagent) ? { spans: [{ text: 'dim: in subagents', color: C.faint }] } : null], w - 4, 2)}
+          {strip.length === 0 ? <Text color={C.dim}>no checks yet</Text> : markRow(strip.map(checkMark))}
+          {line([...totals, !isShort && w >= 80 && g.recent.some(c => c.inSubagent) ? { spans: [{ text: 'dim: in subagents', color: C.dim }] } : null], w - 4, 2)}
           {/* Below about 44 columns the three rows' buttons take two lines rather than run past the box. */}
           <Box columnGap={2} flexWrap="wrap">
             {(['file', 'shell', 'other'] as const).map((b: Bucket) => {
@@ -1019,9 +1064,17 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
 
     // ---- agents: cards up to the limit, swimlanes beyond it
     const statusColor = (c: AgentCard) => (c.status === 'failed' ? C.warn : c.status === 'done' ? C.gate : C.agent)
-    const glyph = (c: AgentCard) => (c.status === 'running' ? '◐' : c.status === 'done' ? '✓' : c.status === 'failed' ? '✗' : '■')
+    const glyph = (c: AgentCard) => (c.status === 'running' ? '●' : c.status === 'done' ? '✓' : c.status === 'failed' ? '✗' : '■')
     const expandOnPress = (id: string) => () =>
       update($, view, x => ({ ...normalize(DEFAULT_VIEW, x), expanded: normalize(DEFAULT_VIEW, x).expanded === id ? null : id }))
+
+    // 활성 loop 가 있을 때만 agents 패널 맨 아래에 한 줄 (별도 패널이 아니다).
+    const activeLoops = lp.filter(l => isLoopActive(l, now)).length
+    const loopsLine = (w: number) =>
+      activeLoops > 0 ? (
+        <Text key="other-loops" dimColor wrap="truncate">{`other loops ${lp.length} · ${activeLoops} active`}</Text>
+      ) : null
+    const hasFanRails = running.length >= 2
 
     const agentsPanel = (w: number) => {
       // Cards need 20 columns each; when the pane can't hold the limit, lanes take over.
@@ -1035,7 +1088,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
           </Text>
           {cards.length > 0 ? (
             <Box flexShrink={0}>
-              <Text color={C.faint}>{`1-${Math.min(cards.length, useLanes ? 6 : fit)}${isNarrow ? '' : ' expand'}`}</Text>
+              <Text color={C.dim}>{`1-${Math.min(cards.length, useLanes ? 6 : fit)}${isNarrow ? '' : ' expand'}`}</Text>
             </Box>
           ) : null}
         </Box>
@@ -1044,7 +1097,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
         return (
           <Box flexDirection="column" width={w}>
             {header}
-            <Text color={C.faint}>no subagents yet</Text>
+            <Text color={C.dim}>no subagents yet</Text>
           </Box>
         )
       }
@@ -1058,7 +1111,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
         return (
           <Box flexDirection="column" width={w}>
             {header}
-            {cards.length > shown.length ? <Text color={C.faint}>{`+${cards.length - shown.length} earlier`}</Text> : null}
+            {cards.length > shown.length ? <Text color={C.dim}>{`+${cards.length - shown.length} earlier`}</Text> : null}
             {shown.map((c, i) => {
               const gm = geo[i]
               const isViewed = viewed === c.id
@@ -1081,6 +1134,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
                 </Box>
               )
             })}
+            {loopsLine(w)}
           </Box>
         )
       }
@@ -1090,7 +1144,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       return (
         <Box flexDirection="column" width={w}>
           {header}
-          {rail('fan-out', running.length > 0, C.agent, w, centers)}
+          {hasFanRails ? rail('fan-out', true, C.agent, w, centers) : null}
           <Box columnGap={1}>
             {shown.map((c, i) => {
               const isViewed = viewed === c.id
@@ -1105,9 +1159,11 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
                   paddingX={1}
                 >
                   <Button key={`card-${c.id}`} plain hotkey={String(i + 1)} label={titleLines(cardTitle(c), cardW - 7, cardW - 4)[0]} onPress={expandOnPress(c.id)} />
-                  <Text bold wrap="truncate">
-                    {titleLines(cardTitle(c), cardW - 7, cardW - 4)[1]}
-                  </Text>
+                  {titleLines(cardTitle(c), cardW - 7, cardW - 4)[1] ? (
+                    <Text bold wrap="truncate">
+                      {titleLines(cardTitle(c), cardW - 7, cardW - 4)[1]}
+                    </Text>
+                  ) : null}
                   <Text color={C.dim} wrap="truncate">
                     {sameModel ? c.type : `${c.type} · ${prettyModel(c.model)}`}
                   </Text>
@@ -1124,7 +1180,8 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
               )
             })}
           </Box>
-          {rail('merge', running.length > 0, C.agent, w, centers, true)}
+          {hasFanRails ? rail('merge', true, C.agent, w, centers, true) : null}
+          {loopsLine(w)}
         </Box>
       )
     }
@@ -1137,7 +1194,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             {expandedCard.description || expandedCard.type}
           </Text>
           <Text dimColor wrap="truncate">{`${expandedCard.type} · ${prettyModel(expandedCard.model)} · ${expandedCard.status} · ${expandedCard.steps} steps`}</Text>
-          {expandedCard.tools.length === 0 ? <Text color={C.faint}>no tool calls yet</Text> : null}
+          {expandedCard.tools.length === 0 ? <Text color={C.dim}>no tool calls yet</Text> : null}
           {expandedCard.tools.map(n => (
             <Text color={n.isError ? C.warn : C.text} wrap="truncate">
               {`${n.isError ? '✗' : '·'} ${n.text}`}
@@ -1151,80 +1208,40 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
         </Box>
       ) : null
 
-    // ---- other loops (workflow agents, forks): ids that match no card
-    const loopsPanel = (w: number) => {
-      if (lp.length === 0) return null
-      const active = lp.filter(l => isLoopActive(l, now)).length
-      const dots = lp.slice(-Math.max(4, marksIn(w - 38, isTerminal)))
-      const isNarrow = w < 40
-      return (
-        <Box width={w} columnGap={1}>
-          <Text bold>{isNarrow ? 'loops' : 'other loops'}</Text>
-          <Text dimColor>{isNarrow ? `${lp.length} · ${active} active` : `${lp.length} seen · ${active} active`}</Text>
-          {markRow(
-            dots.map(l => (
-              <Text color={isLoopActive(l, now) ? C.agent : l.isDone ? C.dim : C.faint}>{isLoopActive(l, now) ? '●' : l.isDone ? '✓' : '○'}</Text>
-            )),
-            1,
-          )}
-        </Box>
-      )
-    }
-
-    // ---- receipt: the turn now, or the last one
-    const receiptPanel = (w: number) => {
-      const isReview = t.isReviewing
-      return (
-        <Box flexDirection="column" borderStyle="round" borderColor={C.main} borderDimColor={!m.isRunning && !isReview} paddingX={1} width={w}>
-          {m.isRunning ? (
-            <Box width={w - 4} columnGap={1} overflow="hidden">
-              <Text color={C.main} wrap="truncate">{`◐ back to ${modelName.toLowerCase()} · turn`}</Text>
-              <Box flexShrink={0}>{clock('turn-clock', t.startedAt, null, C.main)}</Box>
-              {w >= 60 ? <Text dimColor wrap="truncate">{`· ${plural(t.edits, 'edit')} · ${plural(t.errors, 'error')}`}</Text> : null}
-            </Box>
-          ) : r ? (
-            line(
-              [
-                { spans: [{ text: r.reason === 'answer' ? '✓' : '✗', color: r.reason === 'answer' ? C.gate : C.warn }] },
-                {
-                  spans: [{ text: `last turn ${fmtDuration(r.durationMs)} · ${plural(r.agents, 'agent')} · ${plural(r.edits, 'edit')} · ${plural(r.errors, 'error')}` }],
-                  fill: true,
-                },
-                r.costDelta !== null ? { spans: [{ text: `· +${fmtUsd(r.costDelta)}`, color: C.main }] } : null,
-              ],
-              w - 4,
-            )
-          ) : (
-            <Text color={C.faint}>no turn finished yet</Text>
-          )}
-          {isReview ? (
-            <Text color={C.arch} wrap="wrap">
-              {`${cfg.architectLabel.toLowerCase()} reviewing before done (inferred)`}
-            </Text>
-          ) : null}
-        </Box>
-      )
-    }
-
     // ---- log: whatever rows the other panels leave, 4 to 8
-    // The main box's speed line, the legend's gap and the gap above the log are a row each.
-    const used = 2 + legendGap + 5 + (m.speed ? 1 : 0) + 1 + (showArchitect ? 6 : 0) + 6 + (v.gateOpen ? 5 : 0) + (cards.length > cfg.maxCards ? 3 + Math.min(6, cards.length) : 8) + (expandedCard ? 8 : 0) + (lp.length ? 1 : 0) + 3
+    // 고정 행 수 = 헤더 1 + 오로라 1 + 로그를 뺀 패널마다 (테두리 2 + 본문 행) + 패널 사이 빈 줄 `order.length - 1`.
+    // 본문 행은 각 패널이 그리는 줄을 센 값이다(줄바꿈이 생기는 좁은 폭에서는 가장 긴 경우를 잡지 않는다 — 로그가 하한 4줄을 지킨다).
+    const fitCards = Math.max(1, Math.min(cfg.maxCards, Math.floor((W + 1) / 21)))
+    const expandedRows = expandedCard ? 2 + 2 + Math.max(1, expandedCard.tools.length) + (expandedCard.answer ? 1 : 0) : 0
+    const heightOf: Record<Panel, number> = {
+      main: 2 + mainRows(W).length,
+      // 테두리 2 + (FID 가 있으면 제목 1 + 단계가 있으면 진행 줄·단계 막대 2) + BG 줄 + 작업 줄 + 끝난 작업 줄
+      fid: 2 + (b.fid ? 1 + (b.stages && b.stages.length > 0 ? 2 : 0) : 0) + (bgTotal > 0 || ciLine(b.ci) ? 1 : 0) + Math.min(3, b.running.length) + (b.running.length > 3 ? 1 : 0) + endedJobs.length,
+      architect: 2 + 3 + (cfg.moments ? 1 : 0) + (a.lastAdvice ? 1 : 0),
+      gate: 2 + 4 + (v.gateOpen ? Math.min(5, g.recent.filter(c => c.bucket === v.gateOpen).length) : 0),
+      // 테두리 없음: 머리 1 + (줄 모드: 이전 표시 1 + 줄 · 카드 모드: 카드 7줄 + 위아래 rail)
+      agents: (cards.length > fitCards ? 1 + (cards.length > 6 ? 1 : 0) + Math.min(6, cards.length) : 1 + (hasFanRails ? 2 : 0) + 7) + (activeLoops > 0 ? 1 : 0),
+      loops: 0,
+      receipt: 0,
+      log: 0,
+    }
+    const used = 2 + order.filter(p => p !== 'log').reduce((n, p) => n + heightOf[p] + (p === 'agents' ? expandedRows : 0), 0) + Math.max(0, order.length - 1)
     const bodyRows = e.props.scroll?.bodyRows ?? e.viewport?.rows ?? 40
     const nLog = logRows(bodyRows, used)
     const shownLines = (viewed ? lines.filter(l => l.agentId === viewed) : lines).slice(-nLog)
     const colorOf = (l: LogLine) =>
-      l.kind === 'error' ? C.warn : l.kind === 'consult' ? C.arch : l.who === 'main' ? C.main : l.who === 'gate' ? C.gate : l.who === 'you' ? C.text : C.agent
+      l.kind === 'error' ? C.warn : l.kind === 'consult' ? C.arch : l.who === 'main' || l.who === '↻ bg' ? C.main : l.who === 'gate' ? C.gate : l.who === 'you' ? C.text : C.agent
     // Below 40 columns a line keeps its minute, not its second, and a shorter name.
     const logPanel = (w: number) => (
-      <Box flexDirection="column" borderStyle="round" borderColor={C.faint} paddingX={1} marginTop={1} width={w}>
+      <Box flexDirection="column" borderStyle="round" borderColor={C.faint} paddingX={1} width={w}>
         <Text dimColor wrap="truncate">
           {viewed ? 'session log · this agent' : 'session log'}
         </Text>
-        {shownLines.length === 0 ? <Text color={C.faint}>nothing yet</Text> : null}
+        {shownLines.length === 0 ? <Text color={C.dim}>nothing yet</Text> : null}
         {shownLines.map(l => (
           <Box>
             <Box width={w < 40 ? 6 : 9} flexShrink={0}>
-              <Text color={C.faint}>{w < 40 ? fmtClock(l.at).slice(0, 5) : fmtClock(l.at)}</Text>
+              <Text color={C.dim}>{w < 40 ? fmtClock(l.at).slice(0, 5) : fmtClock(l.at)}</Text>
             </Box>
             <Box width={w < 40 ? 9 : 13} flexShrink={0}>
               <Text color={colorOf(l)} bold wrap="truncate">
@@ -1239,39 +1256,91 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       </Box>
     )
 
-    // devFSD: 활성 FID 와 lifecycle 단계 막대 · verify 배지 · 백그라운드 작업 수.
+    // devFSD: 제목·검증 배지 · 진행 줄 · 단계 막대(현재 단계 강조) · BG/CI 줄 · 작업 줄 · 방금 끝난 작업. FID 가 없으면 BG 구역만.
     const fidPanel = (w: number) => {
-      const bgCount = b.running.length + ciPending(b.ci)
+      const sp = stageProgress(b.stages ?? [])
+      const hasStages = !!b.fid && sp.total > 0
       const isGreen = b.verify === '완료' || b.verify === '검증 PASS'
+      const verifyColor = isGreen ? C.gate : b.verify === '검증 FAIL' ? C.warn : C.amber
+      const ci = b.ci ?? []
+      const ciPass = ci.filter(c => c.bucket === 'pass').length
+      const ciFail = ci.filter(c => c.bucket === 'fail').length
+      const ciPend = ciPending(b.ci)
+      const gaugeW = Math.max(0, Math.min(12, w - 24))
+      const prog = gauge(sp.total > 0 ? (sp.step / sp.total) * 100 : 0, gaugeW)
+      const markColor = (s: StageMark) => (s.mark === '✓' ? C.gate : s.mark === '!' ? C.amber : s.mark === '✗' ? C.warn : C.dim)
+
       return (
         <Box flexDirection="column" borderStyle="round" borderColor={C.gate} paddingX={1} width={w}>
-          <Box justifyContent="space-between">
-            <Text color={C.gate} bold wrap="truncate">
-              {`devFSD · ${b.fid ?? ''}`}
-            </Text>
-            {b.verify ? (
-              <Box flexShrink={0}>
-                <Text color={isGreen ? C.gate : C.amber} bold={!isGreen}>{b.verify}</Text>
-              </Box>
-            ) : null}
-          </Box>
-          {b.stages && b.stages.length > 0 ? (
-            <Text wrap="wrap">{b.stages.map(s => `${s.label}${s.mark}`).join(' ')}</Text>
+          {b.fid ? (
+            <Box justifyContent="space-between">
+              <Text color={C.gate} bold wrap="truncate">
+                {`devFSD · ${b.fid}`}
+              </Text>
+              {b.verify ? (
+                <Box flexShrink={0}>
+                  <Text color={verifyColor} bold={!isGreen}>{b.verify}</Text>
+                </Box>
+              ) : null}
+            </Box>
           ) : null}
-          {bgCount > 0 || ciLine(b.ci) ? (
-            <Text dimColor wrap="truncate">
-              {[bgCount > 0 ? `백그라운드 작업 ${bgCount}개 실행 중` : '', ciLine(b.ci)].filter(Boolean).join(' · ')}
-            </Text>
+          {hasStages
+            ? line(
+                [
+                  gaugeW > 0 ? { spans: [{ text: prog.on, color: C.gate }, { text: prog.off, color: C.faint }] } : null,
+                  { spans: [{ text: `${sp.step}/${sp.total} ${sp.current ?? (sp.isDone ? '완료' : '')}`.trimEnd() + (sp.next ? ` · 다음 ${sp.next}` : ''), ...(sp.isDone ? { color: C.gate } : {}) }], fill: true },
+                ],
+                w - 4,
+              )
+            : null}
+          {hasStages ? (
+            <Box key="stage-bar" flexWrap="wrap" columnGap={1}>
+              {(b.stages ?? []).map(s => {
+                const failed = s.mark === '✗'
+                return (
+                  <Box flexShrink={0}>
+                    {s.isCurrent ? (
+                      <Text backgroundColor={failed ? C.warn : C.cleared} color={C.text} bold>{`▶ ${s.label}${failed ? '✗' : '●'}`}</Text>
+                    ) : (
+                      <Text color={markColor(s)} bold={s.mark === '!'}>{`${s.label}${s.mark}`}</Text>
+                    )}
+                  </Box>
+                )
+              })}
+            </Box>
           ) : null}
+          {bgTotal > 0 || ciLine(b.ci)
+            ? line(
+                [
+                  bgTotal > 0 ? { spans: [{ text: `BG ${bgTotal}`, bold: true }] } : null,
+                  ciLine(b.ci)
+                    ? {
+                        spans: [
+                          { text: 'CI ', dim: true },
+                          { text: `✓${ciPass}`, color: C.gate },
+                          ...(ciPend > 0 ? [{ text: ` ⋯${ciPend}`, color: C.amber }] : []),
+                          ...(ciFail > 0 ? [{ text: ` ✗${ciFail}`, color: C.warn }] : []),
+                        ],
+                      }
+                    : null,
+                ],
+                w - 4,
+              )
+            : null}
           {/* 작업별 한 줄 — 먼저 시작한 순으로 3개까지, 나머지는 개수로 */}
           {b.running.slice(0, 3).map(j => (
-            <Text key={j.id} dimColor wrap="truncate">
+            <Text key={j.id} color={C.text} wrap="truncate">
               {jobRow(j, now, w < 60)}
             </Text>
           ))}
           {b.running.length > 3 ? (
             <Text dimColor wrap="truncate">{`… 외 ${b.running.length - 3}개`}</Text>
           ) : null}
+          {endedJobs.map(j => (
+            <Text key={j.id} color={j.isFailed ? C.warn : C.gate} wrap="truncate">
+              {j.isFailed ? `✗ ${j.label.trim() || j.id} · 방금 끝남` : `✓ ${j.label.trim() || j.id}`}
+            </Text>
+          ))}
         </Box>
       )
     }
@@ -1287,49 +1356,27 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             ? gatePanel(w)
             : p === 'agents'
               ? agentsPanel(w)
-              : p === 'loops'
-                ? loopsPanel(w)
-                : p === 'receipt'
-                  ? receiptPanel(w)
-                  : logPanel(w)
-
-    // Panels with the flow between them; the agents panel draws its own rails.
-    const column = (ps: Panel[], w: number) => (
-      <Box flexDirection="column" width={w}>
-        {ps.map((p, i) => {
-          const prev = ps[i - 1]
-          const link =
-            i === 0 || prev === 'fid' || p === 'agents' || prev === 'agents' || p === 'log' || p === 'loops' || prev === 'loops'
-              ? null
-              : rail(`link-${p}`, p === 'architect' ? advising : m.isRunning, p === 'architect' ? C.arch : C.main, w)
-          return (
-            <Box flexDirection="column">
-              {link}
-              {draw(p, w)}
-              {p === 'agents' ? expandedPanel(w) : null}
-            </Box>
-          )
-        })}
-      </Box>
-    )
+              : logPanel(w)
 
     // Desktop draws the agents' time axis as SVG under the panels.
     const svgLanes =
-      e.surface !== 'terminal' && cards.length > 0
+      e.surface !== 'terminal' && cards.length >= 2
         ? (() => {
             const { Svg } = $.ui.resolve(e)
             const rowH = 18
             const pxW = 520
+            const barMax = pxW - 160 - 44 // 막대 끝 옆에 실행 시간 글자가 들어갈 자리
             const geo = lanes(cards.slice(-10), now, 100)
             const rects = cards
               .slice(-10)
               .map((c, i) => {
                 const gm = geo[i]
-                const x = 150 + ((gm?.before ?? 0) / 100) * (pxW - 160)
-                const wpx = Math.max(3, ((gm?.bar ?? 1) / 100) * (pxW - 160))
+                const x = 150 + ((gm?.before ?? 0) / 100) * barMax
+                const wpx = Math.max(3, ((gm?.bar ?? 1) / 100) * barMax)
                 const fill = c.status === 'running' ? SVG_COLORS.running : c.status === 'done' ? SVG_COLORS.done : c.status === 'failed' ? SVG_COLORS.failed : SVG_COLORS.other
                 const label = shorten(cardTitle(c), 22).replace(/[<&>]/g, '')
-                return `<text x="4" y="${i * rowH + 13}" font-size="11" fill="${SVG_COLORS.label}">${label}</text><rect x="${x}" y="${i * rowH + 4}" width="${wpx}" height="10" rx="3" fill="${fill}"/>`
+                const took = fmtDuration((c.endedAt ?? now) - c.spawnedAt)
+                return `<text x="4" y="${i * rowH + 13}" font-size="11" fill="${SVG_LABEL}">${label}</text><rect x="${x}" y="${i * rowH + 4}" width="${wpx}" height="10" rx="3" fill="${fill}"/><text x="${x + wpx + 4}" y="${i * rowH + 13}" font-size="10" fill="${SVG_LABEL}">${took}</text>`
               })
               .join('')
             const svgH = Math.min(10, cards.length) * rowH + 4
@@ -1343,6 +1390,19 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             )
           })()
         : null
+
+    // 패널은 한 칸으로 쌓고 첫 패널 외에는 위에 빈 줄 1칸을 둔다. 패널 사이 rail 은 없다(agents 패널이 자기 rail 을 그린다).
+    const column = (ps: Panel[], w: number) => (
+      <Box flexDirection="column" width={w}>
+        {ps.map((p, i) => (
+          <Box key={`panel-${p}`} flexDirection="column" marginTop={i === 0 ? 0 : 1}>
+            {draw(p, w)}
+            {p === 'agents' ? expandedPanel(w) : null}
+            {p === 'agents' ? svgLanes : null}
+          </Box>
+        ))}
+      </Box>
+    )
 
     // Inline above the prompt (the terminal's main screen), the pane is a summary of at most 8 rows.
     const isMini = layout === 'mini' || (layout === 'auto' && e.props.placement === 'inline')
@@ -1358,14 +1418,14 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
               {
                 spans: [
                   { text: modelName, color: C.main, bold: true },
-                  { text: m.isRunning ? ' ● working' : isWaiting ? ' ◐ 대기' : ' ○ idle', color: m.isRunning || isWaiting ? C.main : C.dim },
+                  { text: m.isRunning ? ' ● working' : isWaiting ? ' ◌ 대기' : ' ○ idle', color: m.isRunning || isWaiting ? C.main : C.dim },
                 ],
               },
               mg
                 ? {
                     spans: [
                       { text: '· ctx ', dim: true },
-                      { text: mg.on, color: (ctxFill.pct ?? 0) >= 80 ? C.warn : C.main },
+                      { text: mg.on, color: ctxColor },
                       { text: mg.off, color: C.faint },
                       { text: ` ${Math.round(ctxFill.pct ?? 0)}%` },
                       ...(u.compactions > 0 ? [{ text: ` ${compactMark(u)}`, color: C.amber }] : []),
@@ -1380,7 +1440,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             W,
           )}
           {badge ? <Text color={badgeColor} wrap="truncate">{badge.text}</Text> : null}
-          {strip.length > 0 ? (
+          {strip.length > 0 && cfg.panels.includes('gate') ? (
             <Box columnGap={1}>
               <Text dimColor>{cfg.gateLabel.toLowerCase()}</Text>
               {markRow(strip.map(checkMark))}
@@ -1400,9 +1460,9 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             </Box>
           ))}
           {cards.length > live.length ? (
-            <Text color={C.faint} wrap="truncate">{`+${cards.length - live.length} more agents · /devfsd layout compact for all`}</Text>
+            <Text color={C.dim} wrap="truncate">{`+${cards.length - live.length} more agents · /devfsd layout compact for all`}</Text>
           ) : null}
-          {lp.length > 0 ? <Text dimColor wrap="truncate">{`other loops ${lp.length} · ${lp.filter(l => isLoopActive(l, now)).length} active`}</Text> : null}
+          {loopsLine(W)}
           {!m.isRunning && r ? (
             <Text dimColor wrap="truncate">
               {`last turn ${fmtDuration(r.durationMs)} · ${plural(r.agents, 'agent')} · ${plural(r.edits, 'edit')} · ${plural(r.errors, 'error')}${r.costDelta !== null ? ` · +${fmtUsd(r.costDelta)}` : ''}`}
@@ -1412,63 +1472,50 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       )
     }
 
-    const legend = fitLegend(
-      [
-        { label: 'main', color: C.main },
-        { label: 'agents', color: C.agent },
-        { label: cfg.gateLabel.toLowerCase(), color: C.gate },
-        ...(showArchitect ? [{ label: cfg.architectLabel.toLowerCase(), color: C.arch }] : []),
-      ],
-      W,
-    )
-
-    const body = isWide ? (
-      <Box flexDirection="column">
-        <Box columnGap={2}>
-          {column(panels.filter(p => p === 'fid' || p === 'main' || p === 'architect' || p === 'gate'), colW)}
-          {column(panels.filter(p => p === 'agents' || p === 'loops' || p === 'receipt'), colW)}
-        </Box>
-        {panels.includes('log') ? logPanel(W) : null}
-      </Box>
-    ) : (
-      column(panels, W)
-    )
+    // ---- 헤더: 한 줄 요약 `DEVFSD · 상태 · 단계 · 검증 · BG N` (좁으면 뒤 조각부터 빠진다)
+    const status = m.isRunning ? 'WORKS' : isWaiting ? '◌ 대기' : 'IDLE'
+    const sp = stageProgress(b.stages ?? [])
+    const stageWord = b.fid ? sp.current ?? (sp.isDone ? '완료' : null) : null
+    const verifyWord = b.fid && b.verify ? b.verify.replace(/^검증 /, '') : null
+    const verifyColor = verifyWord === 'PASS' || verifyWord === '완료' ? C.gate : verifyWord === 'FAIL' ? C.warn : C.amber
+    const mode = cfg.motion ? (m.isRunning ? 'working' : isWaiting ? 'waiting' : 'idle') : 'idle'
 
     return (
       <Box flexDirection="column" width={W}>
-        {/* Below 40 columns the frame's own title names the pane, so the header starts at the model. */}
-        {line(
-          [
-            W >= 40 ? { spans: [{ text: 'DEVFSD', bold: true }, { text: ' ·', color: C.dim, bold: true }] } : null,
-            { spans: [{ text: modelName.toUpperCase(), color: C.main, bold: true }, { text: m.isRunning ? ' WORKS' : ' IDLE', bold: true }] },
-            showArchitect
-              ? {
-                  spans: [
-                    { text: '· ', color: C.dim, bold: true },
-                    { text: cfg.architectLabel, color: C.arch, bold: true },
-                    { text: advising ? ' ADVISING' : ' ON CALL', bold: true },
-                  ],
-                }
-              : null,
-            // 맨 뒤 — 좁은 폭에서는 다른 조각을 밀어내지 않고 이 조각이 먼저 빠진다.
-            bgTotal > 0 ? { spans: [{ text: `· BG ${bgTotal}`, color: C.main, bold: true }] } : null,
-          ],
-          W,
-          1,
-          'center',
-        )}
-        <Box key="legend" justifyContent="center" columnGap={2} marginBottom={legendGap}>
-          {legend.map(l => (
-            <Box flexShrink={0}>
-              <Text>
-                <Text color={l.color}>■</Text>
-                <Text dimColor>{` ${l.label}`}</Text>
-              </Text>
-            </Box>
-          ))}
+        {/* Below 40 columns the frame's own title names the pane, so the header starts at the status. */}
+        <Box key="header" flexDirection="column">
+          {line(
+            [
+              W >= 40 ? { spans: [{ text: 'DEVFSD', bold: true }, { text: ' ·', color: C.dim, bold: true }] } : null,
+              { spans: [{ text: status, color: C.main, bold: true }] },
+              stageWord ? { spans: [{ text: '· ', color: C.dim, bold: true }, { text: stageWord, color: C.text, bold: true }] } : null,
+              // 단계가 이미 `완료` 면 같은 낱말을 두 번 쓰지 않는다.
+              // 검증은 40칸 이상에서만(DEVFSD 와 같은 문턱) — 좁은 폭의 검증 정보는 devFSD 카드 배지가 맡는다.
+              W >= 40 && verifyWord && !(stageWord === '완료' && verifyWord === '완료')
+                ? { spans: [{ text: '· ', color: C.dim, bold: true }, { text: verifyWord, color: verifyColor, bold: verifyColor !== C.gate }] }
+                : null,
+              // 맨 뒤 — 좁은 폭에서는 다른 조각을 밀어내지 않고 이 조각이 먼저 빠진다. 가장 좁은 24칸(dock 하한)에서는 상태·단계만 남긴다(AC-3).
+              W > 24 && bgTotal > 0 ? { spans: [{ text: `· BG ${bgTotal}`, color: C.main, bold: true }] } : null,
+            ],
+            W,
+            1,
+            'center',
+          )}
         </Box>
-        {body}
-        {svgLanes}
+        {hasRail ? (
+          <els.Client
+            key="aurora"
+            module="./rail.tsx"
+            width={W}
+            height={1}
+            props={{ variant: 'aurora', mode, active: mode !== 'idle', width: W, color: C.main, dim: C.faint, marks: [], isMerge: false }}
+          />
+        ) : (
+          <Text color={C.faint} mono>
+            {'─'.repeat(W)}
+          </Text>
+        )}
+        {column(order, W)}
       </Box>
     )
   }).catch(($, e, next) => {

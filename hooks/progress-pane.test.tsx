@@ -2,6 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import {
   activeFid,
+  currentStageKey,
   elapsed,
   fidOf,
   isLifecycleDone,
@@ -10,6 +11,7 @@ import {
   stageOf,
   stagesOf,
   verifyWord,
+  withVerifyMark,
 } from './progress-pane'
 
 const PANE = {
@@ -1169,7 +1171,7 @@ test('devFSD: a fresh output-file mtime beats a 9m30s-old hook signal and clears
   mtimeSec = 541 // 지금(571s)의 30초 전
   await clock.advance(5_000)
   ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 9분 경과 · 마지막 활동 35초 전')
+  expect((await ui.find({ type: 'Text', text: /BG 1 · / }))?.text).toContain('BG 1 · 9분 경과 · 마지막 활동 35초 전')
   expect(await ui.find({ type: 'Text', text: /정체 의심/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -1183,7 +1185,7 @@ test('devFSD: a task notification counts as activity while another job still run
   await notify($, 'b1', 'completed')
   await clock.advance(290_000)
   const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 9분 경과 · 마지막 활동 4분 전')
+  expect((await ui.find({ type: 'Text', text: /BG 1 · / }))?.text).toContain('BG 1 · 9분 경과 · 마지막 활동 4분 전')
   expect(await ui.find({ type: 'Text', text: /정체 의심/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -1198,7 +1200,7 @@ test('devFSD: the tick runs while the main turn is open and stops once it ends',
   await $.turn.start({ text: 'go', turnId: 'W1' })
   let before = nowCalls
   await clock.advance(5_000)
-  expect(nowCalls - before).toBeGreaterThanOrEqual(1) // 작업 0 인데도 working 이라 시계가 돈다
+  expect(nowCalls - before).toBeGreaterThanOrEqual(1) // BG 0 인데도 working 이라 시계가 돈다
   await $.turn.complete(mainDone('W1'))
   before = nowCalls
   await clock.advance(60_000)
@@ -1220,11 +1222,11 @@ test('devFSD: an old-shaped board (no new fields) renders without a badge, and g
   const clock = clockWorld(on, () => ({ result: {}, text: 'ok' }))
   await startedClock($, clock)
   const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect(await ui.find({ type: 'Text', text: /작업 \d|정체 의심/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /BG \d|정체 의심/ })).toBeUndefined()
   await ui.unmount()
   await $.tool.call(bgBash('o1')) // 양성 대조: 같은 경로에서 작업이 생기면 배지가 뜬다
   const after = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect(await after.find({ type: 'Text', text: /작업 1/ })).toBeDefined()
+  expect(await after.find({ type: 'Text', text: /BG 1 · / })).toBeDefined()
   await after.unmount()
 })
 
@@ -1247,7 +1249,7 @@ test('devFSD: a working turn with no jobs warns after five quiet minutes and cle
   expect(await shown(/● working/)).toBeDefined()
   await clock.advance(1_000)
   expect((await shown(/⚠ 정체 의심/))?.text).toContain('⚠ 정체 의심 · 5분 전')
-  expect(await shown(/작업 \d/)).toBeUndefined()
+  expect(await shown(/BG \d/)).toBeUndefined()
   await $.turn.complete(mainDone('W1'))
   expect(await shown(/정체 의심/)).toBeUndefined()
   expect(await shown(/○ idle/)).toBeDefined()
@@ -1259,8 +1261,57 @@ test('devFSD: a mounted console redraws its badge as the clock moves (nowTick su
   await startedClock($, clock)
   await $.tool.call(bgBash('rd1'))
   const ui = await $.ui.mount({ ...CONSOLE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 0초 경과 · 마지막 활동 방금')
+  expect((await ui.find({ type: 'Text', text: /BG 1 · / }))?.text).toContain('BG 1 · 0초 경과 · 마지막 활동 방금')
   await clock.advance(65_000) // 같은 ui — 다시 마운트하지 않는다
-  expect((await ui.find({ type: 'Text', text: /작업 1/ }))?.text).toContain('작업 1 · 1분 경과 · 마지막 활동 1분 전')
+  expect((await ui.find({ type: 'Text', text: /BG 1 · / }))?.text).toContain('BG 1 · 1분 경과 · 마지막 활동 1분 전')
   await ui.unmount()
+})
+
+const PROG_T2 = (lines: string[]) => `# p\n\n## 20261106-x · y\n\n${lines.join('\n')}\n`
+
+test('devFSD: the current stage is the newest record, or the next open stage when that record is done', () => {
+  // 최신이 위(prepend)
+  const a = PROG_T2(['- 2026-11-06 10:05 /implement 진행 (T2)', '- 2026-11-06 10:04 /verify PASS (x)', '- 2026-11-06 10:03 /implement 진행 (T1)', '- 2026-11-06 10:02 /tasks 완료 (x)', '- 2026-11-06 10:00 /analyze 완료 (x)'])
+  expect(currentStageKey(a, '20261106-x')).toBe('implement')
+  const b = PROG_T2(['- 2026-11-06 10:02 /tasks 완료 (x)', '- 2026-11-06 10:01 /plan 완료 (x)', '- 2026-11-06 10:00 /analyze 완료 (x)'])
+  expect(currentStageKey(b, '20261106-x')).toBe('implement')
+  const c = PROG_T2(['- 2026-11-06 10:09 /lifecycle DONE (PR #1)', '- 2026-11-06 10:00 /analyze 완료 (x)'])
+  expect(currentStageKey(c, '20261106-x')).toBeNull()
+})
+
+test('devFSD: a stale or partial verify marks the verify stage !, a failed one ✗, and an unrecorded verify stays open', () => {
+  const st = stagesOf(PROG_T2(['- 2026-11-06 10:04 /verify PASS (x)', '- 2026-11-06 10:00 /analyze 완료 (x)']), '20261106-x')
+  const v = (verify: string) => withVerifyMark(st, verify, null).find(s => s.key === 'verify')?.mark
+  expect([v('검증 PASS'), v('검증 STALE'), v('검증 PARTIAL'), v('검증 FAIL'), v('완료')]).toEqual(['✓', '!', '!', '✗', '✓'])
+  expect(withVerifyMark(st, '검증 PASS', 'implement').filter(s => s.isCurrent).map(s => s.key)).toEqual(['implement'])
+  expect(st.find(s => s.key === 'verify')?.mark).toBe('✓') // 입력 배열 불변
+  const none = stagesOf(PROG_T2(['- 2026-11-06 10:00 /analyze 완료 (x)']), '20261106-x')
+  for (const verify of ['검증 STALE', '검증 FAIL', '검증 PARTIAL', '검증 ?', undefined]) {
+    expect(withVerifyMark(none, verify, null).find(s => s.key === 'verify')?.mark).toBe('○') // 기록 없음은 그대로
+  }
+})
+
+test('devFSD: the tick keeps running for a minute after a background job ends, then stops', async ($, on) => {
+  let nowCalls = 0
+  const clock = clockWorld(on, (_, e) => launched(String((e as { tool_use_id: string }).tool_use_id)), 1_000, () => { nowCalls += 1 })
+  on('process.run', () => ({ value: { exitCode: 0, stdout: '', stderr: '' } }))
+  await startedClock($, clock)
+  await $.tool.call(bgBash('k1'))
+  await notify($, 'k1', 'completed')
+  let before = nowCalls
+  await clock.advance(30_000)
+  expect(nowCalls - before).toBeGreaterThanOrEqual(1) // BG 0·턴 닫힘인데도 끝난 작업이 1분 안이라 시계가 돈다
+  await clock.advance(40_000)
+  before = nowCalls
+  await clock.advance(60_000)
+  expect(nowCalls).toBe(before)                         // 61초를 지나면 멈춘다
+})
+
+test('devFSD: a stale verify with a PASS record shows 검증! in the stage bar', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = PROG.replace('- 2026-11-04 10:05 /implement', '- 2026-11-04 10:06 /verify PASS (x)\n- 2026-11-04 10:05 /implement')
+  await begin($, w)
+  for (const surface of SURFACES) {
+    expect((await rowsOn($, surface)).some(row => row.includes('검증!'))).toBe(true)
+  }
 })

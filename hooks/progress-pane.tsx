@@ -3,11 +3,13 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Board, Job, StageMark } from '../types'
 import { pollCi } from './ci-watch'
-import { STAT_SCRIPT, outputPathOf, latestMtimeMs, withActivity } from './core'
+import { STAT_SCRIPT, outputPathOf, latestMtimeMs, redact, withActivity } from './core'
 
 const PANE = 'devfsd-progress'
 const TITLE = 'devFSD 진행'
 const TICK_MS = 5000
+const END_TICK_MS = 1000 // 끝난 명령이 카드에서 빠지는 순간을 맞추는 보조 틱
+const RECENT_MS = 60_000 // 끝난 명령이 카드에 남는 시간(console.tsx 의 60_000 과 같다)
 const RECENT_MAX = 5
 // devFSD: 세션 시작 때 여는 패널은 관제판(console.tsx)이다. 진행 패널은 /devfsd-progress 로 연다.
 const CONSOLE_PANE = 'devfsd-console'
@@ -125,6 +127,28 @@ export function stagesOf(progress: string, fid: string): StageMark[] {
 
     return [{ key: s.key, label: s.label, mark: newest ? markOf(newest.word) : '○' }]
   })
+}
+
+/** devFSD: 지금 하는 단계 — 가장 최근 기록의 단계, 그 기록이 완료면 다음 미완 단계. lifecycle 완료면 null. */
+export function currentStageKey(progress: string, fid: string): string | null {
+  if (isLifecycleDone(progress, fid)) return null
+  const newest = recordsOf(progress, fid).find(r => STAGES.some(s => s.cmd === r.cmd))
+  if (!newest) return null
+  const at = STAGES.findIndex(s => s.cmd === newest.cmd)
+  if (markOf(newest.word) !== '✓' && markOf(newest.word) !== '–') return STAGES[at]?.key ?? null
+
+  return STAGES[at + 1]?.key ?? null
+}
+
+/** devFSD: 검증 배지 상태를 단계 막대에 맞춘다(기록 없는 ○ 는 그대로) + 현재 단계 표시. */
+export function withVerifyMark(stages: StageMark[], verify: string | undefined, current: string | null): StageMark[] {
+  const vm: StageMark['mark'] | null = verify === '검증 FAIL' ? '✗' : verify === '검증 STALE' || verify === '검증 PARTIAL' ? '!' : null
+
+  return stages.map(s => ({
+    ...s,
+    ...(s.key === 'verify' && vm && s.mark !== '○' ? { mark: vm } : {}),
+    ...(s.key === current ? { isCurrent: true } : {}),
+  }))
 }
 
 export function isLifecycleDone(progress: string, fid: string): boolean {
@@ -253,7 +277,8 @@ async function refreshStatus($: EngineInterface, cwd: string, gate: RefreshGate)
       }
       const stages = stagesOf(progress, fid)
       const verify = isLifecycleDone(progress, fid) ? '완료' : await verifyFor($, cwd, fid).catch(() => '검증 ?')
-      await update($, board, b => ({ ...b, fid, stages, verify }))
+      const marked = withVerifyMark(stages, verify, currentStageKey(progress, fid))
+      await update($, board, b => ({ ...b, fid, stages: marked, verify }))
     } while (gate.again)
   } catch {
     await safe(() => update($, board, b => ({ ...b, verify: '검증 ?' })))
@@ -271,9 +296,11 @@ function startJob($: EngineInterface, job: Job): Promise<unknown> {
 
 async function endJob($: EngineInterface, id: string, isFailed: boolean): Promise<void> {
   const endedAt = await $.clock.now()
+  let isBash = false
   await update($, board, b => {
     const job = b.running.find(one => one.id === id)
     if (!job) return b
+    isBash = job.kind === 'bash'
     const done: Job = { ...job, endedAt, isFailed }
 
     return {
@@ -282,9 +309,29 @@ async function endJob($: EngineInterface, id: string, isFailed: boolean): Promis
       recent: [done, ...b.recent].slice(0, RECENT_MAX),
     }
   })
+  if (isBash) startEndTicker($)
 }
 
-function textOf(content: readonly { type: string; [field: string]: unknown }[]): string {
+/** 끝난 명령이 카드에 머무는 60초(AC-10)를 5초 틱 정렬과 무관하게 맞춘다 — 1초 보조 틱을 돌리고, 할 일이 없으면 스스로 멈춘다. */
+function startEndTicker($: EngineInterface): void {
+  endTicker?.cancel()
+  endTicker = $.clock.every(END_TICK_MS, () => {
+    void safe(async () => {
+      const b = await read($, board)
+      const lastNow = await read($, now)
+      if (!b.recent.some(j => j.kind === 'bash' && j.endedAt !== undefined && lastNow - j.endedAt < RECENT_MS + END_TICK_MS)) {
+        endTicker?.cancel()
+        endTicker = undefined
+
+        return
+      }
+      const t = await $.clock.now()
+      await update($, now, () => t)
+    })
+  })
+}
+
+export function textOf(content: readonly { type: string; [field: string]: unknown }[]): string {
   return content
     .filter(block => block.type === 'text' && typeof block.text === 'string')
     .map(block => block.text as string)
@@ -320,6 +367,7 @@ async function noteOutput($: EngineInterface, id: string, text: string | undefin
 let cwd = ''
 let ticker: { cancel(): void } | undefined
 let ciTicker: { cancel(): void } | undefined
+let endTicker: { cancel(): void } | undefined
 let isCiPolling = false
 let gate: RefreshGate = { refreshing: false, again: false }
 
@@ -341,6 +389,8 @@ export async function progressStart($: EngineInterface, cwdNow: string, ciOpt?: 
     cwd = cwdNow
     ciTicker?.cancel()
     ciTicker = undefined
+    endTicker?.cancel()
+    endTicker = undefined
     if (ciOpt?.watch) {
       void pollCiOnce($)
       ciTicker = $.clock.every(ciOpt.intervalSec * 1000, () => void pollCiOnce($))
@@ -362,7 +412,9 @@ export async function progressStart($: EngineInterface, cwdNow: string, ciOpt?: 
       ticker = $.clock.every(TICK_MS, () => {
         void safe(async () => {
           const b = await read($, board)
-          if (b.running.length > 0 || b.working === true) {
+          const lastNow = await read($, now) // 저장된 시계 — clock.now() 를 새로 부르지 않는다
+          const isRecentEnd = b.recent.some(j => j.kind === 'bash' && j.endedAt !== undefined && lastNow - j.endedAt < 61_000)
+          if (b.running.length > 0 || b.working === true || isRecentEnd) {
             const t = await $.clock.now()
             await update($, now, () => t)
             const paths = b.running.flatMap(j => (j.outputPath ? [j.outputPath] : []))
@@ -381,6 +433,8 @@ export function registerProgress(on: Parameters<Register>[0]): void {
   ticker = undefined
   ciTicker?.cancel()
   ciTicker = undefined
+  endTicker?.cancel()
+  endTicker = undefined
   isCiPolling = false
   gate = { refreshing: false, again: false }
 
@@ -429,7 +483,7 @@ export function registerProgress(on: Parameters<Register>[0]): void {
       await startJob($, {
         id: e.tool_use_id,
         kind: 'bash',
-        label: e.description ?? e.command.slice(0, 40),
+        label: e.description === undefined ? redact(e.command).slice(0, 40) : redact(e.description), // 비밀은 자르기 전에 가린다 — 카드·로그가 이 라벨을 그대로 쓴다
         detail: '백그라운드',
         startedAt,
       })

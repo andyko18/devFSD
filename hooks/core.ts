@@ -17,6 +17,7 @@ import type {
   Moment,
   Receipt,
   Roster,
+  StageMark,
   Tally,
   ToolNote,
   Turn,
@@ -102,6 +103,8 @@ export const normalizeLog = (stored: unknown): LogLine[] =>
 
 export type Panel = 'fid' | 'main' | 'architect' | 'gate' | 'agents' | 'loops' | 'receipt' | 'log'
 const PANELS: readonly Panel[] = ['fid', 'main', 'architect', 'gate', 'agents', 'loops', 'receipt', 'log']
+/** devFSD: 기본 패널 — gate 는 적은 사람만, receipt·loops 는 받아들이되 main·agents 에 흡수. */
+const DEFAULT_PANELS: readonly Panel[] = ['main', 'fid', 'architect', 'agents', 'log']
 
 export type Config = {
   architect: RegExp
@@ -134,7 +137,7 @@ const safeRegExp = (source: string, fallback: string) => {
 export const parseConfig = (o: Readonly<Record<string, unknown>>): Config => {
   const str = (k: string, d: string) => (typeof o[k] === 'string' && o[k] !== '' ? (o[k] as string) : d)
   const bool = (k: string, d: boolean) => (typeof o[k] === 'boolean' ? (o[k] as boolean) : d)
-  const panels = str('panels', PANELS.join(','))
+  const panels = str('panels', DEFAULT_PANELS.join(','))
     .split(',')
     .map(s => s.trim())
     .filter((p): p is Panel => (PANELS as readonly string[]).includes(p))
@@ -143,9 +146,9 @@ export const parseConfig = (o: Readonly<Record<string, unknown>>): Config => {
   const cols = typeof o.paneColumns === 'number' && Number.isFinite(o.paneColumns) ? Math.round(o.paneColumns) : 66
   return {
     architect: safeRegExp(str('architectPattern', ''), 'advisor|architect'),
-    architectLabel: str('architectLabel', 'ARCHITECT'),
+    architectLabel: str('architectLabel', 'Advisor'),
     gateLabel: str('gateLabel', 'GATE'),
-    panels: panels.length > 0 ? [...new Set(panels)] : [...PANELS],
+    panels: panels.length > 0 ? [...new Set(panels)] : [...DEFAULT_PANELS],
     motion: str('motion', 'while-active') !== 'off',
     moments: bool('moments', true),
     matchDescriptions: bool('matchDescriptions', false),
@@ -336,10 +339,14 @@ export const afterCompactHooked = (u: Usage): Usage =>
 export const compactMark = (u: Pick<Usage, 'compactions' | 'isCompactEstimate'>) =>
   u.compactions > 0 ? `⟲${u.isCompactEstimate ? '~' : ''}${u.compactions}` : ''
 
-/** A gauge of `width` cells: ▰ filled, ▱ empty. */
+const EIGHTHS = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉'] as const
+/** devFSD: 1/8 칸 정밀도 게이지 — on 은 색칠할 구간(부분 블록 포함), off 는 빈칸(░). 길이는 항상 width. */
 export const gauge = (pct: number, width: number) => {
-  const full = Math.max(0, Math.min(width, Math.round((pct / 100) * width)))
-  return { on: '▰'.repeat(full), off: '▱'.repeat(width - full) }
+  const eighths = Math.max(0, Math.min(width * 8, Math.floor((pct * width * 8) / 100)))
+  const full = eighths >> 3
+  const part = eighths & 7
+  const on = '█'.repeat(full) + (EIGHTHS[part] ?? '')
+  return { on, off: '░'.repeat(width - [...on].length) }
 }
 
 /** A rate-limit reading as the pane keeps it, its ISO reset time turned into ms since the epoch. */
@@ -696,7 +703,7 @@ export const durationLabel = (ms: number, compact: boolean): string => {
 
 /** 작업별 한 줄: `◐ publish · 23초`. 이름이 비면 id 로 대신한다. */
 export const jobRow = (j: { id: string; label: string; startedAt: number }, now: number, compact: boolean): string =>
-  `◐ ${j.label.trim() || j.id} · ${durationLabel(now - j.startedAt, compact)}`
+  `↻ ${j.label.trim() || j.id} · ${durationLabel(now - j.startedAt, compact)}`
 
 /** 실행 중 작업 중 가장 먼저 시작한 시각. 작업이 없으면 undefined. */
 export const oldestStart = (jobs: readonly { startedAt: number }[]): number | undefined =>
@@ -719,7 +726,7 @@ export const activityBadge = (i: {
   const idle = i.activityAt === undefined ? undefined : Math.max(0, i.now - i.activityAt)
   const stalled = idle !== undefined && idle >= STALL_MS
   if (i.jobs === 0 && !(i.isRunning && stalled)) return null
-  const jobs = i.jobs > 0 ? `작업 ${i.jobs}` : ''
+  const jobs = i.jobs > 0 ? `BG ${i.jobs}` : ''
   const ago = idle === undefined ? '' : agoLabel(idle, i.compact)
   const run = i.jobs > 0 && i.since !== undefined ? durationLabel(i.now - i.since, i.compact) : ''
   if (i.compact) {
@@ -736,3 +743,22 @@ export const activityBadge = (i: {
 /** 활동 시각을 올린다. 1초 미만 간격이나 과거 시각은 같은 객체를 돌려줘 불필요한 쓰기를 막는다. */
 export const withActivity = (b: Board, at: number): Board =>
   b.activityAt !== undefined && at < b.activityAt + 1000 ? b : { ...b, activityAt: at }
+
+/** devFSD: 게이지 색 — 60% 미만 main, 60~79 amber, 80 이상 warn. */
+export const gaugeColor = (pct: number, C: Colors) => (pct >= 80 ? C.warn : pct >= 60 ? C.amber : C.main)
+
+/** devFSD: 단계 진행 요약 — 현재가 없고 모두 ✓/– 면 isDone. */
+export const stageProgress = (stages: readonly StageMark[]) => {
+  const at = stages.findIndex(s => s.isCurrent)
+  const done = stages.filter(s => s.mark === '✓' || s.mark === '–').length
+  const isDone = at < 0 && done === stages.length
+  const doneBefore = at >= 0 ? stages.slice(0, at).filter(s => s.mark === '✓' || s.mark === '–').length : done
+  return {
+    done: doneBefore,
+    step: isDone ? stages.length : at >= 0 ? doneBefore + 1 : doneBefore,
+    total: stages.length,
+    current: at >= 0 ? stages[at]?.label ?? null : null,
+    next: at >= 0 ? stages[at + 1]?.label ?? null : null,
+    isDone,
+  }
+}

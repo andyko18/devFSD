@@ -60,8 +60,12 @@ import {
   latestMtimeMs,
   outputPathOf,
   withActivity,
+  gaugeColor,
+  stageProgress,
+  PALETTES,
 } from './core'
-import type { Check } from '../types'
+import { auroraCells } from './rail'
+import type { Check, StageMark } from '../types'
 
 // ---------------------------------------------------------------- pure behaviour
 
@@ -1759,4 +1763,32 @@ test('AC-4 parseConfig: ciWatch defaults off, interval defaults 60 and never goe
   expect(parseConfig({ ciWatch: true, ciIntervalSec: 5 })).toMatchObject({ ciWatch: true, ciIntervalSec: 30 })
   expect(parseConfig({ ciIntervalSec: 120 }).ciIntervalSec).toBe(120)
   expect(parseConfig({ ciIntervalSec: 'x' }).ciIntervalSec).toBe(60)
+})
+
+test('devFSD: gaugeColor turns amber at 60 and warn at 80', () => {
+  const C = PALETTES.theme
+  expect([0, 59, 60, 79, 80, 100].map(p => gaugeColor(p, C))).toEqual([C.main, C.main, C.amber, C.amber, C.warn, C.warn])
+})
+
+test('devFSD: stageProgress counts done stages up to the current one and names the next', () => {
+  const s = (key: string, mark: StageMark['mark'], isCurrent = false): StageMark => ({ key, label: key, mark, ...(isCurrent ? { isCurrent } : {}) })
+  const stages = [s('a', '✓'), s('b', '✓'), s('c', '●', true), s('d', '○')]
+  expect(stageProgress(stages)).toEqual({ done: 2, step: 3, total: 4, current: 'c', next: 'd', isDone: false })
+  expect(stageProgress([s('a', '✓'), s('b', '✓')])).toEqual({ done: 2, step: 2, total: 2, current: null, next: null, isDone: true })
+  expect(stageProgress([s('a', '✓'), s('b', '●', true)])).toEqual({ done: 1, step: 2, total: 2, current: 'b', next: null, isDone: false })
+  expect(stageProgress([s('a', '✓'), s('b', '○')])).toEqual({ done: 1, step: 1, total: 2, current: null, next: null, isDone: false }) // 옛 보드: 현재 없음·미완
+})
+
+test('devFSD: aurora flows fast while working, slowly while waiting, and rests otherwise', () => {
+  const lit = (cells: ReturnType<typeof auroraCells>) => cells.map((c, i) => (c.isLit ? i : -1)).filter(i => i >= 0)
+  // 띠가 완전히 안에 들어오는 phase 만 (working len 12, waiting len 8, width 40)
+  const W = [12, 18, 24].map(p => lit(auroraCells(p, 40, 'working')))
+  expect(W.map(a => a.length)).toEqual([12, 12, 12]); expect(W.map(a => a[0])).toEqual([0, 6, 12])   // 1칸/프레임
+  const S = [24, 30, 36].map(p => lit(auroraCells(p, 40, 'waiting')))
+  expect(S.map(a => a.length)).toEqual([8, 8, 8]); expect(S.map(a => a[0])).toEqual([0, 2, 4])      // 1칸/3프레임
+  const idle = [0, 1, 5, 52, 99].map(p => JSON.stringify(auroraCells(p, 40, 'idle')))
+  expect(new Set(idle).size).toBe(1); expect(lit(auroraCells(5, 40, 'idle'))).toEqual([])
+  for (const mode of ['working', 'waiting', 'idle'] as const) for (const w of [1, 8, 24, 40, 120]) for (const p of [0, 7, 99]) expect(auroraCells(p, w, mode)).toHaveLength(w)
+  // 사양 hex 리터럴(구현 상수 import 금지) — 띠 12칸: 0~3 #D4537E, 4~7 #D85A30, 8~11 #EF9F27
+  expect(auroraCells(12, 40, 'working').filter(c => c.isLit).map(c => c.color)).toEqual([...Array(4).fill('#D4537E'), ...Array(4).fill('#D85A30'), ...Array(4).fill('#EF9F27')])
 })

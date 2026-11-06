@@ -17,6 +17,7 @@ import type {
   Moment,
   Receipt,
   Roster,
+  StageMark,
   Tally,
   ToolNote,
   Turn,
@@ -736,3 +737,22 @@ export const activityBadge = (i: {
 /** 활동 시각을 올린다. 1초 미만 간격이나 과거 시각은 같은 객체를 돌려줘 불필요한 쓰기를 막는다. */
 export const withActivity = (b: Board, at: number): Board =>
   b.activityAt !== undefined && at < b.activityAt + 1000 ? b : { ...b, activityAt: at }
+
+/** devFSD: 게이지 색 — 60% 미만 main, 60~79 amber, 80 이상 warn. */
+export const gaugeColor = (pct: number, C: Colors) => (pct >= 80 ? C.warn : pct >= 60 ? C.amber : C.main)
+
+/** devFSD: 단계 진행 요약 — 현재가 없고 모두 ✓/– 면 isDone. */
+export const stageProgress = (stages: readonly StageMark[]) => {
+  const at = stages.findIndex(s => s.isCurrent)
+  const done = stages.filter(s => s.mark === '✓' || s.mark === '–').length
+  const isDone = at < 0 && done === stages.length
+  const doneBefore = at >= 0 ? stages.slice(0, at).filter(s => s.mark === '✓' || s.mark === '–').length : done
+  return {
+    done: doneBefore,
+    step: isDone ? stages.length : at >= 0 ? doneBefore + 1 : doneBefore,
+    total: stages.length,
+    current: at >= 0 ? stages[at]?.label ?? null : null,
+    next: at >= 0 ? stages[at + 1]?.label ?? null : null,
+    isDone,
+  }
+}

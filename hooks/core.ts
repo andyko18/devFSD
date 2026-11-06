@@ -117,6 +117,9 @@ export type Config = {
   palette: Palette
   openOnStart: boolean
   statusLine: boolean
+  /** devFSD: 현재 브랜치 PR 의 CI 잡을 관제판에 합산한다(gh 읽기). 기본 꺼짐. */
+  ciWatch: boolean
+  ciIntervalSec: number
 }
 
 const safeRegExp = (source: string, fallback: string) => {
@@ -154,6 +157,8 @@ export const parseConfig = (o: Readonly<Record<string, unknown>>): Config => {
     // devFSD: 관제판은 .specops 가 있는 저장소에서만 연다(progress-pane 의 session.start 가 판정) — 기본 false.
     openOnStart: bool('openOnStart', false),
     statusLine: bool('statusLine', true),
+    ciWatch: bool('ciWatch', false),
+    ciIntervalSec: typeof o.ciIntervalSec === 'number' && Number.isFinite(o.ciIntervalSec) ? Math.max(30, Math.round(o.ciIntervalSec)) : 60,
   }
 }
 

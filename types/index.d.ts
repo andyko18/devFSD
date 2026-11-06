@@ -140,6 +140,8 @@ export type StageMark = {
   mark: '✓' | '–' | '✗' | '●' | '○'
 }
 
+export type CiCheck = { name: string; bucket: 'pass' | 'pending' | 'fail' | 'skipping' | 'cancel' }
+
 export type Board = {
   running: Job[]
   recent: Job[]
@@ -147,6 +149,8 @@ export type Board = {
   fid?: string
   stages?: StageMark[]
   verify?: string
+  /** devFSD: 현재 브랜치 PR 의 CI 잡 — ciWatch 를 켠 세션만 채운다. */
+  ci?: CiCheck[]
   activityAt?: number // 마지막 활동 시각(ms) — 훅 이벤트·출력 파일 중 늦은 쪽
   working?: boolean // 메인 턴이 열려 있는 동안 true (시계가 계속 돌게)
 }

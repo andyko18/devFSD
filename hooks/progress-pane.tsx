@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Board, Job, StageMark } from '../types'
+import { pollCi } from './ci-watch'
 import { STAT_SCRIPT, outputPathOf, latestMtimeMs, withActivity } from './core'
 
 const PANE = 'devfsd-progress'
@@ -318,10 +319,35 @@ async function noteOutput($: EngineInterface, id: string, text: string | undefin
 // 진행 패널의 세션 값 — 모듈 변수는 재로드 때 새로 시작하고, registerProgress 가 다시 비운다.
 let cwd = ''
 let ticker: { cancel(): void } | undefined
+let ciTicker: { cancel(): void } | undefined
+let isCiPolling = false
 let gate: RefreshGate = { refreshing: false, again: false }
 
-export async function progressStart($: EngineInterface, cwdNow: string): Promise<void> {
+/** devFSD: PR 의 CI 잡을 한 번 읽어 board.ci 에 쓴다. 겹치면 건너뛰고, 실패는 조용히 비운다. */
+async function pollCiOnce($: EngineInterface): Promise<void> {
+  if (isCiPolling) return
+  isCiPolling = true
+  try {
+    const ci = await pollCi($, cwd)
+    await update($, board, b => ({ ...b, ci }))
+  } catch {
+    // 관찰만 — 표시가 비는 것으로 충분하다.
+  } finally {
+    isCiPolling = false
+  }
+}
+
+export async function progressStart($: EngineInterface, cwdNow: string, ciOpt?: { watch: boolean; intervalSec: number }): Promise<void> {
     cwd = cwdNow
+    ciTicker?.cancel()
+    ciTicker = undefined
+    if (ciOpt?.watch) {
+      void pollCiOnce($)
+      ciTicker = $.clock.every(ciOpt.intervalSec * 1000, () => void pollCiOnce($))
+    } else {
+      // 이전 세션이 남긴 CI 잡이 합산되지 않게 비운다.
+      void safe(() => update($, board, b => (b.ci ? { ...b, ci: undefined } : b)))
+    }
     await $.command.register({
       name: 'devfsd-progress',
       description: 'devFSD 진행 패널 열기',
@@ -353,6 +379,9 @@ export function registerProgress(on: Parameters<Register>[0]): void {
   cwd = ''
   ticker?.cancel()
   ticker = undefined
+  ciTicker?.cancel()
+  ciTicker = undefined
+  isCiPolling = false
   gate = { refreshing: false, again: false }
 
   on('command.run', { command: 'devfsd-progress' }, async $ => {

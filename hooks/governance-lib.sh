@@ -2030,7 +2030,9 @@ _gov_target_note() {
   if [ -d "$_GOV_TARGET_WT/.specops" ] && ! [ "$_GOV_TARGET_WT/.specops" -ef "$PWD/.specops" ]; then
     local _wfid
     _wfid=$(cd "$_GOV_TARGET_WT" 2>/dev/null && detect_fid 2>/dev/null)
-    if [ -n "$_wfid" ] && declare -F _sr_wt_owns_record >/dev/null 2>&1 && _sr_wt_owns_record "$_wfid" "$_GOV_TARGET_WT"; then
+    # 링크 가드(_gov_apply_record_root 첫 줄)로 안 옮긴 경우엔 'git 추적' 사유가 거짓이다 — 가드 c 검사를 함께 본다
+    if [ -n "$_wfid" ] && git -C "$_GOV_TARGET_WT" ls-files --error-unmatch -- .specops/session-progress.md >/dev/null 2>&1 \
+       && declare -F _sr_wt_owns_record >/dev/null 2>&1 && _sr_wt_owns_record "$_wfid" "$_GOV_TARGET_WT"; then
       printf '\n⚠️ worktree .specops/<FID> 에 추적 안 된 기록이 있지만 session-progress.md 가 git 추적 파일이라 프로젝트 폴더 기록으로 판정했습니다 — 기록 스크립트는 worktree 에 씁니다(추적 안 된 파일을 지우면 둘 다 메인 기록을 씁니다).'
     else
       printf '\n⚠️ worktree 에 .specops 가 있지만 이 FID 의 자기 기록이 없어(없음·빈 폴더·링크·추적 사본) 프로젝트 폴더 기록으로 판정했습니다.'

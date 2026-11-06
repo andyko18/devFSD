@@ -300,6 +300,14 @@ printf '%s' "$R2A" | grep -qF "판정 기준 worktree: $W2P" && printf '%s' "$R2
 # RR-6f 추적 session-progress + 추적 안 된 FID 기록 → 안내가 사실대로 (자기 기록이 없다고 말하지 않는다)
 printf '%s' "$R4F" | grep -qF 'session-progress.md 가 git 추적' && ! printf '%s' "$R4F" | grep -qF '자기 기록이 없어' \
   && ok "RR-6f 안내: 추적 session-progress + 추적 안 된 기록 → 'git 추적' 사유 · '자기 기록이 없어' 아님" || nope "RR-6f" "$(printf '%s' "$R4F" | tail -2)"
+# RR-6L 프로젝트 .specops 가 링크(가드 a 로 루트 안 옮김) + 추적 안 된 session-progress 의 자기 기록 → 'git 추적' 사유를 말하지 않는다
+M6L="$TD/main6l"; _mkmain "$M6L"; mv "$M6L/.specops" "$TD/ext6L"; ln -s "$TD/ext6L" "$M6L/.specops"
+(cd "$M6L" && bash "$VS" record "$FIDM" PASS >/dev/null 2>&1); printf 'z\n' > "$M6L/src/foo.sh"
+w=$(_mkwt "$M6L" w6l); _ownrec "$w"
+r=$(_prem "$M6L" "$C1" "$w" "$TR"); R6L=$(_why "$r")
+[ "$(_dec "$r")" = "deny" ] && ! git -C "$w" ls-files --error-unmatch -- .specops/session-progress.md >/dev/null 2>&1 \
+  && ! printf '%s' "$R6L" | grep -qF 'session-progress.md 가 git 추적' \
+  && ok "RR-6L 안내: 프로젝트 .specops 링크 + 추적 안 된 session-progress → deny · 'git 추적' 사유 아님" || nope "RR-6L" "dec=$(_dec "$r") $(printf '%s' "$R6L" | tail -2)"
 
 # RR-8 (NFR-2) 대상이 없으면 git 을 부르지 않는다
 REALGIT=$(command -v git); FG="$TD/fakegit"; mkdir -p "$FG"; CNT="$TD/rr.count"

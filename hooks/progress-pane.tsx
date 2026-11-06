@@ -194,7 +194,20 @@ async function readFid($: EngineInterface, cwd: string): Promise<string | undefi
 
 /** 이 FID 의 verify 상태 낱말 — 읽기 전용 `current` 만 부른다. 판정 불가는 `검증 ?`. */
 async function verifyFor($: EngineInterface, cwd: string, fid: string): Promise<string> {
-  const root = projectRoot(cwd)
+  // devFSD: FID 기록이 있는 첫 폴더를 진행 읽기와 같은 순서([cwd, 프로젝트 폴더])로 찾는다.
+  //   새 FID 는 워크트리 안에 만들어질 수 있어 프로젝트 폴더 고정이면 `검증 ?` 가 된다.
+  let root: string | undefined
+  for (const dir of [cwd, projectRoot(cwd)]) {
+    try {
+      if (await $.fs.exists(`${dir}/.specops/${fid}`)) {
+        root = dir
+        break
+      }
+    } catch {
+      // 판정 불가 — 다음 후보
+    }
+  }
+  if (!root) return '검증 ?'
   const env: Record<string, string> = {}
   if (root !== cwd) {
     const g = await $.process.run(['git', '-C', cwd, 'rev-parse', '--absolute-git-dir'], { timeoutMs: VERIFY_TIMEOUT_MS })
@@ -202,7 +215,6 @@ async function verifyFor($: EngineInterface, cwd: string, fid: string): Promise<
     env.GIT_DIR = g.stdout.trim()
     env.GIT_WORK_TREE = cwd
   }
-  if (!(await $.fs.exists(`${root}/.specops/${fid}`))) return '검증 ?'
   const r = await $.process.run(
     ['bash', `${$.plugin.root}/scripts/_internal/verification-state.sh`, 'current', fid],
     { cwd: root, env, timeoutMs: VERIFY_TIMEOUT_MS },

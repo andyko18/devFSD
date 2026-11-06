@@ -83,7 +83,7 @@ import type { Config, Panel } from './core'
 // devFSD: 진행 기록(FID·단계·verify)은 progress-pane 이 채우는 board 를 읽기만 한다.
 import { progressStart } from './progress-pane'
 import { ciLine, ciPending } from './ci-watch'
-import type { Board } from '../types'
+import type { Board, StageMark } from '../types'
 
 // devFSD: progress-pane 이 쓰는 board 와 같은 상태(같은 ref·shape) — 여기서는 읽기만 한다.
 // 검증기는 atom 을 읽는 파일 안에 그 정의가 있기를 요구한다.
@@ -714,10 +714,13 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     ])
     // The body's own width, down to the narrowest dock Claude Code seats (24): a wider drawing is cut off at the frame.
     const W = Math.max(24, e.props.bodyColumns)
-    const badge = activityBadge({ jobs: b.running.length, isRunning: m.isRunning, activityAt: b.activityAt, now, compact: W < 60, since: oldestStart(b.running) })
     // 메인 턴은 쉬지만 백그라운드 작업(또는 CI 대기)이 도는 중 — 완전한 idle 과 구분해 보인다.
     const bgTotal = b.running.length + ciPending(b.ci)
+    // 배지의 BG N 도 헤더·카드와 같은 개수(실행 중 작업 + CI 대기)를 센다.
+    const badge = activityBadge({ jobs: bgTotal, isRunning: m.isRunning, activityAt: b.activityAt, now, compact: W < 60, since: oldestStart(b.running) })
     const isWaiting = !m.isRunning && bgTotal > 0
+    // 끝난 지 1분 안의 백그라운드 명령(bash)만 — 에이전트 종료는 agents 패널의 몫이다.
+    const endedJobs = b.recent.filter(j => j.kind === 'bash' && j.endedAt !== undefined && now - j.endedAt < 60_000).slice(0, 3)
     const badgeColor = badge?.stalled ? C.warn : C.dim
     const layout = v.layout ?? cfg.layout
     const modelName = prettyModel(m.model)
@@ -728,7 +731,8 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const motion = cfg.motion && hasRail
     // A panel with nothing to show yet takes no room: most sessions never spawn an agent.
     const isEmpty: Record<Panel, boolean> = {
-      fid: !b.fid,
+      // FID 가 없어도 BG·CI 가 있으면 카드를 BG 구역만으로 그린다.
+      fid: !b.fid && bgTotal === 0 && !ciLine(b.ci),
       main: false,
       architect: !showArchitect,
       // GATE 는 opt-in — 설정 panels 에 gate 를 넣은 사람만, 그 안에서도 기록이 있을 때만 그린다.
@@ -1177,7 +1181,8 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const expandedRows = expandedCard ? 2 + 2 + Math.max(1, expandedCard.tools.length) + (expandedCard.answer ? 1 : 0) : 0
     const heightOf: Record<Panel, number> = {
       main: 2 + mainRows(W).length,
-      fid: 2 + 1 + (b.stages && b.stages.length > 0 ? 1 : 0) + (bgTotal > 0 || ciLine(b.ci) ? 1 : 0) + Math.min(3, b.running.length) + (b.running.length > 3 ? 1 : 0),
+      // 테두리 2 + (FID 가 있으면 제목 1 + 단계가 있으면 진행 줄·단계 막대 2) + BG 줄 + 작업 줄 + 끝난 작업 줄
+      fid: 2 + (b.fid ? 1 + (b.stages && b.stages.length > 0 ? 2 : 0) : 0) + (bgTotal > 0 || ciLine(b.ci) ? 1 : 0) + Math.min(3, b.running.length) + (b.running.length > 3 ? 1 : 0) + endedJobs.length,
       architect: 2 + 3 + (cfg.moments ? 1 : 0) + (a.lastAdvice ? 1 : 0),
       gate: 2 + 4 + (v.gateOpen ? Math.min(5, g.recent.filter(c => c.bucket === v.gateOpen).length) : 0),
       // 테두리 없음: 머리 1 + (줄 모드: 이전 표시 1 + 줄 · 카드 모드: 카드 7줄 + 위아래 rail)
@@ -1217,39 +1222,91 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       </Box>
     )
 
-    // devFSD: 활성 FID 와 lifecycle 단계 막대 · verify 배지 · 백그라운드 작업 수.
+    // devFSD: 제목·검증 배지 · 진행 줄 · 단계 막대(현재 단계 강조) · BG/CI 줄 · 작업 줄 · 방금 끝난 작업. FID 가 없으면 BG 구역만.
     const fidPanel = (w: number) => {
-      const bgCount = b.running.length + ciPending(b.ci)
+      const sp = stageProgress(b.stages ?? [])
+      const hasStages = !!b.fid && sp.total > 0
       const isGreen = b.verify === '완료' || b.verify === '검증 PASS'
+      const verifyColor = isGreen ? C.gate : b.verify === '검증 FAIL' ? C.warn : C.amber
+      const ci = b.ci ?? []
+      const ciPass = ci.filter(c => c.bucket === 'pass').length
+      const ciFail = ci.filter(c => c.bucket === 'fail').length
+      const ciPend = ciPending(b.ci)
+      const gaugeW = Math.max(0, Math.min(12, w - 24))
+      const prog = gauge(sp.total > 0 ? (sp.step / sp.total) * 100 : 0, gaugeW)
+      const markColor = (s: StageMark) => (s.mark === '✓' ? C.gate : s.mark === '!' ? C.amber : s.mark === '✗' ? C.warn : C.dim)
+
       return (
         <Box flexDirection="column" borderStyle="round" borderColor={C.gate} paddingX={1} width={w}>
-          <Box justifyContent="space-between">
-            <Text color={C.gate} bold wrap="truncate">
-              {`devFSD · ${b.fid ?? ''}`}
-            </Text>
-            {b.verify ? (
-              <Box flexShrink={0}>
-                <Text color={isGreen ? C.gate : C.amber} bold={!isGreen}>{b.verify}</Text>
-              </Box>
-            ) : null}
-          </Box>
-          {b.stages && b.stages.length > 0 ? (
-            <Text wrap="wrap">{b.stages.map(s => `${s.label}${s.mark}`).join(' ')}</Text>
+          {b.fid ? (
+            <Box justifyContent="space-between">
+              <Text color={C.gate} bold wrap="truncate">
+                {`devFSD · ${b.fid}`}
+              </Text>
+              {b.verify ? (
+                <Box flexShrink={0}>
+                  <Text color={verifyColor} bold={!isGreen}>{b.verify}</Text>
+                </Box>
+              ) : null}
+            </Box>
           ) : null}
-          {bgCount > 0 || ciLine(b.ci) ? (
-            <Text dimColor wrap="truncate">
-              {[bgCount > 0 ? `백그라운드 작업 ${bgCount}개 실행 중` : '', ciLine(b.ci)].filter(Boolean).join(' · ')}
-            </Text>
+          {hasStages
+            ? line(
+                [
+                  gaugeW > 0 ? { spans: [{ text: prog.on, color: C.gate }, { text: prog.off, color: C.faint }] } : null,
+                  { spans: [{ text: `${sp.step}/${sp.total} ${sp.current ?? (sp.isDone ? '완료' : '')}`.trimEnd() + (sp.next ? ` · 다음 ${sp.next}` : '') }], fill: true },
+                ],
+                w - 4,
+              )
+            : null}
+          {hasStages ? (
+            <Box key="stage-bar" flexWrap="wrap" columnGap={1}>
+              {(b.stages ?? []).map(s => {
+                const failed = s.mark === '✗'
+                return (
+                  <Box flexShrink={0}>
+                    {s.isCurrent ? (
+                      <Text backgroundColor={failed ? C.warn : C.cleared} color={C.text} bold>{`▶ ${s.label}${failed ? '✗' : '●'}`}</Text>
+                    ) : (
+                      <Text color={markColor(s)} bold={s.mark === '!'}>{`${s.label}${s.mark}`}</Text>
+                    )}
+                  </Box>
+                )
+              })}
+            </Box>
           ) : null}
+          {bgTotal > 0 || ciLine(b.ci)
+            ? line(
+                [
+                  bgTotal > 0 ? { spans: [{ text: `BG ${bgTotal}`, bold: true }] } : null,
+                  ciLine(b.ci)
+                    ? {
+                        spans: [
+                          { text: 'CI ', dim: true },
+                          { text: `✓${ciPass}`, color: C.gate },
+                          ...(ciPend > 0 ? [{ text: ` ⋯${ciPend}`, color: C.amber }] : []),
+                          ...(ciFail > 0 ? [{ text: ` ✗${ciFail}`, color: C.warn }] : []),
+                        ],
+                      }
+                    : null,
+                ],
+                w - 4,
+              )
+            : null}
           {/* 작업별 한 줄 — 먼저 시작한 순으로 3개까지, 나머지는 개수로 */}
           {b.running.slice(0, 3).map(j => (
-            <Text key={j.id} dimColor wrap="truncate">
+            <Text key={j.id} color={C.text} wrap="truncate">
               {jobRow(j, now, w < 60)}
             </Text>
           ))}
           {b.running.length > 3 ? (
             <Text dimColor wrap="truncate">{`… 외 ${b.running.length - 3}개`}</Text>
           ) : null}
+          {endedJobs.map(j => (
+            <Text key={j.id} color={j.isFailed ? C.warn : C.gate} wrap="truncate">
+              {j.isFailed ? `✗ ${j.label.trim() || j.id} · 방금 끝남` : `✓ ${j.label.trim() || j.id}`}
+            </Text>
+          ))}
         </Box>
       )
     }

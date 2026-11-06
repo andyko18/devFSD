@@ -1737,10 +1737,10 @@ const ciWorld = (on: On, answer: () => unknown) => {
 const settle = async () => { for (let i = 0; i < 300; i++) await Promise.resolve() }
 const fidLine = async ($: Parameters<TestBody>[0]) => {
   const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
-  const node = await ui.find({ text: /백그라운드 작업|CI / })
+  const rows = rowsOf(subtree(await ui.drawn(), 'panel-fid')).map(r => (r.children ?? []).filter(isDrawn).map(textOf))
   await ui.unmount()
 
-  return node?.props?.children ?? node?.text
+  return rows.find(r => /^BG \d|^CI /.test(r[0] ?? ''))?.join(' ')
 }
 
 test('AC-5 ciWatch on: pending CI jobs join the background count, with the CI line', { options: { ciWatch: true } }, async ($, on) => {
@@ -1748,7 +1748,7 @@ test('AC-5 ciWatch on: pending CI jobs join the background count, with the CI li
   await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
   await settle()
   expect(gh.length).toBe(1)
-  expect(String(await fidLine($))).toContain('백그라운드 작업 2개 실행 중 · CI 1/3 통과')
+  expect(String(await fidLine($))).toBe('BG 2 CI ✓1 ⋯2')
 })
 
 test('devFSD: the FID card lists each running job with its run length, up to three', async ($, on) => {
@@ -1854,7 +1854,7 @@ const subtree = (n: unknown, key: string): Drawn | undefined => {
 const PROG_IMPLEMENT = '# p\n<!-- active-fid: 20261106-x -->\n\n## 20261106-x · y\n\n- 2026-11-06 10:00 /implement 진행 (x)\n'
 
 /** 활성 FID 가 있는 세계: progress 는 넘긴 문자열, verification-state.sh 는 verify 낱말, hasFid:false 는 FID 없는 progress. */
-const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean } = {}) => {
+const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean; gh?: () => unknown } = {}) => {
   const clock = engine(on)
   const progress = o.progress ?? PROG_IMPLEMENT
   const hasFid = o.hasFid ?? (() => true)
@@ -1866,6 +1866,7 @@ const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () =
   on('process.run', (_$, e) => {
     const argv = (e as unknown as { argv: string[] }).argv
     if (argv.some(a => a.endsWith('verification-state.sh'))) return { value: { exitCode: 0, stdout: `${o.verify ?? 'PASS'}\n`, stderr: '' } }
+    if (argv[0] === 'gh' && o.gh) return { value: o.gh() as never }
 
     return { value: { exitCode: 1, stdout: '', stderr: '' } }
   })
@@ -2230,7 +2231,7 @@ test('devFSD: FR-18 the inline gate strip comes back when panels names gate', { 
 })
 
 // `used` — 고정 행 수에서 로그 줄 수가 나온다: 헤더 1 + 오로라 1 + 패널 높이(main 2+3 — 턴이 진행 중이라 제목·ctx 줄·`● turn` 줄 ·
-// devFSD 2+2 · agents 카드 모드 1+1+7+1) + 패널 사이 빈 줄 3 = 24 에 로그 테두리·제목 3 을 더한 27 을 bodyRows 에서 뺀다.
+// devFSD 2+3(제목·진행 줄·단계 막대) · agents 카드 모드 1+1+7+1) + 패널 사이 빈 줄 3 = 25 에 로그 테두리·제목 3 을 더한 28 을 bodyRows 에서 뺀다.
 test('devFSD: the log takes the rows the other panels leave, 4 to 8, counted from the new fixed layout', async ($, on) => {
   fidWorld(on)
   await startFid($)
@@ -2249,10 +2250,218 @@ test('devFSD: the log takes the rows the other panels leave, 4 to 8, counted fro
   expect((await logCount(80)).panels).toEqual(['panel-main', 'panel-fid', 'panel-agents', 'panel-log'])
   const probe = await $.ui.mount({ ...pane(80), surface: 'terminal' })
   const tree = await probe.drawn()
-  expect([rowsOf(subtree(tree, 'panel-main')).length, rowsOf(subtree(tree, 'panel-fid')).length]).toEqual([3, 2]) // 손으로 센 높이의 전제
+  expect([rowsOf(subtree(tree, 'panel-main')).length, rowsOf(subtree(tree, 'panel-fid')).length]).toEqual([3, 3]) // 손으로 센 높이의 전제
   await probe.unmount()
-  // bodyRows - 24 - 3: 40 → 13 → 상한 8 · 34 → 7 · 33 → 6 · 31 → 4 · 20 → 하한 4
+  // bodyRows - 25 - 3: 40 → 12 → 상한 8 · 35 → 7 · 34 → 6 · 32 → 4 · 20 → 하한 4
   const counts: number[] = []
-  for (const rows of [40, 34, 33, 31, 20]) counts.push((await logCount(rows)).n)
+  for (const rows of [40, 35, 34, 32, 20]) counts.push((await logCount(rows)).n)
   expect(counts).toEqual([8, 7, 6, 4, 4])
+})
+
+// ---------------------------------------------------------------- devFSD: 카드 (FID 20261106-console-layout-revamp, T7)
+
+/** 기록 줄(최신이 위)로 progress 문서를 만든다. */
+const progOf = (lines: string[]) => `# p\n<!-- active-fid: 20261106-x -->\n\n## 20261106-x · y\n\n${lines.map(l => `- 2026-11-06 10:00 ${l}`).join('\n')}\n`
+/** 분석✓ 명세✓ 명확화– 설계– 분해✓ 구현● — progress-pane.test.tsx 의 BAR_B 와 같은 기록. */
+const PROG_B = progOf(['/implement 진행 (x)', '/tasks 완료 (x)', '/plan SKIP (lite)', '/clarify SKIP (lite)', '/specify 완료 (x)', '/analyze 완료 (x)'])
+const pieceTexts = (row: unknown) => (isDrawn(row) ? (row.children ?? []).filter(isDrawn).map(textOf) : [])
+const drawFid = async ($: Parameters<TestBody>[0], o: { cols?: number; surface?: 'terminal' | 'desktop' } = {}) => {
+  const ui = await $.ui.mount({ ...pane(o.cols ?? 80), surface: o.surface ?? 'terminal' })
+  const tree = await ui.drawn()
+  await ui.unmount()
+
+  return tree
+}
+const stageTexts = (tree: unknown) => textsOf(subtree(tree, 'stage-bar'))
+const badgeOf = (tree: unknown) => textsOf(rowsOf(subtree(tree, 'panel-fid'))[0]).at(-1)
+
+test('devFSD: AC-7 exactly one stage piece carries a background, the done ones are gate-coloured and the waiting ones dim', async ($, on) => {
+  fidWorld(on, { progress: PROG_B, verify: 'PASS' })
+  await startFid($)
+  const C = PALETTES.theme
+  const st = stageTexts(await drawFid($))
+  expect(st.map(textOf)).toEqual(['분석✓', '명세✓', '명확화–', '설계–', '분해✓', '▶ 구현●', '검증○', '보안○', '통합○', '성능○', '데모○', 'PR○'])
+  const filled = st.filter(t => t.props?.backgroundColor)
+  expect(filled).toHaveLength(1)
+  expect([textOf(filled[0]), filled[0]?.props?.backgroundColor, filled[0]?.props?.color, filled[0]?.props?.bold]).toEqual(['▶ 구현●', C.cleared, C.text, true])
+  const colorsOf = (end: string) => st.filter(t => textOf(t).endsWith(end)).map(t => t.props?.color)
+  expect(colorsOf('✓')).toEqual([C.gate, C.gate, C.gate])
+  expect(colorsOf('○')).toEqual(Array(6).fill(C.dim))
+  expect(colorsOf('–')).toEqual([C.dim, C.dim])
+})
+
+for (const [verify, shown, hidden, color] of [['STALE', '검증!', '검증✓', 'amber'], ['PASS', '검증✓', '검증!', 'gate']] as const) {
+  test(`devFSD: AC-7 with verification ${verify} the verify stage reads ${shown} and never ${hidden}`, async ($, on) => {
+    const prog = progOf(['/verify PASS (x)', '/implement 진행 (x)', '/tasks 완료 (x)', '/plan SKIP', '/clarify SKIP', '/specify 완료 (x)', '/analyze 완료 (x)'])
+    fidWorld(on, { progress: prog, verify })
+    await startFid($)
+    const st = stageTexts(await drawFid($))
+    expect(st.find(t => textOf(t) === shown)?.props?.color).toBe(PALETTES.theme[color])
+    expect(st.find(t => textOf(t) === hidden)).toBeUndefined()
+  })
+}
+
+test('devFSD: AC-7 a failed verification that is the current stage is drawn on a warn background', async ($, on) => {
+  const C = PALETTES.theme
+  fidWorld(on, { progress: progOf(['/verify FAIL (x)', '/implement 완료 (x)', '/tasks 완료 (x)', '/specify 완료 (x)', '/analyze 완료 (x)']), verify: 'FAIL' })
+  await startFid($)
+  const filled = stageTexts(await drawFid($)).filter(t => t.props?.backgroundColor)
+  expect(filled.map(t => [textOf(t), t.props?.backgroundColor])).toEqual([['▶ 검증✗', C.warn]])
+})
+
+for (const [label, verify, progress, text, color, bold] of [
+  ['PASS', 'PASS', PROG_B, '검증 PASS', 'gate', false],
+  ['STALE', 'STALE', PROG_B, '검증 STALE', 'amber', true],
+  ['NOT_RUN', 'NOT_RUN', PROG_B, '검증 NOT_RUN', 'amber', true],
+  ['FAIL', 'FAIL', PROG_B, '검증 FAIL', 'warn', true],
+  ['lifecycle done', 'PASS', progOf(['/lifecycle DONE (x)']), '완료', 'gate', false],
+] as const) {
+  test(`devFSD: AC-7 the verify badge reads ${text} in ${color} (${label})`, async ($, on) => {
+    fidWorld(on, { progress, verify })
+    await startFid($)
+    const badge = badgeOf(await drawFid($))
+    expect([badge ? textOf(badge) : undefined, badge?.props?.color, badge?.props?.bold === true]).toEqual([text, PALETTES.theme[color], bold])
+  })
+}
+
+for (const palette of ['theme', 'pastel'] as const) {
+  test(`devFSD: NFR-4 every Text colour on the screen is a ${palette} palette value, never a hex of its own`, { options: { palette, ciWatch: true } }, async ($, on) => {
+    fidWorld(on, { progress: PROG_B, verify: 'STALE', gh: () => ({ exitCode: 0, stdout: CI_OUT, stderr: '' }) })
+    await startFid($)
+    await $.turn.start({ text: 'go', turnId: 'N1' })
+    await $.tool.call(bg('p1'))
+    await $.agent.spawn(spawn('general-purpose', 'Write the tests'))
+    const allowed = new Set<string | undefined>([...Object.values(PALETTES[palette]), undefined])
+    const used = new Set<string | undefined>()
+    for (const t of textsOf(await drawFid($))) for (const c of [t.props?.color, t.props?.backgroundColor]) used.add(c as string | undefined)
+    expect([...used].filter(c => !allowed.has(c))).toEqual([])
+    expect([...used].filter(c => c !== undefined).length).toBeGreaterThan(5) // 공전 방지 — 색을 실제로 모았다
+  })
+}
+
+// AC-8 · AC-12: 진행 줄
+test('devFSD: AC-8 the progress row reads step/total, the current stage and the next one', async ($, on) => {
+  fidWorld(on, { progress: PROG_B })
+  await startFid($)
+  const C = PALETTES.theme
+  const row = rowsOf(subtree(await drawFid($), 'panel-fid'))[1]
+  const parts = pieceTexts(row)
+  expect(parts).toEqual(['██████░░░░░░', '6/12 구현 · 다음 검증']) // 분석·명세·분해 ✓ + 명확화·설계 – = 5 완료 → 6번째
+  expect(textsOf(row).find(t => textOf(t) === '██████')?.props?.color).toBe(C.gate)
+})
+
+test('devFSD: AC-8 a board with no current stage and unfinished work does not say 완료', async ($, on) => {
+  fidWorld(on, { progress: progOf(['/spec-check 진행 (x)']) }) // 단계 기록이 하나도 없다 → isCurrent 없는 옛 보드와 같은 모양
+  await startFid($)
+  const rows = rowsOf(subtree(await drawFid($), 'panel-fid')).map(pieceTexts)
+  expect(rows[1]?.at(-1)).toBe('0/11')
+  expect(rows.flat().join(' ')).not.toMatch(/완료/)
+})
+
+test('devFSD: AC-12 a finished FID reads n/n 완료 on the card and 완료 in the header, with no stage highlighted', async ($, on) => {
+  const all = ['/lifecycle DONE (x)', '/demo 완료', '/performance-test 완료', '/integration-test 완료', '/security-review 완료', '/verify PASS', '/implement 완료', '/tasks 완료', '/plan 완료', '/clarify 완료', '/specify 완료', '/analyze 완료']
+  fidWorld(on, { progress: progOf(all) })
+  await startFid($)
+  const tree = await drawFid($)
+  expect(pieceTexts(rowsOf(subtree(tree, 'panel-fid'))[1]).at(-1)).toBe('12/12 완료')
+  expect(stageTexts(tree).filter(t => t.props?.backgroundColor)).toEqual([])
+  expect(await headerAt($, 80)).toMatch(/완료/)
+})
+
+// AC-9: BG 표기 통일과 작업 줄
+const bgNamed = (id: string, description: string) => ({ tool: 'Bash', tool_use_id: id, command: 'x', description, run_in_background: true }) as never
+
+test('devFSD: AC-9 background work reads BG N everywhere — header, card and inline — and a job row begins with ↻', { options: { ciWatch: true }, timeoutMs: 60_000 }, async ($, on) => {
+  const clock = fidWorld(on, { gh: () => ({ exitCode: 0, stdout: CI_OUT, stderr: '' }) }) // CI: pass 1 · pending 2
+  await startFid($)
+  await $.tool.call(bg('b1'))
+  await clock.advance(30_000)
+  for (const id of ['b2', 'b3', 'b4']) await $.tool.call(bg(id)) // 작업 4 + CI 대기 2 = BG 6
+  for (const surface of ['terminal', 'desktop'] as const) {
+    for (const make of [pane, inline]) {
+      for (const cols of [24, 40, 60, 86]) {
+        const ui = await $.ui.mount({ ...make(cols), surface })
+        const tree = await ui.drawn()
+        const texts = textsOf(tree).map(textOf)
+        const where = `${surface} ${make === pane ? 'dock' : 'inline'} ${cols}`
+        expect({ where, hit: texts.filter(t => /작업 \d|백그라운드 작업|◐/.test(t)) }).toEqual({ where, hit: [] })
+        expect({ where, hit: texts.filter(t => t.includes('↻') && !t.startsWith('↻ ')) }).toEqual({ where, hit: [] })
+        if (cols >= 60) {
+          // 양성 대조 — 위 부재 단언이 공전이 아니다: 같은 화면에 BG 6 이 있다.
+          if (make === pane) {
+            expect(textOf(subtree(tree, 'header'))).toMatch(/BG 6/)
+            expect(pieceTexts(rowsOf(subtree(tree, 'panel-fid')).find(r => /^BG /.test(pieceTexts(r)[0] ?? '')))[0]).toBe('BG 6')
+          } else {
+            expect(texts.join('\n')).toMatch(/BG 6/)
+          }
+        }
+        await ui.unmount()
+      }
+    }
+  }
+})
+
+test('devFSD: AC-9 the card shows BG 6 and the CI counts in colour, three job rows and the rest as a count', { options: { ciWatch: true } }, async ($, on) => {
+  const clock = fidWorld(on, { gh: () => ({ exitCode: 0, stdout: CI_OUT, stderr: '' }) })
+  await startFid($)
+  const C = PALETTES.theme
+  await $.tool.call(bg('c1'))
+  await clock.advance(30_000)
+  for (const id of ['c2', 'c3', 'c4']) await $.tool.call(bg(id))
+  const rows = rowsOf(subtree(await drawFid($), 'panel-fid'))
+  const bgRow = rows.find(r => /^BG /.test(pieceTexts(r)[0] ?? ''))
+  expect(pieceTexts(bgRow)).toEqual(['BG 6', 'CI ✓1 ⋯2'])
+  const bgTexts = textsOf(bgRow)
+  expect(bgTexts.find(t => textOf(t) === '✓1')?.props?.color).toBe(C.gate)
+  expect(bgTexts.find(t => textOf(t) === ' ⋯2')?.props?.color).toBe(C.amber)
+  const jobs = rows.map(textOf).filter(r => /^↻ |^… 외/.test(r))
+  expect(jobs).toEqual(['↻ publish · 30초', '↻ publish · 0초', '↻ publish · 0초', '… 외 1개'])
+  expect(textsOf(rows.find(r => textOf(r).startsWith('↻ '))).map(t => t.props?.color)).toEqual([C.text])
+})
+
+// AC-10: 끝난 작업 60초와 FID 없는 BG
+test('devFSD: AC-10 a finished background command stays on the card for a minute — failed in warn, done in gate — then goes', { timeoutMs: 60_000 }, async ($, on) => {
+  const clock = fidWorld(on)
+  await startFid($)
+  const C = PALETTES.theme
+  await $.tool.call(bgNamed('e1', 'publish'))
+  await $.tool.call(bgNamed('e2', 'lint'))
+  await $.tool.call({ tool: 'Agent', tool_use_id: 'ag1', description: 'review', prompt: 'p', subagent_type: 'general-purpose' } as never) // 에이전트 종료는 카드에 오르지 않는다
+  await clock.advance(5_000)
+  await $.session.append(taskDone('e1'))
+  await $.session.append(taskDone('e2', 'failed'))
+  const ui = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  const endedOf = async () => {
+    const texts = textsOf(subtree(await ui.drawn(), 'panel-fid'))
+
+    return texts.filter(t => /^[✓✗] /.test(textOf(t))).map(t => [textOf(t), t.props?.color])
+  }
+  expect(await endedOf()).toEqual([['✗ lint · 방금 끝남', C.warn], ['✓ publish', C.gate]])
+  await clock.advance(59_000) // 끝난 지 59초
+  expect((await endedOf()).map(r => r[0])).toEqual(['✗ lint · 방금 끝남', '✓ publish'])
+  await clock.advance(2_000) // 61초 — 같은 mount 에서 사라진다
+  expect(await endedOf()).toEqual([])
+  await ui.unmount()
+})
+
+test('devFSD: AC-10 with no FID the card holds only the background part — no title, no stage bar', async ($, on) => {
+  let hasFid = true
+  fidWorld(on, { hasFid: () => hasFid })
+  await startFid($)
+  await $.tool.call(bg('f1'))
+  const withFid = await drawFid($) // 양성 대조: FID 가 있을 땐 제목과 단계 막대가 있다
+  expect(textsOf(subtree(withFid, 'panel-fid')).map(textOf).some(t => /^devFSD · /.test(t))).toBe(true)
+  expect(subtree(withFid, 'stage-bar')).toBeDefined()
+  hasFid = false
+  await startFid($)
+  const tree = await drawFid($)
+  const card = subtree(tree, 'panel-fid')
+  expect(card).toBeDefined()
+  expect(textsOf(card).map(textOf).some(t => /^devFSD/.test(t))).toBe(false)
+  expect(subtree(tree, 'stage-bar')).toBeUndefined()
+  expect(rowsOf(card).map(pieceTexts)[0]).toEqual(['BG 1'])
+  expect(textsOf(card).map(textOf)).toContain('↻ publish · 0초')
+  // 아무것도 없으면 카드 자체가 없다
+  await $.session.append(taskDone('f1'))
+  expect(panelKeysOf(await drawFid($))).not.toContain('panel-fid')
 })

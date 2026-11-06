@@ -591,6 +591,8 @@ type Run = { argv: string[]; init?: Record<string, unknown> }
 const verifyWorld = (on: PaneOn) => {
   const w = {
     progress: PROG,
+    progressPath: '/repo/.specops/session-progress.md',
+    fidDirs: undefined as string[] | undefined,
     dirOk: true,
     readable: true,
     git: { exitCode: 0, stdout: '/repo/.git/worktrees/wt\n', stderr: '' },
@@ -607,10 +609,14 @@ const verifyWorld = (on: PaneOn) => {
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('fs.read', (_, e) => {
-    if (w.readable && e.path === '/repo/.specops/session-progress.md') return { value: w.progress }
+    if (w.readable && e.path === w.progressPath) return { value: w.progress }
     throw new Error('ENOENT')
   })
-  on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' || (e.path.startsWith('/repo/.specops/') && w.dirOk) }))
+  on('fs.exists', (_, e) => ({
+    value:
+      e.path === '/repo/.specops' ||
+      (w.fidDirs ? w.fidDirs.includes(e.path) : e.path.startsWith('/repo/.specops/') && w.dirOk),
+  }))
   on('tool.call', async () => { await drain(); w.toolDone = true; return w.reply as never })
   on('process.run', async (_, e) => {
     const run = e as unknown as Run
@@ -737,6 +743,41 @@ test('a failing git lookup in a worktree never starts the verifier', async ($, o
 
   expect(w.runs.filter(r => r.argv[0] === 'git').length).toBe(2)
   expect(bash(w).length).toBe(0)
+})
+
+test('a worktree whose own .specops holds the FID verifies there, with an empty env and no git', async ($, on) => {
+  const w = verifyWorld(on)
+  const wt = '/repo/.claude/worktrees/wt'
+  w.progressPath = `${wt}/.specops/session-progress.md`
+  w.fidDirs = [`${wt}/.specops/20261104-b`]
+  const base = await begin($, w, wt)
+
+  expect(base).toBe(1)
+  expect(w.runs.filter(r => r.argv[0] === 'git').length).toBe(0)
+  expect(bash(w)[0]?.init).toEqual({ cwd: wt, env: {}, timeoutMs: 10000 })
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 STALE')
+})
+
+test('a worktree with the FID folder in neither place shows a question mark and runs nothing', async ($, on) => {
+  const w = verifyWorld(on)
+  const wt = '/repo/.claude/worktrees/wt'
+  w.progressPath = `${wt}/.specops/session-progress.md`
+  w.fidDirs = []
+  await begin($, w, wt)
+
+  expect(w.runs.length).toBe(0)
+  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 ?')
+})
+
+test('the worktree wins when both it and the project folder hold the FID', async ($, on) => {
+  const w = verifyWorld(on)
+  const wt = '/repo/.claude/worktrees/wt'
+  w.progressPath = `${wt}/.specops/session-progress.md`
+  w.fidDirs = [`${wt}/.specops/20261104-b`, '/repo/.specops/20261104-b']
+  await begin($, w, wt)
+
+  expect(w.runs.filter(r => r.argv[0] === 'git').length).toBe(0)
+  expect(bash(w)[0]?.init).toEqual({ cwd: wt, env: {}, timeoutMs: 10000 })
 })
 
 test('a rejected verifier leaves the call untouched and the next trigger recovers', async ($, on) => {

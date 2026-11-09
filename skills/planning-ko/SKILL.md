@@ -4,7 +4,7 @@ description: 스펙·요구사항이 확보된 다단계 작업에서 코드 건
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
-specops_version: 2.18.0
+specops_version: 3.1.20
 used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all (Phase 2 batch plan-review)
 ---
 
@@ -214,7 +214,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .s
 3. 반영 — 모두 돌아오면 DB → 구조 → API → 보안 순서로 반영한다(각 절 반영 규칙 그대로). 두 전문가가 같은 plan 자리를 다르게 고치라고 하면 하나로 합쳐 쓰고 두 파일의 `## 반영` 에 같은 1줄(`반영(… — <다른 전문가> 지적과 합침)`)을 남긴다. 합칠 수 없게 맞서면 각 절 규칙대로 한쪽을 `기각(근거)` 으로 적는다.
 4. 실패 — 한 패스가 모델 불가·산출 없음이면 그 패스만 각 절 규칙대로 다시 부른다. 나머지 반영은 그 결과를 기다리지 않고 진행하고, 다시 부른 패스는 돌아온 뒤 맨 뒤에 반영한다(이 패스만 반영 순서와 "서로의 반영 전" 입력의 예외 — 다른 반영이 끝난 plan.md 를 받는다).
 4-1. 재판단 — 반영으로 plan.md 가 바뀌었으면 `check-security-design.sh` 를 다시 1회 실행하고, 발동하지 않았던 절은 바뀐 plan 으로 발동 기준을 다시 본다. 새로 발동한 패스는 반영이 끝난 plan.md 로 부르고 맨 뒤에 반영한다(4 의 예외와 같은 방식 — SKIP 행은 두고 반영 행을 더한다).
-5. 다음 — 반영을 모두 마친 뒤 테스트 전문가 패스(직렬 — 반영된 plan 의 테스트를 본다) → 사전검사·경계 대조 재실행 1회 → plan-reviewer. 순서는 그대로다.
+5. 다음 — 반영을 모두 마친 뒤 사전검사·경계 대조 재실행 1회 → 테스트 전문가 패스와 plan-reviewer 1회차를 한 메시지에서 동시에 dispatch 한다(아래 「1회차 동시 dispatch」 — 테스트 패스가 발동하지 않으면 plan-reviewer 만 종전대로).
 
 ### DB 전문가 패스 (DB 를 건드릴 때만 — 20261020)
 
@@ -260,6 +260,20 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 - **반영**: `.specops/<FID>/experts/test.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. 수용 기준별 설계표의 "떨어뜨리는 잘못된 구현" 칸은 plan 의 해당 테스트 스텝에 옮긴다(구현자의 되돌려-관찰 대상이 된다). 앞의 전문가 패스와 이 패스 중 하나라도 plan.md 를 바꿨으면 '사전검사'·'경계 대조 입력' 의 두 스크립트는 마지막 전문가 패스 뒤에 한 번만 다시 실행하고 plan-reviewer 를 부른다.
 - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). `experts/test.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | test-expert | test-designer-ko | 산출 없음 | - |` 를 남기고 plan-reviewer 로 진행한다.
 - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 구현 증거로 읽는다): dispatch-log 에 `| <N> | <ISO-8601> | test-expert | test-designer-ko | 반영 | experts/test.md (지적 N · 반영 N · 기각 N) |`. 발동하지 않으면 `| <N> | <ISO-8601> | test-expert | - | SKIP | 테스트 파일 없음 |` 1행.
+
+### 1회차 동시 dispatch (테스트 전문가 ∥ plan-reviewer — 20261109)
+
+비-batch 에서 **테스트 전문가 패스가 발동할 때만** 적용한다(발동하지 않으면 plan-reviewer 를 종전대로 부른다). 종전엔 테스트 전문가 → 반영 → 리뷰 1회차 → 반영 → 2회차가 모두 직렬이라, plan 79분 가운데 리뷰 1회차와 그 반영이 통째로 대기였다(실측 20261105-specops-root-unify: 작성+테스트 전문가 약 34분 · 1회차+반영 약 19분 · 2회차+반영 약 23분, 리뷰어 자체는 중앙값 7분).
+
+1. 사전검사·경계 대조를 통과한 plan.md 로 테스트 전문가와 plan-reviewer 1회차를 **한 메시지의 `Agent` 호출 2개**로 함께 보낸다 — 입력은 각 절 dispatch 줄 그대로, **둘 다 같은 plan.md** 다. dispatch-log 에 `| <N> | <ISO-8601> | test-review-parallel | - | 동시 dispatch | test-designer-ko · plan-reviewer-ko(1회차) |` 1행.
+2. 둘 다 돌아오면 **둘의 지적을 한 번에 plan.md 에 반영**한다(테스트 전문가 절의 반영 규칙 + 리뷰 지적 수정). 같은 자리를 다르게 고치라면 하나로 합쳐 쓰고, 맞서면 리뷰어 Critical 을 우선하고 다른 쪽을 `기각(근거)` 으로 적는다. 반영 뒤 사전검사·경계 대조를 1회 다시 돌린다.
+3. 2회차 — 1회차가 FAIL 이면 종전대로 재dispatch 한다. **1회차가 PASS 여도** 반영으로 plan.md 가 바뀌었으면 **2회차를 반드시 부른다** — 종전엔 테스트 반영이 리뷰 앞이었으므로, **최종 plan 은 모든 반영 뒤 한 번은 리뷰를 받는다**는 성질을 지킨다. 1회차 PASS 이고 반영이 0건이면 그대로 PASS 다.
+4. cap 계산은 그대로다 — 1회차·2회차가 종전의 초기 시도·재dispatch 이고, 2회차 FAIL 이면 아래 「cap 초과」 처리.
+
+**하위 단계 기록** (어디서 시간이 쓰이는지 다음 FID 부터 재기 위해 — `stage-timing.sh` 가 그대로 집계한다): plan 단계 안에서 아래 3줄을 남긴다. 결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다(재개 판독기가 구현 증거로 읽는다).
+- 자체 검토 직후: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /plan-draft 완료 "plan.md 초안 + 자체 검토"`
+- 전문가 반영 직후(발동한 패스가 있을 때): `… <FID> /plan-expert 완료 "전문가 반영 (<패스 목록>)"`
+- 리뷰 회차마다: `… <FID> /plan-review 완료 "<N>회차 <PASS|FAIL> · Critical <n> · Important <n>"`
 
 ### 비-batch — plan-reviewer dispatch
 

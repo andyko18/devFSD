@@ -431,5 +431,39 @@ if [ -z "$got" ] && [ -z "$(tasks_md_ids "$TMP/없는-파일.md")" ]; then ok "R
 # R38.d — 값이 처음부터 없는 `- id:` 는 종전처럼 빈 줄 하나(표식 없음) — 종전 입력 불변 잠금
 printf -- '- id:\n' > "$_ti"
 if [ -z "$(tasks_md_ids "$_ti")" ] && [ "$(tasks_md_ids "$_ti" | wc -l | tr -d ' ')" = 1 ]; then ok "R38.d 헬퍼: 값 없는 '- id:' → 빈 줄 1개(표식 없음)"; else no "R38.d" "got=[$(tasks_md_ids "$_ti" | cat -vet)]"; fi
+# ── R39 — 이미 머지된 FID (20261109-reconcile-merged-fid): 진행 기록에 종결 줄이 없어도 미완으로 보지 않는다 ──
+# 판정은 git 만 쓴다(gh·네트워크 없음): FID 브랜치 tip 이 main 의 조상이면서 first-parent 체인에는 없을 때 = 머지 커밋으로 들어온 브랜치.
+# 새로 딴 브랜치(tip 이 first-parent 체인 위)와 미머지 브랜치는 머지됨이 아니다.
+_g() { git -c user.name=t -c user.email=t@t -c commit.gpgsign=false "$@"; }
+mk_gitfid() {  # $1=dir $2=fid $3=merged|fresh|unmerged
+  local d="$1" fid="$2" mode="$3"
+  mkdir -p "$d/.specops/$fid"
+  printf '## %s · ok\n\n- 2026-01-05T00:00:00Z /specify 완료 (spec.md)\n' "$fid" > "$d/.specops/session-progress.md"
+  touch "$d/.specops/$fid/spec.md"
+  ( cd "$d" && git init -q -b main && _g commit -q --allow-empty -m base
+    case "$mode" in
+      merged)   _g switch -q -c "feat/$fid" && _g commit -q --allow-empty -m work && _g switch -q main \
+                && _g commit -q --allow-empty -m other && _g merge -q --no-ff "feat/$fid" -m "Merge pull request #1 from x/feat/$fid" ;;
+      fresh)    _g branch "feat/$fid" ;;
+      unmerged) _g switch -q -c "feat/$fid" && _g commit -q --allow-empty -m work && _g switch -q main ;;
+    esac ) >/dev/null 2>&1
+}
+for mode in merged fresh unmerged; do
+  fid="20260109-gm-$mode"; d="$TMP/gm-$mode"; mk_gitfid "$d" "$fid" "$mode"
+  out=$( cd "$d" && SPECOPS_ROOT="$d/.specops" bash "$SCRIPT" "$fid" --hook 2>&1 ); rc=$?
+  if [ "$mode" = merged ]; then
+    if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF '이미 머지됨'; then ok "R39.$mode --hook → 이미 머지됨 안내"; else no "R39.$mode" "rc=$rc out=[$out]"; fi
+    out=$( cd "$d" && SPECOPS_ROOT="$d/.specops" bash "$SCRIPT" "$fid" 2>&1 )
+    if printf '%s' "$out" | grep -qF '이미 머지됨'; then ok "R39.$mode default 모드도 안내"; else no "R39.$mode.default" "out=[$out]"; fi
+  else
+    if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -qF '이미 머지됨'; then ok "R39.$mode → 머지됨 오판 없음"; else no "R39.$mode" "rc=$rc out=[$out]"; fi
+  fi
+done
+# R39.nogit — git 저장소가 아니면 무출력(판정 불가는 조용히 건너뜀)
+fid="20260109-gm-nogit"; d="$TMP/gm-nogit"; mkdir -p "$d/.specops/$fid"; touch "$d/.specops/$fid/spec.md"
+printf '## %s · ok\n\n- 2026-01-05T00:00:00Z /specify 완료 (spec.md)\n' "$fid" > "$d/.specops/session-progress.md"
+out=$( cd "$d" && SPECOPS_ROOT="$d/.specops" bash "$SCRIPT" "$fid" --hook 2>&1 ); rc=$?
+if [ "$rc" -eq 0 ] && [ -z "$out" ]; then ok "R39.nogit 저장소 아님 → 무출력"; else no "R39.nogit" "rc=$rc out=[$out]"; fi
+
 echo "── test-reconcile-check: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

@@ -66,5 +66,23 @@ if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'session-progress-reconcile'
   ok "S4 경고-only → 완결성 notice (DESYNC 거짓단언 없음)"
 else no "S4" "rc=$rc out=[$(printf '%s' "$out" | head -c 500)]"; fi
 
+# ── S5: 이미 머지된 FID (종결 줄 없음) → '이미 머지됨' notice, 완결성·DESYNC 문구 아님 ──
+fid=20260109-merged
+mkdir -p "$TMP/s5/.specops/$fid"
+( cd "$TMP/s5"
+  printf '## %s · ok\n\n- 2026-01-09T00:00:00Z /specify 완료 (spec.md)\n' "$fid" > .specops/session-progress.md
+  touch ".specops/$fid/spec.md"
+  g() { git -c user.name=t -c user.email=t@t -c commit.gpgsign=false "$@"; }
+  git init -q -b main && g commit -q --allow-empty -m base && g switch -q -c "feat/$fid" && g commit -q --allow-empty -m work \
+    && g switch -q main && g commit -q --allow-empty -m other && g merge -q --no-ff "feat/$fid" -m "Merge pull request #1 from x/feat/$fid"
+) >/dev/null 2>&1
+out=$( cd "$TMP/s5" && bash "$HOOK" 2>/dev/null ); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF 'session-progress-reconcile' \
+   && printf '%s' "$out" | grep -qF '이미 머지됨' \
+   && ! printf '%s' "$out" | grep -qF '완결성 힌트' \
+   && ! printf '%s' "$out" | grep -qF '과소보고 중'; then
+  ok "S5 머지된 FID → 머지됨 notice (완결성·DESYNC 문구 아님)"
+else no "S5" "rc=$rc out=[$(printf '%s' "$out" | head -c 500)]"; fi
+
 echo "── test-session-start-reconcile: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

@@ -110,6 +110,8 @@ if [ -n "$progress_block" ]; then
       # 미기록 단계도 없는 상태에서 거짓 지시가 매 세션 주입된다(5원칙 1 투명성 위반).
       if grep -qF 'DESYNC' <<< "$recon_out"; then
         recon_notice="[재개 정확성 힌트 — session-progress 가 실제 진행보다 과소보고 중이다. 아래 재개점부터 진행하고, 미기록 단계는 session-progress-append.sh 로 보정하라.]"
+      elif grep -qF '이미 머지됨' <<< "$recon_out"; then
+        recon_notice="[진행 상태 힌트 — 이 FID 는 이미 main 에 머지됐다. session-progress 에 종결 줄이 없어도 미완이 아니니 재개를 제안하지 말고 완료로 취급하라.]"
       else
         recon_notice="[산출물 완결성 힌트 — 아래 파일이 쓰다 만 상태일 수 있다(휴리스틱 판정이라 오탐 가능). 재개 전 해당 파일을 확인하라. 재개점 자체는 정상이다.]"
       fi

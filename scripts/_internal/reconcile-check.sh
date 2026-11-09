@@ -94,6 +94,28 @@ _emit_completeness_warnings() {  # $1=FID 디렉토리 $2=줄 접두어
   done
 }
 
+# ── 이미 머지됨 판정 (20261109-reconcile-merged-fid) ──
+# session-progress 에 종결 줄(PR 생성·DONE)이 빠져도 FID 브랜치가 main 에 들어갔으면 미완이 아니다.
+# git 만 쓴다(gh·네트워크 없음 — SessionStart 마다 돌아 지연·계정 문제를 피한다). 브랜치 tip 이
+# main 의 조상이면서 first-parent 체인에는 없을 때 = 머지 커밋으로 들어온 브랜치. 새로 딴 브랜치
+# (tip 이 first-parent 체인 위)와 fast-forward·squash 머지는 보수적으로 "머지됨 아님"(한계).
+merged_into=""
+if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
+  for _r in refs/remotes/origin/main refs/heads/main refs/remotes/origin/master refs/heads/master; do
+    git show-ref --verify --quiet "$_r" && { mref="$_r"; break; }
+  done
+  if [ -n "${mref:-}" ]; then
+    for _b in "refs/heads/feat/$FID" "refs/remotes/origin/feat/$FID"; do
+      tip=$(git rev-parse --verify -q "$_b" 2>/dev/null) || continue
+      if git merge-base --is-ancestor "$tip" "$mref" 2>/dev/null \
+         && ! git rev-list --first-parent "$mref" 2>/dev/null | grep -qx "$tip"; then
+        merged_into="${mref#refs/remotes/}"; merged_into="${merged_into#refs/heads/}"; break
+      fi
+    done
+  fi
+fi
+_merged_line() { printf '%sℹ️ 이미 머지됨 — feat/%s 가 %s 에 머지 커밋으로 들어갔다. session-progress 에 종결 줄이 없어도 미완이 아니다(재개 제안 불필요).\n' "$1" "$FID" "$merged_into"; }
+
 # 기록 frontier — session-progress FID 섹션에서 등장한 최고 단계
 recorded=0
 if [ -f "$PROGRESS" ] && grep -qE "^## $FID([[:space:]]|$)" "$PROGRESS"; then
@@ -142,6 +164,8 @@ fi
 
 # ── --hook 모드: DESYNC 시에만 간결 1줄 (정합 시 무출력) ──
 if [ "$MODE" = "--hook" ]; then
+  # 머지 끝난 FID 는 과소보고·산출물 경고가 의미 없다 — 안내 1줄만 내고 끝낸다.
+  [ -n "$merged_into" ] && { _merged_line ''; exit 0; }
   if [ "$evidence" -gt "$recorded" ]; then
     printf '⚠️ 재개 DESYNC — session-progress 가 실제 진행보다 과소보고 중. 기록 frontier=%s, 증거 frontier=%s (산출물/dispatch/git 이 더 진행됨). → 재개점: %s 부터. 미기록 구간(%s~%s)은 session-progress-append.sh 로 보정할 것.\n' \
       "$(_stage_name "$recorded")" "$(_stage_name "$evidence")" \
@@ -155,6 +179,7 @@ fi
 
 # ── default 모드: show-fid-status 위임 (출력 byte-동일) ──
 printf '\n## 실제 진행 대조 (reconcile)\n\n'
+[ -n "$merged_into" ] && _merged_line '  '
 if [ "$evidence" -gt "$recorded" ]; then
   printf '  \xe2\x9a\xa0\xef\xb8\x8f  DESYNC — session-progress 과소보고\n'
   printf '     기록 frontier: %s (단계 %s)\n' "$(_stage_name "$recorded")" "$recorded"

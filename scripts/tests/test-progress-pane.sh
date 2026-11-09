@@ -40,6 +40,12 @@ stage_keys() {
 engine_check() {
   local pp=$1 label=$2 mods out n_pass n_fail expected ev
   if ! command -v "$CLAUDE_BIN" >/dev/null 2>&1 || ! "$CLAUDE_BIN" plugin test --help >/dev/null 2>&1; then
+    # CI 는 CLI 를 설치하고 PP_REQUIRE_ENGINE=1 로 돈다 — 그때 SKIP 은 PASS 가 아니라 실패다(11회차: TS 훅 테스트 244건이
+    #   CI 에서 SKIP 인데 PASS 로 집계됐다). 로컬 기본(미설정)은 종전대로 SKIP.
+    if [ "${PP_REQUIRE_ENGINE:-}" = 1 ]; then
+      ng "PP-7 ($label) claude CLI 없음·plugin test 미지원 — PP_REQUIRE_ENGINE=1 이라 SKIP 하지 않는다"
+      return 0
+    fi
     echo "SKIP PP-7 ($label) claude CLI 없음·plugin test 미지원 — validate·test 생략"
     return 0
   fi
@@ -70,8 +76,10 @@ engine_check() {
 
 # ── self: SKIP 경로 자기 검사 ─────────────────────────────────────────
 if want self && [ -z "${PP_INNER:-}" ]; then
-  out=$(PP_INNER=1 PROGRESS_PANE_CLAUDE_BIN=/nonexistent/claude bash "$SELF" --part=engine 2>&1); rc=$?
+  out=$(env -u PP_REQUIRE_ENGINE PP_INNER=1 PROGRESS_PANE_CLAUDE_BIN=/nonexistent/claude bash "$SELF" --part=engine 2>&1); rc=$?
   [ "$rc" -eq 0 ] && echo "$out" | grep -q '^SKIP PP-7' && ok "PP-9 CLI 없으면 SKIP·PASS" || { echo "$out" | tail -5; ng "PP-9 CLI 없으면 SKIP·PASS (rc=$rc)"; }
+  out=$(PP_REQUIRE_ENGINE=1 PP_INNER=1 PROGRESS_PANE_CLAUDE_BIN=/nonexistent/claude bash "$SELF" --part=engine 2>&1); rc=$?
+  [ "$rc" -ne 0 ] && ! echo "$out" | grep -q '^SKIP PP-7' && ok "PP-9b PP_REQUIRE_ENGINE=1 이면 CLI 없을 때 SKIP 이 아니라 실패" || { echo "$out" | tail -5; ng "PP-9b PP_REQUIRE_ENGINE=1 인데 SKIP·PASS (rc=$rc)"; }
 fi
 
 # ── engine: mod 소스 단독 조립본 엔진 검사 (self 가 CLI 없이 부른다) ──────

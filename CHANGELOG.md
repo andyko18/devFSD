@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Changed
+- CI 에서 진행 패널·관제판 TS 훅 테스트(244건)가 실제로 돈다(11회차 평가 테스트 품질 — CLI 가 없어 SKIP 인데 PASS 로 집계되던 것). ubuntu `run-all` 잡이 Claude Code CLI(2.1.317 고정)를 설치하고 `PP_REQUIRE_ENGINE=1` 로 돌며, 그 값이면 CLI 부재는 SKIP 이 아니라 실패다. `plugin test` 는 로그인·API 키 없이 돈다(빈 HOME·키 없음에서 244/244 실측). 로컬 기본 동작(CLI 없으면 SKIP)은 그대로다. 코퍼스 의존 스위트(P10·R18·T25)는 `.specops` 로컬 전용 정책상 CI 에 실데이터가 없어 이번 범위 밖이다.
+
 ## [3.1.18] — 2026-11-09
 
 ### Fixed

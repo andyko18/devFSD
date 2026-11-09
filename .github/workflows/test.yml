@@ -8,12 +8,18 @@ on:
 jobs:
   run-all:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Install pyyaml
         run: python3 -m pip install --user 'pyyaml==6.0.2'
+      # 진행 패널·관제판 TS 훅 테스트(244건)는 `claude plugin test` 로만 돈다 — CLI 가 없으면 SKIP 인데 PASS 로 집계됐다(11회차).
+      #   plugin test 는 로그인·API 키 없이 돈다(실측: 빈 HOME · 키 없음에서 244/244). PP_REQUIRE_ENGINE=1 이면 CLI 부재는 실패다.
+      - name: Install Claude Code CLI (plugin test engine)
+        run: npm install -g @anthropic-ai/claude-code@2.1.317
       - name: Run full test suite
+        env:
+          PP_REQUIRE_ENGINE: "1"
         run: bash scripts/tests/run-all.sh --quiet
       - name: Governance hook performance gate
         run: BENCH_THRESHOLD_MS=800 BENCH_STOP_THRESHOLD_MS=3000 bash scripts/tests/governance/bench-hook.sh

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.22] — 2026-11-10
+
 ### Changed
 - 데모 단계가 더 이상 멈추지 않는다(사용자 결정 2026-11-09). 만든 것을 실제로 실행해 화면·출력을 보여 주는 일은 그대로 하고, "맞다/아니다" 확인 대기는 없앴다 — 도입(v3.1.7) 뒤 5건 실행에서 "아니다" 가 0건이었고 대기는 사람 시간을 썼다(한 건은 대기 포함 47분). 확인이 필요한 종류(화면·사용자 문구·미분류)는 보여 준 것을 PR 게이트 요약 맨 앞에 다시 붙여 **PR 생성 질문에서 함께** 확인받고, 다르다고 하면 고친 뒤 다시 보여 준다. batch(`/start-all`)의 PR 직전 데모도 같다. 찍지 못했거나 보여 줄 수 없으면 그 사실과 직접 확인 방법을 같은 자리에 적는다.
 
@@ -3635,7 +3637,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.21...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.22...HEAD
+[3.1.22]: https://github.com/andyko18/devFSD/compare/v3.1.21...v3.1.22
 [3.1.21]: https://github.com/andyko18/devFSD/compare/v3.1.20...v3.1.21
 [3.1.20]: https://github.com/andyko18/devFSD/compare/v3.1.19...v3.1.20
 [3.1.19]: https://github.com/andyko18/devFSD/compare/v3.1.18...v3.1.19

@@ -35,7 +35,7 @@ grep -q 'screen: "login"' "screens/login.md" 2>/dev/null \
   || nope "T2.b screen.md frontmatter screen:" "screen: \"login\" 없음"
 
 # T3: DESIGN.md Primary 색상이 HTML --color-primary에 반영
-# DESIGN.md 없을 때 fallback #7C3AED
+# DESIGN.md 없을 때 fallback = 템플릿 기본(방향 1 #2F5FA8 — 20261109 보라 기본 제거)
 grep -q -- '--color-primary:' "screens/login.html" 2>/dev/null \
   && ok  "T3.a HTML --color-primary 변수 존재" \
   || nope "T3.a HTML --color-primary" "--color-primary 없음"
@@ -88,8 +88,8 @@ cat > "$TMP/DESIGN.md" <<'DEOF'
 DEOF
 bash "$SCRIPT" partial --force >/dev/null 2>&1
 if grep -q -- '--color-primary: #000000' "screens/partial.html" 2>/dev/null \
-   && grep -q -- '--color-bg: #0F0F10' "screens/partial.html" 2>/dev/null; then
-  ok  "T3.d 미확정 색상 skip → 템플릿 기본값 유지"
+   && grep -q -- '--color-bg: #FCFCFD' "screens/partial.html" 2>/dev/null; then
+  ok  "T3.d 미확정 색상 skip → 템플릿 기본값(방향 1 라이트 — 20261109 보라·다크 기본 제거) 유지"
 else
   nope "T3.d 미확정 색상 skip" "placeholder 를 잘못 주입했거나 primary 미반영"
 fi

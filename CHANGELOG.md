@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Changed
+- 화면 목업 품질(다른 디자인 도구 대비 — frontend-design 의 "먼저 결정 → 만들고 → 찍어 보고 빼기" 구조를 업무 화면용으로 한국어 재작성). ① `templates/screen.html` 을 가운데 400px 카드 하나에서 **업무 화면 부품 세트**(앱 셸·페이지 헤더·툴바·KPI·표·상태 배지·탭·페이지네이션·알림·빈 상태·스켈레톤·모달·토스트·폼 그리드·버튼 변형)로 바꾸고, 기본 색을 보라+다크에서 **방향 1(절제된 라이트 업무형)** 으로 교체했다. 호버·포커스에 하드코딩돼 팔레트를 바꿔도 새던 보라를 없애고 파생 색은 주색에서 `color-mix` 로 만든다. 포커스 링·좁은 폭(768)·움직임 줄이기·한글 서체 스택을 기본으로 넣었다. ② 새 `scripts/_internal/screen-shot.sh` 가 목업을 1280·390 두 폭으로 찍는다(Chrome 헤드리스 — Playwright·Node 불필요, 데스크톱 Chrome 의 창 최소 폭 500 은 iframe 감싸개로 우회). 찍지 못하면 `SKIP`(rc 3)으로 정직하게 알린다. ③ **목업은 frontend-design 지침을 그대로 따른다** — `templates/frontend-design-guide.md` 에 원문을 수정 없이 들여왔다(Apache License 2.0 · 출처 고지 · 라이선스 전문 `templates/frontend-design-LICENSE.txt` · 외부 플러그인 의존 없음). 디자인 계획(색·서체·레이아웃·원칙) → 흔한 기본값인지 검토 → 작성 → 스크린샷 자기 비평. 새 `templates/screen-design-guide.md` 는 업무 화면 보충만 둔다: 판단 지원(목표·어제 대비 증감 · 대비 막대 · 추세 · 결론 한 줄 · 데이터 의미 색) · 상태 화면 · 입력 label · 토큰 이름 규약(목업 CSS 이식·생존율 검사용) · 찍고 보기. Step 5.5 · `/design-screen` · `/design-screens` 가 이 순서를 따르며, `templates/screen.html` 은 토큰 이름·부품 예시 참고용이다. 근거 — 같은 명세 3화면 블라인드 비교(독립 평가, 5점 척도): 개선 전 3.0 · 부품 템플릿에 맞춘 안 3.67 · frontend-design 단독 4.67. 차이는 판단 지원 장치에서 났다. 화면당 추가 시간은 촬영·점검 1~2분(추정).
+
 ### Fixed
 - 목업 디자인이 실제 앱으로 넘어가지 않던 문제(디자인 진단 2026-11-09) — 같은 날 만든 두 앱이 목업 클래스 생존율 8%(입력·버튼 14/14 가 브라우저 기본 모양)와 91% 로 갈렸고, 차이는 계획서가 우연히 "목업 토큰을 합친다" 고 적었는지뿐이었다. 화면 FID 는 **목업 CSS 이식**(목업 토큰·공통 클래스를 앱 전역 CSS 로)을 첫 태스크로 두고(`planning-ko`), plan 리뷰어가 빠지면 Important 로 지적하며(`plan-reviewer-ko`), 구현은 화면 CSS 를 최소 구현으로 줄이지 않는다(`implementing-ko`). 새 `check-mock-css.sh` 가 목업 클래스 생존율을 재고(경고 전용 · Tailwind·목업 없음·앱 CSS 없음은 SKIP) 데모 단계가 결과를 함께 보여 준다. 실데이터: stock-mng WARN 8%(2/25) · media OK 90%(29/32).
 

@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md (전반 "의도 탐색" + spec 산출 분리)
   - skills/brainstorming-ko/SKILL.md
-specops_version: 2.17.0
+specops_version: 3.1.21
 used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /start-all-auto, /maintain, /maintain-lite, /promote
 ---
 
@@ -187,7 +187,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /
      > "이 기능에 필요한 화면은 N개입니다: {name1}({설명}), {name2}({설명}) ..."
    - **[design system]**: 프로젝트 `DESIGN.md` 가 화면 스타일의 유일한 출처다 — 각 화면 생성 시 [공통] 의 DESIGN.md 준수 지시를 따른다(부재 시 `templates/screen.html` 기본 토큰).
    - 각 화면을 순서대로 설계:
-     1. `templates/screen.html` + 현재 spec 맥락 기반으로 HTML artifact 즉시 생성 (별도 질문 없이)
+     1. `templates/frontend-design-guide.md`(frontend-design 원문)를 그대로 따라 HTML 을 만든다(별도 질문 없이) — 디자인 계획(색·서체·레이아웃·원칙)을 화면 `.md` 의 `## 디자인 계획` 절에 먼저 쓰고, 흔한 기본값인지 검토한 뒤 작성한다. 업무 화면 보충(판단 지원·상태·토큰 이름)은 `templates/screen-design-guide.md`. 그 ③대로 `screen-shot.sh` 로 1280·390 두 장을 찍어 Read 로 보고 1~2회 다듬는다(찍지 못하면 그렇다고 적는다 — 20261109)
      2. 사용자에게 보여주고 수정 요청 수렴 → 수정 요청 시 재생성 루프
      3. 승인 → `screens/{name}.md` + `screens/{name}.html` 저장 (`mkdir -p screens` 선행)
    - 모든 화면 완료 후 Step 5.6 진행

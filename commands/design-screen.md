@@ -5,7 +5,7 @@ description: "[lifecycle 밖] 화면 1개 설계 — screens/ 에 .md+.html 쌍 
 triggers:
   - "/design-screen"
 mode: ask
-specops_version: 2.6.0
+specops_version: 3.1.21
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
@@ -55,7 +55,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh {name}
 
 ### Step 3: HTML artifact 생성
 
-스크립트가 이미 기본 HTML 구조를 생성했으므로, 사용자 답변 기반으로 **레이아웃·컴포넌트 내용만** 채운 HTML artifact를 생성:
+스크립트가 이미 기본 HTML 구조를 생성했으므로, 사용자 답변 기반으로 **레이아웃·컴포넌트 내용만** 채운 HTML artifact를 생성한다. `templates/frontend-design-guide.md`(frontend-design 원문)를 그대로 따른다 — 디자인 계획을 `.md` 의 `## 디자인 계획` 절에 쓰고 흔한 기본값인지 검토한 뒤 작성하고, 업무 화면 보충은 `templates/screen-design-guide.md` 를 따른 뒤, 그 ③대로 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/screen-shot.sh screens/{name}.html .specops/shots/{name}` 로 1280·390 두 장을 찍어 Read 로 보고 자가 점검 7줄로 1~2회 다듬은 뒤 보여 준다(20261109):
 - `screens/{name}.html`에 이미 `--color-primary` CSS 변수가 DESIGN.md 색상으로 설정됨
 - 컴포넌트는 `.btn`, `.input`, `.card` 클래스 사용 (DESIGN.md §4 준수)
 - `<main>` 영역에 실제 화면 마크업 작성

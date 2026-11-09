@@ -4,7 +4,7 @@
 
 ## 1. 플러그인 런타임 예외
 
-**플러그인 런타임 예외** (`_files_all_docs`): `.claude-plugin/plugin.json` 이 있는 repo 에서는 `skills/*/SKILL.md`·`commands/*.md`·`agents/*.md`·`templates/*.md`·`hooks/*`·`.claude-plugin/*` 이 **확장자와 무관하게 코드**다. 이 플러그인의 실행 로직은 산문이라, `*.md` 를 무조건 문서로 보면 verify 강제가 제품 본체에서 통째로 면제됐다 (실측: 최근 커밋의 다수가 면제 클래스였고 그중 실제 행동 변경이 상당수였다 — 릴리즈 스탬프 제외). 제거된 `§auto` 자기발급 면제표보다 넓었다. **플러그인 repo 에서만** 적용한다 — 이 경로는 Claude Code 플러그인 규약이지 앱 규약이 아니라서, 무조건 걸면 하류 앱 repo 의 `templates/email.md` 가 문서 커밋에서 막히고 false-deny 가 BYPASS 관성을 만든다. 같은 트리라도 `skills/*/README.md`·루트 `README`·`CHANGELOG`·`CLAUDE.md` 는 면제 유지(배포 런타임 아님).
+**플러그인 런타임 예외** (`_files_all_docs`): `.claude-plugin/plugin.json` 이 있는 repo 에서는 `skills/**/*.md`(SKILL.md 와 보조 md 전부 — 11회차 E-1; `skills/<이름>/README.md` 만 면제 유지)·`commands/*.md`·`agents/*.md`·`templates/*.md`·`hooks/*`·`.claude-plugin/*` 이 **확장자와 무관하게 코드**다. 이 플러그인의 실행 로직은 산문이라, `*.md` 를 무조건 문서로 보면 verify 강제가 제품 본체에서 통째로 면제됐다 (실측: 최근 커밋의 다수가 면제 클래스였고 그중 실제 행동 변경이 상당수였다 — 릴리즈 스탬프 제외). 제거된 `§auto` 자기발급 면제표보다 넓었다. **플러그인 repo 에서만** 적용한다 — 이 경로는 Claude Code 플러그인 규약이지 앱 규약이 아니라서, 무조건 걸면 하류 앱 repo 의 `templates/email.md` 가 문서 커밋에서 막히고 false-deny 가 BYPASS 관성을 만든다. 같은 트리라도 `skills/*/README.md`·루트 `README`·`CHANGELOG`·`CLAUDE.md` 는 면제 유지(배포 런타임 아님).
 
 ## 2. 면제 조회 — "이 커밋은 면제됩니까"를 미리 묻는다
 
@@ -34,4 +34,3 @@
 **분할의 위험**: 가드 하나를 조용히 떨어뜨리면 v1.88.0 이 고친 병의 재발이다 — 그 릴리즈는 "강제층 자신이 조용히 사라지는 경로가 셋 있었다"를 다뤘다. 나눌 이유가 생기면 **되돌려-관찰(변이 주입)로 각 가드의 생존을 실증하며** 나눈다. 이 예외는 분할 검토를 영구 금지하지 않고 근거 없는 분할만 막는다.
 
 **크기가 공짜라는 뜻은 아니다**: gbrain `20260807-governance-lib-freefix`(confidence: low — 근거는 자유 수정 2회 관측)는 이 파일을 훅 4종 공용이라 lifecycle 밖 즉흥 수정이 잦은 핫스팟으로 기록했다. 예외는 이 **한 파일에만** 적용되며 다른 파일의 비대화를 정당화하지 않는다. (참고 — 800줄 초과 파일은 수치가 자주 바뀌므로 여기에 적지 않는다: `git ls-files | xargs wc -l` 로 재확인한다. **프로덕션 코드**는 `hooks/governance-lib.sh` 와, 위 `## 거버넌스 엔진` 의 **플러그인 런타임 예외**로 "확장자와 무관하게 코드"가 되는 `skills/*/SKILL.md` 중 800줄을 넘는 것이다. **그 SKILL.md 에 800줄 예외를 발급하는 것이 아니다**: 이 절의 예외는 여전히 `hooks/governance-lib.sh` **한 파일에만** 적용되고, SKILL.md 의 분할·축소는 별건(크기 래칫과 보조 파일 분리)이다. 나머지 초과 파일은 테스트 스위트와 `CHANGELOG.md` 다.)
-

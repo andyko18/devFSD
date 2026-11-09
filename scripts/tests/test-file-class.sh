@@ -30,6 +30,29 @@ screens/a/b.html|doc
 screens/sub/dir/x.html|doc
 .specops/a/b.json|doc
 skills/foo/SKILL.md|code
+skills/implementing-ko/dev-autonomy.md|code
+skills/foo/README.md|doc
+skills/a/b/README.md|code
+skills/foo/readme.md|code
+skills/planning-ko/arch-expert/patterns/backend-layered-clean.md|code
+skills/e2e-test-ko/fixtures/spec.md|code
+requirements.txt|code
+requirements/base.txt|code
+constraints/x.txt|code
+a/constraints/x.txt|code
+.specops/requirements.txt|doc
+.specops/x/requirements/y.txt|doc
+Requirements.txt|doc
+requirements-dev.txt|code
+dev-requirements.txt|code
+backend/requirements/base.txt|code
+constraints.txt|code
+constraints-3.11.txt|code
+CMakeLists.txt|code
+native/CMakeLists.txt|code
+LICENSE.txt|doc
+docs/notes.txt|doc
+requirement.txt|doc
 skills/a/b/SKILL.md|code
 commands/bar.md|code
 commands/x/y.md|code
@@ -81,5 +104,19 @@ if grep -qE '\*\.md\|\*\.txt\|\*\.rst' "$PLUGIN/hooks/governance-lib.sh"; then
 else
   ok "T1.d 패턴 리터럴 복제 0건"
 fi
+
+
+# T2 (11회차 E-1·E-6 · 20261109-exempt-scope) — 면제 조회 CLI 로 끝에서 끝까지: 실제 훅이 쓰는 판정기와 같은 함수다
+SE="$PLUGIN/scripts/_internal/scope-explain.sh"
+_sb="$(mktemp -d)"; trap 'rm -rf "$_sb"' EXIT
+( cd "$_sb" && git init -q && mkdir -p .claude-plugin skills/x skills/planning-ko/arch-expert/patterns \
+  && echo '{}' > .claude-plugin/plugin.json && echo a > skills/x/dev-autonomy.md && echo a > skills/planning-ko/arch-expert/patterns/p.md \
+  && echo a > requirements.txt && echo a > notes.txt && echo a > docs.md ) >/dev/null 2>&1
+_exempt() { ( cd "$_sb" && git reset -q 2>/dev/null; git add -- "$@" 2>/dev/null; bash "$SE" 'git commit -m x' 2>&1 | grep -o 'EXEMPT=[a-z]*' ); }
+[ "$(_exempt skills/x/dev-autonomy.md)" = "EXEMPT=no" ] && ok "T2.a 플러그인 repo — skills/<이름>/dev-autonomy.md 는 면제 아님 (E-1)" || nope "T2.a" "$(_exempt skills/x/dev-autonomy.md)"
+[ "$(_exempt skills/planning-ko/arch-expert/patterns/p.md)" = "EXEMPT=no" ] && ok "T2.b 플러그인 repo — 중첩 patterns/*.md 는 면제 아님 (E-1)" || nope "T2.b" "$(_exempt skills/planning-ko/arch-expert/patterns/p.md)"
+[ "$(_exempt requirements.txt)" = "EXEMPT=no" ] && ok "T2.c requirements.txt 는 면제 아님 (E-6)" || nope "T2.c" "$(_exempt requirements.txt)"
+[ "$(_exempt notes.txt docs.md)" = "EXEMPT=yes" ] && ok "T2.d 일반 txt·md 문서는 종전대로 면제" || nope "T2.d" "$(_exempt notes.txt docs.md)"
+[ "$(_exempt docs.md requirements.txt)" = "EXEMPT=no" ] && ok "T2.e 문서에 의존성 파일이 섞이면 면제 아님" || nope "T2.e" "$(_exempt docs.md requirements.txt)"
 
 finish

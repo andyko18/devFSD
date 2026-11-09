@@ -78,7 +78,8 @@ done <<< "$numstat"
 
 # 고위험 신호 — 경로와 변경 내용을 함께 본다. 신호가 뜨면 크기와 무관하게 정식 경로다.
 sig=""
-if [ "$plugin_rc" -eq 0 ] && printf '%s' "$all" | grep -qE "$FC_RUNTIME_RE"; then
+# jq 가 없으면 판정할 수 없다 — quick 은 보수 방향이라 신호를 켠다(리뷰 M-1: 종전 grep 은 항상 있는 도구였다).
+if [ "$plugin_rc" -eq 0 ] && { ! command -v jq >/dev/null 2>&1 || [ "$(printf '%s\n' "$all" | jq -Rn --arg rt "$FC_RUNTIME_RE" '[inputs | select(test($rt))] | length > 0' 2>/dev/null)" = true ]; }; then
   sig="${sig} plugin_runtime"     # 플러그인 저장소의 훅·규칙·에이전트·스킬 본문·커맨드 = 강제층 본체
 fi
 printf '%s' "$all" | grep -qE '(^|/)screens/|(^|/)api-spec[^/]*\.md$|(^|/)data-model\.md$' \

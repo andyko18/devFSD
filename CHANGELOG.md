@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.23] — 2026-11-10
+
 ### Added
 - 웹 화면 브라우저 점검 하네스 — 새 `scripts/_internal/ui-probe.cjs` 가 떠 있는 화면 URL 을 실제 브라우저로 375·768·1280 폭에서 열어 찍고(`.specops/<FID>/ui/<화면>@<폭>.png`) **가로 넘침 · 콘솔 오류 · 접근성**(axe-core, WCAG 2.1 AA — critical·serious 만 실패)을 기계 판정한다. 하류 저장소에 의존성을 추가하지 않는다 — 그 저장소의 Playwright 를 쓰고, 없으면 devFSD 전용 캐시(`~/.cache/devfsd/ui-harness`, 1회 설치)를 쓰며, 브라우저는 시스템 Chrome 을 우선한다. 찾지 못하면 `UI-PROBE: SKIP (NO_TOOL)` 와 설치 명령을 내고 PASS 로 적지 않는다. 화면 신호가 있는 FID 는 `integration-test-ko` 가 이 점검을 돌리고 evidence 에 `**브라우저**: 실행(…) | 미실행(NO_TOOL|NO_ENV|NO_SERVER|USER_SKIP — 사유)` 줄을 반드시 남기며, `demo-ko` 는 그 PNG 를 그대로 보여 준다. 근거 — 하류 실측: 화면 FID 의 통합 테스트가 브라우저를 돌리지 않고 PASS(6/9), 남은 화면 이미지 0/35, 반응형·접근성 실행 검증 0. 한 화면 3폭 점검 약 3초(로컬 실측).
 
@@ -3640,7 +3642,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.22...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.23...HEAD
+[3.1.23]: https://github.com/andyko18/devFSD/compare/v3.1.22...v3.1.23
 [3.1.22]: https://github.com/andyko18/devFSD/compare/v3.1.21...v3.1.22
 [3.1.21]: https://github.com/andyko18/devFSD/compare/v3.1.20...v3.1.21
 [3.1.20]: https://github.com/andyko18/devFSD/compare/v3.1.19...v3.1.20

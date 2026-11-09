@@ -115,4 +115,4 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 
 ---
 
-*specops-ko v2.6.0 · 2026-05-20 · 화면별 목업 생성 슬래시*
+*specops-ko v3.1.21 · 2026-05-20 · 화면별 목업 생성 슬래시*

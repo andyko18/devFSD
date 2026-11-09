@@ -4,7 +4,7 @@ description: 스펙·요구사항이 확보된 다단계 작업에서 코드 건
 layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
-specops_version: 2.18.0
+specops_version: 3.1.21
 used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all (Phase 2 batch plan-review)
 ---
 
@@ -129,6 +129,12 @@ git commit -m "feat: 특정 기능 추가"
 - **모든 스텝에 완전한 코드** — 스텝이 코드를 바꾸면 코드를 보여라
 - **정확한 명령과 기대 출력**
 - DRY·YAGNI·TDD·잦은 커밋
+
+## 화면 FID — 목업 CSS 이식 (20261109)
+
+이 FID 가 `screens/*.html` 목업이 있는 화면을 구현하면(앱 프론트 파일을 만들거나 고치면) **목업 CSS 이식**을 **첫 태스크**로 둔다: 목업 `<style>` 의 토큰(`:root` 변수)과 공통 컴포넌트 클래스(카드·버튼·입력·표·배지·내비 등)를 앱 전역 CSS(또는 공통 컴포넌트)로 옮기고, 이후 화면 태스크는 그 클래스·토큰을 쓴다. 출력 파일에 앱 전역 CSS 경로를 적는다. Tailwind 앱이면 클래스 대신 토큰을 tailwind 설정으로 옮긴다.
+
+근거: 같은 날 만든 두 앱이 목업 클래스 생존율 8%(stock-mng — 계획서가 12줄짜리 전역 CSS 를 직접 써서 입력·버튼 14/14 가 브라우저 기본 모양)와 91%(media — 계획서가 우연히 "목업 토큰을 합친다" 고 적음)로 갈렸다. 화면 CSS 는 목업이 기준이다 — 최소 구현(YAGNI)으로 줄이지 않는다. 구현 뒤 `check-mock-css.sh` 가 생존율을 잰다(데모 단계 — 경고 전용).
 
 ## 자체 검토
 

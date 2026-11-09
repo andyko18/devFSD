@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- 목업 디자인이 실제 앱으로 넘어가지 않던 문제(디자인 진단 2026-11-09) — 같은 날 만든 두 앱이 목업 클래스 생존율 8%(입력·버튼 14/14 가 브라우저 기본 모양)와 91% 로 갈렸고, 차이는 계획서가 우연히 "목업 토큰을 합친다" 고 적었는지뿐이었다. 화면 FID 는 **목업 CSS 이식**(목업 토큰·공통 클래스를 앱 전역 CSS 로)을 첫 태스크로 두고(`planning-ko`), plan 리뷰어가 빠지면 Important 로 지적하며(`plan-reviewer-ko`), 구현은 화면 CSS 를 최소 구현으로 줄이지 않는다(`implementing-ko`). 새 `check-mock-css.sh` 가 목업 클래스 생존율을 재고(경고 전용 · Tailwind·목업 없음·앱 CSS 없음은 SKIP) 데모 단계가 결과를 함께 보여 준다. 실데이터: stock-mng WARN 8%(2/25) · media OK 90%(29/32).
+
 ### Changed
 - CI 에서 진행 패널·관제판 TS 훅 테스트(244건)가 실제로 돈다(11회차 평가 테스트 품질 — CLI 가 없어 SKIP 인데 PASS 로 집계되던 것). ubuntu `run-all` 잡이 Claude Code CLI(2.1.317 고정)를 설치하고 `PP_REQUIRE_ENGINE=1` 로 돌며, 그 값이면 CLI 부재는 SKIP 이 아니라 실패다. `plugin test` 는 로그인·API 키 없이 돈다(빈 HOME·키 없음에서 244/244 실측). 로컬 기본 동작(CLI 없으면 SKIP)은 그대로다. 코퍼스 의존 스위트(P10·R18·T25)는 `.specops` 로컬 전용 정책상 CI 에 실데이터가 없어 이번 범위 밖이다.
 

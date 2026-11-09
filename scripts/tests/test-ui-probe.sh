@@ -348,5 +348,11 @@ EOF
 fi
 fi
 
+# U4c — integration-test-ko 가 새 플래그를 Step 3b 안에서 쓰게 한다 (AC-6) — 절을 잘라 그 안에서만 본다
+SEC=$(awk '/^### Step 3b/{f=1} /^## FAIL 분기/{f=0} f' "$INT")
+miss=""; for n in '--memory .specops/memory/ui-probe.json' '--a11y-baseline .specops/memory/ui-a11y-baseline.json' '--mock screens/' '기록의 `startCmd`' '1회만' '`기준선 기록:`' '--a11y-baseline-update' '`기록 안 함:`'; do has "$SEC" "$n" || miss="$miss [$n]"; done
+printf '%s\n' "$SEC" | grep -F -- '--storage-state' | grep -qF 'NO_ENV' || miss="$miss [--storage-state 와 NO_ENV 가 같은 줄]"
+[ -z "$miss" ] && ok "U4c integration-test-ko Step 3b — 기록·기준선·목업 플래그 · startCmd 로 서버 · 1회만 질문 · 기준선 기록 줄 · 상태 파일 NO_ENV" || no "U4c" "없음:$miss"
+
 echo "── test-ui-probe: PASS=$PASS FAIL=$FAIL SKIP=$SKIPPED ──"
 [ "$FAIL" -eq 0 ]

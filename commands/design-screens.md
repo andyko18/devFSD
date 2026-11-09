@@ -5,7 +5,7 @@ description: "[lifecycle 밖] 복수 화면 일괄 설계 — 목록 자동판�
 triggers:
   - "/design-screens"
 mode: ask
-specops_version: 2.6.0
+specops_version: 3.1.21
 specops_layer: Lifecycle-Tool
 reference_upstream: specops-ko 독자 추가
 ---
@@ -38,6 +38,8 @@ args = 기능 설명. 비어 있거나 너무 짧으면(10자 미만) 최소 예
 ## Step 2: DESIGN.md 로드 (1회 공유)
 
 **첫 화면 전 단 1회** 프로젝트 `DESIGN.md` 를 읽어 모든 화면에 공유 적용한다(부재 시 `templates/screen.html` 기본 토큰). 화면별 준수 항목은 Step 3 의 DESIGN.md 준수 지시를 따른다.
+
+화면마다 `templates/screen-design-guide.md` 순서를 따른다 — 브리프 5줄 → `templates/screen.html` 부품으로 작성 → `screen-shot.sh` 로 1280·390 두 장을 찍어 자가 점검 7줄로 1~2회 다듬기(찍지 못하면 그렇다고 적는다 — 20261109).
 
 ## Step 3: 화면별 순차 대화 루프
 

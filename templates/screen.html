@@ -5,110 +5,182 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{title}} — 화면 미리보기</title>
+  <!-- 업무 화면 부품 세트 (20261109-screen-quality). 쓰기 전에 templates/screen-design-guide.md 의 브리프 5줄을 먼저 쓴다. 수치 원칙: 대비 4.5:1 · 터치 40~44px · 4/8 간격 · 모션 150~300ms -->
   <style>
-    /* CSS 변수 — DESIGN.md §1 Color System 1:1 대응 */
+    /* CSS 변수 — DESIGN.md §1 Color System 1:1 대응. 기본값 = 디자인 방향 1(절제된 라이트 업무형). DESIGN.md 가 있으면 주입기가 덮어쓴다 */
     :root {
-      --color-primary: #7C3AED;
-      --color-secondary: #A78BFA;
-      --color-bg: #0F0F10;
-      --color-surface: #1A1A1F;
-      --color-text: #F9FAFB;
-      --color-text-secondary: #9CA3AF;
-      --color-error: #EF4444;
-      --color-success: #10B981;
-      --color-border: #374151;
-      --color-accent: #E0C9FF;
-      --font-body: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      --font-code: 'JetBrains Mono', monospace;
-      --radius: 8px;
-      --radius-lg: 12px;
+      --color-primary: #2F5FA8;
+      --color-secondary: #5B6778;
+      --color-bg: #FCFCFD;
+      --color-surface: #F3F5F8;
+      --color-text: #1B2230;
+      --color-text-secondary: #5A6475;
+      --color-error: #B4232C;
+      --color-success: #1E7A45;
+      --color-border: #DCE1E8;
+      --color-warning: #9A6700;
+      --color-panel: #FFFFFF;
+      /* 파생 색 — 주색에서 만든다(하드코딩 금지: 팔레트를 바꾸면 호버·포커스도 함께 바뀐다) */
+      --color-primary-hover: color-mix(in srgb, var(--color-primary) 85%, black);
+      --color-primary-soft: color-mix(in srgb, var(--color-primary) 10%, transparent);
+      --color-ring: color-mix(in srgb, var(--color-primary) 45%, transparent);
+      --color-error-soft: color-mix(in srgb, var(--color-error) 10%, transparent);
+      --color-success-soft: color-mix(in srgb, var(--color-success) 12%, transparent);
+      --color-warning-soft: color-mix(in srgb, var(--color-warning) 12%, transparent);
+      --color-accent: var(--color-primary-soft);
+      /* 서체 — 한글 1종 + 숫자·코드 보조 1종 */
+      --font-body: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', system-ui, sans-serif;
+      --font-code: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+      --radius: 6px;
+      --radius-lg: 10px;
       --radius-pill: 9999px;
-      /* 타입 스케일 — DESIGN.md §2 Typography 1:1 대응 */
+      --shadow-sm: 0 1px 2px color-mix(in srgb, var(--color-text) 8%, transparent);
+      --shadow-md: 0 8px 24px color-mix(in srgb, var(--color-text) 14%, transparent);
+      /* 타입 스케일 — DESIGN.md §2 Typography 1:1 대응 (5단 안에서 쓴다) */
       --text-xs: 0.75rem; --text-sm: 0.875rem; --text-base: 1rem;
       --text-lg: 1.25rem; --text-xl: 1.5rem; --text-2xl: 2rem; --text-4xl: 3rem;
       /* 간격 스케일 — DESIGN.md §3 Spacing 1:1 대응 (4pt 기반) */
       --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
       --space-6: 24px; --space-8: 32px; --space-12: 48px; --space-16: 64px;
+      /* 밀도 — DESIGN.md D 다이얼(정보 밀도)로 행 높이를 정한다 */
+      --row-height: 40px;
+      --control-height: 36px;
+      --sidebar-width: 232px;
+      --motion: 160ms ease-out;
     }
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
       background-color: var(--color-bg);
       color: var(--color-text);
       font-family: var(--font-body);
-      font-size: 1rem;
+      font-size: var(--text-base);
       line-height: 1.6;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+      min-height: 100dvh;
+      -webkit-font-smoothing: antialiased;
     }
+    h1 { font-size: var(--text-xl); font-weight: 700; letter-spacing: -0.01em; }
+    h2 { font-size: var(--text-lg); font-weight: 600; }
+    h3 { font-size: var(--text-base); font-weight: 600; }
+    a { color: var(--color-primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .muted { color: var(--color-text-secondary); font-size: var(--text-sm); }
+    .num { font-variant-numeric: tabular-nums; text-align: right; }
+    :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 2px; }
 
-    .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-    .center { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    /* 앱 셸 — 좌측 탐색 + 상단바 + 본문 */
+    .app-shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); min-height: 100dvh; }
+    .sidebar { background: var(--color-panel); border-right: 1px solid var(--color-border); padding: var(--space-4) var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); }
+    .sidebar-brand { font-weight: 700; padding: var(--space-2) var(--space-3) var(--space-4); }
+    .nav-item { display: flex; align-items: center; gap: var(--space-2); min-height: var(--control-height); padding: 0 var(--space-3); border-radius: var(--radius); color: var(--color-text-secondary); font-size: var(--text-sm); }
+    .nav-item:hover { background: var(--color-surface); color: var(--color-text); text-decoration: none; }
+    .nav-item[aria-current="page"] { background: var(--color-primary-soft); color: var(--color-primary); font-weight: 600; }
+    .main { display: flex; flex-direction: column; min-width: 0; }
+    .topbar { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 var(--space-6); border-bottom: 1px solid var(--color-border); background: var(--color-panel); }
+    .content { padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-6); max-width: 1280px; width: 100%; }
+    .breadcrumb { font-size: var(--text-sm); color: var(--color-text-secondary); }
 
-    /* Button — DESIGN.md §4 */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 8px 16px;
-      border-radius: var(--radius);
-      font-size: 1rem;
-      font-weight: 500;
-      cursor: pointer;
-      border: none;
-      transition: background-color 0.15s, opacity 0.15s;
-    }
-    .btn-primary { background-color: var(--color-primary); color: white; }
-    .btn-primary:hover { background-color: #6D28D9; }
-    .btn-secondary {
-      background: transparent;
-      border: 1px solid var(--color-primary);
-      color: var(--color-primary);
-    }
-    .btn-secondary:hover { background-color: rgba(124,58,237,0.1); }
+    /* 페이지 헤더 — 제목·설명·주 액션 1개 */
+    .page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+    .page-header p { color: var(--color-text-secondary); font-size: var(--text-sm); margin-top: var(--space-1); }
+
+    /* 툴바 — 검색·필터·정렬 (입력은 아래 '입력 예시' 주석을 복사해 쓴다) */
+    .toolbar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+    .toolbar .spacer { flex: 1; }
+
+    /* 버튼 — DESIGN.md §4 */
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: var(--control-height); padding: 0 var(--space-4); border-radius: var(--radius); font: inherit; font-size: var(--text-sm); font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: background-color var(--motion), border-color var(--motion); }
+    .btn-primary { background: var(--color-primary); color: var(--color-panel); }
+    .btn-primary:hover { background: var(--color-primary-hover); }
+    .btn-secondary { background: var(--color-panel); border-color: var(--color-border); color: var(--color-text); }
+    .btn-secondary:hover { background: var(--color-surface); }
+    .btn-ghost { background: transparent; color: var(--color-text-secondary); }
+    .btn-ghost:hover { background: var(--color-surface); color: var(--color-text); }
+    .btn-danger { background: var(--color-error); color: var(--color-panel); }
+    .btn-sm { min-height: 28px; padding: 0 var(--space-3); font-size: var(--text-xs); }
+    .btn-icon { width: var(--control-height); padding: 0; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-full { width: 100%; }
 
-    /* Input — DESIGN.md §4 */
-    .input {
-      width: 100%;
-      padding: 10px 12px;
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius);
-      color: var(--color-text);
-      font-size: 1rem;
-      font-family: var(--font-body);
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .input::placeholder { color: #6B7280; }
-    .input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(124,58,237,0.2); }
+    /* 입력 — DESIGN.md §4 */
+    .input { width: 100%; min-height: var(--control-height); padding: 0 var(--space-3); background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius); color: var(--color-text); font: inherit; font-size: var(--text-sm); transition: border-color var(--motion), box-shadow var(--motion); }
+    .input::placeholder { color: var(--color-text-secondary); }
+    .input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px var(--color-ring); }
     .input.error { border-color: var(--color-error); }
-    .input-label { display: block; font-size: 0.875rem; color: var(--color-text-secondary); margin-bottom: 6px; }
-    .input-group { display: flex; flex-direction: column; gap: 4px; }
+    .input-label { display: block; font-size: var(--text-sm); font-weight: 500; margin-bottom: var(--space-1); }
+    .input-group { display: flex; flex-direction: column; gap: var(--space-1); }
+    .input-help { font-size: var(--text-xs); color: var(--color-text-secondary); }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-4); }
+    .error-msg { color: var(--color-error); font-size: var(--text-xs); }
 
-    /* Card — DESIGN.md §4 */
-    .card {
-      background-color: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: var(--radius-lg);
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.3);
-      padding: 24px;
+    /* 카드·패널 — 목록은 카드 반복이 아니라 표로 */
+    .card { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); padding: var(--space-6); }
+    .panel { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-lg); overflow: hidden; }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--color-border); }
+
+    /* KPI 타일 — 핵심 수치가 눈에 가장 먼저 가게 */
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); }
+    .kpi { background: var(--color-panel); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-4); }
+    .kpi-label { font-size: var(--text-sm); color: var(--color-text-secondary); }
+    .kpi-value { font-size: var(--text-2xl); font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; margin-top: var(--space-1); }
+    .kpi-delta { font-size: var(--text-xs); margin-top: var(--space-1); }
+
+    /* 표 — 헤더 고정 · 숫자 우측 · 행 호버 · 선택 행 */
+    .table-wrap { overflow-x: auto; }
+    .table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    .table th { position: sticky; top: 0; background: var(--color-surface); text-align: left; font-weight: 600; color: var(--color-text-secondary); height: var(--row-height); padding: 0 var(--space-4); border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+    .table td { height: var(--row-height); padding: 0 var(--space-4); border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+    .table tbody tr:hover { background: var(--color-surface); }
+    .table tr[aria-selected="true"] { background: var(--color-primary-soft); }
+    .table th.num, .table td.num { text-align: right; }
+
+    /* 상태 배지 — 색 + 글자 병기(색 단독 전달 금지) */
+    .badge { display: inline-flex; align-items: center; gap: var(--space-1); height: 22px; white-space: nowrap; padding: 0 var(--space-2); border-radius: var(--radius-pill); font-size: var(--text-xs); font-weight: 600; background: var(--color-surface); color: var(--color-text-secondary); }
+    .badge-success { background: var(--color-success-soft); color: var(--color-success); }
+    .badge-warning { background: var(--color-warning-soft); color: var(--color-warning); }
+    .badge-error { background: var(--color-error-soft); color: var(--color-error); }
+
+    /* 탭 */
+    .tabs { display: flex; gap: var(--space-1); border-bottom: 1px solid var(--color-border); }
+    .tab { padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--color-text-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+    .tab[aria-selected="true"] { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
+
+    /* 페이지네이션 */
+    .pagination { display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); font-size: var(--text-sm); color: var(--color-text-secondary); }
+
+    /* 알림 배너 — info 는 role="status", 오류는 role="alert" */
+    .alert { display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius); border: 1px solid var(--color-border); background: var(--color-primary-soft); font-size: var(--text-sm); }
+    .alert-error { background: var(--color-error-soft); border-color: var(--color-error); color: var(--color-error); }
+
+    /* 빈 상태 — 행동 초대 1개 */
+    .empty-state { text-align: center; padding: var(--space-12) var(--space-6); color: var(--color-text-secondary); }
+    .empty-state h3 { color: var(--color-text); margin-bottom: var(--space-2); }
+
+    /* 스켈레톤 — 로딩 */
+    .skeleton { background: linear-gradient(90deg, var(--color-surface), var(--color-border), var(--color-surface)); background-size: 200% 100%; border-radius: var(--radius); height: 14px; animation: shimmer 1.2s linear infinite; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    /* 모달 · 토스트 */
+    .modal-backdrop { position: fixed; inset: 0; background: color-mix(in srgb, var(--color-text) 40%, transparent); display: grid; place-items: center; padding: var(--space-4); }
+    .modal { background: var(--color-panel); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); width: min(480px, 100%); padding: var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: var(--space-2); }
+    .toast { position: fixed; right: var(--space-6); bottom: var(--space-6); background: var(--color-text); color: var(--color-panel); padding: var(--space-3) var(--space-4); border-radius: var(--radius); box-shadow: var(--shadow-md); font-size: var(--text-sm); }
+
+    /* 좁은 화면 — 사이드바를 위로 접고, 표는 가로 스크롤 래퍼 안에서만 넘친다 */
+    @media (max-width: 768px) {
+      .app-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
+      .sidebar { flex-direction: row; align-items: center; overflow-x: auto; white-space: nowrap; border-right: none; border-bottom: 1px solid var(--color-border); padding: var(--space-2); }
+      .sidebar-brand { display: none; }
+      .content, .topbar { padding-left: var(--space-4); padding-right: var(--space-4); }
+      :root { --control-height: 44px; }
     }
-
-    .error-msg { color: var(--color-error); font-size: 0.875rem; margin-top: 4px; }
-
-    a { color: var(--color-secondary); text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    h1 { font-size: 2rem; font-weight: 700; }
-    h2 { font-size: 1.5rem; font-weight: 600; }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
   </style>
 </head>
 <body>
-  <!-- 화면 콘텐츠를 여기에 작성 (screen: {{name}}) -->
+  <!-- 화면 콘텐츠를 여기에 작성 (screen: {{name}}) — 아래 골격(앱 셸 · 페이지 헤더 · KPI · 표)을 이 화면 원형에 맞게 고쳐 쓴다. 쓰지 않는 부품은 지운다 -->
   <!-- 입력 예시 — 복사해 쓴다: 입력마다 label 의 for 속성과 입력 id 를 같은 값으로 짝지어 연결한다(for 없이 형제로만 둔 label 은 연결이 아니다). id 는 화면 안에서 유일한 값으로 바꿔 쓴다
   <div class="input-group">
     <label class="input-label" for="field-name">이름</label>
@@ -123,11 +195,50 @@
     <select class="input" id="field-role"><option>선택</option></select>
   </div>
   -->
-  <main class="container center" style="flex: 1; padding-top: 64px; padding-bottom: 64px;">
-    <div class="card" style="width: 100%; max-width: 400px;">
-      <h1 style="font-size: 1.5rem; margin-bottom: 24px;">{{화면 제목}}</h1>
-      <p style="color: var(--color-text-secondary);">화면 내용을 여기에 작성합니다.</p>
+  <div class="app-shell">
+    <nav class="sidebar" aria-label="주 메뉴">
+      <div class="sidebar-brand">{{서비스 이름}}</div>
+      <a class="nav-item" href="#" aria-current="page">{{현재 메뉴}}</a>
+      <a class="nav-item" href="#">{{메뉴 2}}</a>
+      <a class="nav-item" href="#">{{메뉴 3}}</a>
+    </nav>
+    <div class="main">
+      <header class="topbar">
+        <span class="breadcrumb">{{상위}} / {{현재 화면}}</span>
+        <button class="btn btn-ghost btn-sm" type="button">{{사용자}}</button>
+      </header>
+      <main class="content">
+        <div class="page-header">
+          <div>
+            <h1>{{화면 제목}}</h1>
+            <p>{{이 화면에서 하는 일 한 줄}}</p>
+          </div>
+          <button class="btn btn-primary" type="button">{{주 액션 동사}}</button>
+        </div>
+        <section class="kpi-row" aria-label="요약">
+          <div class="kpi"><div class="kpi-label">{{지표 1}}</div><div class="kpi-value">1,284</div><div class="kpi-delta">{{전일 대비}}</div></div>
+          <div class="kpi"><div class="kpi-label">{{지표 2}}</div><div class="kpi-value">96.2%</div></div>
+          <div class="kpi"><div class="kpi-label">{{지표 3}}</div><div class="kpi-value">37</div></div>
+        </section>
+        <section class="panel" aria-label="{{목록 이름}}">
+          <div class="panel-header">
+            <h2>{{목록 이름}}</h2>
+            <div class="toolbar"><button class="btn btn-secondary btn-sm" type="button">{{필터}}</button></div>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead><tr><th>{{이름}}</th><th>{{상태}}</th><th class="num">{{수량}}</th><th>{{수정일}}</th></tr></thead>
+              <tbody>
+                <tr><td>{{항목 A}}</td><td><span class="badge badge-success">정상</span></td><td class="num">1,200</td><td class="muted">2026-11-09</td></tr>
+                <tr><td>{{항목 B}}</td><td><span class="badge badge-warning">확인 필요</span></td><td class="num">84</td><td class="muted">2026-11-08</td></tr>
+                <tr><td>{{항목 C}}</td><td><span class="badge badge-error">오류</span></td><td class="num">0</td><td class="muted">2026-11-07</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="pagination"><span>1–3 / 3</span><span>{{페이지 이동}}</span></div>
+        </section>
+      </main>
     </div>
-  </main>
+  </div>
 </body>
 </html>

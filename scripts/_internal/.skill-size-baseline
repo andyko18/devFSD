@@ -21,7 +21,7 @@
 {"skill":"release-ko","bytes":4047,"lines":80}
 {"skill":"requesting-code-review-ko","bytes":8957,"lines":189}
 {"skill":"security-review-ko","bytes":10015,"lines":192}
-{"skill":"specifying-ko","bytes":59555,"lines":538}
+{"skill":"specifying-ko","bytes":59872,"lines":538}
 {"skill":"sprint-contracts-ko","bytes":4529,"lines":96}
 {"skill":"structured-artifacts-ko","bytes":6910,"lines":144}
 {"skill":"systematic-debugging-ko","bytes":11866,"lines":327}
@@ -29,4 +29,4 @@
 {"skill":"using-git-worktrees-ko","bytes":10571,"lines":295}
 {"skill":"using-specops-ko","bytes":11531,"lines":176}
 {"skill":"verifying-evidence-ko","bytes":31628,"lines":354}
-{"chain_bytes":292101,"chain_lines":3938}
+{"chain_bytes":292418,"chain_lines":3938}

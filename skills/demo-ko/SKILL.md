@@ -58,7 +58,7 @@ git diff "origin/$BASE"...HEAD --name-only
 
 **테스트 통과 요약은 데모가 아니다.** 사용자가 보게 될 것을 직접 만들어 낸다.
 
-- **화면**: 앱 안 브라우저(`mcp__Claude_Browser__*` — `preview_start`·`navigate`)로 열어 스크린샷을 찍어 보여 준다. 설계 화면 `screens/<name>.html` 이 있으면 나란히 놓고, `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-mock-css.sh` 결과 1줄(목업 클래스가 앱 CSS 에 살아남은 비율 — `WARN` 이면 화면이 브라우저 기본 모양일 수 있다)을 함께 보여 준다.
+- **화면**: 통합 테스트의 브라우저 점검 결과(`.specops/<FID>/ui/*.png` — 375·768·1280 폭)가 있으면 그 PNG 를 Read 로 열어 그대로 보여 주고 `UI-PROBE:` 판정 줄을 함께 적는다. 없으면 앱 안 브라우저(`mcp__Claude_Browser__*` — `preview_start`·`navigate`)로 열어 스크린샷을 찍어 보여 준다. 설계 화면 `screens/<name>.html` 이 있으면 나란히 놓고, `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-mock-css.sh` 결과 1줄(목업 클래스가 앱 CSS 에 살아남은 비율 — `WARN` 이면 화면이 브라우저 기본 모양일 수 있다)을 함께 보여 준다.
 - **iOS 앱**: `mcp__Claude_Code_iOS_Simulator__control` 로 실행해 스크린샷.
 - **진행 패널(mod)**: 패널이 렌더한 결과를 보여 준다.
 - **명령·스크립트**: 대표 입력으로 **실제 실행한** 출력 몇 줄(정상 경로 1건 + 경계/오류 1건). 입력과 명령을 함께 적는다.

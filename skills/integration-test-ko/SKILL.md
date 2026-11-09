@@ -136,6 +136,27 @@ go test ./tests/integration/... -v
 | exit 1, FAIL 존재 | → **FAIL 분기** (아래) |
 | 실행 자체 실패 (명령 없음 등) | → 사용자에게 "통합 테스트 명령을 찾을 수 없습니다" 보고 + 해결 후 재시도 |
 
+### Step 3b: 브라우저 점검 (화면 렌더·사용자 흐름 신호가 있으면 필수)
+
+하류 E2E 와 별개로, 화면을 **실제 브라우저로 여러 폭에서 열어** 찍고 기계 판정한다 — 하류 저장소에 의존성을 추가하지 않는다. 앱을 띄운 뒤(Step 2 환경) 바뀐 화면 URL 을 준다:
+
+```bash
+node "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/ui-probe.cjs --out .specops/<FID>/ui http://localhost:<port>/<경로> [...]
+```
+
+- 375·768·1280 폭 스크린샷(`<화면>@<폭>.png`) · **가로 넘침** · **콘솔 오류** · 가장 넓은 폭에서 **axe-core 접근성**(WCAG 2.1 AA, critical·serious 만 실패)
+- `UI-PROBE: FAIL` → FAIL 분기와 같이 처리한다(고치고 다시). 경미한 접근성 위반은 evidence 에 부기만.
+- `UI-PROBE: SKIP (NO_TOOL …)` → 안내된 1회 설치 명령을 사용자에게 보여 주고 `[설치 후 재실행 / 미실행으로 기록]` 을 묻는다. **PASS 로 적지 않는다.**
+
+evidence.md 의 INTEGRATION 줄 아래에 **브라우저 줄을 반드시** 남긴다(화면 신호가 있는 FID):
+
+```
+**브라우저**: 실행(<N>화면·<M>폭 · UI-PROBE: PASS|FAIL · .specops/<FID>/ui/)
+**브라우저**: 미실행(NO_TOOL|NO_ENV|NO_SERVER|USER_SKIP — <한 줄 사유>)
+```
+
+`demo-ko` 는 이 폴더의 PNG 를 그대로 보여 준다.
+
 ---
 
 ## FAIL 분기 (chain 차단)

@@ -354,5 +354,9 @@ miss=""; for n in '--memory .specops/memory/ui-probe.json' '--a11y-baseline .spe
 printf '%s\n' "$SEC" | grep -F -- '--storage-state' | grep -qF 'NO_ENV' || miss="$miss [--storage-state 와 NO_ENV 가 같은 줄]"
 [ -z "$miss" ] && ok "U4c integration-test-ko Step 3b — 기록·기준선·목업 플래그 · startCmd 로 서버 · 1회만 질문 · 기준선 기록 줄 · 상태 파일 NO_ENV" || no "U4c" "없음:$miss"
 
+# U4d — demo-ko 가 목업 PNG 를 같은 폭 구현 PNG 와 나란히 보여 준다 (AC-6) — 두 말이 같은 줄에 있어야 한다
+grep -n -F '.mock.png' "$DEMO" | grep -qF '나란히' && grep -n -F '.mock.png' "$DEMO" | grep -qF '폭마다' \
+  && ok "U4d demo-ko — .mock.png 와 구현 PNG 를 폭마다 나란히 (같은 줄)" || no "U4d" ".mock.png 와 나란히·폭마다가 같은 줄에 없다"
+
 echo "── test-ui-probe: PASS=$PASS FAIL=$FAIL SKIP=$SKIPPED ──"
 [ "$FAIL" -eq 0 ]

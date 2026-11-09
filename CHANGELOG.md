@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.19] — 2026-11-09
+
 ### Fixed
 - 도입 직후 lifecycle 밖에서 코드를 커밋할 때 차단 안내가 막다른 길이던 것(11회차 평가 온보딩) — `/init-project` 가 남긴 FID(태스크 문서 없음)로 `run-verification.sh` 를 안내했는데, 그 러너는 `tasks.md` 가 없으면 실패해서 출구가 BYPASS 뿐이었다. FID 에 태스크 문서·검증 기록·증거가 하나도 없고 실행 증거도 없으면, 차단은 그대로 두고 크기에 맞는 진입 경로(`/quick-fix` · `/maintain-lite` · `/start`)를 안내한다. 검증 흐름이 있는 FID(STALE·다른 FID 실행·백그라운드 미회수)는 종전 진단 문안 그대로다.
 
@@ -3613,7 +3615,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.18...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.19...HEAD
+[3.1.19]: https://github.com/andyko18/devFSD/compare/v3.1.18...v3.1.19
 [3.1.18]: https://github.com/andyko18/devFSD/compare/v3.1.17...v3.1.18
 [3.1.17]: https://github.com/andyko18/devFSD/compare/v3.1.16...v3.1.17
 [3.1.16]: https://github.com/andyko18/devFSD/compare/v3.1.15...v3.1.16

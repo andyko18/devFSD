@@ -141,5 +141,157 @@ ne=1; for o in "$a1" "$a2" "$a3"; do printf '%s\n' "$o" | grep -q '^UI-PROBE: SK
 [ "$r1" -eq 3 ] && [ "$r2" -eq 3 ] && [ "$r3" -eq 3 ] && [ "$ne" = 1 ] && has "$a1" '찾지 못했다' && has "$a2" '읽지 못했다' \
   && ok "U6f 로그인 상태 파일 없음/깨짐/기록의 storageState 없음 → 모두 SKIP(NO_ENV) rc 3 · 원인 문구 구분 (NO_BROWSER 아님)" || no "U6f" "r=$r1,$r2,$r3 [$a1|$a2|$a3]"
 
+
+# U8 — 판정·기록 로직 (가짜 Playwright: 브라우저 경계만 대체 — ui-probe.cjs 는 실물. Playwright 없는 CI 에서도 돈다)
+FK="$TMP/fakepw"; mkdir -p "$FK/node_modules/playwright-core" "$FK/node_modules/axe-core"
+: > "$FK/node_modules/axe-core/index.js"; : > "$FK/node_modules/axe-core/axe.min.js"
+cat > "$FK/node_modules/playwright-core/index.js" <<'EOF'
+// 가짜 Playwright — 화면별 결과는 FAKE_PW_FIX(slug → {fail, overflow, violations}), 컨텍스트마다 FAKE_PW_LOG 에 {width, storageState} 한 줄
+const fs = require('fs'), path = require('path');
+const FIX = process.env.FAKE_PW_FIX ? JSON.parse(fs.readFileSync(process.env.FAKE_PW_FIX, 'utf8')) : {};
+const log = (o) => { if (process.env.FAKE_PW_LOG) fs.appendFileSync(process.env.FAKE_PW_LOG, JSON.stringify(o) + '\n'); };
+const png = (w) => { const b = Buffer.alloc(33); Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex').copy(b); b.writeUInt32BE(w, 16); return b; };
+const slug = (u) => { const p = new URL(u); return p.protocol === 'file:' ? path.basename(p.pathname).replace(/\.html?$/, '') : (p.pathname.replace(/^\/+|\/+$/g, '') || 'home'); };
+exports.chromium = { launch: async () => ({
+  newContext: async (opts) => {
+    log({ width: opts.viewport.width, storageState: opts.storageState || '' });
+    let url = '';
+    return { newPage: async () => ({
+      on() {},
+      goto: async (u) => { url = u; if ((FIX[slug(u)] || {}).fail) throw new Error('boom'); },
+      evaluate: async (fn, arg) => (Array.isArray(arg) ? ((FIX[slug(url)] || {}).violations || []) : Boolean((FIX[slug(url)] || {}).overflow)),
+      screenshot: async ({ path: p }) => fs.writeFileSync(p, png(opts.viewport.width)),
+      addScriptTag: async () => {},
+    }), close: async () => {} };
+  },
+  close: async () => {},
+}) };
+EOF
+FK2="$TMP/fakepw-noaxe"; mkdir -p "$FK2/node_modules"; cp -R "$FK/node_modules/playwright-core" "$FK2/node_modules/"
+FIX="$TMP/fix.json"; LOGF="$TMP/fake.log"
+fk() { DEVFSD_UI_HARNESS_DIR="$FK" FAKE_PW_FIX="$FIX" FAKE_PW_LOG="$LOGF" node "$P" "$@"; }
+fix() { printf '%s' "$1" > "$FIX"; }
+jstr() { node -e 'console.log(JSON.stringify(require(process.argv[1])))' "$1"; }
+png_w() { node -e 'console.log(require("fs").readFileSync(process.argv[1]).readUInt32BE(16))' "$1"; }
+BN1='{"id":"button-name","impact":"critical","nodes":1,"help":"H1"}'
+BN2='{"id":"button-name","impact":"critical","nodes":2,"help":"H1"}'
+IA1='{"id":"image-alt","impact":"critical","nodes":1,"help":"H2"}'
+mkdir -p "$TMP/fm" "$TMP/fb" "$TMP/mk"
+
+# U8a·U8b — 플래그 없는 실행은 v3.1.23 그대로 (AC-R-1) — 전체 출력 골든 · out 폴더 내용 · mocks 키 없음
+fix '{}'; out=$(fk --out "$TMP/p1" http://h:1/a 2>&1); rc=$?
+exp="UI-PROBE: PASS (1화면·3폭 · 넘침 0 · 콘솔 오류 0 · 접근성 심각 0)
+  png: $TMP/p1/a@375.png
+  png: $TMP/p1/a@768.png
+  png: $TMP/p1/a@1280.png"
+[ "$rc" -eq 0 ] && [ "$out" = "$exp" ] && [ "$(LC_ALL=C ls "$TMP/p1" | tr '\n' ' ')" = "a@1280.png a@375.png a@768.png ui-probe.json " ] && node -e 'process.exit("mocks" in require(process.argv[1]) ? 1 : 0)' "$TMP/p1/ui-probe.json" \
+  && ok "U8a 플래그 없는 실행 — 전체 출력 골든 · out 폴더 내용 · mocks 키 없음" || no "U8a" "rc=$rc out=[$out]"
+fix "{\"a\":{\"violations\":[$BN2]}}"; out=$(fk --out "$TMP/p2" http://h:1/a 2>&1); rc=$?
+fix '{}'; out2=$(fk --out "$TMP/p3" http://h:1/ http://h:1/home 2>&1); rc2=$?
+[ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | sed -n 2p)" = '  - a@1280 접근성 critical button-name(2곳): H1' ] && [ "$rc2" -eq 0 ] && has "$out2" '(2화면·3폭' \
+  && ok "U8b 플래그 없는 위반 줄 형식(종전) · 중복 화면 이름도 거부하지 않는다" || no "U8b" "rc=$rc [$out] rc2=$rc2 [$out2]"
+
+# U8c — 기록(--memory)·로그인 상태
+M="$TMP/fm/ui-probe.json"; SS="$TMP/ss.json"; echo '{"cookies":[],"origins":[]}' > "$SS"
+fix '{}'
+fk --out "$TMP/m1" --memory "$M" --start-cmd "npm run dev" http://h:1/a http://h:1/b >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 0 ] && [ "$(jstr "$M")" = '{"baseUrl":"http://h:1","routes":["/a","/b"],"startCmd":"npm run dev"}' ] && ok "U8c1 첫 실행 — 기록에 baseUrl·routes·startCmd" || no "U8c1" "rc=$rc $(jstr "$M" 2>&1)"
+out=$(fk --out "$TMP/m2" --memory "$M" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && has "$out" 'UI-PROBE: PASS (2화면·3폭' && ok "U8c2 URL 없이 기록만 — 같은 두 화면을 다시 점검" || no "U8c2" "rc=$rc [$out]"
+fk --out "$TMP/m3" --memory "$M" http://h:1/a >/dev/null 2>&1
+[ "$(jstr "$M")" = '{"baseUrl":"http://h:1","routes":["/a","/b"],"startCmd":"npm run dev"}' ] && ok "U8c3 화면 하나만 준 실행도 routes 합집합(/b 보존) · startCmd 유지" || no "U8c3" "$(jstr "$M")"
+M2="$TMP/fm/m2.json"
+fk --out "$TMP/m4" --memory "$M2" --storage-state "$SS" http://h:1/a >/dev/null 2>&1
+rm -f "$LOGF"; out=$(fk --out "$TMP/m5" --memory "$M2" 2>&1); rc=$?
+[ "$(jstr "$M2")" = "{\"baseUrl\":\"http://h:1\",\"routes\":[\"/a\"],\"storageState\":\"$SS\"}" ] && [ "$rc" -eq 0 ] && [ "$(grep -cF "\"storageState\":\"$SS\"" "$LOGF")" = 3 ] \
+  && ok "U8c4 storageState — 기록에 저장 · 다음 실행이 브라우저 컨텍스트 3폭 모두에 전달" || no "U8c4" "rc=$rc mem=$(jstr "$M2") log=$(cat "$LOGF")"
+rm -f "$LOGF"; fk --out "$TMP/m6" http://h:1/a >/dev/null 2>&1
+[ "$(grep -cF '"storageState":""' "$LOGF")" = 3 ] && ok "U8c5 플래그·기록이 없으면 컨텍스트에 storageState 를 넘기지 않는다" || no "U8c5" "log=$(cat "$LOGF")"
+rm -f "$SS"; out=$(fk --out "$TMP/m7" --memory "$M2" 2>&1); rc=$?
+[ "$rc" -eq 3 ] && has "$out" 'UI-PROBE: SKIP (NO_ENV' && ok "U8c6 기록이 가리키는 상태 파일을 지우면 SKIP(NO_ENV) rc 3" || no "U8c6" "rc=$rc [$out]"
+
+before=$(cksum < "$M"); out=$(fk --out "$TMP/m8" --memory "$M" http://h:1/a http://g:1/b 2>&1)
+[ "$(cksum < "$M")" = "$before" ] && has "$out" '기록 안 함: origin 이 하나가 아니다' && ok "U8c7 origin 이 둘이면 기록 불변 · 안내 줄" || no "U8c7" "[$out]"
+out=$(fk --out "$TMP/m9" --memory "$TMP/fm/m3.json" "file://$TMP/good.html" 2>&1)
+[ ! -e "$TMP/fm/m3.json" ] && has "$out" '기록 안 함: http(s) 가 아닌 화면이 있다' && ok "U8c8 file:// 만이면 기록 파일을 만들지 않는다" || no "U8c8" "[$out]"
+printf '{bad' > "$TMP/fm/m4.json"; out=$(fk --out "$TMP/m10" --memory "$TMP/fm/m4.json" http://h:1/a 2>&1)
+[ "$(cat "$TMP/fm/m4.json")" = '{bad' ] && has "$out" '기록 안 함: 기존 기록을 읽지 못함' && ok "U8c9 깨진 기록은 덮어쓰지 않고 안내" || no "U8c9" "[$out]"
+fix '{"zzz":{"fail":true}}'; out=$(fk --out "$TMP/m11" --memory "$TMP/fm/m5.json" --a11y-baseline "$TMP/fb/b5.json" http://h:1/a http://h:1/zzz 2>&1); rc=$?
+[ "$rc" -eq 1 ] && [ ! -e "$TMP/fm/m5.json" ] && [ ! -e "$TMP/fb/b5.json" ] && has "$out" '기록 안 함: 열기에 실패한 화면이 있다' && has "$out" '기준선을 쓰지 않음: 열기에 실패한 화면이 있다' \
+  && ok "U8c10 열기에 실패한 화면이 섞이면 기록·기준선을 쓰지 않는다" || no "U8c10" "rc=$rc [$out]"
+fix '{}'; M7="$TMP/fm/m7.json"
+fk --out "$TMP/m12" --memory "$M7" http://h:1/ >/dev/null 2>&1
+out=$(fk --out "$TMP/m13" --memory "$M7" http://h:1/home 2>&1); rc=$?
+out2=$(fk --out "$TMP/m14" --memory "$M7" 2>&1); rc2=$?
+[ "$rc" -eq 0 ] && [ "$(jstr "$M7")" = '{"baseUrl":"http://h:1","routes":["/"]}' ] && has "$out" '기록 안 함: 화면 이름 중복: home' && [ "$rc2" -eq 0 ] && has "$out2" '(1화면' \
+  && ok "U8c11 합친 routes 의 화면 이름이 겹치면 쓰지 않는다 — 기록이 스스로를 못 읽는 상태 방지" || no "U8c11" "rc=$rc [$out] mem=$(jstr "$M7") rc2=$rc2 [$out2]"
+: > "$TMP/afile"; fix "{\"a\":{\"violations\":[$BN1]}}"
+out=$(fk --out "$TMP/m15" --memory "$TMP/afile/m.json" --a11y-baseline "$TMP/afile/b.json" http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && has "$out" "기록을 쓰지 못함: $TMP/afile/m.json" && has "$out" "기록을 쓰지 못함: $TMP/afile/b.json" && ! has "$out" 'NO_BROWSER' && ! has "$out" '기준선 기록:' \
+  && ok "U8c12 쓰기 실패 — 판정은 그대로(rc 0) · 안내 줄 · NO_BROWSER 로 오분류하지 않는다" || no "U8c12" "rc=$rc [$out]"
+
+# U8d — 목업 (AC-3)
+printf '<html></html>' > "$TMP/mk/m.html"; printf '<html></html>' > "$TMP/mk/a.html"
+fix "{\"m\":{\"overflow\":true,\"violations\":[$BN2]}}"
+out=$(fk --out "$TMP/k1" --mock "$TMP/mk/m.html" --mock "$TMP/mk/nomock.html" http://h:1/a 2>&1); rc=$?
+exp="UI-PROBE: PASS (1화면·3폭 · 넘침 0 · 콘솔 오류 0 · 접근성 심각 0)
+  - nomock 목업 촬영 실패: 파일 없음
+  png: $TMP/k1/a@375.png
+  png: $TMP/k1/a@768.png
+  png: $TMP/k1/a@1280.png
+  mock: $TMP/k1/m@375.mock.png
+  mock: $TMP/k1/m@768.mock.png
+  mock: $TMP/k1/m@1280.mock.png"
+[ "$rc" -eq 0 ] && [ "$out" = "$exp" ] && [ "$(png_w "$TMP/k1/m@375.mock.png")" = 375 ] && [ "$(png_w "$TMP/k1/m@768.mock.png")" = 768 ] && [ "$(png_w "$TMP/k1/m@1280.mock.png")" = 1280 ] \
+  && ok "U8d1 목업 — 폭마다 촬영(PNG 폭 375·768·1280) · 판정·화면 수에서 제외(넘침·위반 있는 목업도 PASS) · 없는 파일은 안내만" || no "U8d1" "rc=$rc [$out]"
+fix '{}'; fk --out "$TMP/k2" --mock "$TMP/mk/a.html" http://h:1/a >/dev/null 2>&1
+[ -s "$TMP/k2/a@375.png" ] && [ -s "$TMP/k2/a@375.mock.png" ] && ok "U8d2 구현과 목업 이름이 같아도 .mock.png 가 구현 PNG 를 덮어쓰지 않는다" || no "U8d2" "$(ls "$TMP/k2")"
+
+# U8e — 접근성 기준선 (AC-4·AC-5)
+BL="$TMP/fb/bl.json"
+fix "{\"a\":{\"overflow\":true,\"violations\":[$BN1]}}"; out=$(fk --out "$TMP/e1" --a11y-baseline "$TMP/fb/bq.json" http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 1 ] && [ "$(jstr "$TMP/fb/bq.json")" = '{"_widest":1280,"a|button-name":1}' ] && has "$out" '기준선 기록: a@1280 critical button-name(1곳)' \
+  && ok "U8e1 넘침으로 FAIL 인 최초 실행도 기준선을 쓴다(Q-A) — 접근성은 독립" || no "U8e1" "rc=$rc [$out]"
+fix "{\"a\":{\"violations\":[$BN1]}}"; out=$(fk --out "$TMP/e2" --a11y-baseline "$BL" http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(jstr "$BL")" = '{"_widest":1280,"a|button-name":1}' ] && has "$out" '접근성 심각 0 · 기준선 기록 1' && ok "U8e2 기준선 없음 — 위반을 기록하고 막지 않는다(rc 0 · _widest)" || no "U8e2" "rc=$rc [$out]"
+cp "$BL" "$TMP/fb/keep.json"
+out=$(fk --out "$TMP/e3" --a11y-baseline "$BL" http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && has "$out" '접근성 심각 0 · 기준선 1' && cmp -s "$BL" "$TMP/fb/keep.json" && ok "U8e3 같은 화면 — rc 0 · 기준선 1 · 파일 바이트 불변" || no "U8e3" "rc=$rc [$out]"
+fix "{\"a\":{\"violations\":[$BN1,$IA1]}}"; out=$(fk --out "$TMP/e4" --a11y-baseline "$BL" http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 1 ] && has "$out" 'image-alt(1곳, 기준선 없음)' && ! has "$out" 'button-name(' && has "$out" '접근성 심각 1 · 기준선 1' && cmp -s "$BL" "$TMP/fb/keep.json" \
+  && ok "U8e4 새 위반만 FAIL 줄 — 변하지 않은 항목은 줄에 안 나오고 센다 · 파일 불변" || no "U8e4" "rc=$rc [$out]"
+fix "{\"a\":{\"violations\":[$BN2]}}"; out=$(fk --out "$TMP/e5" --a11y-baseline "$BL" http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 1 ] && has "$out" 'button-name(2곳, 기준선 1곳)' && cmp -s "$BL" "$TMP/fb/keep.json" && ok "U8e5 노드 수가 늘면 FAIL — 현재곳·기준선곳 표기" || no "U8e5" "rc=$rc [$out]"
+printf '{"_widest":1280,"a|button-name":5}' > "$TMP/fb/hi.json"; cp "$TMP/fb/hi.json" "$TMP/fb/hi.keep"
+fix "{\"a\":{\"violations\":[$BN1]}}"; out=$(fk --out "$TMP/e6" --a11y-baseline "$TMP/fb/hi.json" http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && has "$out" '기준선 1' && cmp -s "$TMP/fb/hi.json" "$TMP/fb/hi.keep" && ok "U8e6 노드 수가 줄어도 통과 · 기준선을 자동으로 낮추지 않는다(Q-G)" || no "U8e6" "rc=$rc [$out]"
+printf '{bad' > "$TMP/fb/broken.json"; out=$(fk --out "$TMP/e7" --a11y-baseline "$TMP/fb/broken.json" http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 1 ] && has "$out" '기준선 파일을 읽지 못해 무시함' && [ "$(cat "$TMP/fb/broken.json")" = '{bad' ] && ok "U8e7 깨진 기준선 — 기준선 없이 판정(rc 1) · 파일 불변" || no "U8e7" "rc=$rc [$out]"
+out=$(fk --out "$TMP/e8" --a11y-baseline "$TMP/fb/broken.json" --a11y-baseline-update http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(jstr "$TMP/fb/broken.json")" = '{"_widest":1280,"a|button-name":1}' ] && ok "U8e8 깨진 기준선 + update → 이번 결과로 새로 쓴다(Q-F)" || no "U8e8" "rc=$rc [$out]"
+cp "$TMP/fb/keep.json" "$BL"; fix "{\"a\":{\"violations\":[$BN2]}}"
+out=$(fk --out "$TMP/e9" --a11y-baseline "$BL" --a11y-baseline-update http://h:1/a 2>&1); rc=$?
+out2=$(fk --out "$TMP/e10" --a11y-baseline "$BL" http://h:1/a 2>&1); rc2=$?
+[ "$rc" -eq 0 ] && [ "$(jstr "$BL")" = '{"_widest":1280,"a|button-name":2}' ] && [ "$rc2" -eq 0 ] && has "$out2" '기준선 1' && ok "U8e9 update — 이번 결과로 다시 쓰고 그다음 같은 점검은 rc 0" || no "U8e9" "rc=$rc $(jstr "$BL") rc2=$rc2 [$out2]"
+BL2="$TMP/fb/bl2.json"
+fix "{\"a\":{\"violations\":[$BN1]},\"b\":{\"violations\":[$BN1]}}"; fk --out "$TMP/e11" --a11y-baseline "$BL2" http://h:1/a http://h:1/b >/dev/null 2>&1
+fix "{\"a\":{\"violations\":[$BN2]}}"; fk --out "$TMP/e12" --a11y-baseline "$BL2" --a11y-baseline-update http://h:1/a >/dev/null 2>&1
+g1=$(jstr "$BL2")
+cp "$BL2" "$TMP/fb/bl3.json"
+fk --out "$TMP/e15" --a11y-baseline "$TMP/fb/bl3.json" --a11y-baseline-update --widths 375,768 http://h:1/a >/dev/null 2>&1
+g3=$(jstr "$TMP/fb/bl3.json")
+fix '{}'; fk --out "$TMP/e13" --a11y-baseline "$BL2" --a11y-baseline-update http://h:1/a >/dev/null 2>&1
+g2=$(jstr "$BL2")
+[ "$g1" = '{"_widest":1280,"a|button-name":2,"b|button-name":1}' ] && [ "$g2" = '{"_widest":1280,"b|button-name":1}' ] \
+  && ok "U8e10 update 는 점검한 화면만 교체 — 점검하지 않은 화면 항목 보존 · 고친 위반은 삭제" || no "U8e10" "g1=$g1 g2=$g2"
+cp "$TMP/fb/keep.json" "$BL"; fix "{\"a\":{\"violations\":[$BN1]}}"
+out=$(fk --out "$TMP/e14" --a11y-baseline "$BL" --widths 375,768 http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 1 ] && has "$out" '기준선 폭(1280)과 이번 폭(768)이 달라 무시함' && [ "$g3" = '{"_widest":768,"a|button-name":2}' ] \
+  && ok "U8e11 폭이 다르면 비교하지 않고 안내 · 폭 불일치 + update 는 점검한 화면만으로 새로 쓴다" || no "U8e11" "rc=$rc [$out] g3=$g3"
+fix "{\"a\":{\"violations\":[$BN1]}}"
+out=$(DEVFSD_UI_HARNESS_DIR="$FK2" FAKE_PW_FIX="$FIX" node "$P" --out "$TMP/e16" --a11y-baseline "$TMP/fb/b6.json" http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ ! -e "$TMP/fb/b6.json" ] && has "$out" '기준선을 쓰지 않음: axe-core 를 찾지 못했다' && has "$out" '접근성 SKIP(axe-core 없음)' \
+  && ok "U8e12 axe-core 없음 — 기준선 파일을 만들지 않고 안내(AC-4)" || no "U8e12" "rc=$rc [$out]"
+
 echo "── test-ui-probe: PASS=$PASS FAIL=$FAIL SKIP=$SKIPPED ──"
 [ "$FAIL" -eq 0 ]

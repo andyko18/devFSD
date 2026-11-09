@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // ui-probe.cjs — 웹 화면을 실제 브라우저로 여러 폭에서 열어 찍고 기계 판정한다 (20261109-ui-harness)
 // Usage: node ui-probe.cjs --out <폴더> [--widths 375,768,1280] <URL>...
+//        [--memory <파일> [--start-cmd <명령>]] [--storage-state <파일>] [--mock <html>]... [--a11y-baseline <파일> [--a11y-baseline-update]]
 //   URL 은 이미 떠 있는 화면(http://localhost:3000/tracked) 또는 file:// 경로. dev 서버는 띄우지 않는다.
 // 출력 (stdout):
 //   UI-PROBE: PASS|FAIL (<N>화면·<M>폭 · 넘침 <a> · 콘솔 오류 <b> · 접근성 심각 <c> | 접근성 SKIP(사유))
@@ -84,8 +85,8 @@ async function launch(chromium) {
   return chromium.launch({ headless: true });
 }
 
-async function probeOne(browser, url, width, out, axeFile, doAxe) {
-  const ctx = await browser.newContext({ viewport: { width, height: 900 } });
+async function probeOne(browser, url, width, out, axeFile, doAxe, ssFile) {
+  const ctx = await browser.newContext({ viewport: { width, height: 900 }, ...(ssFile ? { storageState: ssFile } : {}) });
   const page = await ctx.newPage();
   const consoleErrors = [];
   page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200)); });
@@ -107,6 +108,34 @@ async function probeOne(browser, url, width, out, axeFile, doAxe) {
   }
   await ctx.close();
   return r;
+}
+
+async function shootMock(browser, mockFile, width, out) {
+  const abs = path.resolve(mockFile);
+  const href = pathToFileURL(abs).href;
+  const tag = slugOf(href);
+  if (!fs.existsSync(abs)) return { tag, error: '파일 없음' };
+  const ctx = await browser.newContext({ viewport: { width, height: 900 } });
+  try {
+    const page = await ctx.newPage();
+    await page.goto(href, { waitUntil: 'load', timeout: 20000 });
+    const png = path.join(out, `${tag}@${width}.mock.png`);
+    await page.screenshot({ path: png, fullPage: true });
+    return { tag, png };
+  } catch (e) {
+    return { tag, error: String(e.message || e).split('\n')[0].slice(0, 160) };
+  } finally { await ctx.close(); }
+}
+
+// 기준선 모드: plain(기준선 안 씀 — 종전과 같음) · compare(새 위반만 FAIL) · record(기록만, FAIL 로 치지 않음)
+function decideBaseline(a, widest, extra) {
+  if (!a.baseline) return { mode: 'plain', base: null };
+  const p = state.parseBaseline(a.baseline);
+  const usable = p.state === 'ok' && p.value._widest === widest ? p.value : null;
+  if (p.state === 'ok' && !usable) extra.push(`기준선 폭(${p.value._widest})과 이번 폭(${widest})이 달라 무시함`);
+  if (p.state === 'broken') extra.push(`기준선 파일을 읽지 못해 무시함: ${a.baseline}`);
+  if (p.state === 'missing' || a.baselineUpdate) return { mode: 'record', base: usable };
+  return usable ? { mode: 'compare', base: usable } : { mode: 'plain', base: null };
 }
 
 async function main() {
@@ -150,31 +179,86 @@ async function main() {
     process.exit(3);
   }
   const results = [];
+  const extra = [];
+  const mockPngs = [];
+  const mockErr = new Set();
   const widest = Math.max(...a.widths);
   for (const url of a.urls) {
-    for (const w of a.widths) results.push(await probeOne(browser, url, w, a.out, axeFile, w === widest));
+    for (const w of a.widths) results.push(await probeOne(browser, url, w, a.out, axeFile, w === widest, ssFile));
+  }
+  for (const m of a.mocks) {
+    for (const w of a.widths) {
+      const r = await shootMock(browser, m, w, a.out);
+      if (r.png) mockPngs.push(r.png);
+      else if (!mockErr.has(r.tag)) { mockErr.add(r.tag); extra.push(`${r.tag} 목업 촬영 실패: ${r.error}`); }
+    }
   }
   await browser.close();
 
+  const widestRows = results.filter((r) => r.width === widest);
+  const viol = [];
+  for (const r of widestRows) for (const v of r.a11y || []) if (WARN_IMPACTS.includes(v.impact)) viol.push({ slug: slugOf(r.url), ...v });
+  const cur = Object.fromEntries(viol.map((v) => [`${v.slug}|${v.id}`, v.nodes]));
+  const allAxe = Boolean(axeFile) && !results.some((r) => r.loadError) && widestRows.every((r) => Array.isArray(r.a11y));
+  const bl = decideBaseline(a, widest, extra);
+
   const issues = [];
-  let over = 0, cerr = 0, severe = 0, minor = 0;
+  let over = 0, cerr = 0, severe = 0, minor = 0, same = 0, recorded = 0;
   for (const r of results) {
     const tag = `${slugOf(r.url)}@${r.width}`;
     if (r.loadError) { issues.push(`${tag} 열기 실패: ${r.loadError}`); continue; }
     if (r.overflow) { over++; issues.push(`${tag} 가로 넘침: 문서 폭이 화면 폭(${r.width})보다 넓다`); }
     for (const m of r.consoleErrors) { cerr++; issues.push(`${tag} 콘솔 오류: ${m}`); }
     for (const v of r.a11y || []) {
-      if (WARN_IMPACTS.includes(v.impact)) { severe++; issues.push(`${tag} 접근성 ${v.impact} ${v.id}(${v.nodes}곳): ${v.help}`); }
-      else minor++;
+      if (!WARN_IMPACTS.includes(v.impact)) minor++;
+      else if (bl.mode === 'plain') { severe++; issues.push(`${tag} 접근성 ${v.impact} ${v.id}(${v.nodes}곳): ${v.help}`); }
     }
   }
+  if (bl.mode === 'compare') {
+    const c = state.compareBaseline(bl.base, cur);
+    same = c.same;
+    for (const f of c.fresh) {
+      const v = viol.find((x) => `${x.slug}|${x.id}` === f.key);
+      severe++;
+      issues.push(`${v.slug}@${widest} 접근성 ${v.impact} ${v.id}(${f.cur}곳, ${f.prev === undefined ? '기준선 없음' : `기준선 ${f.prev}곳`}): ${v.help}`);
+    }
+  }
+  if (bl.mode === 'record') {
+    if (allAxe) {
+      const slugs = widestRows.map((r) => slugOf(r.url));
+      const w = state.writeJson(a.baseline, state.mergeBaseline(a.baselineUpdate ? bl.base : null, slugs, cur, widest));
+      if (w.ok) { recorded = viol.length; for (const v of viol) extra.push(`기준선 기록: ${v.slug}@${widest} ${v.impact} ${v.id}(${v.nodes}곳)`); }
+      else extra.push(`기록을 쓰지 못함: ${a.baseline} (${w.reason})`);
+    } else extra.push(`기준선을 쓰지 않음: ${axeFile ? '열기에 실패한 화면이 있다' : 'axe-core 를 찾지 못했다'}`);
+  }
+
   const loadFail = results.some((r) => r.loadError);
+  if (a.memory && (!urlsFromMemory || a.startCmd || a.storageState)) {
+    const d = state.describeUrls(a.urls);
+    if (!d.ok) extra.push(`기록 안 함: ${d.reason}`);
+    else if (loadFail) extra.push('기록 안 함: 열기에 실패한 화면이 있다');
+    else if (mem.state === 'broken') extra.push('기록 안 함: 기존 기록을 읽지 못함');
+    else {
+      const merged = state.mergeMemory(mem.state === 'ok' ? mem.value : null, { origin: d.origin, routes: d.routes, startCmd: a.startCmd, storageState: a.storageState });
+      const dup = firstDup(merged.routes.map((r) => slugOf(merged.baseUrl + r)));
+      if (dup) extra.push(`기록 안 함: 화면 이름 중복: ${dup}`);
+      else {
+        const w = state.writeJson(a.memory, merged);
+        if (!w.ok) extra.push(`기록을 쓰지 못함: ${a.memory} (${w.reason})`);
+      }
+    }
+  }
+
   const verdict = (over || cerr || severe || loadFail) ? 'FAIL' : 'PASS';
-  const a11yNote = axeFile ? `접근성 심각 ${severe}${minor ? ` · 경미 ${minor}` : ''}` : '접근성 SKIP(axe-core 없음)';
+  let a11yNote = axeFile ? `접근성 심각 ${severe}${minor ? ` · 경미 ${minor}` : ''}` : '접근성 SKIP(axe-core 없음)';
+  if (axeFile && bl.mode === 'compare') a11yNote += ` · 기준선 ${same}`;
+  if (axeFile && bl.mode === 'record') a11yNote += ` · 기준선 기록 ${recorded}`;
   console.log(`UI-PROBE: ${verdict} (${a.urls.length}화면·${a.widths.length}폭 · 넘침 ${over} · 콘솔 오류 ${cerr} · ${a11yNote})`);
   for (const i of issues) console.log(`  - ${i}`);
+  for (const e of extra) console.log(`  - ${e}`);
   for (const r of results) if (r.png) console.log(`  png: ${r.png}`);
-  fs.writeFileSync(path.join(a.out, 'ui-probe.json'), JSON.stringify({ verdict, widths: a.widths, playwright: pw.dir, axe: Boolean(axeFile), results }, null, 2));
+  for (const m of mockPngs) console.log(`  mock: ${m}`);
+  fs.writeFileSync(path.join(a.out, 'ui-probe.json'), JSON.stringify({ verdict, widths: a.widths, playwright: pw.dir, axe: Boolean(axeFile), ...(mockPngs.length ? { mocks: mockPngs } : {}), results }, null, 2));
   process.exit(verdict === 'PASS' ? 0 : 1);
 }
 

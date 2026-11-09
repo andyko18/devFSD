@@ -513,6 +513,27 @@ $_receipt_hint
 이 FID 는 명세 없이 태스크 문서만 있는 quick 경로입니다 — 검증 러너(run-verification.sh) 통과로는 열리지 않습니다.
 우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>${_compound_hint}" ;;
   esac
+  # lifecycle 밖 코드 커밋 (11회차 온보딩 · 20261109-deny-no-lifecycle): FID 가 없거나 그 FID 에 태스크 문서가 없으면
+  #   위 ①② 안내는 막다른 길이다 — run-verification.sh 는 tasks.md 가 없으면 실패한다(도입 직후 /init-project 가 남긴 FID 가
+  #   그 꼴이다). 차단은 그대로 두고, 크기에 맞는 진입 경로를 안내한다. 옮긴 커밋(moved)은 그 문안이 따로 있다.
+  #   좁게 건다 — FID 는 있는데 태스크 문서·검증 기록·증거가 하나도 없고 실행 증거도 없을 때만. 검증 흐름이 있는 FID
+  #   (STALE·다른 FID 실행·백그라운드 미회수 등)는 위 진단 문안이 맞는 안내다.
+  if [ "$violation" = "R-1" ] && [ -n "${fid:-}" ] && [ "$_cause_ok" -eq 1 ] && [ "${_c_exec:-}" = missing ] \
+     && [ -z "${_stale_cause:-}" ] && [ ! -f ".specops/${fid}/tasks.md" ] \
+     && [ ! -f ".specops/${fid}/verification-state.json" ] && [ ! -f ".specops/${fid}/evidence.md" ]; then
+    _nolc_plugin=""
+    declare -F fc::is_plugin_repo >/dev/null 2>&1 && fc::is_plugin_repo \
+      && _nolc_plugin="
+   (이 플러그인 저장소에서는 bash scripts/tests/run-all.sh 전체 스위트를 지금 이 트리에서 통과시켜도 열립니다.)"
+    reason="$act 차단 — 이 커밋은 진행 중인 lifecycle 태스크에 속하지 않습니다(현재 FID: ${fid} — 태스크 문서 tasks.md 가 없어 검증 러너를 돌릴 수 없습니다).
+
+코드를 바꾸는 커밋은 검증을 거친 작업 단위로 들어가야 합니다. 크기에 맞는 경로로 시작하세요:
+   · 몇 줄짜리 수정 → /quick-fix <고칠 것>  (테스트 실행 + 코드 리뷰 1회, 문서 없음)
+   · 유지보수·버그 수정 → /maintain-lite <대상>  (또는 /maintain)
+   · 신규 기능 → /start <기능>  (또는 /start-lite)
+   문서만 바꾸는 커밋(*.md 등)은 검증 없이 통과합니다.${_nolc_plugin}
+우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>${_compound_hint}"
+  fi
   jq -nc --arg r "$reason$(_gov_target_note "$plugin_root" "${fid:-}")$(_gov_moved_note "$tool_cmd_scan")" \
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
   exit 0

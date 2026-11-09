@@ -552,5 +552,12 @@ r=$(_pre13 "cd $W13P && git commit -m 'feat: moved'" "$W13P")
 [ "$(_dec "$r")" = "deny" ] && ok "WT-E8.4 셸이 worktree 에서 같은 worktree 로 옮겨도 프로젝트 기록으로는 열지 않는다(확인 불가는 옮긴 것으로 봄)" || nope "WT-E8.4" "$(_dec "$r")"
 BY=$(printf '%s' "cd $W13P && git commit -m 'feat: moved'" | { _in "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=test cd $W13P && git commit -m x" "$M13P" "$TR13" | (cd "$M13" && CLAUDE_PROJECT_DIR="$M13" bash "$PRE" 2>/dev/null); })
 [ "$(_dec "$BY")" = "allow" ] && ok "WT-E8.5 사유 병기 BYPASS 는 종전대로 allow" || nope "WT-E8.5" "$(_dec "$BY")"
+# WT-E8.6 이동 deny 문안: 러너 재실행 안내가 섞이지 않고, 이동 위치 확인 불가도 같은 판정이라고 말한다 (리뷰 M-1·M-2·I-2 — 문서 면제 안내는 메인에 문서가 staged 인 경우 참이라 WT-12 가 요구한다)
+r=$(_pre13 "cd $W13P && git commit -m 'feat: moved'" "$M13P")
+! _why "$r" | grep -qF 'timeout 을 명시' && _why "$r" | grep -qF '확인하지 못한 경우' \
+  && ok "WT-E8.6 이동 deny 문안: 러너 재실행 안내 없음 · 확인 불가 포함 문구 있음" || nope "WT-E8.6" "$(_why "$r" | head -c 400)"
+# WT-E8.7 현행 고정: R-2(gh pr create)는 이 변경의 범위 밖이다 — 옮겨 만든 PR 은 종전 판정(메인 PASS 면 allow). 이 줄이 뒤집히면 R-2 를 고친 것이니 문안과 함께 갱신한다 (리뷰 M-5)
+r=$(_pre13 "cd $W13P && gh pr create --title t --body b" "$M13P")
+[ "$(_dec "$r")" = "allow" ] && ok "WT-E8.7 R-2 는 범위 밖 — 옮긴 gh pr create 는 종전 판정(allow) 고정" || nope "WT-E8.7" "$(_dec "$r") $(_why "$r" | head -c 200)"
 
 finish

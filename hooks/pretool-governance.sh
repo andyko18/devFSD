@@ -418,16 +418,19 @@ if [ -n "$violation" ]; then
   #   (마찰로그 BYPASS 24건 중 15건이 "이 세션에서 verify PASS" 를 사유로 적었다).
   #   진단이 빈 값이면 종전 문안 그대로 — 미탐 방향으로만 떨어진다.
   _stale_cause=$(_verify_stale_cause "$transcript" 2>/dev/null || true)
-  if [ -n "${_stale_cause:-}" ]; then
+  if [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "moved" ]; then
+    # 명령이 다른 작업 트리로 옮겨 커밋한다 — 판정이 읽는 검증 기록은 프로젝트 폴더의 것이라 옮겨 간 곳의 변경을 검증한 적이 없다.
+    #   stale 진단보다 앞에 둔다: 러너를 다시 돌려도 이동은 풀리지 않는다(리뷰 M-1). 러너 재실행 안내(_bg_hint)도 비운다(M-2).
+    _bg_hint=""
+    _evidence_hint="✘ ① 명령이 다른 작업 트리로 옮겨 커밋합니다 — 이 판정이 보는 검증 기록(프로젝트 폴더의 FID ${fid:-<FID>})은 옮겨 간 곳의 변경을 검증한 것이 아니므로 그 기록으로 열지 않습니다.
+   이동 위치를 확인하지 못한 경우(인용·변수·명령치환으로 쓴 경로, git 이 아닌 도구의 -C 포함)도 같은 판정입니다.
+   그 폴더로 셸을 옮긴 뒤(\`cd\` 를 별도 호출로) 맨 \`git commit\` 을 쓰면 그곳 기준으로 판정됩니다 — 그 폴더의 기록에서 검증이 유효해야 열립니다."
+  elif [ -n "${_stale_cause:-}" ]; then
     _evidence_hint="① 실행 증거가 **stale** 입니다 — 러너는 이 세션에서 PASS 했으나 그 뒤 코드가 수정됐습니다.
    마지막 수정: ${_stale_cause#stale }
    수정 이후의 코드로 다시 검증해야 합니다 — 러너를 **한 번 더** 실행하세요:
    bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>}
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
-  elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "moved" ]; then
-    # 명령이 다른 작업 트리로 옮겨 커밋한다 — 판정이 읽는 검증 기록은 프로젝트 폴더의 것이라 옮겨 간 곳의 변경을 검증한 적이 없다.
-    _evidence_hint="✘ ① 명령이 다른 작업 트리로 옮겨 커밋합니다 — 이 판정이 보는 검증 기록(프로젝트 폴더의 FID ${fid:-<FID>})은 옮겨 간 곳의 변경을 검증한 것이 아니므로 그 기록으로 열지 않습니다.
-   그 폴더로 셸을 옮긴 뒤(\`cd\` 를 별도 호출로) 맨 \`git commit\` 을 쓰면 그곳 기준으로 판정됩니다 — 그 폴더에서 검증을 마쳤다면 그대로 열립니다."
   elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "vstale" ]; then
     # 검증 판정이 STALE — transcript 의 편집 이벤트로는 보이지 않는 변경이다(셸 명령·포매터·코드 생성·서브에이전트).
     _evidence_hint="✘ ① 검증 이후 코드가 바뀌었습니다 — 이 FID 의 검증 판정이 **STALE** 입니다.

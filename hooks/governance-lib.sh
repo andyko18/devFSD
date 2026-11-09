@@ -1216,6 +1216,19 @@ apply_lookback_rule() {
   _efid=$(detect_fid 2>/dev/null || echo "")
   _verify_exec_evidence "$transcript" "${_efid:+.specops/$_efid}"; _exec_rc=$?
 
+  # ★ 이동한 커밋 (20261109-verify-moved-commit · 11회차 E-8): 명령이 다른 작업 트리로 옮겨 커밋하면(`cd W && git commit` 등)
+  #   이 아래의 면제 근거 — receipt·검증 판정(STALE 대조)·진행 기록·Skill 호출 — 가 전부 **프로젝트 폴더의 기록**이다.
+  #   그 기록은 옮겨 간 곳의 변경을 검증한 것이 아니라서, 메인이 PASS 면 검증 안 된 worktree 코드가 열렸다(7형태 재현).
+  #   문서 면제를 거두는 판정기(_gov_cmd_moves_elsewhere — 확인 못 하는 위치는 옮긴 것으로 본다)를 그대로 쓴다:
+  #   명령 글자로 "안전한 이동" 을 따로 가려내는 설계는 이 저장소가 두 번 샜다. 정직한 길은 셸을 그 폴더로 옮긴 뒤 맨 커밋이다.
+  #   R-1 한정 — `gh pr create` 는 base...HEAD 를 보므로 별도 검토가 필요하다(이 변경의 범위 밖).
+  if [ "$rule_id" = "R-1" ] && _gov_cmd_moves_elsewhere "$tool_cmd"; then
+    _emit_violation "$rule_id" "$tool_cmd" \
+      "$(_violation_offset "$transcript" "$trigger_tool" "$trigger_pattern")" \
+      "moved" "$(_cause_anchor "$_efid")" "n/a"
+    return 0
+  fi
+
   # ★ R-1 implement 창: task receipt 필수 (Wave A — downstream-dogfood 병렬 wave BYPASS 관성 제거)
   #   tasks.md 존재 ∧ verify 미완료(_receipt_window_open) = implement 창.
   #   창 조건은 20260910 에 `evidence.md 부재` 에서 바뀌었다 — 그 파일은 /verify 전용이 아니라

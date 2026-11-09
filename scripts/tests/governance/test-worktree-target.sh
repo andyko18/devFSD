@@ -523,4 +523,41 @@ for t in "4d'(의도된 불일치: 링크 .specops — 가드 a)|$M2|$W4DP|$M2P"
   [ "$H" = "$want" ] && ok "RR-P $nm → 프로젝트 폴더 고정" || nope "RR-P $nm" "H=$H want=$want"
 done
 
+# ── 이동한 커밋의 검증 면제 (20261109-verify-moved-commit · 11회차 E-8) ────────────────────
+#   메인 FIDM 이 검증 PASS(지문 일치·러너 실행 증거)인 채 `cd <다른 worktree> && git commit` 이면, 판정은 메인의 기록을 보는데
+#   실제 커밋은 검증 안 된 worktree 코드다 — 7형태가 전부 allow 였다(같은 입력에서 transcript 의 러너 증거만 빼면 deny).
+#   이동 위치가 같은 작업 트리로 확인되지 않으면 메인의 검증 기록으로 열지 않는다(문서 면제와 같은 판정기 _gov_cmd_moves_elsewhere).
+M13="$TD/main13"; _mkmain "$M13"; (cd "$M13" && bash "$VS" record "$FIDM" PASS >/dev/null 2>&1)
+W13P=$(_mkwt "$M13" wt13); M13P=$(cd "$M13" && pwd -P)
+TR13=$(_tr_for "$M13" "$FIXT/exec-evidence-pass.jsonl")
+_pre13() { _in "$1" "$2" "$TR13" | (cd "$M13" && CLAUDE_PROJECT_DIR="$M13" bash "$PRE" 2>/dev/null); }
+vs13=$(cd "$M13" && bash "$VS" current "$FIDM" 2>/dev/null)
+[ "$vs13" = PASS ] && ok "WT-E8.0 전제: 메인 FIDM 검증 = PASS" || nope "WT-E8.0" "vs=$vs13"
+n=0; i=0
+for c in "cd $W13P && git commit -m 'feat: moved'" "git -C $W13P commit -m 'feat: moved'" "GIT_DIR=$W13P/.git GIT_WORK_TREE=$W13P git commit -m 'feat: moved'" \
+         "pushd $W13P && git commit -m 'feat: moved'" "(cd $W13P; git commit -m 'feat: moved')" "git --git-dir $W13P/.git --work-tree $W13P commit -m 'feat: moved'" \
+         "cd .claude/worktrees/wt13 && git commit -m 'feat: moved'"; do
+  i=$((i + 1)); r=$(_pre13 "$c" "$M13P")
+  [ "$(_dec "$r")" = "deny" ] && n=$((n + 1)) || echo "  (allow) 형태 $i: $c"
+done
+[ "$n" -eq 7 ] && ok "WT-E8.1 ★ 메인 검증 PASS + 다른 worktree 로 옮긴 코드 커밋 7형태 → deny" || nope "WT-E8.1" "deny=$n/7"
+r=$(_pre13 "cd $W13P && git commit -m 'feat: moved'" "$M13P")
+_why "$r" | grep -qF '다른 작업 트리로 옮겨' && _why "$r" | grep -qF '검증 기록' \
+  && ok "WT-E8.2 deny 이유가 '옮겨서 메인의 검증 기록으로 열지 않음' 이라고 말한다" || nope "WT-E8.2" "$(_why "$r" | head -c 300)"
+a=$(_dec "$(_pre13 "cd $M13P && git commit -m 'feat: same'" "$M13P")"); b=$(_dec "$(_pre13 "cd $M13P/src && git commit -m 'feat: same'" "$M13P")")
+c2=$(_dec "$(_pre13 "git commit -m 'feat: plain'" "$M13P")")
+[ "$a" = "allow" ] && [ "$b" = "allow" ] && [ "$c2" = "allow" ] \
+  && ok "WT-E8.3 같은 작업 트리(자기 폴더·하위 폴더)·이동 없음 → 종전대로 allow (검증 PASS)" || nope "WT-E8.3" "$a $b $c2"
+r=$(_pre13 "cd $W13P && git commit -m 'feat: moved'" "$W13P")
+[ "$(_dec "$r")" = "deny" ] && ok "WT-E8.4 셸이 worktree 에서 같은 worktree 로 옮겨도 프로젝트 기록으로는 열지 않는다(확인 불가는 옮긴 것으로 봄)" || nope "WT-E8.4" "$(_dec "$r")"
+BY=$(printf '%s' "cd $W13P && git commit -m 'feat: moved'" | { _in "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=test cd $W13P && git commit -m x" "$M13P" "$TR13" | (cd "$M13" && CLAUDE_PROJECT_DIR="$M13" bash "$PRE" 2>/dev/null); })
+[ "$(_dec "$BY")" = "allow" ] && ok "WT-E8.5 사유 병기 BYPASS 는 종전대로 allow" || nope "WT-E8.5" "$(_dec "$BY")"
+# WT-E8.6 이동 deny 문안: 러너 재실행 안내가 섞이지 않고, 이동 위치 확인 불가도 같은 판정이라고 말한다 (리뷰 M-1·M-2·I-2 — 문서 면제 안내는 메인에 문서가 staged 인 경우 참이라 WT-12 가 요구한다)
+r=$(_pre13 "cd $W13P && git commit -m 'feat: moved'" "$M13P")
+! _why "$r" | grep -qF 'timeout 을 명시' && _why "$r" | grep -qF '확인하지 못한 경우' \
+  && ok "WT-E8.6 이동 deny 문안: 러너 재실행 안내 없음 · 확인 불가 포함 문구 있음" || nope "WT-E8.6" "$(_why "$r" | head -c 400)"
+# WT-E8.7 현행 고정: R-2(gh pr create)는 이 변경의 범위 밖이다 — 옮겨 만든 PR 은 종전 판정(메인 PASS 면 allow). 이 줄이 뒤집히면 R-2 를 고친 것이니 문안과 함께 갱신한다 (리뷰 M-5)
+r=$(_pre13 "cd $W13P && gh pr create --title t --body b" "$M13P")
+[ "$(_dec "$r")" = "allow" ] && ok "WT-E8.7 R-2 는 범위 밖 — 옮긴 gh pr create 는 종전 판정(allow) 고정" || nope "WT-E8.7" "$(_dec "$r") $(_why "$r" | head -c 200)"
+
 finish

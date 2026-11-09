@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- 메인 폴더에 검증 PASS 가 있을 때 `cd <다른 worktree> && git commit` · `git -C <worktree> commit` · `GIT_DIR=…`·`pushd`·서브셸·상대 `cd` 로 옮겨 커밋하면 검증 안 된 worktree 코드가 R-1 을 통과하던 구멍(11회차 평가 E-8, 7형태 재현). 판정이 읽는 검증 기록은 프로젝트 폴더의 것이라 옮겨 간 곳을 검증한 적이 없다 — 문서 면제를 거두는 것과 같은 판정기(`_gov_cmd_moves_elsewhere`)로 옮긴 커밋은 메인 기록으로 열지 않는다. 정직한 길은 셸을 그 폴더로 옮긴 뒤 맨 `git commit` 이다(deny 문안이 그렇게 안내). R-1 한정 — `gh pr create` 는 별도 검토.
+
 ## [3.1.15] — 2026-11-09
 
 ### Fixed

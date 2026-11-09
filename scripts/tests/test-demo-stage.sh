@@ -205,6 +205,31 @@ _perf_checks() { local f=$1 chain=$2 fm g bb ba bs lba lg lq lp lc s e1 e2 body
 _demo_checks "$DEMO" "$PERF"
 _perf_checks "$PERF" "$CHAIN"
 
+# ═══ BF — batch PR 직전 데모 (20261109-batch-demo-gate · 11회차 F-1) ═══════════════════════════
+#   per-FR FID 의 데모 skip(BATCH-DEMO-SKIP)은 의도다(PR 이 없다). 그런데 batch PR 은 사용자가 결과를 처음 보는 지점인데
+#   오케스트레이터(start-all Step D · start-all-auto PR 게이트)에 데모 호출이 0건이라 README 의 "PR 직전 데모 확인" 약속이
+#   batch 에서 지켜지지 않았다. 오케스트레이터가 `batch-final` 인자로 demo-ko 를 PR 직전에 부른다.
+SA="$PLUGIN/commands/start-all.md"; SAA="$PLUGIN/commands/start-all-auto.md"
+_bf_checks() { local demo=$1 sa=$2 saa=$3 d dd da
+  d=$(_sec "$demo" '^### batch 최종 호출' '^## 1단계')
+  _has "BF.a demo-ko — batch-final 호출 절: 인자·diff 범위·무인 인자·기록 위치 (F-1)" "$d" \
+    'batch-final <BATCH_ID>' 'origin/$BASE...HEAD' '<BATCH_ID> auto' '.specops/<BATCH_ID>/demo.md' 'session-progress'
+  dd=$(_sec "$sa" '^\*\*Step D: batch PR 생성' '^## 안티패턴')
+  _has "BF.b start-all Step D — demo-ko batch-final 호출 (F-1)" "$dd" 'Skill: devfsd:demo-ko' 'batch-final $BATCH_ID'
+  _ord "BF.c start-all Step D — 데모 호출이 push·PR 생성보다 앞 (F-1)" "$dd" f 'Skill: devfsd:demo-ko' 'git push -u origin "feat/$BATCH_ID"' '  --base "$BASE"'
+  _has "BF.d start-all PR 본문에 ## 데모 절 (F-1)" "$dd" '## 데모' '.specops/<BATCH_ID>/demo.md'
+  da=$(_sec "$saa" '^6\. \*\*batch PR 게이트' '^## §auto 모드 동작')
+  _has "BF.e start-all-auto PR 게이트 — demo-ko batch-final auto 호출 · 다이제스트로 이관 (F-1)" "$da" 'Skill: devfsd:demo-ko' 'batch-final <BATCH_ID> auto' '데모: 사용자 확인 대기'
+}
+_bf_checks "$DEMO" "$SA" "$SAA"
+# 양성 대조 — start-all 사본에서 데모 호출이 사라지면 BF.b 가, 순서가 뒤집히면 BF.c 가 떨어진다
+if _mut "$SA" 'Skill: devfsd:demo-ko' 'Skill: devfsd:XXXX' > "$_T/sa.mut" 2>/dev/null; then
+  out=$(_bf_checks "$DEMO" "$_T/sa.mut" "$SAA"); printf '%s\n' "$out" | grep -qE '^FAIL BF\.b ' && ok "BF.x1 start-all 에서 데모 호출이 사라지면 BF.b FAIL" || nope "BF.x1" "변이가 살아남았다"
+else nope "BF.x1" "변이 적용 실패"; fi
+if _mut "$SAA" 'batch-final <BATCH_ID> auto' 'batch-final' > "$_T/saa.mut" 2>/dev/null; then
+  out=$(_bf_checks "$DEMO" "$SA" "$_T/saa.mut"); printf '%s\n' "$out" | grep -qE '^FAIL BF\.e ' && ok "BF.x2 무인 인자가 사라지면 BF.e FAIL" || nope "BF.x2" "변이가 살아남았다"
+else nope "BF.x2" "변이 적용 실패(본문에 문구가 없다)"; fi
+
 # ═══ C — 양성 대조: 변이를 넣은 사본에서 같은 검사 함수가 기대한 ID 로 FAIL 하는지 (문구 하나가 사라지면 떨어진다) ═══
 # $1=ID $2=demo|perf $3=바꿀 문자열 $4=대체문 $5=기대 FAIL ID(정규식) $6=L(줄 전체 일치, 선택)
 _ctl() { local id=$1 kind=$2 src out

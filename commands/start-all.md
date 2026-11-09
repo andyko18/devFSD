@@ -5,7 +5,7 @@ description: "[전체·대화형] devFSD 한국어 자율 Lifecycle — requirem
 triggers:
   - "/start-all"
 mode: ask
-specops_version: 2.18.0
+specops_version: 3.1.17
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가
 ---
@@ -420,6 +420,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$B
 - rc 1 (`INCOMPLETE`) → **닫지 않는다.** `MISSING` 은 그 Step 을 실행하고 전파한다. `SKIP(BARE)` 는 같은 전파 명령을 줄 번호를 인용한 근거로 다시 부르면 보완된다.
 - PR 을 만들지 않고 닫는 경우(원격 없는 저장소 · 로컬 병합)에도 **반드시** 돌린다 — batch PR 게이트와 RELEASE_READY 는 `gh pr create` 에서만 발화하므로, 그 경로에서는 이 확인이 유일한 관문이다(실기록 20261008: batch 6건 중 PR 로 닫힌 것은 0건이었고 2건은 전파 없이 닫히거나 멈췄다).
 
+**데모 (필수 — PR 직전, 11회차 F-1)** — per-FR 단계의 데모는 PR 이 없어 건너뛴다(`BATCH-DEMO-SKIP`). batch PR 은 사용자가 결과를 처음 보는 지점이라 여기서 한 번 보여 준다: `Skill: devfsd:demo-ko` 를 인자 `batch-final $BATCH_ID` 로 호출한다. 확인 필수 종류면 사용자 "맞다/아니다" 를 받은 뒤에만 아래 push·PR 로 간다. 기록은 `.specops/$BATCH_ID/demo.md`.
+
 PR 직전 **자동 확정 항목을 집계기로 수집**해 PR 본문·사용자 확인에 포함한다 — `/start-all` 도 Phase 2.5 에서 화면·인터페이스를 **대화 승인 없이** 반영하는 경로가 있고(§auto 여부와 무관하게 `**자동 결정 화면**`·`**자동 결정 인터페이스**` 가 남는다), 수기 집계는 과소보고를 막지 못한다:
 
 ```bash
@@ -442,6 +444,9 @@ gh pr create \
 
 ## FR 목록
 queue.md 상태 전이 요약 (PENDING→PLAN_DONE→IMPL_DONE) 직접 기재
+
+## 데모
+<`.specops/<BATCH_ID>/demo.md` 의 종류 · 보여 준 것 · 사용자 판정>
 
 ## Test plan
 - [ ] 전 FR verifying-evidence-ko PASS 확인
@@ -492,4 +497,4 @@ rm -f ".specops/$BATCH_ID/ACTIVE"
 
 ---
 
-*specops-ko v2.18.0 · 2026-10-09 · FR 보류 신호 수신(`BATCH-FR-HELD`) · 게이트 FAIL 뒤의 복귀 경로*
+*specops-ko v3.1.17 · 2026-11-09 · batch PR 직전 데모(batch-final) · FR 보류 신호 수신(`BATCH-FR-HELD`) · 게이트 FAIL 뒤의 복귀 경로*

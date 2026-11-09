@@ -5,7 +5,7 @@ description: "[전체·무인] devFSD 한국어 자율 Lifecycle — requirement
 triggers:
   - "/start-all-auto"
 mode: ask
-specops_version: 2.18.0
+specops_version: 3.1.17
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (start-all 무인 변형)
 ---
@@ -42,6 +42,7 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/collect-assumptions.sh ".specops/$BATCH_ID"
    ```
    > **수기 집계 금지 (20260806)**: 이 다이제스트는 무인 진행에서 **사용자가 자동 확정 항목을 보는 유일한 지점**이다(나머지 확인은 전부 자동 통과). 집계가 모델 재량이면 누락 시 사용자는 무엇이 자기 대신 결정됐는지 모른 채 PR 을 승인한다 — 무인 모드를 수용 가능하게 만드는 단 하나의 게이트가 내용을 잃는다(5원칙 4 주권). 집계기는 IMPL_DONE FID 전체를 훑어 과소보고를 구조적으로 차단하고, **0건도 명시 보고**한다("0건"과 "집계 안 함"은 다르다).
+   먼저 `Skill: devfsd:demo-ko` 를 인자 `batch-final <BATCH_ID> auto` 로 호출한다 — 만든 것을 실제로 실행해 보여 주되 확인 대기는 하지 않고, 확인 필요 항목은 아래 다이제스트에 `데모: 사용자 확인 대기` 로 올린다(11회차 F-1 — 종전엔 batch PR 직전 데모 호출이 없었다).
    집계기 출력에 더해 아래 항목을 확인한다:
    - 전 FID `clarifications.md` 의 `status: ASSUMED` 항목 (FID별 그룹)
    - 전 FID `handoffs/*.md` Decided 필드 집계
@@ -85,4 +86,4 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 
 ---
 
-*specops-ko v2.18.0 · 2026-10-09 · 무인 배치 오케스트레이터 (requirements.md FR 전체 가역 게이트 자동통과, 비가역 정지 · FR 보류는 대신 승인하지 않는다)*
+*specops-ko v3.1.17 · 2026-11-09 · batch PR 직전 데모(batch-final auto) · 무인 배치 오케스트레이터 (requirements.md FR 전체 가역 게이트 자동통과, 비가역 정지 · FR 보류는 대신 승인하지 않는다)*

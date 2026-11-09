@@ -4,7 +4,7 @@
 {"skill":"clarifying-ko","bytes":18478,"lines":235}
 {"skill":"context-resets-ko","bytes":3949,"lines":60}
 {"skill":"decomposing-ko","bytes":27027,"lines":373}
-{"skill":"demo-ko","bytes":7432,"lines":123}
+{"skill":"demo-ko","bytes":8485,"lines":131}
 {"skill":"dispatching-parallel-agents-ko","bytes":9636,"lines":199}
 {"skill":"e2e-test-ko","bytes":37023,"lines":823}
 {"skill":"file-based-communication-ko","bytes":4917,"lines":91}

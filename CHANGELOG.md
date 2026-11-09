@@ -7,6 +7,12 @@
 ### Fixed
 - 목업 디자인이 실제 앱으로 넘어가지 않던 문제(디자인 진단 2026-11-09) — 같은 날 만든 두 앱이 목업 클래스 생존율 8%(입력·버튼 14/14 가 브라우저 기본 모양)와 91% 로 갈렸고, 차이는 계획서가 우연히 "목업 토큰을 합친다" 고 적었는지뿐이었다. 화면 FID 는 **목업 CSS 이식**(목업 토큰·공통 클래스를 앱 전역 CSS 로)을 첫 태스크로 두고(`planning-ko`), plan 리뷰어가 빠지면 Important 로 지적하며(`plan-reviewer-ko`), 구현은 화면 CSS 를 최소 구현으로 줄이지 않는다(`implementing-ko`). 새 `check-mock-css.sh` 가 목업 클래스 생존율을 재고(경고 전용 · Tailwind·목업 없음·앱 CSS 없음은 SKIP) 데모 단계가 결과를 함께 보여 준다. 실데이터: stock-mng WARN 8%(2/25) · media OK 90%(29/32).
 
+## [3.1.20] — 2026-11-09
+
+### Changed
+- plan 단계 속도: 테스트 전문가와 plan-reviewer 1회차를 같은 plan 에 **동시에** 부르고 둘의 지적을 한 번에 반영한다(종전: 테스트 전문가 → 반영 → 리뷰 1회차 → 반영 직렬). 실측(devFSD 최근 FID): plan 이 FID 소요의 31% · 큰 FID 에서 20~79분이고, 79분 사례는 리뷰 1회차+반영 약 19분이 테스트 전문가 뒤에 통째로 대기였다. 리뷰 횟수(cap 2)와 "최종 plan 은 모든 반영 뒤 한 번은 리뷰받는다" 는 성질은 그대로다 — 1회차 PASS 여도 반영으로 plan 이 바뀌었으면 2회차를 부른다. 테스트 전문가 패스가 발동하지 않는 plan 은 종전과 같다.
+- plan 단계 하위 기록: `/plan-draft`(초안+자체 검토) · `/plan-expert`(전문가 반영) · `/plan-review`(회차별 결과) 를 진행 기록에 남겨 `stage-timing.sh` 가 plan 안의 시간을 나눠 잰다. 다음 FID 부터 위 변경의 효과와, plan 시간이 작성·반영(메인 세션)과 서브에이전트 중 어디에 쓰이는지를 실측한다.
+
 ### Changed
 - CI 에서 진행 패널·관제판 TS 훅 테스트(244건)가 실제로 돈다(11회차 평가 테스트 품질 — CLI 가 없어 SKIP 인데 PASS 로 집계되던 것). ubuntu `run-all` 잡이 Claude Code CLI(2.1.317 고정)를 설치하고 `PP_REQUIRE_ENGINE=1` 로 돌며, 그 값이면 CLI 부재는 SKIP 이 아니라 실패다. `plugin test` 는 로그인·API 키 없이 돈다(빈 HOME·키 없음에서 244/244 실측). 로컬 기본 동작(CLI 없으면 SKIP)은 그대로다. 코퍼스 의존 스위트(P10·R18·T25)는 `.specops` 로컬 전용 정책상 CI 에 실데이터가 없어 이번 범위 밖이다.
 
@@ -3621,7 +3627,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.19...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.20...HEAD
+[3.1.20]: https://github.com/andyko18/devFSD/compare/v3.1.19...v3.1.20
 [3.1.19]: https://github.com/andyko18/devFSD/compare/v3.1.18...v3.1.19
 [3.1.18]: https://github.com/andyko18/devFSD/compare/v3.1.17...v3.1.18
 [3.1.17]: https://github.com/andyko18/devFSD/compare/v3.1.16...v3.1.17

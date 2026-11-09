@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.15] — 2026-11-09
+
 ### Fixed
 - SessionStart 재개 안내가 이미 머지된 FID 를 미완으로 보고하던 문제 — session-progress 에 종결 줄(PR 생성·DONE)이 빠져도 FID 브랜치가 main 에 머지 커밋으로 들어갔으면 `reconcile-check.sh` 가 "이미 머지됨" 1줄을 내고 훅이 재개 제안을 하지 않게 한다. git 만 사용(gh·네트워크 없음) · squash/fast-forward 머지는 판정 못 함(한계).
 
@@ -3589,7 +3591,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.14...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.15...HEAD
+[3.1.15]: https://github.com/andyko18/devFSD/compare/v3.1.14...v3.1.15
 [3.1.14]: https://github.com/andyko18/devFSD/compare/v3.1.13...v3.1.14
 [3.1.13]: https://github.com/andyko18/devFSD/compare/v3.1.12...v3.1.13
 [3.1.12]: https://github.com/andyko18/devFSD/compare/v3.1.11...v3.1.12

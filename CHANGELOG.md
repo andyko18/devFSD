@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Added
+- 웹 화면 브라우저 점검 하네스 — 새 `scripts/_internal/ui-probe.cjs` 가 떠 있는 화면 URL 을 실제 브라우저로 375·768·1280 폭에서 열어 찍고(`.specops/<FID>/ui/<화면>@<폭>.png`) **가로 넘침 · 콘솔 오류 · 접근성**(axe-core, WCAG 2.1 AA — critical·serious 만 실패)을 기계 판정한다. 하류 저장소에 의존성을 추가하지 않는다 — 그 저장소의 Playwright 를 쓰고, 없으면 devFSD 전용 캐시(`~/.cache/devfsd/ui-harness`, 1회 설치)를 쓰며, 브라우저는 시스템 Chrome 을 우선한다. 찾지 못하면 `UI-PROBE: SKIP (NO_TOOL)` 와 설치 명령을 내고 PASS 로 적지 않는다. 화면 신호가 있는 FID 는 `integration-test-ko` 가 이 점검을 돌리고 evidence 에 `**브라우저**: 실행(…) | 미실행(NO_TOOL|NO_ENV|NO_SERVER|USER_SKIP — 사유)` 줄을 반드시 남기며, `demo-ko` 는 그 PNG 를 그대로 보여 준다. 근거 — 하류 실측: 화면 FID 의 통합 테스트가 브라우저를 돌리지 않고 PASS(6/9), 남은 화면 이미지 0/35, 반응형·접근성 실행 검증 0. 한 화면 3폭 점검 약 3초(로컬 실측).
+
 ## [3.1.22] — 2026-11-10
 
 ### Changed

@@ -101,5 +101,45 @@ console.log(JSON.stringify([c1.fresh.map((f)=>f.key),c1.same,c2.fresh[0],c3.fres
 got=$(node -e 'const s=require(process.argv[1]);const w=s.writeJson(process.argv[2]+"/x.json",{});const r=s.readJson(process.argv[2]+"/x.json");console.log(JSON.stringify([w.ok,w.reason.length>0,r.state]))' "$S" "$TMP/afile" 2>&1)
 [ "$got" = '[false,true,"missing"]' ] && ok "U5f writeJson 실패는 ok:false+사유 · 부모가 파일인 경로(ENOTDIR)는 없음으로 읽는다" || no "U5f" "got=[$got]"
 
+# U6 — 인자·기록 읽기·중복·로그인 상태 (Playwright 보다 앞에서 결정되므로 브라우저 없이도 돈다)
+node "$P" --out "$TMP/o6" --a11y-baseline-update "file://$TMP/x.html" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 2 ] && ok "U6a --a11y-baseline-update 만 주면 rc 2" || no "U6a" "rc=$rc"
+
+out=$(node "$P" --out "$TMP/o6" --memory "$TMP/none.json" 2>&1); rc=$?
+out2=$(node "$P" --out "$TMP/o6" --memory "$TMP/m-bad.json" 2>&1); rc2=$?
+[ "$rc" -eq 2 ] && has "$out" '기록 없음:' && [ "$rc2" -eq 2 ] && has "$out2" '기록을 읽지 못함:' \
+  && ok "U6b URL 없이 기록만 — 없음/깨짐을 구분해 rc 2" || no "U6b" "rc=$rc [$out] rc2=$rc2 [$out2]"
+
+mkdir -p "$TMP/d1" "$TMP/d2"; : > "$TMP/d1/x.html"; : > "$TMP/d2/x.html"
+c1=$(node "$P" --out "$TMP/o6" --memory "$TMP/mm.json" http://127.0.0.1:9/ http://127.0.0.1:9/home 2>&1); r1=$?
+c2=$(node "$P" --out "$TMP/o6" --memory "$TMP/mm.json" "http://127.0.0.1:9/list?tab=a" "http://127.0.0.1:9/list?tab=b" 2>&1); r2=$?
+c3=$(node "$P" --out "$TMP/o6" --a11y-baseline "$TMP/bb.json" http://127.0.0.1:9/a/b http://127.0.0.1:9/a-b 2>&1); r3=$?
+c4=$(node "$P" --out "$TMP/o6" --mock "$TMP/d1/x.html" --mock "$TMP/d2/x.html" http://127.0.0.1:9/q 2>&1); r4=$?
+[ "$r1" -eq 2 ] && has "$c1" '화면 이름 중복: home' && [ "$r2" -eq 2 ] && has "$c2" '화면 이름 중복: list' && [ "$r3" -eq 2 ] && has "$c3" '화면 이름 중복: a-b' \
+  && [ "$r4" -eq 2 ] && has "$c4" '화면 이름 중복: x' && [ ! -e "$TMP/mm.json" ] \
+  && ok "U6c 새 플래그 + 화면 이름 중복 — / 와 /home · 쿼리만 다름 · /a/b 와 /a-b · 목업 이름 중복 → rc 2" || no "U6c" "r=$r1,$r2,$r3,$r4 [$c1|$c2|$c3|$c4]"
+
+mkdir -p "$TMP/empty"
+e1=$(DEVFSD_UI_HARNESS_DIR="$TMP/empty" node "$P" --out "$TMP/o6" http://127.0.0.1:9/ http://127.0.0.1:9/home 2>&1); q1=$?
+e2=$(DEVFSD_UI_HARNESS_DIR="$TMP/empty" node "$P" --out "$TMP/o6" --mock "$TMP/d1/x.html" http://127.0.0.1:9/x 2>&1); q2=$?
+[ "$q1" -eq 3 ] && has "$e1" 'NO_TOOL' && [ "$q2" -eq 3 ] && has "$e2" 'NO_TOOL' \
+  && ok "U6d 중복 검사는 새 플래그가 있을 때만 — 플래그 없는 / 와 /home, 구현·목업 이름이 같은 쌍은 거부하지 않는다(rc 3 NO_TOOL)" || no "U6d" "q=$q1,$q2 [$e1|$e2]"
+
+g1=$(node "$P" --out "$TMP/o6" http://127.0.0.1:9/a --memory 2>&1); s1=$?
+g2=$(node "$P" --out "$TMP/o6" http://127.0.0.1:9/a --mock 2>&1); s2=$?
+g3=$(node "$P" --out "$TMP/o6" http://127.0.0.1:9/a --a11y-baseline 2>&1); s3=$?
+g4=$(node "$P" --out "$TMP/o6" --memory --start-cmd x http://127.0.0.1:9/a 2>&1); s4=$?
+[ "$s4" -eq 2 ] && has "$g4" '--memory 에 값이 없다' && [ ! -e "$TMP/--start-cmd" ] && [ "$s1" -eq 2 ] && has "$g1" '--memory 에 값이 없다' && [ "$s2" -eq 2 ] && has "$g2" '--mock 에 값이 없다' && [ "$s3" -eq 2 ] && has "$g3" '--a11y-baseline 에 값이 없다' \
+  && ok "U6e 값이 빠진 플래그는 rc 2 (조용히 꺼지지 않는다) · 값 자리에 다른 플래그가 오면 삼키지 않는다" || no "U6e" "s=$s1,$s2,$s3,$s4 [$g1|$g2|$g3|$g4]"
+
+printf '{bad' > "$TMP/ss-bad.json"
+printf '{"baseUrl":"http://127.0.0.1:9","routes":["/a"],"storageState":"%s"}' "$TMP/ss-none.json" > "$TMP/m-ss.json"
+a1=$(node "$P" --out "$TMP/o6" --storage-state "$TMP/ss-none.json" "file://$TMP/x.html" 2>&1); r1=$?
+a2=$(node "$P" --out "$TMP/o6" --storage-state "$TMP/ss-bad.json" "file://$TMP/x.html" 2>&1); r2=$?
+a3=$(node "$P" --out "$TMP/o6" --memory "$TMP/m-ss.json" 2>&1); r3=$?
+ne=1; for o in "$a1" "$a2" "$a3"; do printf '%s\n' "$o" | grep -q '^UI-PROBE: SKIP (NO_ENV' || ne=0; done
+[ "$r1" -eq 3 ] && [ "$r2" -eq 3 ] && [ "$r3" -eq 3 ] && [ "$ne" = 1 ] && has "$a1" '찾지 못했다' && has "$a2" '읽지 못했다' \
+  && ok "U6f 로그인 상태 파일 없음/깨짐/기록의 storageState 없음 → 모두 SKIP(NO_ENV) rc 3 · 원인 문구 구분 (NO_BROWSER 아님)" || no "U6f" "r=$r1,$r2,$r3 [$a1|$a2|$a3]"
+
 echo "── test-ui-probe: PASS=$PASS FAIL=$FAIL SKIP=$SKIPPED ──"
 [ "$FAIL" -eq 0 ]

@@ -19,18 +19,39 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { createRequire } = require('module');
+const { pathToFileURL } = require('url');
+const state = require('./ui-probe-state.cjs');
+
+const USAGE = 'usage: node ui-probe.cjs --out <폴더> [--widths 375,768,1280] [--memory <파일> [--start-cmd <명령>]] [--storage-state <파일>] [--mock <html>]... [--a11y-baseline <파일> [--a11y-baseline-update]] <URL>...';
 
 const WARN_IMPACTS = ['critical', 'serious'];
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa'];
 
 function parseArgs(argv) {
-  const a = { out: '', widths: [375, 768, 1280], urls: [] };
-  for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--out') a.out = argv[++i] || '';
-    else if (argv[i] === '--widths') a.widths = String(argv[++i] || '').split(',').map(Number).filter((n) => n > 0);
-    else a.urls.push(argv[i]);
+  const a = { out: '', widths: [375, 768, 1280], urls: [], memory: '', startCmd: '', storageState: '', mocks: [], baseline: '', baselineUpdate: false, missing: [] };
+  let i = 0;
+  const next = (k) => { if (i + 1 >= argv.length || argv[i + 1].startsWith('--')) { a.missing.push(k); return ''; } i += 1; return argv[i]; };
+  for (; i < argv.length; i++) {
+    const k = argv[i];
+    if (k === '--out') a.out = next(k);
+    else if (k === '--widths') a.widths = next(k).split(',').map(Number).filter((n) => n > 0);
+    else if (k === '--memory') a.memory = next(k);
+    else if (k === '--start-cmd') a.startCmd = next(k);
+    else if (k === '--storage-state') a.storageState = next(k);
+    else if (k === '--mock') a.mocks.push(next(k));
+    else if (k === '--a11y-baseline') a.baseline = next(k);
+    else if (k === '--a11y-baseline-update') a.baselineUpdate = true;
+    else a.urls.push(k);
   }
   return a;
+}
+
+function fail2(msg) { process.stderr.write(`${msg}\n`); process.exit(2); }
+
+function firstDup(names) {
+  const seen = new Set();
+  for (const n of names) { if (seen.has(n)) return n; seen.add(n); }
+  return '';
 }
 
 function candidates() {
@@ -90,9 +111,30 @@ async function probeOne(browser, url, width, out, axeFile, doAxe) {
 
 async function main() {
   const a = parseArgs(process.argv.slice(2));
-  if (!a.out || a.urls.length === 0 || a.widths.length === 0) {
-    process.stderr.write('usage: node ui-probe.cjs --out <폴더> [--widths 375,768,1280] <URL>...\n');
-    process.exit(2);
+  if (a.missing.length) fail2(`${a.missing[0]} 에 값이 없다`);
+  if (!a.out || a.widths.length === 0 || (a.urls.length === 0 && !a.memory)) fail2(USAGE);
+  if (a.baselineUpdate && !a.baseline) fail2('--a11y-baseline-update 는 --a11y-baseline 과 함께 쓴다');
+  let mem = { state: 'missing' };
+  const urlsFromMemory = a.urls.length === 0;
+  if (a.memory) {
+    mem = state.loadMemory(a.memory);
+    if (urlsFromMemory) {
+      if (mem.state === 'missing') fail2(`기록 없음: ${a.memory}`);
+      if (mem.state === 'broken') fail2(`기록을 읽지 못함: ${a.memory} (${mem.reason})`);
+      a.urls = state.memoryUrls(mem.value);
+    }
+  }
+  if (a.memory || a.baseline || a.mocks.length) {
+    const dup = firstDup(a.urls.map(slugOf)) || firstDup(a.mocks.map((m) => slugOf(pathToFileURL(path.resolve(m)).href)));
+    if (dup) fail2(`화면 이름 중복: ${dup}`);
+  }
+  const ssFile = a.storageState || (mem.state === 'ok' ? mem.value.storageState || '' : '');
+  if (ssFile) {
+    const r = state.readJson(ssFile);
+    if (r.state !== 'ok') {
+      console.log(`UI-PROBE: SKIP (NO_ENV — 로그인 상태 파일을 ${r.state === 'missing' ? '찾지 못했다' : '읽지 못했다'}: ${ssFile})`);
+      process.exit(3);
+    }
   }
   const pw = resolveFrom(['playwright', 'playwright-core']);
   if (!pw) {

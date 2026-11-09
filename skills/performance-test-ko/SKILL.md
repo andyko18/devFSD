@@ -3,7 +3,7 @@ name: performance-test-ko
 description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스트를 작성·실행·증거화. 임계값 부재 시 graceful skip. Lifecycle 최종 단계 — PASS/SKIP 후 demo-ko 로 실제 결과를 보여 준 뒤 PR 생성 게이트 진행
 layer: 2
 reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
-specops_version: 2.18.0
+specops_version: 3.1.22
 used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출), demo-ko (PR 생성 게이트 직전 호출 → 복귀)
 ---
 
@@ -190,7 +190,7 @@ fi
 
 - **auto 모드** (`**§auto**` 라벨 감지) → **먼저 `Skill: devfsd:demo-ko`**(확인 대기는 가정 다이제스트 `### 데모` 로 이관 · demo-ko 가 끝나면 여기로 복귀), 이어서 **가정 다이제스트 제시 + 단일 [y/n] 확인** (아래 §auto 게이트 참조).
 
-- **단일 모드** (`**§batch**`, `**§auto**` 라벨 없는 경우) → **먼저 `Skill: devfsd:demo-ko`** 를 호출해 실제 결과를 보여 주고 사용자 판정을 받은 뒤(demo-ko 가 복귀), 아래 단일 모드 게이트 진행:
+- **단일 모드** (`**§batch**`, `**§auto**` 라벨 없는 경우) → **먼저 `Skill: devfsd:demo-ko`** 를 호출해 실제 결과를 보여 준 뒤(멈추지 않고 demo-ko 가 복귀 — 확인 필요 항목은 PR 질문에서 함께 확인받는다), 아래 단일 모드 게이트 진행:
 
 ### §auto 게이트 (auto 모드 전용)
 

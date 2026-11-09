@@ -933,7 +933,7 @@ for _n in '**발동 판단**은 각 절 기준 그대로 먼저 끝내고' '발�
   '4-1. 재판단 — 반영으로 plan.md 가 바뀌었으면 `check-security-design.sh` 를 다시 1회 실행' '발동하지 않았던 절은 바뀐 plan 으로 발동 기준을 다시 본다'; do
   printf '%s' "$_par" | grep -qF -- "$_n" || _miss="$_miss [$_n]"
 done
-printf '%s\n' "$_par" | grep -qxF -- '5. 다음 — 반영을 모두 마친 뒤 테스트 전문가 패스(직렬 — 반영된 plan 의 테스트를 본다) → 사전검사·경계 대조 재실행 1회 → plan-reviewer. 순서는 그대로다.' || _miss="$_miss [5단계 줄 전체]"
+printf '%s\n' "$_par" | grep -qxF -- '5. 다음 — 반영을 모두 마친 뒤 사전검사·경계 대조 재실행 1회 → 테스트 전문가 패스와 plan-reviewer 1회차를 한 메시지에서 동시에 dispatch 한다(아래 「1회차 동시 dispatch」 — 테스트 패스가 발동하지 않으면 plan-reviewer 만 종전대로).' || _miss="$_miss [5단계 문장]"
 [ "$(printf '%s\n' "$_par" | grep -o '테스트 전문가' | wc -l | tr -d ' ')" = 1 ] || _miss="$_miss [테스트 전문가가 5단계 밖에 나옴]"
 printf '%s\n' "$_par" | grep -q 'test-designer' && _miss="$_miss [병렬 절에 test-designer]"
 _l41=$(printf '%s\n' "$_par" | grep -n '^4-1\. 재판단' | head -1 | cut -d: -f1); _l5s=$(printf '%s\n' "$_par" | grep -n '^5\. 다음' | head -1 | cut -d: -f1); _l4s=$(printf '%s\n' "$_par" | grep -n '^4\. 실패' | head -1 | cut -d: -f1)
@@ -947,9 +947,29 @@ sed -n "$((_l_db9+1)),$((_l_dbe9-1))p" "$_PL" | grep -m1 -v '^$' | grep -q '^경
 sed -n "$((_l_ts9+1)),$((_l_tse9-1))p" "$_PL" | grep -m1 -v '^$' | grep -q '^보안 전문가 패스 뒤, plan-reviewer 를 부르기 \*\*전에\*\* 판단한다' || _miss="$_miss [테스트 절 첫 줄]"
 if [ "$(grep -c '^### 전문가 패스 병렬 실행' "$_PL")" = 1 ] && [ -n "$_l_bd9" ] && [ -n "$_l_ts9" ] && [ -n "$_l_pr9" ] \
    && [ "$_l_bd9" -lt "$_l_par" ] && [ "$_l_par" -lt "$_l_db9" ] && [ "$_l_db9" -lt "$_l_ts9" ] && [ "$_l_ts9" -lt "$_l_pr9" ] && [ -z "$_miss" ]; then
-  ok "planning-ko 전문가 패스 병렬 실행 — 동시 dispatch · 반영 순서 · 합침 · 실패 · 테스트 전문가·plan-reviewer 직렬 · 기록 · DB·보안·테스트 첫 줄"
+  ok "planning-ko 전문가 패스 병렬 실행 — 동시 dispatch · 반영 순서 · 합침 · 실패 · 테스트 전문가∥plan-reviewer 1회차 · 기록 · DB·보안·테스트 첫 줄"
 else
   nope "planning-ko 전문가 패스 병렬 실행" "위치(bd=$_l_bd9 par=$_l_par db=$_l_db9 ts=$_l_ts9 pr=$_l_pr9) 또는 없음:$_miss"
+fi
+
+
+# planning-ko 1회차 동시 dispatch + 하위 단계 기록 (20261109-plan-speed) — plan 79분 중 리뷰 1회차·반영이 테스트 전문가 뒤에 직렬로 붙어 있었다.
+#   테스트 전문가와 plan-reviewer 1회차를 같은 plan 에 동시에 부르고 둘의 지적을 한 번에 반영한다. 최종 plan 은 반영 뒤 반드시 한 번 리뷰받는다(1회차 PASS 여도).
+_l_cc=$(grep -n '^### 1회차 동시 dispatch' "$_PL" | head -1 | cut -d: -f1)
+_l_cce=""; [ -n "$_l_cc" ] && _l_cce=$(awk -v s="$_l_cc" 'NR>s && /^### /{print NR; exit}' "$_PL")
+_cc=""; { [ -n "$_l_cc" ] && [ -n "$_l_cce" ]; } && _cc=$(sed -n "$((_l_cc+1)),$((_l_cce-1))p" "$_PL")
+_miss=""
+for _n in '테스트 전문가 패스가 발동할 때만' '한 메시지의 `Agent` 호출 2개' '둘 다 같은 plan.md' '둘의 지적을 한 번에 plan.md 에 반영' \
+  '1회차가 PASS 여도' '2회차를 반드시 부른다' '최종 plan 은 모든 반영 뒤 한 번은 리뷰를 받는다' 'cap 계산은 그대로' \
+  '`| <N> | <ISO-8601> | test-review-parallel | - | 동시 dispatch | test-designer-ko · plan-reviewer-ko(1회차) |`' \
+  '/plan-draft 완료' '/plan-expert 완료' '/plan-review 완료'; do
+  printf '%s' "$_cc" | grep -qF -- "$_n" || _miss="$_miss [$_n]"
+done
+printf '%s\n' "$_cc" | grep -oE '`\| [^|`]* \| [^|`]* \| test-review-parallel \|[^`]*`' | grep -qE 'DONE|IMPL' && _miss="$_miss [DONE·IMPL 행]"
+if [ -n "$_l_cc" ] && [ -n "$_l_ts9" ] && [ -n "$_l_pr9" ] && [ "$_l_ts9" -lt "$_l_cc" ] && [ "$_l_cc" -lt "$_l_pr9" ] && [ -z "$_miss" ]; then
+  ok "planning-ko 1회차 동시 dispatch — 테스트 전문가 < 이 절 < plan-reviewer · 동시 호출 · 한 번 반영 · 최종 plan 리뷰 보장 · cap 그대로 · 기록 · 하위 단계 3종"
+else
+  nope "planning-ko 1회차 동시 dispatch" "위치(ts=$_l_ts9 cc=$_l_cc pr=$_l_pr9) 또는 없음:$_miss"
 fi
 
 finish

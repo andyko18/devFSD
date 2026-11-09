@@ -293,5 +293,60 @@ out=$(DEVFSD_UI_HARNESS_DIR="$FK2" FAKE_PW_FIX="$FIX" node "$P" --out "$TMP/e16"
 [ "$rc" -eq 0 ] && [ ! -e "$TMP/fb/b6.json" ] && has "$out" '기준선을 쓰지 않음: axe-core 를 찾지 못했다' && has "$out" '접근성 SKIP(axe-core 없음)' \
   && ok "U8e12 axe-core 없음 — 기준선 파일을 만들지 않고 안내(AC-4)" || no "U8e12" "rc=$rc [$out]"
 
+# U7 — 실브라우저 스모크: 가짜가 아닌 Playwright·axe 에서 같은 결과가 나오는지 (없는 환경이면 SKIP 을 세어 적는다)
+if [ "${HAVE_BROWSER:-0}" != 1 ]; then sk "U7 (이 환경에 Playwright·브라우저 없음)"; else
+cat > "$TMP/srv.cjs" <<'EOF'
+const http = require('http'), fs = require('fs');
+const page = (b) => `<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>t</title></head><body><main><h1>x</h1>${b}</main></body></html>`;
+const srv = http.createServer((req, res) => {
+  const p = req.url.split('?')[0];
+  let b = '<p>정상</p>';
+  if (p === '/bad') b = fs.readFileSync(process.argv[3], 'utf8').trim() === '2' ? '<button type="button"></button><button type="button"></button><img src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">' : '<button type="button"></button>';
+  if (p === '/auth') b = (req.headers.cookie || '').includes('sid=ok') ? '<p>로그인됨</p>' : '<script>console.error("no session")</script>';
+  res.setHeader('content-type', 'text/html; charset=utf-8'); res.end(page(b));
+});
+srv.listen(0, '127.0.0.1', () => fs.writeFileSync(process.argv[2], String(srv.address().port)));
+EOF
+echo 1 > "$TMP/mode"; node "$TMP/srv.cjs" "$TMP/port" "$TMP/mode" >/dev/null 2>&1 & SRV=$!
+for _ in $(seq 1 20); do [ -s "$TMP/port" ] && break; sleep 0.25; done
+PORT=$(cat "$TMP/port" 2>/dev/null); B="http://127.0.0.1:$PORT"
+if [ -z "$PORT" ]; then no "U7 서버" "브라우저는 떴는데 테스트 서버를 띄우지 못함"; else
+  R="$TMP/real"; mkdir -p "$R"
+
+  # U7a 기록 — 첫 실행 · 기록만으로 재실행
+  node "$P" --out "$R/a1" --memory "$R/mem.json" --start-cmd "npm run dev" "$B/a" "$B/b" >/dev/null 2>&1; rc=$?
+  out=$(node "$P" --out "$R/a2" --memory "$R/mem.json" 2>&1)
+  [ "$rc" -eq 0 ] && [ "$(jstr "$R/mem.json")" = "{\"baseUrl\":\"$B\",\"routes\":[\"/a\",\"/b\"],\"startCmd\":\"npm run dev\"}" ] && has "$out" 'UI-PROBE: PASS (2화면·3폭' \
+    && ok "U7a 실브라우저 — 기록 저장 후 URL 없이 두 화면 재점검" || no "U7a" "rc=$rc [$out]"
+
+  # U7b 로그인 상태 — 쿠키가 있을 때만 정상 화면
+  cat > "$R/ss.json" <<'EOF'
+{"cookies":[{"name":"sid","value":"ok","domain":"127.0.0.1","path":"/","expires":-1,"httpOnly":false,"secure":false,"sameSite":"Lax"}],"origins":[]}
+EOF
+  out=$(node "$P" --out "$R/b1" --widths 1280 --storage-state "$R/ss.json" "$B/auth" 2>&1); rc=$?
+  out2=$(node "$P" --out "$R/b2" --widths 1280 "$B/auth" 2>&1); rc2=$?
+  [ "$rc" -eq 0 ] && [ "$rc2" -eq 1 ] && has "$out2" '콘솔 오류: no session' && ok "U7b 실브라우저 — 상태 파일의 쿠키가 있으면 PASS, 없으면 같은 화면이 FAIL(대조)" || no "U7b" "rc=$rc [$out] rc2=$rc2 [$out2]"
+
+  # U7c 목업 — 실제 PNG 폭 · 구현 PNG 와 다른 이미지
+  node "$P" --out "$R/c1" --mock "$TMP/good.html" "$B/good" >/dev/null 2>&1
+  [ "$(png_w "$R/c1/good@375.mock.png")" = 375 ] && [ "$(png_w "$R/c1/good@768.mock.png")" = 768 ] && [ "$(png_w "$R/c1/good@1280.mock.png")" = 1280 ] && ! cmp -s "$R/c1/good@375.png" "$R/c1/good@375.mock.png" \
+    && ok "U7c 실브라우저 — 목업을 폭마다 찍고(375·768·1280) 구현 PNG 와 다른 이미지" || no "U7c" "$(ls "$R/c1")"
+
+  # U7d·U7e 접근성 기준선 (실제 axe)
+  out=$(node "$P" --out "$R/d1" --a11y-baseline "$R/bl.json" "$B/bad" 2>&1); rc=$?
+  if has "$out" '접근성 SKIP'; then sk "U7d·U7e (axe-core 없음)"; else
+    cp "$R/bl.json" "$R/bl.keep.json"
+    out2=$(node "$P" --out "$R/d2" --a11y-baseline "$R/bl.json" "$B/bad" 2>&1); rc2=$?
+    echo 2 > "$TMP/mode"
+    out3=$(node "$P" --out "$R/d3" --a11y-baseline "$R/bl.json" "$B/bad" 2>&1); rc3=$?
+    [ "$rc" -eq 0 ] && [ "$(jstr "$R/bl.keep.json")" = '{"_widest":1280,"bad|button-name":1}' ] && [ "$rc2" -eq 0 ] && has "$out2" '기준선 1' \
+      && [ "$rc3" -eq 1 ] && has "$out3" 'button-name(2곳, 기준선 1곳)' && has "$out3" 'image-alt(1곳, 기준선 없음)' && cmp -s "$R/bl.json" "$R/bl.keep.json" \
+      && ok "U7d 실 axe — 기록 → 같은 점검 통과 → 늘어난·새 위반만 FAIL · 파일 불변" || no "U7d" "rc=$rc,$rc2,$rc3 [$out|$out2|$out3]"
+    node "$P" --out "$R/e1" --a11y-baseline "$R/bq.json" "file://$TMP/bad.html" >/dev/null 2>&1; rc=$?
+    [ "$rc" -eq 1 ] && [ "$(jstr "$R/bq.json")" = '{"_widest":1280,"bad|button-name":1}' ] && ok "U7e 실브라우저 — 넘침·콘솔 오류로 FAIL 인 최초 실행도 기준선을 쓴다(Q-A)" || no "U7e" "rc=$rc $(jstr "$R/bq.json" 2>&1)"
+  fi
+fi
+fi
+
 echo "── test-ui-probe: PASS=$PASS FAIL=$FAIL SKIP=$SKIPPED ──"
 [ "$FAIL" -eq 0 ]

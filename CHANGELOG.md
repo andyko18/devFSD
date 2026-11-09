@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- `/start-all`·`/start-all-auto` 의 batch PR 직전에 데모 단계가 돌지 않던 불일치(11회차 평가 F-1) — per-FR 단계의 데모 skip 은 PR 이 없어서 의도지만 batch PR 은 사용자가 결과를 처음 보는 지점인데 오케스트레이터에 호출이 0건이라 README 의 "PR 직전 데모 확인" 약속이 지켜지지 않았다. 오케스트레이터가 `demo-ko` 를 `batch-final <BATCH_ID>`(무인은 `… auto`)로 PR 직전에 부른다. 확인 필수 종류면 `/start-all` 은 사용자 판정을 받은 뒤에만 PR 로 가고, 무인은 대기 없이 가정 다이제스트의 `데모: 사용자 확인 대기` 로 올린다. 기록은 `.specops/<BATCH_ID>/demo.md` · batch PR 본문 `## 데모`. 문서 계약이라 훅 강제는 없다(문장 존재를 `test-demo-stage` BF 절이 잠근다).
+
 ## [3.1.16] — 2026-11-09
 
 ### Fixed

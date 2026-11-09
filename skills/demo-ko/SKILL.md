@@ -4,8 +4,8 @@ description: PR 생성 게이트 직전에 호출 — 만든 것을 실제로 �
 layer: 2
 discipline: true
 reference_upstream: specops-ko 독자 추가
-specops_version: 3.1.6
-used_by: performance-test-ko (PR 생성 게이트 직전 호출-복귀)
+specops_version: 3.1.17
+used_by: performance-test-ko (PR 생성 게이트 직전 호출-복귀), /start-all·/start-all-auto (batch PR 직전 batch-final 호출)
 ---
 
 # Engine 스킬 — 데모 (demo)
@@ -25,6 +25,14 @@ else echo SINGLE; fi
 - **BATCH** → `BATCH-DEMO-SKIP: <FID>` 출력 + 근거 1줄(batch 오케스트레이터가 PR 을 소유) 후 **즉시 복귀**. evidence.md 에 `## /demo` 절을 `결과: SKIP — batch` 로 남긴다.
 - **AUTO**(무인) → 아래 1~2단계는 수행하고, 3단계 확인 대기는 하지 않는다. 확인 필요 항목은 PR 게이트의 가정 다이제스트에 `데모: 사용자 확인 대기` 로 올린다.
 - **SINGLE**(`§lite` 포함 — lite 라고 생략하지 않는다) → 1~4단계 전부.
+
+### batch 최종 호출 (`batch-final`)
+
+`/start-all`·`/start-all-auto` 오케스트레이터가 **batch PR 직전**에 `Skill: devfsd:demo-ko` 를 인자 `batch-final <BATCH_ID>` 로 부르면 위 분기를 보지 않는다. per-FR FID 는 PR 이 없어 위 BATCH 로 건너뛰지만, batch PR 은 사용자가 결과를 처음 보는 지점이다(11회차 F-1).
+
+- 1단계 diff 는 batch 브랜치 전체(`origin/$BASE...HEAD`)다. 2~3단계는 SINGLE 과 같다 — `/start-all` 은 확인 필수면 "맞다/아니다" 를 기다린다.
+- 무인(`/start-all-auto`)은 인자를 `batch-final <BATCH_ID> auto` 로 부른다 — 3단계 대기를 하지 않고, 확인 필요 항목을 batch PR 게이트의 가정 다이제스트에 `데모: 사용자 확인 대기` 로 올린다.
+- 기록은 `.specops/<BATCH_ID>/demo.md` 에 4단계 양식으로 남긴다. FID 가 없어 session-progress 줄은 남기지 않는다. batch PR 본문 `## 데모` 가 이 파일에서 가져온다.
 
 ## 1단계: 종류 판정
 

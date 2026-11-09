@@ -524,9 +524,9 @@ if [ "$JSON" -eq 1 ]; then
 fi
 
 if [ "$SCOPE" = "env-only" ]; then
-  printf 'specops 미사용 프로젝트입니다 (%s 부재) — 프로젝트 항목은 건너뛰고 환경 항목만 점검합니다. 도입은 `/init-project`.\n\n' "$SPECOPS"
+  printf 'devFSD(.specops) 미사용 프로젝트입니다 (%s 부재) — 프로젝트 항목은 건너뛰고 환경 항목만 점검합니다. 도입은 `/init-project`.\n\n' "$SPECOPS"
 fi
-printf '### specops 건강 진단\n\n| 항목 | 상태 | 상세 | 조치 |\n|---|---|---|---|\n'
+printf '### devFSD 건강 진단\n\n| 항목 | 상태 | 상세 | 조치 |\n|---|---|---|---|\n'
 printf '%s' "$ROWS" | while IFS='|' read -r id st detail fix; do
   [ -n "$id" ] || continue
   case "$st" in ok) icon="✅" ;; *) icon="⚠️" ;; esac

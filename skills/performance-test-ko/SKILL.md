@@ -295,7 +295,7 @@ gh pr create \
 ## 이번에 고치지 않고 넘긴 것
 <`dev-decision.sh show <FID> --backlog` 출력 — 비면 "없음">
 
-🤖 Generated with specops-ko Lifecycle (FID: $FID)
+🤖 Generated with devFSD Lifecycle (FID: $FID)
 EOF
 )"
 ```

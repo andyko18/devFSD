@@ -1,7 +1,7 @@
 ---
 name: start-all-auto
 disable-model-invocation: true
-description: "[전체·무인] specops-ko 한국어 자율 Lifecycle — requirements.md FR 표 전체 기능 무인(가역 게이트 자동통과) 일괄 구현. /start-all 무인 변형, batch PR 직전 1회만 확인"
+description: "[전체·무인] devFSD 한국어 자율 Lifecycle — requirements.md FR 표 전체 기능 무인(가역 게이트 자동통과) 일괄 구현. /start-all 무인 변형, batch PR 직전 1회만 확인"
 triggers:
   - "/start-all-auto"
 mode: ask

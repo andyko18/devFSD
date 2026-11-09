@@ -64,10 +64,10 @@ claude plugin marketplace add andyko18/devFSD
 claude plugin install devfsd@devfsd
 
 # 2) 확인
-/doctor
+/doctor        # Claude Code 내장 명령과 겹치면 /devfsd:doctor
 ```
 
-로컬 개발은 `claude plugin marketplace add /절대경로/specops-ko`.
+로컬 개발은 `claude plugin marketplace add /절대경로/devFSD`.
 
 ---
 
@@ -307,8 +307,8 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 
 | 슬래시 | 용도 |
 |---|---|
-| `/status` | 진행 중 FID 의 단계·아티팩트 현황 |
-| `/doctor` | 설치·환경 건강 진단 10항목 (read-only) |
+| `/status` | 진행 중 FID 의 단계·아티팩트 현황 (내장 `/status` 와 겹치면 `/devfsd:status`) |
+| `/doctor` | 설치·환경 건강 진단 10항목 (read-only) (내장 `/doctor` 와 겹치면 `/devfsd:doctor`) |
 | `/design-overview` | 설계 문서를 읽기 전용 HTML 한 장으로 — 구성도·프로세스 흐름·ERD 그림, 추적표, 미확정/가정 목록 (`--check` 로 낡음 확인) |
 | `/gbrain` · `/log` | 세션 인사이트 조회 · 즉석 기록 |
 | `/promote` | 자유작업 mini-FID 를 lifecycle 로 승격 |
@@ -327,7 +327,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 ## 자산 구조
 
 ```
-specops-ko/
+devFSD/
 ├── .claude-plugin/     plugin.json · marketplace.json
 ├── commands/           슬래시 진입로 25건
 ├── hooks/              SessionStart · PreToolUse · PostToolUse · Stop · Notification

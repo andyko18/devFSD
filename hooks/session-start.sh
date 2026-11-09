@@ -82,9 +82,9 @@ meta_escaped=$(escape_for_json "$meta_content")
 #   rehydrate 는 7.8KB 로 커서 앞에 두면 뒤를 전부 밀어내므로 최후미에 둔다
 #   (clarify Q1 — 참조 데이터라 절단 손실이 가장 작다).
 #   계약 잠금: scripts/tests/test-session-start-order.sh
-anchor_block="<specops-ko-anchor>\nspecops-ko 자율 Lifecycle 플러그인 활성.\n바로 아래 지시 블록을 최우선으로 즉시 처리하라 (자유작업 pending · 재개 힌트).\n메타 skill 'using-specops-ko' 본문은 이 컨텍스트 하단에 전문 첨부 — 기능 요청 신호 감지 시 반드시 따른다.\n</specops-ko-anchor>"
+anchor_block="<specops-ko-anchor>\ndevFSD 자율 Lifecycle 플러그인 활성.\n바로 아래 지시 블록을 최우선으로 즉시 처리하라 (자유작업 pending · 재개 힌트).\n메타 skill 'using-specops-ko' 본문은 이 컨텍스트 하단에 전문 첨부 — 기능 요청 신호 감지 시 반드시 따른다.\n</specops-ko-anchor>"
 
-meta_block="<EXTREMELY_IMPORTANT>\nspecops-ko 자율 Lifecycle 플러그인이 활성화돼 있다.\n\n**아래는 'devfsd:using-specops-ko' 메타 skill 본문 — 모든 대화 시작 시 이 지시를 최우선으로 따른다. 다른 skill 은 Skill 도구로 호출한다:**\n\n${meta_escaped}\n</EXTREMELY_IMPORTANT>"
+meta_block="<EXTREMELY_IMPORTANT>\ndevFSD 자율 Lifecycle 플러그인이 활성화돼 있다.\n\n**아래는 'devfsd:using-specops-ko' 메타 skill 본문 — 모든 대화 시작 시 이 지시를 최우선으로 따른다. 다른 skill 은 Skill 도구로 호출한다:**\n\n${meta_escaped}\n</EXTREMELY_IMPORTANT>"
 
 rehydrate_out=""
 reconcile_out=""

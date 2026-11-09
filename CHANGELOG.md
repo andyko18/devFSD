@@ -7,6 +7,10 @@
 ### Fixed
 - `/start-all`·`/start-all-auto` 의 batch PR 직전에 데모 단계가 돌지 않던 불일치(11회차 평가 F-1) — per-FR 단계의 데모 skip 은 PR 이 없어서 의도지만 batch PR 은 사용자가 결과를 처음 보는 지점인데 오케스트레이터에 호출이 0건이라 README 의 "PR 직전 데모 확인" 약속이 지켜지지 않았다. 오케스트레이터가 `demo-ko` 를 `batch-final <BATCH_ID>`(무인은 `… auto`)로 PR 직전에 부른다. 확인 필수 종류면 `/start-all` 은 사용자 판정을 받은 뒤에만 PR 로 가고, 무인은 대기 없이 가정 다이제스트의 `데모: 사용자 확인 대기` 로 올린다. 기록은 `.specops/<BATCH_ID>/demo.md` · batch PR 본문 `## 데모`. 문서 계약이라 훅 강제는 없다(문장 존재를 `test-demo-stage` BF 절이 잠근다).
 
+### Changed
+- 사용자에게 보이는 옛 이름 잔재를 devFSD 로 정리했다(11회차 평가 온보딩 지적 — 196곳 중 사용자가 읽는 곳): 슬래시 선택창 설명 9개(`start`·`start-all`·`start-all-auto`·`start-foundation`·`maintain`·`init-project`·`e2e-test`·`release`·`statusline-install`) · README 로컬 설치 경로(`/절대경로/devFSD`)와 디렉터리 도식 · SessionStart 주입문 첫 줄 · `/doctor` 제목(`### devFSD 건강 진단`)과 미사용 안내 · `/init-project` 배너 · statusline 설치 안내 · PR 푸터(`Generated with devFSD`). 호환용 이름(`using-specops-ko` skill 이름 · `specops-ko:` 접두 허용 · 푸터 버전 스탬프 정규식 · 훅 태그 `<specops-ko-anchor>`)과 내부 주석은 건드리지 않았다.
+- README 가 `/doctor`·`/status` 가 Claude Code 내장 명령과 겹칠 때 `/devfsd:doctor`·`/devfsd:status` 로 부르라고 안내한다(11회차 온보딩 High — 실제 우선순위는 설치 없이 확인하지 못했다).
+
 ## [3.1.16] — 2026-11-09
 
 ### Fixed

@@ -164,7 +164,7 @@ warns=$(printf '%s' "$_OUT" | grep -c '⚠️')
 # T7 (AC-7): .specops 부재 → 안내 + exit 0
 R="$TMP/r7"; mkdir -p "$R"; git -C "$R" init -q 2>/dev/null
 _run "$R"
-[ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | grep -q 'specops 미사용' \
+[ "$_RC" -eq 0 ] && printf '%s' "$_OUT" | grep -q 'devFSD(.specops) 미사용' \
   && ok "T7 비-specops repo 면제" || nope "T7" "rc=$_RC out=$_OUT"
 # T7.b: 부트스트랩 전에도 환경 항목(deps·effort_env)은 점검한다.
 #   README 가 "설치 직후 /doctor 로 deps 확인" 을 안내하는데 설치 직후에는 .specops 가 없다 —

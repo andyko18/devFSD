@@ -1,7 +1,7 @@
 ---
 name: start
 disable-model-invocation: true
-description: "[단일·대화형] specops-ko 한국어 자율 Lifecycle 단일 기능 진입 슬래시 — devfsd:specifying-ko 호출"
+description: "[단일·대화형] devFSD 한국어 자율 Lifecycle 단일 기능 진입 슬래시 — devfsd:specifying-ko 호출"
 triggers:
   - "/start"
 mode: ask

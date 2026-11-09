@@ -38,7 +38,7 @@ _usage() {
 Usage: $0 [--resume] [--answers <파일>] [<project-name>]
        $0 --answers-template
 
-specops-ko 한국어 자율 Lifecycle 부트스트랩 — 한국 SI 표준 14종 산출물 자동 생성
+devFSD 한국어 자율 Lifecycle 부트스트랩 — 한국 SI 표준 14종 산출물 자동 생성
 
 Options:
   --resume              기존 파일 보존, 누락 파일만 생성 (부분 부트스트랩 재개)

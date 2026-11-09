@@ -1,7 +1,7 @@
 ---
 name: release
 disable-model-invocation: true
-description: specops-ko 플러그인 릴리즈 자동화 — bash scripts/release.sh <semver> 실행
+description: devFSD 플러그인 릴리즈 자동화 — bash scripts/release.sh <semver> 실행
 triggers:
   - "/release"
 mode: ask

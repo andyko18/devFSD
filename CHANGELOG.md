@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- 검증 없이 커밋되던 두 파일 부류를 코드로 분류했다(11회차 평가 E-1·E-6). ① 플러그인 repo 의 `skills/` 아래 `SKILL.md` 외 md — `implementing-ko/dev-autonomy.md`(wave 직전에 Read 하는 행동 규칙)·`planning-ko/*-expert/patterns/*.md`·리뷰어 프롬프트 — 가 "문서" 로 면제되던 것. ② 모든 repo 의 `requirements*.txt`·`constraints*.txt`·`CMakeLists.txt`·`requirements/`·`constraints/` 아래 txt(의존성·빌드 목록)가 `*.txt` 라는 이유로 면제되던 것 — quick 경로의 파일 수·줄 수에도 안 세어졌다. 일반 txt·md 문서는 종전대로 면제다(`.specops/` 아래는 어떤 이름이든 문서 · 파일명은 대소문자를 구분한다 — `Requirements.txt` 는 문서). `quick-scope` 의 플러그인 런타임 신호는 jq 로 판정하며 jq 가 없으면 보수적으로 신호를 켠다. 분류 SoT(`file-class.sh`)의 bash 계열과 jq 정규식 계열이 같은 집합을 내도록 맞췄고 `test-file-class` 가 동치와 끝에서 끝까지(`scope-explain`)를 잠근다.
+
 ## [3.1.17] — 2026-11-09
 
 ### Fixed

@@ -7,6 +7,11 @@
 ### Changed
 - CI 에서 진행 패널·관제판 TS 훅 테스트(244건)가 실제로 돈다(11회차 평가 테스트 품질 — CLI 가 없어 SKIP 인데 PASS 로 집계되던 것). ubuntu `run-all` 잡이 Claude Code CLI(2.1.317 고정)를 설치하고 `PP_REQUIRE_ENGINE=1` 로 돌며, 그 값이면 CLI 부재는 SKIP 이 아니라 실패다. `plugin test` 는 로그인·API 키 없이 돈다(빈 HOME·키 없음에서 244/244 실측). 로컬 기본 동작(CLI 없으면 SKIP)은 그대로다. 코퍼스 의존 스위트(P10·R18·T25)는 `.specops` 로컬 전용 정책상 CI 에 실데이터가 없어 이번 범위 밖이다.
 
+## [3.1.19] — 2026-11-09
+
+### Fixed
+- 도입 직후 lifecycle 밖에서 코드를 커밋할 때 차단 안내가 막다른 길이던 것(11회차 평가 온보딩) — `/init-project` 가 남긴 FID(태스크 문서 없음)로 `run-verification.sh` 를 안내했는데, 그 러너는 `tasks.md` 가 없으면 실패해서 출구가 BYPASS 뿐이었다. FID 에 태스크 문서·검증 기록·증거가 하나도 없고 실행 증거도 없으면, 차단은 그대로 두고 크기에 맞는 진입 경로(`/quick-fix` · `/maintain-lite` · `/start`)를 안내한다. 검증 흐름이 있는 FID(STALE·다른 FID 실행·백그라운드 미회수)는 종전 진단 문안 그대로다.
+
 ## [3.1.18] — 2026-11-09
 
 ### Fixed
@@ -3613,7 +3618,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.18...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.19...HEAD
+[3.1.19]: https://github.com/andyko18/devFSD/compare/v3.1.18...v3.1.19
 [3.1.18]: https://github.com/andyko18/devFSD/compare/v3.1.17...v3.1.18
 [3.1.17]: https://github.com/andyko18/devFSD/compare/v3.1.16...v3.1.17
 [3.1.16]: https://github.com/andyko18/devFSD/compare/v3.1.15...v3.1.16

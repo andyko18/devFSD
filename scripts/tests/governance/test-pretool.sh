@@ -1926,5 +1926,22 @@ else
   echo "SKIP T-pipe.e (python3+pyyaml 부재)"
 fi
 
+# T-nolc (11회차 온보딩 · 20261109-deny-no-lifecycle) — 도입 직후 lifecycle 밖 코드 커밋의 deny 문안이 막다른 길이었다:
+#   /init-project 가 남긴 FID(tasks.md 없음)로 run-verification.sh 를 안내했고, 그 러너는 tasks.md 가 없어 실패한다.
+#   태스크 문서가 없는 FID(또는 FID 없음)면 크기별 진입 경로(/quick-fix · /maintain-lite · /start)를 안내한다. 차단 자체는 그대로다.
+_nolc=$(mktemp -d) || exit 1
+( cd "$_nolc" && git init -q && echo "echo x" > a.sh && git add a.sh && mkdir -p .specops/20261109-init-project \
+  && printf '# Session Progress\n\n## 20261109-init-project\n\n- 2026-11-09 10:00 /init-project 완료\n' > .specops/session-progress.md ) >/dev/null 2>&1
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_nolc" bash "$HOOK" 2>/dev/null)
+check "T-nolc.a 태스크 문서 없는 FID 의 코드 커밋 → 여전히 deny" '"permissionDecision":"deny"' "$out"
+check "T-nolc.b deny 문안이 /quick-fix 를 안내" '/quick-fix' "$out"
+check "T-nolc.c deny 문안이 /maintain-lite · /start 를 안내" '/maintain-lite' "$out"
+if printf '%s' "$out" | grep -q 'run-verification.sh'; then echo "FAIL T-nolc.d 막다른 길 — tasks.md 없는 FID 에 run-verification.sh 안내"; fail=$((fail+1)); else echo "PASS T-nolc.d tasks.md 없는 FID 에는 run-verification.sh 를 안내하지 않음"; pass=$((pass+1)); fi
+# 대조 — tasks.md 가 있는 FID 는 종전 안내(run-verification.sh)를 그대로 받는다
+mkdir -p "$_nolc/.specops/20261109-init-project" && printf '# tasks\n' > "$_nolc/.specops/20261109-init-project/tasks.md"
+out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_nolc" bash "$HOOK" 2>/dev/null)
+check "T-nolc.e 대조: tasks.md 있는 FID 는 종전대로 run-verification.sh 안내" 'run-verification.sh' "$out"
+rm -rf "$_nolc"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

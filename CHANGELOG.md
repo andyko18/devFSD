@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.20] — 2026-11-09
+
 ### Changed
 - plan 단계 속도: 테스트 전문가와 plan-reviewer 1회차를 같은 plan 에 **동시에** 부르고 둘의 지적을 한 번에 반영한다(종전: 테스트 전문가 → 반영 → 리뷰 1회차 → 반영 직렬). 실측(devFSD 최근 FID): plan 이 FID 소요의 31% · 큰 FID 에서 20~79분이고, 79분 사례는 리뷰 1회차+반영 약 19분이 테스트 전문가 뒤에 통째로 대기였다. 리뷰 횟수(cap 2)와 "최종 plan 은 모든 반영 뒤 한 번은 리뷰받는다" 는 성질은 그대로다 — 1회차 PASS 여도 반영으로 plan 이 바뀌었으면 2회차를 부른다. 테스트 전문가 패스가 발동하지 않는 plan 은 종전과 같다.
 - plan 단계 하위 기록: `/plan-draft`(초안+자체 검토) · `/plan-expert`(전문가 반영) · `/plan-review`(회차별 결과) 를 진행 기록에 남겨 `stage-timing.sh` 가 plan 안의 시간을 나눠 잰다. 다음 FID 부터 위 변경의 효과와, plan 시간이 작성·반영(메인 세션)과 서브에이전트 중 어디에 쓰이는지를 실측한다.
@@ -3622,7 +3624,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.19...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.20...HEAD
+[3.1.20]: https://github.com/andyko18/devFSD/compare/v3.1.19...v3.1.20
 [3.1.19]: https://github.com/andyko18/devFSD/compare/v3.1.18...v3.1.19
 [3.1.18]: https://github.com/andyko18/devFSD/compare/v3.1.17...v3.1.18
 [3.1.17]: https://github.com/andyko18/devFSD/compare/v3.1.16...v3.1.17

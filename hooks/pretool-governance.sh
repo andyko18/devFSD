@@ -424,6 +424,10 @@ if [ -n "$violation" ]; then
    수정 이후의 코드로 다시 검증해야 합니다 — 러너를 **한 번 더** 실행하세요:
    bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>}
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
+  elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "moved" ]; then
+    # 명령이 다른 작업 트리로 옮겨 커밋한다 — 판정이 읽는 검증 기록은 프로젝트 폴더의 것이라 옮겨 간 곳의 변경을 검증한 적이 없다.
+    _evidence_hint="✘ ① 명령이 다른 작업 트리로 옮겨 커밋합니다 — 이 판정이 보는 검증 기록(프로젝트 폴더의 FID ${fid:-<FID>})은 옮겨 간 곳의 변경을 검증한 것이 아니므로 그 기록으로 열지 않습니다.
+   그 폴더로 셸을 옮긴 뒤(\`cd\` 를 별도 호출로) 맨 \`git commit\` 을 쓰면 그곳 기준으로 판정됩니다 — 그 폴더에서 검증을 마쳤다면 그대로 열립니다."
   elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "vstale" ]; then
     # 검증 판정이 STALE — transcript 의 편집 이벤트로는 보이지 않는 변경이다(셸 명령·포매터·코드 생성·서브에이전트).
     _evidence_hint="✘ ① 검증 이후 코드가 바뀌었습니다 — 이 FID 의 검증 판정이 **STALE** 입니다.

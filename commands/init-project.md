@@ -1,6 +1,6 @@
 ---
 name: init-project
-description: specops-ko 한국어 자율 Lifecycle 진입 — 한국 SI 표준 14종(풀스택 기준 · 종류·선택별 7~14종) 산출물 자동 부트스트랩
+description: devFSD 한국어 자율 Lifecycle 진입 — 한국 SI 표준 14종(풀스택 기준 · 종류·선택별 7~14종) 산출물 자동 부트스트랩
 triggers:
   - "/init-project"
 mode: ask

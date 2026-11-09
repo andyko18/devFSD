@@ -1,7 +1,7 @@
 ---
 name: start-all
 disable-model-invocation: true
-description: "[전체·대화형] specops-ko 한국어 자율 Lifecycle — requirements.md FR 표 전체 기능 일괄 구현. 3-Phase 오케스트레이터"
+description: "[전체·대화형] devFSD 한국어 자율 Lifecycle — requirements.md FR 표 전체 기능 일괄 구현. 3-Phase 오케스트레이터"
 triggers:
   - "/start-all"
 mode: ask
@@ -450,7 +450,7 @@ queue.md 상태 전이 요약 (PENDING→PLAN_DONE→IMPL_DONE) 직접 기재
 - [ ] batch 레벨 performance-test PASS 또는 SKIP 확인
 - [ ] validate-structure.sh 전 항목 ✅
 
-🤖 Generated with specops-ko /start-all
+🤖 Generated with devFSD /start-all
 EOF
 )"
 ```

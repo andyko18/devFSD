@@ -34,7 +34,7 @@ fi
 if [ "$MODE" = help ]; then
   cat <<'USAGE'
 Usage: statusline-install.sh [--check | --help]
-  (무인자)  .claude/settings.json 의 statusLine 을 specops-ko statusline.sh 로 설정 (멱등)
+  (무인자)  .claude/settings.json 의 statusLine 을 devFSD statusline.sh 로 설정 (멱등)
   --check   변경 예정 내용만 표시하고 종료 — 파일을 만들지도 고치지도 않는다
             exit 0 = 이미 동일 · exit 1 = 변경 예정
   --help    이 사용법

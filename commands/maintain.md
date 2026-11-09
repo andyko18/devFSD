@@ -1,7 +1,7 @@
 ---
 name: maintain
 disable-model-invocation: true
-description: "[유지보수·대화형] specops-ko 한국어 자율 Lifecycle 유지보수 진입 슬래시 — specifying-ko 유지보수 분기 호출 (Phase C 적용 후 analyzing-ko 선행)"
+description: "[유지보수·대화형] devFSD 한국어 자율 Lifecycle 유지보수 진입 슬래시 — specifying-ko 유지보수 분기 호출 (Phase C 적용 후 analyzing-ko 선행)"
 triggers:
   - "/maintain"
 mode: ask

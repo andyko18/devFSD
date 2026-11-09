@@ -1,7 +1,7 @@
 ---
 name: e2e-test
 disable-model-invocation: true
-description: specops-ko E2E 자동 테스트 — (init-project 부트스트랩)→specify→…→verify→(integration/performance SKIP)→(finishing 정리) 9단계를 greet-cli fixture로 완주하고 산출물 구조를 검증
+description: devFSD E2E 자동 테스트 — (init-project 부트스트랩)→specify→…→verify→(integration/performance SKIP)→(finishing 정리) 9단계를 greet-cli fixture로 완주하고 산출물 구조를 검증
 triggers:
   - "/e2e-test"
 mode: auto

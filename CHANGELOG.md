@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+- 사용자에게 보이는 옛 이름 잔재를 devFSD 로 정리했다(11회차 평가 온보딩 지적 — 196곳 중 사용자가 읽는 곳): 슬래시 선택창 설명 9개(`start`·`start-all`·`start-all-auto`·`start-foundation`·`maintain`·`init-project`·`e2e-test`·`release`·`statusline-install`) · README 로컬 설치 경로(`/절대경로/devFSD`)와 디렉터리 도식 · SessionStart 주입문 첫 줄 · `/doctor` 제목(`### devFSD 건강 진단`)과 미사용 안내 · `/init-project` 배너 · statusline 설치 안내 · PR 푸터(`Generated with devFSD`). 호환용 이름(`using-specops-ko` skill 이름 · `specops-ko:` 접두 허용 · 푸터 버전 스탬프 정규식 · 훅 태그 `<specops-ko-anchor>`)과 내부 주석은 건드리지 않았다.
+- README 가 `/doctor`·`/status` 가 Claude Code 내장 명령과 겹칠 때 `/devfsd:doctor`·`/devfsd:status` 로 부르라고 안내한다(11회차 온보딩 High — 실제 우선순위는 설치 없이 확인하지 못했다).
+
 ## [3.1.16] — 2026-11-09
 
 ### Fixed

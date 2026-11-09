@@ -4,6 +4,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- SessionStart 재개 안내가 이미 머지된 FID 를 미완으로 보고하던 문제 — session-progress 에 종결 줄(PR 생성·DONE)이 빠져도 FID 브랜치가 main 에 머지 커밋으로 들어갔으면 `reconcile-check.sh` 가 "이미 머지됨" 1줄을 내고 훅이 재개 제안을 하지 않게 한다. git 만 사용(gh·네트워크 없음) · squash/fast-forward 머지는 판정 못 함(한계).
+
 ## [3.1.14] — 2026-11-06
 
 ### Fixed

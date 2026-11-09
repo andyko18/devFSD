@@ -84,7 +84,12 @@ _fp=0; _scan=0; _bad=""
 for p in "$PLUGIN"/.specops/*/plan.md; do
   [ -f "$p" ] || continue
   _scan=$((_scan+1))
-  bash "$CHK" --plan "$p" >/dev/null 2>&1 || { _fp=$((_fp+1)); _bad="$_bad $(basename "$(dirname "$p")")"; }
+  _o=$(bash "$CHK" --plan "$p" 2>&1) && continue
+  # 완료된 FID(evidence.md 있음)의 dangling-lock 은 시점 어긋남이다 — plan 이 "고칠 낡은 값"으로 인용한
+  #   문자열을 그 FID 가 실제로 지웠으므로 지금 repo 와 대조하면 반드시 없다(실측 20261109: 20261105-demo-stage
+  #   의 'commands=28'). 다른 판정 종류는 plan 텍스트만 보므로 완료 FID 에서도 그대로 센다.
+  if [ -f "$(dirname "$p")/evidence.md" ] && ! printf '%s\n' "$_o" | grep -E '^ *\[' | grep -qv '\[dangling-lock\]'; then continue; fi
+  _fp=$((_fp+1)); _bad="$_bad $(basename "$(dirname "$p")")"
 done
 if [ "$_scan" -eq 0 ]; then ok "P10 실 코퍼스 스캔 SKIP (plan.md 0건)"
 elif [ "$_fp" -eq 0 ]; then ok "P10 실 코퍼스 오탐 0 (스캔 ${_scan}건)"

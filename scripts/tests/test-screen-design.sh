@@ -4,7 +4,7 @@
 #   템플릿은 보라+다크 기본에 부품 3개(카드·버튼·입력)뿐이었고, 호버·포커스에 보라가 하드코딩돼 팔레트를 바꿔도 샜다.
 #   ① 템플릿: 보라 하드코딩 0 · 업무 화면 부품 · 바닥선(포커스·좁은 폭·움직임 줄이기) · 파생 색은 주색에서
 #   ② screen-shot.sh: 두 폭 촬영 · 찍지 못하면 SKIP(rc 3 — 통과로 위장하지 않음)
-#   ③ 지침 문서(브리프 5줄 · 금지 목록 · 자가 점검 7줄)와 생성 지시 3곳의 연결
+#   ③ frontend-design 원문(Apache-2.0)을 그대로 들여와 따르고, devFSD 보충(판단 지원·상태·토큰 이름·촬영)과 생성 지시 3곳을 연결
 set -u
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
@@ -45,17 +45,20 @@ if [ "$rc" -eq 3 ]; then echo "SKIP T6c (이 환경에 Chrome 없음)"
 elif [ "$rc" -eq 0 ] && [ -s "$TMP/real@1280.png" ] && [ -s "$TMP/real@390.png" ]; then ok "T6c Chrome 있음 → 1280·390 두 장 생성"
 else no "T6c" "rc=$rc out=[$out]"; fi
 
-# T7 — 지침 문서: 브리프 5줄 · 금지 목록 · 자가 점검 7줄 · 촬영 명령
-grep -qF '## ① 브리프 5줄' "$G" && [ "$(sed -n '/## ① 브리프 5줄/,/## ②/p' "$G" | grep -cE '^[1-5]\. ')" -eq 5 ] \
-  && ok "T7a 브리프 5줄" || no "T7a" "브리프 절 또는 5항목 없음"
-[ "$(sed -n '/금지 목록/,/## ③/p' "$G" | grep -c '^- ')" -ge 8 ] && grep -qF '보라·분홍 그라디언트' "$G" && ok "T7b 금지 목록 8줄 이상(보라 그라디언트 포함)" || no "T7b" "금지 목록 부족"
-[ "$(sed -n '/## ③/,$p' "$G" | grep -cE '^[1-7]\. ')" -eq 7 ] && grep -qF 'screen-shot.sh' "$G" && grep -qF '확인한 척하지 않는다' "$G" \
-  && ok "T7c 자가 점검 7줄 · 촬영 명령 · 찍지 못하면 정직하게" || no "T7c" "점검 7줄·촬영·정직 문구 중 없음"
+# T7 — frontend-design 원문을 그대로 들여왔다(Apache-2.0 고지·라이선스 사본) + devFSD 보충 지침
+FD="$PLUGIN/templates/frontend-design-guide.md"; FDL="$PLUGIN/templates/frontend-design-LICENSE.txt"
+miss=""; for n in '# Frontend Design' 'Work in two passes' 'Spend your boldness in one place' 'the SaaS-card kit' 'taking screenshots to review' 'Errors don'"'"'t apologize'; do grep -qF -- "$n" "$FD" || miss="$miss [$n]"; done
+[ -z "$miss" ] && ok "T7a frontend-design 원문 핵심 문장 6종 그대로" || no "T7a" "없음:$miss"
+grep -qF 'Apache License 2.0' "$FD" && grep -qF '원문 그대로' "$FD" && grep -qF 'Apache License' "$FDL" && grep -qF 'Version 2.0' "$FDL" \
+  && ok "T7b 출처·Apache 2.0 고지 + 라이선스 전문 사본" || no "T7b" "출처 고지 또는 LICENSE 사본 없음"
+miss=""; for n in 'frontend-design-guide.md' 'frontend-design 원문이 우선' '판단 지원' '증감' '진행·대비 막대' 'check-mock-css.sh' 'screen-shot.sh' '확인한 척하지 않는다'; do grep -qF -- "$n" "$G" || miss="$miss [$n]"; done
+[ -z "$miss" ] && ok "T7c 보충 지침 — 원문 우선 · 판단 지원 · 토큰 이름(이식 검사) · 촬영 · 정직" || no "T7c" "없음:$miss"
+grep -qF '강조색은 화면당 한 곳' "$G" && no "T7d" "지나친 절제 규칙(강조 한 곳)이 남아 있다 — 블라인드 비교에서 판단 지원 부족의 원인" || ok "T7d '강조색은 화면당 한 곳' 규칙 제거"
 
 # T8 — 생성 지시 3곳 연결 (Step 5.5 · /design-screen · /design-screens)
 for f in skills/specifying-ko/SKILL.md commands/design-screen.md commands/design-screens.md; do
-  grep -qF 'screen-design-guide.md' "$PLUGIN/$f" && grep -qF 'screen-shot.sh' "$PLUGIN/$f" && grep -qF '브리프 5줄' "$PLUGIN/$f" \
-    && ok "T8 $f — 브리프 → 부품 → 찍고 다듬기" || no "T8 $f" "가이드·촬영·브리프 연결 없음"
+  grep -qF 'frontend-design-guide.md' "$PLUGIN/$f" && grep -qF 'screen-design-guide.md' "$PLUGIN/$f" && grep -qF 'screen-shot.sh' "$PLUGIN/$f" \
+    && ok "T8 $f — frontend-design 원문 → 보충 → 찍고 다듬기" || no "T8 $f" "원문·보충·촬영 연결 없음"
 done
 
 echo "── test-screen-design: PASS=$PASS FAIL=$FAIL ──"

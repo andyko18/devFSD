@@ -39,7 +39,7 @@ args = 기능 설명. 비어 있거나 너무 짧으면(10자 미만) 최소 예
 
 **첫 화면 전 단 1회** 프로젝트 `DESIGN.md` 를 읽어 모든 화면에 공유 적용한다(부재 시 `templates/screen.html` 기본 토큰). 화면별 준수 항목은 Step 3 의 DESIGN.md 준수 지시를 따른다.
 
-화면마다 `templates/screen-design-guide.md` 순서를 따른다 — 브리프 5줄 → `templates/screen.html` 부품으로 작성 → `screen-shot.sh` 로 1280·390 두 장을 찍어 자가 점검 7줄로 1~2회 다듬기(찍지 못하면 그렇다고 적는다 — 20261109).
+화면마다 `templates/frontend-design-guide.md`(frontend-design 원문)를 그대로 따른다 — 디자인 계획 → 흔한 기본값인지 검토 → 작성 → `screen-shot.sh` 로 1280·390 두 장을 찍어 1~2회 다듬기(찍지 못하면 그렇다고 적는다). 업무 화면 보충(판단 지원·상태·토큰 이름)은 `templates/screen-design-guide.md` (20261109).
 
 ## Step 3: 화면별 순차 대화 루프
 

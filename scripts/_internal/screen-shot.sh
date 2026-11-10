@@ -6,11 +6,15 @@
 #   SCREEN-SHOT: <경로>                       (장마다)
 #   SCREEN-SHOT: SKIP (찍지 못함 — <사유>)      (Chrome 을 찾지 못함 — 통과로 위장하지 않는다)
 # rc: 0 = 두 장 다 찍음 · 3 = 찍지 못함(SKIP) · 2 = 인자 오류
+# 불변식: <접두>.probe.txt 는 직전 촬영과 같은 시점의 결과이거나 없다(시작할 때 지운다).
+# 배치 계측: 두 장을 찍은 뒤 ui-probe.cjs 로 가로 잘림·글자 겹침을 재서 <접두>.probe.txt 에 남긴다(찍을 때마다 덮어쓴다).
+#   내용은 셋 중 하나 — 경고 줄들 · "배치 경고 0건 …" · "UI-PROBE: SKIP (…)". 계측은 rc 를 바꾸지 않는다. 끄려면 SCREEN_SHOT_PROBE=0.
+#   SCREEN-PROBE: <경로>   (계측 파일을 썼을 때 한 줄)
 #
 # 왜: 설계 목업을 한 번도 렌더해 보지 않고 사용자에게 넘겼다. 다른 디자인 도구는 결과를 보고 다듬는다.
 #   목업을 만든 뒤 이 두 장을 Read 로 열어 templates/screen-design-guide.md 의 자가 점검표로 1~2회 다듬는다.
 # 브라우저: $SCREEN_SHOT_CHROME → macOS Google Chrome → PATH 의 google-chrome·chromium·chromium-browser → /opt/pw-browsers.
-#   Playwright 나 Node 가 필요 없다(Chrome 헤드리스 스크린샷). 웹폰트 로딩을 위해 virtual-time-budget 을 준다.
+#   촬영 자체는 Playwright·Node 가 필요 없다(Chrome 헤드리스 스크린샷). 배치 계측(아래)만 Node + Playwright 를 쓰며 없으면 SKIP 한 줄로 남기고 촬영 rc 는 바꾸지 않는다. 웹폰트 로딩을 위해 virtual-time-budget 을 준다.
 set -u
 SRC="${1:-}"; OUT="${2:-}"
 [ -n "$SRC" ] && [ -n "$OUT" ] || { echo "usage: $0 <html 파일|URL> <출력 접두 경로>" >&2; exit 2; }
@@ -20,6 +24,7 @@ case "$SRC" in
      URL="file://$(cd "$(dirname "$SRC")" && pwd)/$(basename "$SRC")" ;;
 esac
 mkdir -p "$(dirname "$OUT")" 2>/dev/null || { echo "screen-shot: 출력 폴더를 만들 수 없다 — $OUT" >&2; exit 2; }
+rm -f "${OUT}.probe.txt" 2>/dev/null   # 불변식: probe.txt 는 이번 촬영과 같은 시점의 결과이거나 없다
 
 CHROME=""
 # SCREEN_SHOT_CHROME 를 주면 그것만 쓴다(다른 후보로 넘어가지 않는다 — 사용자 지정·테스트)
@@ -59,4 +64,17 @@ for spec in "1280 1000" "390 1400"; do
   if [ -s "$png" ]; then echo "SCREEN-SHOT: $png"
   else echo "SCREEN-SHOT: SKIP (찍지 못함 — ${w} 폭 촬영 실패: $CHROME)"; rc=3; fi
 done
+if [ "$rc" -eq 0 ] && [ "${SCREEN_SHOT_PROBE:-1}" != 0 ]; then
+  PROBE_TXT="${OUT}.probe.txt"; PROBE_JS="$(cd "$(dirname "$0")" && pwd)/ui-probe.cjs"
+  if ! command -v node >/dev/null 2>&1; then raw="UI-PROBE: SKIP (NO_TOOL — node 를 찾지 못했다)"
+  else raw=$(node "$PROBE_JS" --out "$TMPD/probe" --widths 390,1280 "$URL" 2>"$TMPD/probe.err"); fi   # stdout 만 — stderr 경고가 판정 줄 앞에 끼지 않게
+  first=$(printf '%s\n' "$raw" | grep -m1 '^UI-PROBE: ' || true)
+  case "$first" in
+    "UI-PROBE: SKIP"*) printf '%s\n' "$first" > "$PROBE_TXT" ;;
+    "UI-PROBE: "*) hits=$(printf '%s\n' "$raw" | grep -E '^  - .*배치 (경고|계측 못 함)' || true)
+      if [ -n "$hits" ]; then printf '%s\n' "$hits" > "$PROBE_TXT"; else echo "배치 경고 0건 (390·1280 폭 · 화면을 연 상태 기준 · 세로 잘림과 불투명한 층에 덮인 글자는 재지 않는다)" > "$PROBE_TXT"; fi ;;
+    *) echo "UI-PROBE: SKIP (NO_TOOL — 계측 출력을 읽지 못했다: $(sed -n 1p "$TMPD/probe.err" 2>/dev/null | cut -c1-120))" > "$PROBE_TXT" ;;
+  esac
+  echo "SCREEN-PROBE: $PROBE_TXT"
+fi
 exit "$rc"

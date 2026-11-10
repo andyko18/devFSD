@@ -476,6 +476,11 @@ if [ "${HAVE_BROWSER:-0}" != 1 ]; then sk "U10 (이 환경에 Playwright·브라
   for n in p_ellipsis p_hidden p_scroll p_decor p_tiny p_left p_abs p_root; do out=$(lyrun "$n"); [ "$(cnt "$out" "$n@390 배치 경고 L-CLIP-X(가로 잘림): ")" = 1 ] || miss10="$miss10 [$n]"; done
   for n in p_sronly p_sticky p_nested p_popup; do out=$(lyrun "$n"); [ "$(cnt "$out" "$n@390 배치 경고 L-OVERLAP(글자 겹침): ")" = 1 ] || miss10="$miss10 [$n]"; done
   [ -z "$miss10" ] && ok "U10e 양성 대조 — 제외 조건만 뺀 쌍 11개와 왼쪽 가장자리 조각은 390 에서 1건씩 적중(U10c 의 0건이 공허하지 않다)" || no "U10e" "미적중:$miss10"
+  SSH="$PLUGIN/scripts/_internal/screen-shot.sh"
+  out=$(bash "$SSH" "$LY/over.html" "$LY/shot-over" 2>&1); rc=$?
+  if [ "$rc" -eq 3 ]; then sk "U10f (시스템 Chrome 없음 — 촬영 SKIP)"
+  else [ "$rc" -eq 0 ] && [ "$(grep -c 'over@390 배치 경고 L-OVERLAP' "$LY/shot-over.probe.txt")" = 1 ] && ! grep -q 'over@1280' "$LY/shot-over.probe.txt" \
+    && ok "U10f 촬영 스크립트 실물 — 실 Chrome·실 Playwright 로 찍으면 probe.txt 에 그 화면의 겹침이 남는다(AC-7)" || no "U10f" "rc=$rc [$out] [$(cat "$LY/shot-over.probe.txt" 2>&1)]"; fi
 fi
 
 # U4c — integration-test-ko 가 새 플래그를 Step 3b 안에서 쓰게 한다 (AC-6) — 절을 잘라 그 안에서만 본다

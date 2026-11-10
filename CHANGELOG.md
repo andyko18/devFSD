@@ -12,6 +12,11 @@
 - `/start-all` Phase 2.5-A 의 화면 설계가 단일 경로와 같이 `frontend-design-guide` 를 따르고 화면마다 1280·390 두 장을 찍어 보고 다듬는다. 촬영 실패는 batch 를 멈추지 않는다.
 - 화면 템플릿·지침에 한국어 줄바꿈 기본값(`word-break: keep-all`). 예시 화면 `screens/login.html` 에 좁은 폭 규칙.
 
+## [3.1.25] — 2026-11-10
+
+### Fixed
+- 관제판이 워크트리의 낡은 `.specops/session-progress.md` 를 프로젝트 폴더의 최신 기록보다 먼저 읽던 문제(진행 패널 `hooks/progress-pane.tsx`). 종전엔 `[현재 폴더, 프로젝트 폴더]` 중 **먼저 찾은 쪽**을 썼다 — 워크트리에 며칠 전 사본이 남아 있으면 끝난 FID 가 `완료` 로 뜨고 진행 중인 FID 는 보이지 않았다. 이제 두 기록의 활성 FID 최신 기록 줄 시각(`- YYYY-MM-DD HH:MM`)을 비교해 더 최근인 쪽을 쓴다(동률·시각을 못 읽음·한쪽만 있음은 종전대로 현재 폴더). FID 읽기·단계 막대·검증 상태 조회가 같은 한 함수의 결과를 쓰고, 검증 상태는 선택된 기록 폴더의 FID 폴더를 먼저 찾는다. 거버넌스의 "자기 기록 소유" 판정(`_sr_wt_owns_record`)은 쓰지 않는다 — 이 워크트리처럼 옛 기록 파일이 남은 곳도 "자기 소유"로 보여 증상이 그대로 남는다.
+
 ## [3.1.24] — 2026-11-10
 
 ### Added
@@ -3655,7 +3660,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.24...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.25...HEAD
+[3.1.25]: https://github.com/andyko18/devFSD/compare/v3.1.24...v3.1.25
 [3.1.24]: https://github.com/andyko18/devFSD/compare/v3.1.23...v3.1.24
 [3.1.23]: https://github.com/andyko18/devFSD/compare/v3.1.22...v3.1.23
 [3.1.22]: https://github.com/andyko18/devFSD/compare/v3.1.21...v3.1.22

@@ -95,6 +95,32 @@ export function activeFid(progress: string): string | undefined {
   return undefined
 }
 
+const STAMP_RE = /^- (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) /
+
+/** 활성 FID 섹션 맨 위 기록 줄의 시각(`YYYY-MM-DD HH:MM`, 최신이 위) — 기록 줄이 없으면 undefined. */
+export function latestStamp(progress: string): string | undefined {
+  const fid = activeFid(progress)
+  if (!fid) return undefined
+  const lines = progress.split('\n')
+  const start = lines.findIndex(l => l.match(/^## (\S+)/)?.[1] === fid)
+  if (start < 0) return undefined
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith('## ')) break
+    const stamp = line.match(STAMP_RE)?.[1]
+    if (stamp) return stamp
+  }
+
+  return undefined
+}
+
+/** `other` 기록이 `base` 보다 확실히 최근일 때만 true — 동률·판독 실패는 false(종전: base 우선). */
+export function isNewer(other: string, base: string): boolean {
+  const o = latestStamp(other)
+  const b = latestStamp(base)
+
+  return o !== undefined && b !== undefined && o > b
+}
+
 /** FID 섹션의 기록 줄(최신이 위)에서 `/<cmd> <첫 낱말>` 만 뽑는다. */
 function recordsOf(progress: string, fid: string): { cmd: string; word: string }[] {
   const lines = progress.split('\n')
@@ -205,24 +231,33 @@ async function isGoverned($: EngineInterface, cwd: string): Promise<boolean> {
   return false
 }
 
-async function readFid($: EngineInterface, cwd: string): Promise<string | undefined> {
-  for (const dir of [cwd, projectRoot(cwd)]) {
+/** 기록을 읽을 폴더 — [cwd, 프로젝트 폴더] 중 최신 기록 쪽. 동률·판독 실패·한쪽뿐이면 먼저 찾은 쪽(종전). */
+async function readRecord($: EngineInterface, cwd: string): Promise<{ dir: string; progress: string } | undefined> {
+  const found: { dir: string; progress: string }[] = []
+  for (const dir of [...new Set([cwd, projectRoot(cwd)])]) {
     try {
-      return activeFid(await $.fs.read(`${dir}/${PROGRESS_FILE}`))
+      found.push({ dir, progress: await $.fs.read(`${dir}/${PROGRESS_FILE}`) })
     } catch {
-      // No progress file here: try the project folder, then give up.
+      // 이 폴더에는 기록이 없다 — 다음 후보.
     }
   }
+  const [first, second] = found
 
-  return undefined
+  return first && second && isNewer(second.progress, first.progress) ? second : first
+}
+
+async function readFid($: EngineInterface, cwd: string): Promise<string | undefined> {
+  const record = await readRecord($, cwd)
+
+  return record ? activeFid(record.progress) : undefined
 }
 
 /** 이 FID 의 verify 상태 낱말 — 읽기 전용 `current` 만 부른다. 판정 불가는 `검증 ?`. */
-async function verifyFor($: EngineInterface, cwd: string, fid: string): Promise<string> {
+async function verifyFor($: EngineInterface, cwd: string, fid: string, preferred?: string): Promise<string> {
   // devFSD: FID 기록이 있는 첫 폴더를 진행 읽기와 같은 순서([cwd, 프로젝트 폴더])로 찾는다.
   //   새 FID 는 워크트리 안에 만들어질 수 있어 프로젝트 폴더 고정이면 `검증 ?` 가 된다.
   let root: string | undefined
-  for (const dir of [cwd, projectRoot(cwd)]) {
+  for (const dir of [...new Set([preferred ?? cwd, cwd, projectRoot(cwd)])]) {
     try {
       if (await $.fs.exists(`${dir}/.specops/${fid}`)) {
         root = dir
@@ -261,22 +296,15 @@ async function refreshStatus($: EngineInterface, cwd: string, gate: RefreshGate)
   try {
     do {
       gate.again = false
-      let progress = ''
-      for (const dir of [cwd, projectRoot(cwd)]) {
-        try {
-          progress = await $.fs.read(`${dir}/${PROGRESS_FILE}`)
-          break
-        } catch {
-          // 다음 후보
-        }
-      }
+      const record = await readRecord($, cwd)
+      const progress = record?.progress ?? ''
       const fid = activeFid(progress)
       if (!fid) {
         await update($, board, b => ({ ...b, fid: undefined, stages: undefined, verify: undefined }))
         continue
       }
       const stages = stagesOf(progress, fid)
-      const verify = isLifecycleDone(progress, fid) ? '완료' : await verifyFor($, cwd, fid).catch(() => '검증 ?')
+      const verify = isLifecycleDone(progress, fid) ? '완료' : await verifyFor($, cwd, fid, record?.dir).catch(() => '검증 ?')
       const marked = withVerifyMark(stages, verify, currentStageKey(progress, fid))
       await update($, board, b => ({ ...b, fid, stages: marked, verify }))
     } while (gate.again)

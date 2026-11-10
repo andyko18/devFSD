@@ -141,10 +141,16 @@ go test ./tests/integration/... -v
 하류 E2E 와 별개로, 화면을 **실제 브라우저로 여러 폭에서 열어** 찍고 기계 판정한다 — 하류 저장소에 의존성을 추가하지 않는다. 앱을 띄운 뒤(Step 2 환경) 바뀐 화면 URL 을 준다:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/ui-probe.cjs --out .specops/<FID>/ui http://localhost:<port>/<경로> [...]
+node "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/ui-probe.cjs --out .specops/<FID>/ui \
+  --memory .specops/memory/ui-probe.json --a11y-baseline .specops/memory/ui-a11y-baseline.json \
+  [--start-cmd "<서버 시작 명령>"] [--mock screens/<이름>.html ...] [http://localhost:<port>/<경로> ...]
 ```
 
 - 375·768·1280 폭 스크린샷(`<화면>@<폭>.png`) · **가로 넘침** · **콘솔 오류** · 가장 넓은 폭에서 **axe-core 접근성**(WCAG 2.1 AA, critical·serious 만 실패)
+- **화면 기록**: `.specops/memory/ui-probe.json` 이 있으면 URL 을 주지 않아도 된다 — 하네스는 서버를 띄우지 않으니, 기록의 `startCmd` 로 서버를 띄운 뒤 점검하고 끝나면 끈다. 기록이 없으면 서버 시작 명령·포트·화면 경로를 사용자에게 **1회만** 묻고 `--start-cmd` 와 URL 로 첫 실행한다(성공하면 기록이 쓰여 다음부터 묻지 않는다). `기록 안 함:` 줄(origin 혼합·file://·열기 실패·화면 이름 중복)은 그대로 evidence 에 옮긴다.
+- **목업 나란히**: 이번 FID 가 만들거나 고친 `screens/<이름>.html` 은 `--mock` 으로 넘긴다 — 폭마다 `<이름>@<폭>.mock.png` 가 구현 PNG 옆에 남는다(판정에 들어가지 않는다).
+- **접근성 기준선**: 첫 실행은 하류의 기존 위반을 기준선에 기록하고 막지 않는다 — 출력의 `기준선 기록:` 줄을 evidence.md 에 그대로 옮겨 이번 FID 가 만든 위반이 섞였는지 사용자가 볼 수 있게 한다. 이후에는 기준선에 없던 새 위반(규칙이 새로 생기거나 노드 수가 늘어난 것)만 FAIL 이다. 기준선은 사용자가 정할 때만 `--a11y-baseline-update` 로 갱신한다.
+- **로그인 화면**: `--storage-state <파일>`(또는 기록의 `storageState`)을 준다. 파일이 없거나 읽히지 않으면 `UI-PROBE: SKIP (NO_ENV …)` 이고 PASS 로 적지 않는다.
 - `UI-PROBE: FAIL` → FAIL 분기와 같이 처리한다(고치고 다시). 경미한 접근성 위반은 evidence 에 부기만.
 - `UI-PROBE: SKIP (NO_TOOL …)` → 안내된 1회 설치 명령을 사용자에게 보여 주고 `[설치 후 재실행 / 미실행으로 기록]` 을 묻는다. **PASS 로 적지 않는다.**
 

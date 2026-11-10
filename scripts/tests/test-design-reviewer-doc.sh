@@ -241,4 +241,19 @@ _n18=""
 [ "$(_t18 "$_sg3" "${_sp66//.specops\/<FID>\/shots\//}")" = " [6.6:shots]" ] || _n18="$_n18 6.6:shots"
 [ -z "$_n18" ] && ok "T18.b 음성 — 지점마다 지우면 그 지점만 FAIL" || nope "T18.b" "진단 불일치:$_n18"
 
+# ── T19: 배치 계측 결과 배선 — start-all 2.5 (AC-7 ③) ──
+_t19() {  # $1=A절 $2=A2절 $3=D절
+  local m=""
+  printf '%s' "$1" | grep -qF '.probe.txt' || m="$m [A:probe.txt]"
+  printf '%s' "$2" | grep -qF '.probe.txt' || m="$m [A2:probe.txt]"
+  printf '%s' "$3" | grep -qF '.probe.txt' || m="$m [D:probe.txt]"
+  printf '%s' "$m"
+}
+[ -z "$(_t19 "$_sa_A" "$_sa_A2" "$_sa_D")" ] && ok "T19.a start-all — A(남김)·A2(화면 전문가 입력)·D(리뷰어 입력)에 배치 계측 결과" || nope "T19.a" "누락:$(_t19 "$_sa_A" "$_sa_A2" "$_sa_D")"
+_n19=""
+[ "$(_t19 "${_sa_A//.probe.txt/}" "$_sa_A2" "$_sa_D")" = " [A:probe.txt]" ] || _n19="$_n19 A"
+[ "$(_t19 "$_sa_A" "${_sa_A2//.probe.txt/}" "$_sa_D")" = " [A2:probe.txt]" ] || _n19="$_n19 A2"
+[ "$(_t19 "$_sa_A" "$_sa_A2" "${_sa_D//.probe.txt/}")" = " [D:probe.txt]" ] || _n19="$_n19 D"
+[ -z "$_n19" ] && ok "T19.b 음성 — 절마다 지우면 그 절만 FAIL" || nope "T19.b" "진단 불일치:$_n19"
+
 finish

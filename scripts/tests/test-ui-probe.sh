@@ -493,5 +493,18 @@ printf '%s\n' "$SEC" | grep -F -- '--storage-state' | grep -qF 'NO_ENV' || miss=
 grep -n -F '.mock.png' "$DEMO" | grep -qF '나란히' && grep -n -F '.mock.png' "$DEMO" | grep -qF '폭마다' \
   && ok "U4d demo-ko — .mock.png 와 구현 PNG 를 폭마다 나란히 (같은 줄)" || no "U4d" ".mock.png 와 나란히·폭마다가 같은 줄에 없다"
 
+# U4e — integration-test-ko 브라우저 줄에 배치 경고 건수·못 잰 것, 경고는 판정 불변 (AC-10)
+_u4e() {  # $1=통합 테스트 스킬 본문 → 빠진 키
+  local m=""
+  printf '%s' "$1" | grep -F '**브라우저**: 실행(' | grep -qF '배치 경고 <N>' || m="$m [브라우저 줄:건수]"
+  printf '%s' "$1" | grep -F '**브라우저**: 실행(' | grep -qF '계측 못 함 <M>' || m="$m [브라우저 줄:못 잼]"
+  printf '%s' "$1" | grep -qF '경고는 판정을 바꾸지 않는다' || m="$m [판정 불변]"
+  printf '%s' "$1" | grep -qF '0 이 아니라 그렇게 적는다' || m="$m [0 아님]"
+  printf '%s' "$m"
+}
+_int=$(cat "$INT")
+[ -z "$(_u4e "$_int")" ] && [ "$(_u4e "${_int//경고는 판정을 바꾸지 않는다/}")" = " [판정 불변]" ] && [ "$(_u4e "${_int//배치 경고 <N>/}")" = " [브라우저 줄:건수]" ] && [ "$(_u4e "${_int//0 이 아니라 그렇게 적는다/}")" = " [0 아님]" ] \
+  && ok "U4e integration-test-ko — 브라우저 줄에 배치 경고 건수·못 잰 것 · 판정 불변 · 키를 지우면 그 키만 FAIL(AC-10)" || no "U4e" "없음:$(_u4e "$_int")"
+
 echo "── test-ui-probe: PASS=$PASS FAIL=$FAIL SKIP=$SKIPPED ──"
 [ "$FAIL" -eq 0 ]

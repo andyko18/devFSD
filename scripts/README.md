@@ -419,6 +419,10 @@ bash scripts/_internal/check-matrix-patterns.sh
 
 - `_internal/check-screen-quality.sh <screen.md> <screen.html>` — 화면 쌍(.md + .html)의 정적 품질을 계측해 리포트합니다. 항상 exit 0 이고 판정은 `design-reviewer-ko` 가 합니다. anti 축에 반응형·표 넘침 규칙이 있다 — A-MEDIA-NONE(완결 페이지에 @media 0건) · A-TABLE-NOWRAP(표에 가로 스크롤 선언 없음). 둘 다 Minor·경고 전용이고 파일 단위 근사다.
 
+## ui-probe-layout.cjs — 화면 배치 계측 (경고 전용)
+
+`_internal/ui-probe.cjs` 가 화면을 연 폭마다 가로 잘림(`L-CLIP-X`)·글자 겹침(`L-OVERLAP`)을 잰다. 경고만 낸다(PASS·FAIL 불변) · 재지 못한 화면·폭은 `배치 계측 못 함` · 규칙 정의는 `node scripts/_internal/ui-probe.cjs --rules`. 목업은 `_internal/screen-shot.sh` 가 촬영 끝에 같은 계측을 돌려 `<접두>.probe.txt` 로 남긴다(`SCREEN_SHOT_PROBE=0` 으로 끔). 재지 않는 것: 세로 잘림 · 화면을 연 뒤의 상태 · 불투명한 층에 완전히 덮인 글자.
+
 ## meter-tokens.sh — 토큰 사용량 관측 (관측 전용)
 
 FID 구간(`metrics.jsonl` 의 첫 `phase=fid-start` 부터 지금까지)에 Claude Code transcript 가 남긴 `usage` 를 모아 `.specops/<FID>/tokens.jsonl` 에 기록합니다. **관측 전용 · fail-open** — 런타임 실패는 언제나 exit 0(무기록 또는 `unmeasured` 사유 레코드)이고 인자 오류만 exit 2 입니다.

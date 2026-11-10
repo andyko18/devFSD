@@ -229,6 +229,21 @@ out2=$(fk --out "$TMP/m14" --memory "$M7" 2>&1); rc2=$?
 out=$(fk --out "$TMP/m15" --memory "$TMP/afile/m.json" --a11y-baseline "$TMP/afile/b.json" http://h:1/a 2>&1); rc=$?
 [ "$rc" -eq 0 ] && has "$out" "기록을 쓰지 못함: $TMP/afile/m.json" && has "$out" "기록을 쓰지 못함: $TMP/afile/b.json" && ! has "$out" 'NO_BROWSER' && ! has "$out" '기준선 기록:' \
   && ok "U8c12 쓰기 실패 — 판정은 그대로(rc 0) · 안내 줄 · NO_BROWSER 로 오분류하지 않는다" || no "U8c12" "rc=$rc [$out]"
+fix '{}'; bad13=""; i=0
+for body in '"x"' '{"cookies":"a"}' '{"cookies":[{"name":"a"}],"origins":[]}'; do
+  i=$((i+1)); printf '%s' "$body" > "$TMP/ssbad$i.json"
+  out=$(fk --out "$TMP/s13-$i" --storage-state "$TMP/ssbad$i.json" http://h:1/a 2>&1); rc=$?
+  { [ "$rc" -eq 3 ] && has "$out" 'UI-PROBE: SKIP (NO_ENV' && has "$out" '모양이 맞지 않는다' && ! has "$out" 'NO_BROWSER'; } || bad13="$bad13 [$body rc=$rc $out]"
+done
+printf '{}' > "$TMP/ssempty.json"; out=$(fk --out "$TMP/s13-0" --storage-state "$TMP/ssempty.json" http://h:1/a 2>&1); rc=$?
+[ -z "$bad13" ] && [ "$rc" -eq 0 ] && has "$out" 'UI-PROBE: PASS (1화면' \
+  && ok "U8c13 모양이 틀린 로그인 상태 파일 3종은 SKIP(NO_ENV) rc 3 · {} 는 통과" || no "U8c13" "$bad13 empty: rc=$rc [$out]"
+SSA="$TMP/ssA.json"; SSB="$TMP/ssB.json"; echo '{"cookies":[],"origins":[]}' > "$SSA"; echo '{"cookies":[],"origins":[]}' > "$SSB"; M14="$TMP/fm/m14.json"
+fk --out "$TMP/s14a" --memory "$M14" --storage-state "$SSA" http://h:1/a >/dev/null 2>&1
+mem14=$(jstr "$M14" 2>&1)
+rm -f "$LOGF"; out=$(fk --out "$TMP/s14b" --memory "$M14" --storage-state "$SSB" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && has "$mem14" "\"storageState\":\"$SSA\"" && [ "$(grep -cF "\"storageState\":\"$SSB\"" "$LOGF")" = 3 ] && [ "$(grep -cF "\"storageState\":\"$SSA\"" "$LOGF")" = 0 ] \
+  && ok "U8c14 로그인 상태 우선순위 — --storage-state 가 기록의 storageState 보다 앞선다(3폭 모두)" || no "U8c14" "rc=$rc mem=$mem14 [$out] log=$(cat "$LOGF" 2>&1)"
 
 # U8d — 목업 (AC-3)
 printf '<html></html>' > "$TMP/mk/m.html"; printf '<html></html>' > "$TMP/mk/a.html"

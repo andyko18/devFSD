@@ -6,6 +6,7 @@
 // 출력 (stdout):
 //   UI-PROBE: PASS|FAIL (<N>화면·<M>폭 · 넘침 <a> · 콘솔 오류 <b> · 접근성 심각 <c> | 접근성 SKIP(사유))
 //   UI-PROBE: SKIP (NO_TOOL|NO_BROWSER — 사유)        — 판정하지 못함. PASS 로 위장하지 않는다
+//   UI-PROBE: SKIP (NO_ENV — 사유)                     — 로그인 상태 파일을 찾지·읽지 못했거나 모양이 맞지 않는다
 //   그 아래 문제마다 `  - <화면>@<폭> <종류>: <내용>` 한 줄, 그리고 `  png: <경로>` 줄들
 //   <폴더>/ui-probe.json · <폴더>/<화면>@<폭>.png
 // rc: 0 PASS · 1 FAIL · 3 SKIP · 2 인자 오류
@@ -70,6 +71,15 @@ function resolveFrom(names) {
     }
   }
   return null;
+}
+
+// Playwright storageState 모양: 객체 · cookies 가 있으면 name·value 문자열을 가진 객체 배열 · origins 가 있으면 배열. {} 는 정상
+function storageStateShapeOk(v) {
+  const isObj = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
+  if (!isObj(v)) return false;
+  if ('cookies' in v && !(Array.isArray(v.cookies) && v.cookies.every((c) => isObj(c) && typeof c.name === 'string' && typeof c.value === 'string'))) return false;
+  if ('origins' in v && !Array.isArray(v.origins)) return false;
+  return true;
 }
 
 function slugOf(u) {
@@ -162,6 +172,10 @@ async function main() {
     const r = state.readJson(ssFile);
     if (r.state !== 'ok') {
       console.log(`UI-PROBE: SKIP (NO_ENV — 로그인 상태 파일을 ${r.state === 'missing' ? '찾지 못했다' : '읽지 못했다'}: ${ssFile})`);
+      process.exit(3);
+    }
+    if (!storageStateShapeOk(r.value)) {
+      console.log(`UI-PROBE: SKIP (NO_ENV — 로그인 상태 파일의 모양이 맞지 않는다: ${ssFile})`);
       process.exit(3);
     }
   }

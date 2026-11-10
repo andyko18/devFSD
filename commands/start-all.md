@@ -232,6 +232,8 @@ reference_upstream: specops-ko 독자 추가
    - **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` **§2 타이포·§3 간격** · §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip). `/start`·`/maintain` 의 Step 5.5 `[공통]` 과 동일 요건 — batch 라고 축이 줄지 않는다.
    - **입력 접근성**: 입력(input·select·textarea)마다 label 의 for 속성과 입력 id 를 같은 값으로 짝지어 연결한다(label 이 입력을 감싸거나 aria-label 도 허용 — for 없이 형제로만 둔 label 은 연결이 아니다). 라디오·체크박스는 선택지마다 자기 label 을 두고 그룹 이름은 fieldset 과 legend 로 둔다. 템플릿 html 의 주석 속 입력 예시를 복사해 쓴다.
    - **템플릿 기반**: 각 `.html` 은 `templates/screen.html` 을 기반으로 생성한다 — `--text-*`·`--space-*` 토큰 자리가 DESIGN.md §2·§3 과 1:1 대응한다.
+   - **지침·촬영·다듬기 (20261110 — 단일 경로 Step 5.5 와 같은 장치)**: 새로 만들거나 덮어쓰는 기능 화면마다 `templates/frontend-design-guide.md` 를 그대로 따른다(디자인 계획을 `.md` 의 `## 디자인 계획` 절에 쓰고 흔한 기본값인지 검토한 뒤 작성). 업무 화면 보충(판단 지원·상태·한국어 줄바꿈)은 `templates/screen-design-guide.md`. 그 ③대로 화면마다 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/screen-shot.sh screens/<name>.html .specops/<BATCH_ID>/shots/<name>` 로 1280·390 두 장을 찍어 Read 로 보고 1~2회 다듬는다 — 화면 수 상한은 없다(모든 기능 화면). 재사용 화면(정상 판정)과 foundation 셸은 찍지 않는다.
+     - **찍지 못하면 멈추지 않는다**: `SCREEN-SHOT: SKIP`(rc 3 — Chrome 없음 등)이면 `queue.md` 헤더 산문 줄로 `SCREEN-SHOT: SKIP — <name> (<사유>)` 를 남기고(**`|` 로 시작 금지**) 다듬기 없이 진행한다. 찍지 못한 화면을 본 것처럼 적지 않는다.
    - **★ 마스터 갱신 + 잔여 고지 (20260906)**: 생성 완료 후 **기계로** 마스터를 갱신한다(모델이 손으로 행을 쓰지 않는다 — 빼먹으면 마스터가 다시 낡는다).
      ```bash
      bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screens-overview.sh sync
@@ -248,7 +250,7 @@ reference_upstream: specops-ko 독자 추가
 > 단일 경로의 specifying Step 6.6 과 같은 에이전트다. batch 는 Step 6.6 을 건너뛰므로(§batch 제외) 여기서 한 번에 본다. D(`design-reviewer-ko`)의 독립 판정은 그대로다 — 전문가는 리뷰 앞에서 빈칸을 채우고 리뷰어는 따로 판정한다.
 
 1. **발동** — A 에서 기능 화면 `screens/<name>.md` 를 만들거나 고쳤으면 부른다. foundation 셸(`<!-- foundation-shell -->`)만 재사용했거나 A 가 SKIP 이면 `UI-EXPERT: SKIP — 화면 산출 없음` 을 `queue.md` 헤더 산문 줄로 기록하고 B 로 간다(`|` 로 시작 금지).
-2. **dispatch** — `Agent` 도구, `subagent_type: "devfsd:ui-designer-ko"`, batch 당 1회. 입력은 경로만 — 이번 batch 가 만든·고친 `screens/<name>.md`·`.html` · PLAN_DONE FID 의 `spec.md`·`acceptance-criteria.md` · `DESIGN.md`(있으면) · `BATCH_ID` 와 산출 경로 `.specops/<BATCH_ID>/experts/ui.md`(산출 경로의 `<FID>` 자리에만 `<BATCH_ID>` 를 쓴다고 프롬프트에 적는다). 산출은 그 파일 하나다.
+2. **dispatch** — `Agent` 도구, `subagent_type: "devfsd:ui-designer-ko"`, batch 당 1회. 입력은 경로만 — 이번 batch 가 만든·고친 `screens/<name>.md`·`.html` · 촬영 이미지 폴더 `.specops/<BATCH_ID>/shots/`(A 가 찍었으면) · PLAN_DONE FID 의 `spec.md`·`acceptance-criteria.md` · `DESIGN.md`(있으면) · `BATCH_ID` 와 산출 경로 `.specops/<BATCH_ID>/experts/ui.md`(산출 경로의 `<FID>` 자리에만 `<BATCH_ID>` 를 쓴다고 프롬프트에 적는다). 산출은 그 파일 하나다.
 3. **반영** — 지적은 화면 파일에 반영하거나 기각하고 `experts/ui.md` 끝 `## 반영` 에 1줄씩 적는다. `## 확인 필요` 질문은 E 설계 승인 게이트에서 함께 묻는다 — `§auto` 면 best-guess 로 정해 `(ASSUMED)` 로 queue 다이제스트에 남긴다.
 4. **모델 불가·산출 없음** — opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). 산출이 없으면 1회 다시 부르고, 그래도 없으면 `queue.md` 에 `UI-EXPERT: 산출 없음` 을 산문 줄로 남기고 B 로 간다.
 5. 반영 뒤 B 로 진행한다(인터페이스 도출은 반영된 화면의 Interactions 를 쓴다).
@@ -285,7 +287,7 @@ reference_upstream: specops-ko 독자 추가
 
 > A(화면) 또는 B(IF) 중 **하나라도 산출**되면 **항상** Evaluator를 돌린다. 둘 다 SKIP이면 D·E 생략 → F(커밋 없이 Phase 3) 또는 빈 design 커밋 생략 후 Phase 3. (`§일괄` 은 E 4 의 승인 묶음만은 묻는다)
 
-1. **dispatch** — `Agent` 도구, `subagent_type: "devfsd:design-reviewer-ko"`. 컨텍스트: `BATCH_ID` · PLAN_DONE FID 목록 · `screens/` · `api-spec.md` · `data-model.md` · 각 FID `spec.md` 경로.
+1. **dispatch** — `Agent` 도구, `subagent_type: "devfsd:design-reviewer-ko"`. 컨텍스트: `BATCH_ID` · PLAN_DONE FID 목록 · `screens/` · 촬영 이미지 폴더 `.specops/<BATCH_ID>/shots/`(A 가 찍었으면) · `api-spec.md` · `data-model.md` · 각 FID `spec.md` 경로.
 2. 부모는 리뷰어 stdout을 `.specops/<BATCH_ID>/design-review.md`에 저장한다 (리뷰어는 Write 없음).
 3. 시그널 처리:
    | 결과 | 동작 |

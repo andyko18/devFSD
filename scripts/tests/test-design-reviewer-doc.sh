@@ -171,35 +171,51 @@ for k in 'templates/frontend-design-guide.md' 'templates/screen-design-guide.md'
   [ "$(_t15 "${_sa_A//"$k"/}" "$_sa_A2" "$_sa_D")" = " [A:$k]" ] || _k15bad="$_k15bad [$k]"
 done
 [ -z "$_k15bad" ] && ok "T15.e 음성 — A 절 키 8개를 하나씩 지우면 그 키만 FAIL" || nope "T15.e" "진단 불일치:$_k15bad"
-_t16() {  # $1=에이전트 본문
-  local m="" k
-  for k in '@1280.png' '@390.png' '위계' '정렬' '390 폭에서의 잘림·겹침' '`[시각]` 접두의 **Minor 로만**' '촬영 이미지 없음'; do
-    printf '%s' "$1" | grep -qF -- "$k" || m="$m [$k]"
-  done
+if ! command -v node >/dev/null 2>&1; then echo "SKIP T16.0 (node 없음 — 규칙 ID 대조 생략)"; _RID="L-CLIP-X L-OVERLAP"; else
+_RID=$(node "$PLUGIN/scripts/_internal/ui-probe.cjs" --rules 2>/dev/null | sed -n 's/^| \(L-[A-Z-]*\) |.*/\1/p' | tr '\n' ' ' | sed 's/ $//'); fi
+[ "$_RID" = "L-CLIP-X L-OVERLAP" ] && ok "T16.0 배치 규칙 ID 는 ui-probe --rules 에서 읽는다(정의 한 곳)" || nope "T16.0" "읽은 ID: [$_RID]"
+_K16="@1280.png|@390.png|위계|정렬|390 폭에서의 잘림·겹침|촬영 이미지 없음|.probe.txt|$(printf '%s' "$_RID" | sed 's/ /|/g')|계측 못 함"   # 규칙 ID 는 읽은 값에서 조립한다
+_K16UD='계측 오탐 의심|`[시각]` 접두의 **Minor**(증명 줄 불필요)|인용할 것 없이 이미지에서 받은 인상뿐이면|문제를 못 본 화면에는 `[시각]` 줄을 쓰지 않는다|그 규칙 ID 와 줄을 인용해 **Important**|계측 결과가 없거나 적중이 없으면 이 예외는 없다|0건으로 읽지 않는다|목적 문장 ↔ Layout·목업'
+_K16AG='계측 오탐 의심|`배치 경고 0건` 은 계측이 재는 범위|`[시각]` 접두의 **Minor 로만**|그 줄을 인용해 **Important** 로 낸다|위반 없음으로 쓰지 않는다|리뷰어는 계측을 직접 돌리지 않는다'
+_t16() {  # $1=에이전트 본문 $2=키 목록(| 구분)
+  local m="" k; local IFS='|'
+  for k in $2; do printf '%s' "$1" | grep -qF -- "$k" || m="$m [$k]"; done
   printf '%s' "$m"
 }
 _ud=$(cat "$UD"); _ag=$(cat "$AG")
-[ -z "$(_t16 "$_ud")" ] && ok "T16.a ui-designer-ko 촬영 이미지 입력 · 범위 · Minor 상한 · 없을 때 한 줄" || nope "T16.a" "누락:$(_t16 "$_ud")"
-_k16bad=""
-for k in '@1280.png' '@390.png' '위계' '정렬' '390 폭에서의 잘림·겹침' '`[시각]` 접두의 **Minor 로만**' '촬영 이미지 없음'; do
-  [ "$(_t16 "${_ud//"$k"/}")" = " [$k]" ] || _k16bad="$_k16bad ud[$k]"
-  [ "$(_t16 "${_ag//"$k"/}")" = " [$k]" ] || _k16bad="$_k16bad ag[$k]"
-done
-[ -z "$_k16bad" ] && ok "T16.b 음성 — 두 에이전트에서 키 7개를 하나씩 지우면 그 키만 FAIL" || nope "T16.b" "진단 불일치:$_k16bad"
-# T16.d·e: 이미지 지적은 증명 줄이 필요 없고, Important 의 빈칸 증명 규칙은 그대로다 (AC-2)
-_t16d() { printf '%s' "$1" | grep -qF '`찾은 곳:`·`빈칸:` 줄 불필요' && printf '%s' "$1" | grep -qF 'Important 의 빈칸 증명 규칙은 그대로다'; }
-_t16d "$_ud" && ok "T16.d ui-designer-ko — 이미지 지적은 증명 줄 불필요 · Important 빈칸 증명 규칙 유지" || nope "T16.d" "문구 없음"
-{ ! _t16d "${_ud//줄 불필요/}" && ! _t16d "${_ud//Important 의 빈칸 증명 규칙은 그대로다/}"; } && ok "T16.e 음성 — 두 문구를 각각 지우면 FAIL" || nope "T16.e" "지워도 통과한다"
+[ -z "$(_t16 "$_ud" "$_K16|$_K16UD")" ] && ok "T16.a ui-designer-ko — 촬영 이미지·계측 결과 입력 · 근거별 심각도 · 문제 없으면 줄 없음(AC-1)" || nope "T16.a" "누락:$(_t16 "$_ud" "$_K16|$_K16UD")"
+_k16bad=""; _oIFS=$IFS; IFS='|'
+for k in $_K16 $_K16UD; do IFS=$_oIFS; [ "$(_t16 "${_ud//"$k"/}" "$_K16|$_K16UD")" = " [$k]" ] || _k16bad="$_k16bad ud[$k]"; IFS='|'; done
+for k in $_K16 $_K16AG; do IFS=$_oIFS; [ "$(_t16 "${_ag//"$k"/}" "$_K16|$_K16AG")" = " [$k]" ] || _k16bad="$_k16bad ag[$k]"; IFS='|'; done
+IFS=$_oIFS
+[ -z "$_k16bad" ] && ok "T16.b 음성 — 두 에이전트에서 키를 하나씩 지우면 그 키만 FAIL" || nope "T16.b" "진단 불일치:$_k16bad"
+_t16d() { printf '%s' "$1" | grep -qF '증명 줄 불필요' && printf '%s' "$1" | grep -qF 'Important 의 빈칸 증명 규칙은 그대로다'; }
+_t16d "$_ud" && ok "T16.d ui-designer-ko — 인상뿐인 지적은 증명 줄 불필요 · Important 빈칸 증명 규칙 유지" || nope "T16.d" "문구 없음"
+{ ! _t16d "${_ud//증명 줄 불필요/}" && ! _t16d "${_ud//Important 의 빈칸 증명 규칙은 그대로다/}"; } && ok "T16.e 음성 — 두 문구를 각각 지우면 FAIL" || nope "T16.e" "지워도 통과한다"
+_old16='여기서 본 것은 `[시각]` 접두의 **Minor 로만** 적는다'
+! printf '%s' "$_ud" | grep -qF "$_old16" && printf '%s\n%s' "$_ud" "$_old16" | grep -qF "$_old16" \
+  && ok "T16.f ui-designer-ko — 'Minor 로만 적는다' 종전 문장 없음(되살린 사본에서는 잔존 판정이 발화)" || nope "T16.f" "종전 문장 잔존"
 _fm() { awk 'NR==1&&/^---/{f=1;next} f&&/^---/{exit} f' "$1" | grep -E '^(model|effort|tools|role):' | tr '\n' ';'; }
 [ "$(_fm "$UD")" = "model: opus;effort: high;tools: Read, Grep, Glob, Bash, Write;" ] \
   && ok "T16.c ui-designer-ko frontmatter 불변(model·effort·tools)" || nope "T16.c" "$(_fm "$UD")"
-_m17=$(_t16 "$_ag")
+_m17=$(_t16 "$_ag" "$_K16|$_K16AG")
+_row=$(printf '%s\n' "$_ag" | grep -E '^\| 배치\(렌더 계측\) \|')
+_t17row() {  # $1=표 행 → 규칙 ID 가 Important 칸에만 있는가
+  local m="" id imp rest
+  imp=$(printf '%s' "$1" | awk -F'|' '{print $4}'); rest=$(printf '%s' "$1" | awk -F'|' '{print $3 $5}')
+  for id in $_RID; do { printf '%s' "$imp" | grep -qF "$id" && ! printf '%s' "$rest" | grep -qF "$id"; } || m="$m [표:$id]"; done
+  printf '%s' "$m"
+}
+_m17="$_m17$(_t17row "$_row")"
+printf '%s' "$_ag" | grep -qF 'Critical 은 주지 않는다' || _m17="$_m17 [계측 적중 Critical 금지]"
 printf '%s' "$_ag" | grep -qF 'Critical·Important 로 올리지 않는다' || _m17="$_m17 [승격 금지]"
 printf '%s' "$_ag" | grep -qF '이미지는 위 `[시각]` Minor 의 근거로만 쓴다' || _m17="$_m17 [6종 문장]"
 printf '%s' "$_ag" | grep -qF '소스를 눈으로 보고 시각 품질을 단정하지 않는다' && _m17="$_m17 [구 문장 잔존]"
 [ -z "$_m17" ] && ok "T17.a design-reviewer-ko 촬영 이미지 입력 · [시각] Minor 상한 · 6종 Important 는 계측으로만 · 구 문장 제거" || nope "T17.a" "$_m17"
 printf '%s\n%s' "$_ag" '소스를 눈으로 보고 시각 품질을 단정하지 않는다' | grep -qF '소스를 눈으로 보고 시각 품질을 단정하지 않는다' \
   && ok "T17.c 양성 대조 — 구 문장을 되살린 사본에서는 잔존 판정이 발화한다" || nope "T17.c" "잔존 판정 미발화"
+_swap=$(printf '%s' "$_row" | awk -F'|' 'BEGIN{OFS="|"}{t=$4;$4=$5;$5=t;print}')
+[ -n "$_row" ] && [ -n "$(_t17row "$_swap")" ] && ok "T17.d 음성 — 표의 Important·Minor 칸을 맞바꾼 사본은 FAIL" || nope "T17.d" "맞바꿔도 통과한다"
 [ "$(_fm "$AG")" = "model: sonnet;effort: high;role: evaluator;tools: Read, Grep, Glob, Bash;" ] \
   && ok "T17.b design-reviewer-ko frontmatter 불변(model·effort·role·tools — Write/Edit 없음)" || nope "T17.b" "$(_fm "$AG")"
 

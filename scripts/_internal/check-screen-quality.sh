@@ -47,6 +47,8 @@ G-OVERRIDE-INVALID|Minor|원형 밖 ID override 또는 판독 불가 override �
 A-PLACEHOLDER-NAME|Important|.html 화면 텍스트의 Lorem·John Doe·Jane Doe·Acme|실제 데이터 형태의 예시로 바꾼다
 A-SCROLL-LISTENER|Minor|script 안 scroll 이벤트 리스너|IntersectionObserver 또는 CSS(position: sticky 등)로 대체한다
 A-VIEWPORT-HEIGHT|Minor|height: 100vh 또는 h-screen 클래스 (min-·max- 제외)|min-height 또는 dvh 단위를 쓴다
+A-MEDIA-NONE|Minor|완결 페이지(html 태그 또는 doctype 포함)에 @media 0건|좁은 폭 배치를 @media 로 정한다(templates/screen.html 의 768px 골격)
+A-TABLE-NOWRAP|Minor|표가 있는데 가로 스크롤 선언(overflow-x auto·scroll) 없음|표를 가로 스크롤 래퍼로 감싼다(templates/screen.html 의 table-wrap)
 RULES
 )
 
@@ -132,15 +134,23 @@ _blocks() {
 _anti() {  # $1=html
   anti="unknown"; anti_det=""
   _readable "$1" || return 0
-  local hs ap as av
+  local hs ap as av am=0 at=0
   hs=$(_strip_comments "$1")
   ap=$(_count "$(printf '%s\n' "$hs" | _blocks script out | _blocks style out | grep -oiE 'lorem|john doe|jane doe|acme' | wc -l)")
   as=$(_count "$(printf '%s\n' "$hs" | _blocks script in | grep -oE "addEventListener\([[:space:]]*['\"]scroll['\"]" | wc -l)")
   av=$(_count "$(printf '%s\n' "$hs" | grep -oE '(^|[^a-z-])height[[:space:]]*:[[:space:]]*100vh|class="[^"]*"' | grep -oE 'height[[:space:]]*:[[:space:]]*100vh|(["[:space:]:!])h-screen(["[:space:]])' | wc -l)")  # 앞 문자 : ! 허용 — md:h-screen · !h-screen 도 위반, min-/max- 는 - 라 제외
-  anti=$((ap + as + av))
+  # 반응형·표 넘침 (FID 20261110-design-visual-review-loop) — 주석을 걷은 본문 기준 · 파일 단위 근사(표 바로 바깥을 감쌌는지는 보지 않는다).
+  #   완결 페이지(html 태그 또는 doctype)만 @media 를 요구한다 — 조각 html(style 블록만 있는 것 포함)은 판정하지 않는다. 일치 판정은 here-string 으로(pipefail 아래 파이프 뒤 grep -q 금지).
+  if grep -qiE '<html|<!doctype' <<<"$hs"; then grep -qi '@media' <<<"$hs" || am=1; fi
+  if grep -qi '<table' <<<"$hs"; then
+    grep -qiE 'overflow(-x)?[[:space:]]*:[[:space:]]*(auto|scroll)|overflow-x-(auto|scroll)|overflow-auto' <<<"$hs" || at=1
+  fi
+  anti=$((ap + as + av + am + at))
   [ "$ap" -gt 0 ] && anti_det="${anti_det:+$anti_det$_NL}  [anti] 자리표시 이름 ${ap}건 — 실제 데이터 형태의 예시로 바꾼다  rule=A-PLACEHOLDER-NAME"
   [ "$as" -gt 0 ] && anti_det="${anti_det:+$anti_det$_NL}  [anti] 스크롤 이벤트 리스너 ${as}건 — IntersectionObserver 또는 CSS 로 대체  rule=A-SCROLL-LISTENER"
   [ "$av" -gt 0 ] && anti_det="${anti_det:+$anti_det$_NL}  [anti] 뷰포트 높이 고정 ${av}건 — min-height 또는 dvh 사용  rule=A-VIEWPORT-HEIGHT"
+  [ "$am" -gt 0 ] && anti_det="${anti_det:+$anti_det$_NL}  [anti] @media 0건 — 좁은 폭 배치가 정해지지 않았다  rule=A-MEDIA-NONE"
+  [ "$at" -gt 0 ] && anti_det="${anti_det:+$anti_det$_NL}  [anti] 표에 가로 스크롤 래퍼 없음 — 좁은 폭에서 열이 접히거나 잘린다  rule=A-TABLE-NOWRAP"
   return 0
 }
 

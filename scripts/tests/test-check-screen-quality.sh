@@ -383,8 +383,8 @@ _rbad=$(printf '%s\n' "$_rrows" | awk -F'|' '{
   if (s != "Important" && s != "Minor" && s != "단계형") print "sev:" id
   if (sn == "" || fx == "") print "empty:" id }' | tr '\n' ' ')
 _rR=$(printf '%s\n' "$_rules" | awk -F'|' '{c=$2; gsub(/^ +| +$/,"",c)} c ~ /^R-/' | grep -c . || true)
-if [ "$_rrc" -eq 0 ] && [ "${_rn:-0}" -eq 20 ] && [ -z "$_rdup" ] && [ -z "$_rbad" ] && [ "${_rR:-0}" -eq 0 ]; then
-  ok "R1.a --rules 20행 · 4필드 · ID 유일 · severity 3종 · R- 없음"
+if [ "$_rrc" -eq 0 ] && [ "${_rn:-0}" -eq 22 ] && [ -z "$_rdup" ] && [ -z "$_rbad" ] && [ "${_rR:-0}" -eq 0 ]; then
+  ok "R1.a --rules 22행 · 4필드 · ID 유일 · severity 3종 · R- 없음"
 else
   nope "R1.a" "rc=$_rrc n=$_rn dup='$_rdup' bad='$_rbad' R=$_rR"
 fi
@@ -492,6 +492,48 @@ if [ "$(_val "$o" anti)" = 3 ] && printf '%s' "$_a7p" | grep -q ' 2건 ' && prin
 else
   nope "A7" "anti=$(_val "$o" anti) p='$_a7p' v='$_a7v'"
 fi
+
+# ── A8: 반응형·표 넘침 (FID 20261110-design-visual-review-loop AC-5) ──
+#   A-MEDIA-NONE 은 완결 페이지(html 태그 또는 doctype)만 본다 — style 블록만 있는 조각은 판정하지 않는다(음성).
+_PG_H='<!DOCTYPE html><html lang="ko"><head><style>'; _PG_M='</style></head><body><main><p>a</p></main></body></html>'
+_acase m A-MEDIA-NONE "${_PG_H}.x { color: red; }${_PG_M}" "${_PG_H}@media (max-width: 600px) { .x { color: red; } }${_PG_M}"
+_acase n A-MEDIA-NONE "${_PG_H}/* @media (max-width: 1px) { } */ .x { color: red; }${_PG_M}" '<style>.x { color: red; }</style><main><p>a</p></main>'
+_acase o A-MEDIA-NONE '<!doctype html><main><p>a</p></main>' '<main><p>a</p></main>'
+_TB='<table><tr><td>1</td></tr></table>'
+_acase p A-TABLE-NOWRAP "<main>${_TB}</main>" "<main><div style=\"overflow-x: auto\">${_TB}</div></main>"
+_acase q A-TABLE-NOWRAP "<main><div style=\"overflow-x: hidden\">${_TB}</div></main>" "<style>.w { overflow: scroll; }</style><main><div class=\"w\">${_TB}</div></main>"
+_acase r A-TABLE-NOWRAP "<main><!-- <div style=\"overflow-x: auto\"> -->${_TB}</main>" "<main><div class=\"overflow-x-auto\">${_TB}</div></main>"
+_acase s A-TABLE-NOWRAP "<main>${_TB}</main>" "<main><!-- ${_TB} --><p>표 없음</p></main>"
+#   정규식의 대안·대소문자 무시가 각각 살아 있는지 — 한쪽을 지우면 그 케이스만 떨어진다
+_acase t A-MEDIA-NONE '<html><head><style>.x { color: red; }</style></head><body><main><p>a</p></main></body></html>' '<html><head><style>@media (max-width: 600px) { .x { color: red; } }</style></head><body><main><p>a</p></main></body></html>'
+_acase u A-MEDIA-NONE '<!DOCTYPE HTML><HTML><BODY><main><p>a</p></main></BODY></HTML>' '<!DOCTYPE HTML><HTML><HEAD><STYLE>@MEDIA (MAX-WIDTH: 600PX) { .x { color: red; } }</STYLE></HEAD><BODY><main><p>a</p></main></BODY></HTML>'
+_acase v A-TABLE-NOWRAP '<main><TABLE><TR><TD>1</TD></TR></TABLE></main>' '<main><DIV STYLE="OVERFLOW-X: AUTO"><TABLE><TR><TD>1</TD></TR></TABLE></DIV></main>'
+_acase w A-TABLE-NOWRAP "<main>${_TB}</main>" "<main><div style=\"overflow: auto\">${_TB}</div></main>"
+_acase x A-TABLE-NOWRAP "<main>${_TB}</main>" "<main><div class=\"overflow-x-scroll\">${_TB}</div></main>"
+_acase y A-TABLE-NOWRAP "<main>${_TB}</main>" "<main><div class=\"p-2 overflow-auto\">${_TB}</div></main>"
+# A9.s: 단독 적중은 정확히 1건씩 (건수 합산이 규칙당 1)
+printf '%s\n' "${_PG_H}.x { color: red; }${_PG_M}" > "$TD/a9s.html"; _a9m=$(_aout "$TD/a9s.html")
+printf '%s\n' "<main>${_TB}</main>" > "$TD/a9t.html"; _a9t=$(_aout "$TD/a9t.html")
+{ [ "$(_val "$_a9m" anti)" = 1 ] && [ "$(_val "$_a9t" anti)" = 1 ]; } \
+  && ok "A9.s @media 없음 단독 anti=1 · 표 래퍼 없음 단독 anti=1" || nope "A9.s" "media=$(_val "$_a9m" anti) table=$(_val "$_a9t" anti)"
+# A9: 두 규칙이 함께 — anti 건수에 각각 1 씩 합산되고 종료 코드는 0 (경고 전용)
+printf '%s\n' "${_PG_H}.x { color: red; }</style></head><body><main>${_TB}</main></body></html>" > "$TD/a9.html"
+o=$(bash "$SCRIPT" "$TD/good.md" "$TD/a9.html" 2>/dev/null); _a9rc=$?
+if [ "$_a9rc" = 0 ] && [ "$(_val "$o" anti)" = 2 ] \
+   && [ "$(_adet "$o" | grep -cE '  rule=A-MEDIA-NONE$')" = 1 ] && [ "$(_adet "$o" | grep -cE '  rule=A-TABLE-NOWRAP$')" = 1 ]; then
+  ok "A9 @media 없음 + 표 래퍼 없음 → anti=2 · 규칙 줄 각 1 · rc 0"
+else
+  nope "A9" "rc=$_a9rc anti=$(_val "$o" anti) det='$(_adet "$o")'"
+fi
+# A10: 템플릿은 두 규칙에 걸리지 않는다(골격이 있다) · 골격을 지운 사본은 걸린다(되돌려-관찰이 테스트 안에)
+sed -e '/@media/,/^    }$/d' "$PLUGIN/templates/screen.html" > "$TD/a10m.html"
+sed -e 's/overflow-x: auto/overflow-x: visible/' "$PLUGIN/templates/screen.html" > "$TD/a10t.html"
+_a10a=$(_adet "$(bash "$SCRIPT" "$TD/good.md" "$PLUGIN/templates/screen.html" 2>/dev/null)")
+_a10m=$(_adet "$(bash "$SCRIPT" "$TD/good.md" "$TD/a10m.html" 2>/dev/null)" | grep -cE '  rule=A-MEDIA-NONE$')
+_a10t=$(_adet "$(bash "$SCRIPT" "$TD/good.md" "$TD/a10t.html" 2>/dev/null)" | grep -cE '  rule=A-TABLE-NOWRAP$')
+{ [ -z "$_a10a" ] && [ "$_a10m" = 1 ] && [ "$_a10t" = 1 ]; } \
+  && ok "A10 templates/screen.html 은 0건 · @media 를 지운 사본·표 래퍼를 지운 사본은 각 1건" \
+  || nope "A10" "템플릿='$_a10a' media제거=$_a10m 래퍼제거=$_a10t"
 
 # ══ --regress 화면 회귀 (FID 20260929-screen-regression-guard) ══
 #   임시 git repo 격리 — 상속 GIT_* 가 실패를 가린 전례(FID 1b N0) · hooks 비활성 · 브랜치명 비의존

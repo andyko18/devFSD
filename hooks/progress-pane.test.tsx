@@ -6,6 +6,8 @@ import {
   elapsed,
   fidOf,
   isLifecycleDone,
+  isNewer,
+  latestStamp,
   notificationOf,
   projectRoot,
   stageOf,
@@ -1314,4 +1316,116 @@ test('devFSD: a stale verify with a PASS record shows 검증! in the stage bar',
   for (const surface of SURFACES) {
     expect((await rowsOn($, surface)).some(row => row.includes('검증!'))).toBe(true)
   }
+})
+
+// --- 기록 위치 선택: 두 폴더 중 최신 기록 (FID 20261110-progress-pane-record-root) ---------
+
+const REC_OLD = '# p\n<!-- active-fid: 20261106-old -->\n\n## 20261106-old · 옛\n\n- 2026-11-06 10:02 /lifecycle DONE (PR #1)\n- 2026-11-06 10:00 /verify PASS (x)\n'
+const REC_NEW = '# p\n<!-- active-fid: 20261110-new -->\n\n## 20261110-new · 새\n\n- 2026-11-10 09:33 /implement 진행 (T1)\n'
+
+test('latestStamp reads the newest record time of the active FID, isNewer compares two records', () => {
+  expect(latestStamp(REC_OLD)).toBe('2026-11-06 10:02')
+  expect(latestStamp(REC_NEW)).toBe('2026-11-10 09:33')
+  expect(latestStamp('# p\n')).toBe(undefined)
+  expect(latestStamp('# p\n## 20261110-x\n\n설명만 있다\n')).toBe(undefined)
+  expect(isNewer(REC_NEW, REC_OLD)).toBe(true)
+  expect(isNewer(REC_OLD, REC_NEW)).toBe(false)
+  expect(isNewer(REC_NEW, REC_NEW)).toBe(false)
+  expect(isNewer(REC_NEW, '# p\n')).toBe(false)
+  expect(isNewer('# p\n', REC_OLD)).toBe(false)
+})
+
+const WT = '/repo/.claude/worktrees/wt'
+const WT_PROGRESS = `${WT}/.specops/session-progress.md`
+const ROOT_PROGRESS = '/repo/.specops/session-progress.md'
+
+/** 파일 맵으로 읽기를 흉내 낸다 — 없는 경로는 ENOENT. */
+const recordWorld = (on: PaneOn, files: Record<string, string>, fidDirs: string[] = []) => {
+  const runs: Run[] = []
+  on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
+  on('clock.every', () => ({ value: undefined }))
+  on('clock.now', () => ({ value: 1_000 }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('fs.read', (_, e) => {
+    const body = files[e.path]
+    if (body !== undefined) return { value: body }
+    throw new Error('ENOENT')
+  })
+  on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' || fidDirs.includes(e.path) }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  on('process.run', (_, e) => {
+    const run = e as unknown as Run
+    runs.push({ argv: [...run.argv], init: run.init })
+
+    return { value: run.argv[0] === 'git' ? { exitCode: 0, stdout: '/repo/.git/worktrees/wt\n', stderr: '' } : STALE_OUT }
+  })
+
+  return runs
+}
+
+test('the newer of the worktree and project records wins', async ($, on) => {
+  recordWorld(on, { [WT_PROGRESS]: REC_OLD, [ROOT_PROGRESS]: REC_NEW })
+  await $.session.start({ cwd: WT, ...START })
+  await drain()
+  expect(await headOf($)).toBe('devFSD · 20261110-new')
+})
+
+test('a worktree record that is at least as new keeps winning, as before', async ($, on) => {
+  recordWorld(on, { [WT_PROGRESS]: REC_NEW, [ROOT_PROGRESS]: REC_OLD })
+  await $.session.start({ cwd: WT, ...START })
+  await drain()
+  expect(await headOf($)).toBe('devFSD · 20261110-new')
+})
+
+test('equal times and unreadable times keep the worktree record', async ($, on) => {
+  const same = REC_NEW.replaceAll('20261110-new', '20261110-same')
+  recordWorld(on, { [WT_PROGRESS]: same, [ROOT_PROGRESS]: REC_NEW })
+  await $.session.start({ cwd: WT, ...START })
+  await drain()
+  expect(await headOf($)).toBe('devFSD · 20261110-same')
+})
+
+test('unreadable record times keep the worktree record', async ($, on) => {
+  const noStamp = '# p\n<!-- active-fid: 20261110-nostamp -->\n\n## 20261110-nostamp · x\n\n설명만\n'
+  recordWorld(on, { [WT_PROGRESS]: noStamp, [ROOT_PROGRESS]: REC_NEW })
+  await $.session.start({ cwd: WT, ...START })
+  await drain()
+  expect(await headOf($)).toBe('devFSD · 20261110-nostamp')
+})
+
+test('a record in only one folder is used as before', async ($, on) => {
+  recordWorld(on, { [ROOT_PROGRESS]: REC_NEW })
+  await $.session.start({ cwd: WT, ...START })
+  await drain()
+  expect(await headOf($)).toBe('devFSD · 20261110-new')
+})
+
+test('verify and stages follow the chosen record and look for the FID folder there first', async ($, on) => {
+  const runs = recordWorld(on, { [WT_PROGRESS]: REC_OLD, [ROOT_PROGRESS]: REC_NEW }, ['/repo/.specops/20261110-new'])
+  await $.session.start({ cwd: WT, ...START })
+  await drain()
+  await $.tool.call(editCall('toolu_rec1', { file_path: `${WT}/a.ts` }))
+  await drain()
+
+  const verify = runs.filter(r => r.argv[0] === 'bash')
+  expect(verify.length).toBe(2) // 시작 1회 + 편집 1회
+  for (const run of verify) {
+    expect(run.argv[2]).toBe('current')
+    expect(run.argv[3]).toBe('20261110-new')
+    expect((run.init as { cwd?: string } | undefined)?.cwd).toBe('/repo')
+  }
+  expect(await headOf($)).toBe('devFSD · 20261110-new')
+})
+
+test('verify looks in the chosen record folder first even when the worktree also has the FID folder', async ($, on) => {
+  const runs = recordWorld(on, { [WT_PROGRESS]: REC_OLD, [ROOT_PROGRESS]: REC_NEW }, [`${WT}/.specops/20261110-new`, '/repo/.specops/20261110-new'])
+  await $.session.start({ cwd: WT, ...START })
+  await drain()
+  await $.tool.call(editCall('toolu_rec2', { file_path: `${WT}/a.ts` }))
+  await drain()
+
+  const verify = runs.filter(r => r.argv[0] === 'bash')
+  expect(verify.length).toBe(2)
+  for (const run of verify) expect((run.init as { cwd?: string } | undefined)?.cwd).toBe('/repo')
 })

@@ -7,6 +7,7 @@
 ### Fixed
 - `skip-tracker.sh` 가 evidence 수백 개 기록에서 한 줄만 내고 비정상 종료하던 것(macOS 기본 bash 3.2 — 파일마다 여는 프로세스 치환 누적)을 고쳤다. 3개 게이트 줄이 모두 나온다.
 - `stage-timing.sh --split` 이 Claude Code 2.1.312 무렵 이후의 transcript(턴 소요 사건 `turn_duration` 이 기록되지 않는다)에서 모든 구간을 "기타"로 내던 것을 고쳤다 — 그런 파일은 턴 끝 표지(`stop_hook_summary`)와 어시스턴트 기록 시각으로 작업·사람·백그라운드를 가른다. 어느 규칙으로 읽었는지 파일 수 한 줄을 낸다. `turn_duration` 이 있는 파일의 집계는 그대로다.
+- 관제판이 워크트리의 낡은 `.specops/session-progress.md` 를 프로젝트 폴더의 최신 기록보다 먼저 읽던 문제(진행 패널 `hooks/progress-pane.tsx`). 종전엔 `[현재 폴더, 프로젝트 폴더]` 중 **먼저 찾은 쪽**을 썼다 — 워크트리에 며칠 전 사본이 남아 있으면 끝난 FID 가 `완료` 로 뜨고 진행 중인 FID 는 보이지 않았다. 이제 두 기록의 활성 FID 최신 기록 줄 시각(`- YYYY-MM-DD HH:MM`)을 비교해 더 최근인 쪽을 쓴다(동률·시각을 못 읽음·한쪽만 있음은 종전대로 현재 폴더). FID 읽기·단계 막대·검증 상태 조회가 같은 한 함수의 결과를 쓰고, 검증 상태는 선택된 기록 폴더의 FID 폴더를 먼저 찾는다. 거버넌스의 "자기 기록 소유" 판정(`_sr_wt_owns_record`)은 쓰지 않는다 — 이 워크트리처럼 옛 기록 파일이 남은 곳도 "자기 소유"로 보여 증상이 그대로 남는다.
 
 ### Added
 - `stage-timing.sh` — worktree 의 부분 원장을 읽을 때 메인 worktree 원장 위치를 한 줄로 알린다(`SPECOPS_ROOT` 를 지정하면 내지 않는다).

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.27] — 2026-11-10
+
 ### Fixed
 
 - **화면 전문가·설계 리뷰어가 좁은 폭의 잘림·겹침을 다시 Important 로 낸다.** v3.1.26 이 "이미지에서 본 것은 `[시각]` Minor 로만" 이라고 적은 뒤, 같은 결함 목업에서 Important 판정이 6/9 → 1/9 로 떨어졌다(같은 실행 방식 각 3회 — 탐지는 되는데 심각도만 내려갔다). 이제 심각도는 근거로 정한다: 계측 규칙 적중 또는 명세 인용으로 보일 수 있는 빈칸·어긋남이면 Important, 인용할 것 없는 이미지 인상만 `[시각]` Minor. 문제를 못 본 화면에는 `[시각]` 줄을 쓰지 않는다. Critical 을 주지 않는 것은 그대로다.
@@ -3682,7 +3684,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.26...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.27...HEAD
+[3.1.27]: https://github.com/andyko18/devFSD/compare/v3.1.26...v3.1.27
 [3.1.26]: https://github.com/andyko18/devFSD/compare/v3.1.25...v3.1.26
 [3.1.25]: https://github.com/andyko18/devFSD/compare/v3.1.24...v3.1.25
 [3.1.24]: https://github.com/andyko18/devFSD/compare/v3.1.23...v3.1.24

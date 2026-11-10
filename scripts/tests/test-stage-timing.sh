@@ -251,5 +251,24 @@ run "$BIG"
 T1=$(date +%s)
 ck "T5.e 3500행 원장 집계 rc=0 · 3초 이내(NFR-1 은 1초 — CPU 경합 여유)" "$RC|$(( T1 - T0 <= 3 ))" "0|1"
 
+# ══ 부분 원장 안내 (20261110-measure-tools-doc-numbers AC-5) — 희생용 임시 저장소 + 링크 worktree ══
+R12="$SB/r12"; mkdir -p "$R12" && (cd "$R12" && git init -q && git -c user.name=t -c user.email=t@e.com -c commit.gpgsign=false commit -q --allow-empty -m init && git worktree add -q "$SB/r12-wt" -b wt12 2>/dev/null)
+mkdir -p "$R12/.specops" "$SB/r12-wt/.specops"
+printf '## 20261001-aaa · A\n\n- 2026-10-01 10:05 /plan 완료 (x)\n- 2026-10-01 10:00 /specify 완료 (x)\n' > "$R12/.specops/session-progress.md"
+printf '## 20261001-bbb · B\n\n- 2026-10-01 11:07 /plan 완료 (x)\n- 2026-10-01 11:00 /specify 완료 (x)\n' > "$SB/r12-wt/.specops/session-progress.md"
+MAIN12=$(cd "$R12/.specops" && pwd -P)
+W_OUT=$(cd "$SB/r12-wt" && env -u SPECOPS_ROOT bash "$ST" 2>/dev/null)
+M_OUT=$(cd "$R12" && env -u SPECOPS_ROOT bash "$ST" 2>/dev/null)
+S_OUT=$(cd "$SB/r12-wt" && SPECOPS_ROOT="$SB/r12-wt/.specops" bash "$ST" 2>/dev/null)
+ck "T12.a 링크 worktree: 집계는 자기 원장(7분) 그대로 + 메인 원장 안내 한 줄(경로 포함)" "$(printf '%s\n' "$W_OUT" | grep -cE '^ *7 .* /plan 완료$')|$(printf '%s\n' "$W_OUT" | grep -c "^참고: 읽은 원장은 이 worktree 의 것입니다 — 메인 worktree 원장으로 집계하려면 SPECOPS_ROOT=$MAIN12 를 지정하세요\$")" "1|1"
+ck "T12.b 메인 worktree 에서는 안내 없음 · SPECOPS_ROOT 를 직접 지정해도 안내 없음" "$(printf '%s\n' "$M_OUT" | grep -c '^참고: 읽은 원장')|$(printf '%s\n' "$S_OUT" | grep -c '^참고: 읽은 원장')" "0|0"
+rm -f "$R12/.specops/session-progress.md"
+D_OUT=$(cd "$SB/r12-wt" && env -u SPECOPS_ROOT bash "$ST" 2>/dev/null)
+ck "T12.d 메인 worktree 에 원장이 없으면 안내 없음(없는 파일을 가리키지 않는다) · 집계는 그대로" "$(printf '%s\n' "$D_OUT" | grep -c '^참고: 읽은 원장')|$(printf '%s\n' "$D_OUT" | grep -cE '^ *7 .* /plan 완료$')" "0|1"
+printf '## 20261001-aaa · A\n\n- 2026-10-01 10:05 /plan 완료 (x)\n- 2026-10-01 10:00 /specify 완료 (x)\n' > "$R12/.specops/session-progress.md"
+NG=$(mktemp -d "$SB/nogit.XXXXXX"); mkdir -p "$NG/.specops"; cp "$R12/.specops/session-progress.md" "$NG/.specops/"
+N_OUT=$(cd "$NG" && env -u SPECOPS_ROOT GIT_CEILING_DIRECTORIES="$SB" bash "$ST" 2>/dev/null); N_RC=$?
+ck "T12.c git 저장소가 아니면 안내 없이 종전대로(rc 0)" "$N_RC|$(printf '%s\n' "$N_OUT" | grep -c '^참고: 읽은 원장')" "0|0"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

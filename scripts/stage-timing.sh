@@ -18,6 +18,7 @@ set -u
 export LC_ALL=C
 
 # worktree 에서 불리면 메인 원장을 본다 (FID 인자가 없는 스크립트 — 빈 값으로 부르며 worktree 에 .specops 가 없을 때만 메인)
+USER_ROOT="${SPECOPS_ROOT:-}"   # 사용자가 원장 위치를 정했는지 — 아래 부분 원장 안내의 조건(specops_root_export 가 값을 바꾸기 전에 잡는다)
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/specops-root.sh" 2>/dev/null && specops_root_export ""
 SPECOPS="${SPECOPS_ROOT:-.specops}"
@@ -458,4 +459,15 @@ if [ "$SPLIT" = 1 ] && [ -n "$SPLIT_NA" ]; then
 fi
 if [ "$BYAGENT" = 1 ] && [ -n "$AGENT_NA" ]; then
   printf '측정 불가(--by-agent): %s\n' "$AGENT_NA"
+fi
+# 부분 원장 안내: 사용자가 SPECOPS_ROOT 를 정하지 않았고, 읽은 원장이 메인 worktree 의 원장과 다른 파일이면 한 줄로 알린다(읽는 원장은 바꾸지 않는다).
+if [ -z "$USER_ROOT" ]; then
+  MAIN_WT=$(git worktree list --porcelain 2>/dev/null | sed -n '1s/^worktree //p')
+  if [ -n "$MAIN_WT" ] && [ -f "$MAIN_WT/.specops/session-progress.md" ]; then
+    LED_REAL=$(cd "$(dirname "$LEDGER")" 2>/dev/null && pwd -P) || LED_REAL=""
+    MAIN_REAL=$(cd "$MAIN_WT/.specops" 2>/dev/null && pwd -P) || MAIN_REAL=""
+    if [ -n "$LED_REAL" ] && [ -n "$MAIN_REAL" ] && [ "$LED_REAL" != "$MAIN_REAL" ]; then
+      printf '참고: 읽은 원장은 이 worktree 의 것입니다 — 메인 worktree 원장으로 집계하려면 SPECOPS_ROOT=%s 를 지정하세요\n' "$MAIN_REAL"
+    fi
+  fi
 fi

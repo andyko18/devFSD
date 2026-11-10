@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.26] — 2026-11-10
+
 ### Added
 - 화면 품질 계측 규칙 2개(경고 전용): `A-MEDIA-NONE`(완결 페이지에 `@media` 0건) · `A-TABLE-NOWRAP`(표에 가로 스크롤 래퍼 없음). 실제 목업 26개에서 각 5개·8개 적중.
 - 화면 리뷰어 2종(`ui-designer-ko`·`design-reviewer-ko`)이 촬영 이미지(`shots/<화면>@1280.png`·`@390.png`)가 있으면 열어 위계·정렬·390 폭 잘림을 본다. 이미지에서 본 것은 `[시각]` Minor 로만 내고 설계 리뷰 판정을 바꾸지 않는다. 이미지가 없으면 종전 판정으로 진행한다.
@@ -3669,7 +3671,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.25...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.26...HEAD
+[3.1.26]: https://github.com/andyko18/devFSD/compare/v3.1.25...v3.1.26
 [3.1.25]: https://github.com/andyko18/devFSD/compare/v3.1.24...v3.1.25
 [3.1.24]: https://github.com/andyko18/devFSD/compare/v3.1.23...v3.1.24
 [3.1.23]: https://github.com/andyko18/devFSD/compare/v3.1.22...v3.1.23

@@ -88,5 +88,26 @@ rm -rf "$tmpg"
 _np=$(grep -cE "printf '%s'[^|]*[|][[:space:]]*grep( -[A-Za-z-]+)* -[A-Za-z]*q" "${BASH_SOURCE[0]}")
 if [ "$_np" = 0 ]; then echo "PASS T23 단언에 grep -q 파이프 없음 (pipefail 경합 방지)"; PASS=$((PASS+1)); else echo "FAIL T23 grep -q 파이프 ${_np}곳 — grep -q 패턴 <<<\"\$출력\" 로"; FAIL=$((FAIL+1)); fi
 
+# T24~T26 (20261110-measure-tools-doc-numbers AC-1): evidence 160개 규모 완주 — 스크립트를 /bin/bash 로 직접 실행한다.
+#   고치기 전 코드는 macOS 기본 bash 3.2 에서 이 규모에 Abort trap(rc 134)·Bus error(rc 138)로 죽고 한두 줄만 냈다.
+#   심은 수: integration 짝수=SKIP(헤더 겸용 + 근거 인용) 80 · 홀수=PASS(**결과**: 줄) 80 / performance 4의 배수=SKIP(근거 인용 없음 → bare) 40 · 나머지 PASS 120
+#           / security 40의 배수=FAIL 4 · 나머지 PASS 156
+big=$(mktemp -d)
+i=1
+while [ "$i" -le 160 ]; do
+  d="$big/20260101-f$i"; mkdir -p "$d"
+  {
+    if [ $((i % 2)) -eq 0 ]; then printf '## /integration-test SKIP\n**근거**: §범위 L12-15\n'; else printf '## /integration-test\n**결과**: PASS\n'; fi
+    if [ $((i % 4)) -eq 0 ]; then printf '## /performance-test\n**결과**: SKIP\n**근거**: 없음\n'; else printf '## /performance-test PASS\n'; fi
+    if [ $((i % 40)) -eq 0 ]; then printf '## /security-review FAIL\n'; else printf '## /security-review PASS\n'; fi
+  } > "$d/evidence.md"
+  i=$((i + 1))
+done
+BIGOUT=$(env -u SKIP_TRACKER_THRESHOLD -u SKIP_TRACKER_BARE_THRESHOLD /bin/bash "$PLUGIN/scripts/skip-tracker.sh" "$big" 2>/dev/null); BIGRC=$?
+ck "T24 evidence 160개: rc 0 · 출력 3줄" "$BIGRC|$(printf '%s\n' "$BIGOUT" | grep -c .)" "0|3"
+ck "T25 3줄 전체(게이트 순서 · total·PASS·SKIP·FAIL · 비율 · bare · 경고 꼬리)" "$BIGOUT" "$(printf '%s\n' 'integration: total=160 PASS=80 SKIP=80 FAIL=0 (SKIP 50% 참고) bare=0' 'performance: total=160 PASS=120 SKIP=40 FAIL=0 (SKIP 25% 참고) bare=40  ⚠️ 근거 없는 SKIP 40건 (>0)' 'security: total=160 PASS=156 SKIP=0 FAIL=4 (SKIP 0% 참고) bare=0')"
+ck "T26 skip::count 출력 형식 불변(\"P S F\" 한 줄 — release-ready·gate-coverage 가 읽는다)" "$(skip::count "$big" security)" "156 0 4"
+rm -rf "$big"
+
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

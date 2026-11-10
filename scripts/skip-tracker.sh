@@ -72,14 +72,13 @@ skip::cite_status() {  # <file> <gate> → CITED|BARE per SKIP (라인인용 §.
 }
 
 skip::count() {  # <dir> <gate> → "PASS SKIP FAIL"
-  local dir="$1" gate="$2" p=0 s=0 f=0 v file
+  # 파일마다 프로세스 치환을 열지 않는다 — bash 3.2(macOS 기본)는 evidence 160개 규모에서 skip::report 가
+  #   프로세스 치환을 수백 번 열다 Abort trap/Bus error 로 죽었다(20261110 실측 5/5). 판정 줄을 한 파이프로 모아 센다.
+  local dir="$1" gate="$2" file
   for file in "$dir"/*/evidence.md; do
     [ -f "$file" ] || continue
-    while IFS= read -r v; do
-      case "$v" in PASS) p=$((p+1)) ;; SKIP) s=$((s+1)) ;; FAIL) f=$((f+1)) ;; esac
-    done < <(skip::verdicts "$file" "$gate")
-  done
-  echo "$p $s $f"
+    skip::verdicts "$file" "$gate"
+  done | awk '$0 == "PASS" { p++ } $0 == "SKIP" { s++ } $0 == "FAIL" { f++ } END { printf "%d %d %d\n", p + 0, s + 0, f + 0 }'
 }
 
 skip::rate() {  # <skip> <total> → 백분율 정수
@@ -100,11 +99,10 @@ $(skip::count "$dir" "$g")
 EOF
     total=$(( p + s + f ))
     rate=$(skip::rate "$s" "$total")
-    bare=0
-    for file in "$dir"/*/evidence.md; do
+    bare=$(for file in "$dir"/*/evidence.md; do
       [ -f "$file" ] || continue
-      while IFS= read -r v; do [ "$v" = "BARE" ] && bare=$((bare+1)); done < <(skip::cite_status "$file" "$g")
-    done
+      skip::cite_status "$file" "$g"
+    done | awk '$0 == "BARE" { n++ } END { printf "%d\n", n + 0 }')
     local warn=""
     [ "$bare" -gt "$bthr" ] && warn="  ⚠️ 근거 없는 SKIP ${bare}건 (>${bthr})"
     echo "${g}: total=${total} PASS=${p} SKIP=${s} FAIL=${f} (SKIP ${rate}% 참고) bare=${bare}${warn}"

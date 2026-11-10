@@ -18,6 +18,7 @@
 - 상태 화면: 명세의 로딩 · 0건 · 오류(그리고 화면별 특수 상태)를 목업 안에서 볼 수 있게 한다.
 - 입력마다 label 의 for 속성과 입력 id 를 같은 값으로 짝지어 연결한다.
 - 표: 숫자 우측 정렬·고정폭 숫자, 좁은 폭에서는 표 래퍼 안에서만 가로 스크롤.
+- 한국어 줄바꿈: 본문에 `word-break: keep-all` 을 둔다(낱말 단위 — "열기"가 "열/기"로 끊기지 않게). 좁은 폭 배치는 `@media` 로 정한다 — 둘 다 `templates/screen.html` 에 있다. 계측기가 `@media` 없는 완결 페이지(`A-MEDIA-NONE`)와 가로 스크롤 래퍼 없는 표(`A-TABLE-NOWRAP`)를 경고한다.
 - 토큰 이름: `:root` 에 DESIGN.md §1 의 이름(`--color-primary` · `--color-bg` · `--color-surface` · `--color-text` · `--color-text-secondary` · `--color-border` · `--color-error` · `--color-success`)과 `--text-*` · `--space-*` 스케일로 정의하고 그 변수를 쓴다 — 구현 단계의 **목업 CSS 이식**과 생존율 검사(`check-mock-css.sh`)가 이 이름을 따라간다. 값(색·서체)은 frontend-design 계획대로 정한다. `templates/screen.html` 은 이름과 부품 예시를 보는 참고용이다.
 
 ## ③ 찍고 보기 (원문의 "스크린샷으로 자기 비평" 을 실제로)

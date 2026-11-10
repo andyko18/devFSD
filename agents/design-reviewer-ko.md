@@ -24,6 +24,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 3. `screens/` 디렉터리 (없으면 화면 축 SKIP 명시)
 4. `.specops/memory/api-spec.md` · `data-model.md` 경로 (없으면 IF 축 SKIP 명시)
 5. 각 FID `.specops/<FID>/spec.md` 경로
+6. 촬영 이미지 폴더 `.specops/<BATCH_ID>/shots/` (있으면 — 화면마다 `<화면>@1280.png`·`<화면>@390.png`)
 
 - 화면 품질 계측기: `scripts/_internal/check-screen-quality.sh` (직접 실행 — read-only·항상 exit 0)
 
@@ -51,7 +52,9 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 
 **실측 불가**: `[검증 불가]` + Minor 강등. 핵심 의심이면 본문에 명시.
 
-- **품질 관점 6종(상태 설계·접근성·디자인 시스템 준수·콘텐츠 품질·장르 규칙·안티패턴)은 `check-screen-quality.sh` 실행 결과를 인용해 판정한다.** 소스를 눈으로 보고 시각 품질을 단정하지 않는다(추측 판정 금지). 계측기는 차단하지 않으므로 **심각도는 리뷰어가 붙인다** — 단 이 6종에 **Critical 을 부여하지 않는다**(`/start-all-auto` 가 Critical≥1 에서 무인 실행을 정지시킨다). 표의 규칙 ID 와 심각도는 `check-screen-quality.sh --rules` 카탈로그가 SoT 다 — 계측 상세줄 끝 `rule=` 로 규칙을 식별한다.
+**촬영 이미지 (있으면 본다)**: 화면마다 `.specops/<BATCH_ID>/shots/<화면>@1280.png`·`@390.png` 가 있으면 Read 로 열어 **위계(핵심 수치·주 액션이 먼저 보이는가) · 정렬 · 390 폭에서의 잘림·겹침** 만 본다. 이미지에서 본 것은 `[시각]` 접두의 **Minor 로만** 낸다 — Critical·Important 로 올리지 않는다(규칙 ID 가 없는 판단이고, `/start-all-auto` 는 Critical≥1 에서 무인 실행을 멈춘다). 이미지가 없거나 열 수 없으면 `촬영 이미지 없음 — 소스·계측기 판정만` 한 줄을 적고 그대로 진행한다(찍지 못한 것을 본 것처럼 쓰지 않는다).
+
+- **품질 관점 6종(상태 설계·접근성·디자인 시스템 준수·콘텐츠 품질·장르 규칙·안티패턴)은 `check-screen-quality.sh` 실행 결과를 인용해 판정한다.** 이 6종의 Important 는 계측 결과로만 판정한다 — 소스나 촬영 이미지를 눈으로 본 인상으로 올리지 않는다(추측 판정 금지 · 이미지는 위 `[시각]` Minor 의 근거로만 쓴다). 계측기는 차단하지 않으므로 **심각도는 리뷰어가 붙인다** — 단 이 6종에 **Critical 을 부여하지 않는다**(`/start-all-auto` 가 Critical≥1 에서 무인 실행을 정지시킨다). 표의 규칙 ID 와 심각도는 `check-screen-quality.sh --rules` 카탈로그가 SoT 다 — 계측 상세줄 끝 `rule=` 로 규칙을 식별한다.
 
 ## 빈 출력 규칙
 
@@ -79,7 +82,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 | 디자인 시스템 준수 | — | `S-TOKEN-HEX` — 색 리터럴 하드코딩 3건 이상 (실측: 동 `token`) | `S-TOKEN-HEX` — 1~2건 |
 | 콘텐츠 품질 | — | `S-COPY-VAGUE` — 에러 메시지가 전부 무정보 문구 (실측: 동 `microcopy`) | `S-COPY-VAGUE` — 일부 |
 | 장르 규칙 | — | 원형 계측 규칙 미충족 `G-LIST-PAGING`·`G-LIST-SORT`·`G-LIST-EMPTY-KIND`·`G-FORM-SUBMIT`·`G-FORM-CANCEL`·`G-WIZARD-STEP`·`G-DASH-PERIOD` (실측: 동 `genre` 상세줄 `미충족` — DESIGN.md §6.1) | 원형 미선언 `genre=unknown` `G-ARCHETYPE-UNDECLARED` · 사유 없는 override `G-OVERRIDE-UNREASONED` · 판독 불가·원형 밖 override `G-OVERRIDE-INVALID` |
-| 안티패턴 | — | `A-PLACEHOLDER-NAME` — 화면에 자리표시 이름 (실측: 동 `anti`) | `A-SCROLL-LISTENER`·`A-VIEWPORT-HEIGHT` |
+| 안티패턴 | — | `A-PLACEHOLDER-NAME` — 화면에 자리표시 이름 (실측: 동 `anti`) | `A-SCROLL-LISTENER`·`A-VIEWPORT-HEIGHT`·`A-MEDIA-NONE`(완결 페이지에 @media 0건)·`A-TABLE-NOWRAP`(표에 가로 스크롤 래퍼 없음) |
 | DESIGN 준수 | — | screens/*.md States 가 DESIGN.md §7 과 어긋남, 또는 레이아웃이 §6.1 원형 필수 요소를 빠뜨림 | 표기 순서 차이 |
 
 순수 UI(IF SKIP)·순수 API(화면 SKIP)면 해당 축 관점은 적용하지 않는다.

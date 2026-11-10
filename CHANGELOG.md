@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+- 화면 품질 계측 규칙 2개(경고 전용): `A-MEDIA-NONE`(완결 페이지에 `@media` 0건) · `A-TABLE-NOWRAP`(표에 가로 스크롤 래퍼 없음). 실제 목업 26개에서 각 5개·8개 적중.
+- 화면 리뷰어 2종(`ui-designer-ko`·`design-reviewer-ko`)이 촬영 이미지(`shots/<화면>@1280.png`·`@390.png`)가 있으면 열어 위계·정렬·390 폭 잘림을 본다. 이미지에서 본 것은 `[시각]` Minor 로만 내고 설계 리뷰 판정을 바꾸지 않는다. 이미지가 없으면 종전 판정으로 진행한다.
+
+### Changed
+- `/start-all` Phase 2.5-A 의 화면 설계가 단일 경로와 같이 `frontend-design-guide` 를 따르고 화면마다 1280·390 두 장을 찍어 보고 다듬는다. 촬영 실패는 batch 를 멈추지 않는다.
+- 화면 템플릿·지침에 한국어 줄바꿈 기본값(`word-break: keep-all`). 예시 화면 `screens/login.html` 에 좁은 폭 규칙.
+
 ## [3.1.25] — 2026-11-10
 
 ### Fixed

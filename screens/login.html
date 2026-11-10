@@ -28,6 +28,7 @@
       font-family: var(--font-body);
       font-size: 1rem;
       line-height: 1.6;
+      word-break: keep-all;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -117,6 +118,10 @@
       line-height: 1;
     }
     .toggle-password:hover { color: var(--color-text); }
+    @media (max-width: 480px) {
+      body { padding: 16px; }
+      .card { padding: 24px 20px; }
+    }
   </style>
 </head>
 <body>

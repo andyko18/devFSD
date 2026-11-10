@@ -126,8 +126,8 @@ while read -r _id _sev; do
 done <<EOF
 $_cat
 EOF
-if [ "${_cn:-0}" -eq 20 ] && [ -z "$_mis" ] && printf '%s\n' "$_tbl" | grep -qF '| 안티패턴 |'; then
-  ok "T13 관점 표가 카탈로그 20개 ID 를 심각도 열대로 인용 · Critical 0 · 안티패턴 행"
+if [ "${_cn:-0}" -eq 22 ] && [ -z "$_mis" ] && printf '%s\n' "$_tbl" | grep -qF '| 안티패턴 |'; then
+  ok "T13 관점 표가 카탈로그 22개 ID 를 심각도 열대로 인용 · Critical 0 · 안티패턴 행"
 else
   nope "T13" "카탈로그 ${_cn}개 불일치:$_mis"
 fi
@@ -137,5 +137,70 @@ _ra=$(grep -F 'S-A11Y-LABEL' "$AG" | sed -n 1p)
 _ra_ok() { printf '%s' "$1" | grep -q '이름 없는 input' && printf '%s' "$1" | grep -q 'for' && printf '%s' "$1" | grep -q '감쌈' && printf '%s' "$1" | grep -qF '`a11y-label`'; }
 if _ra_ok "$_ra"; then ok "T14.a S-A11Y-LABEL 설명 = 이름 없는 input(aria·for↔id 짝·감쌈) + 실측 표기 유지"; else nope "T14.a" "설명 불충족: ${_ra:0:80}"; fi
 if ! _ra_ok "$(printf '%s' "$_ra" | sed 's/이름 없는 input/label 누락 input/')"; then ok "T14.b 음성 — 구 문구(label 누락 input)로 되돌리면 단언이 FAIL"; else nope "T14.b" "구 문구가 통과"; fi
+
+# ── T15~T17: 촬영 이미지 배선 (FID 20261110-design-visual-review-loop AC-1·AC-2·AC-3) ──
+#   연결 문자열 잠금이다 — 에이전트가 실제로 이미지를 보고 따르는지는 측정하지 않는다(한계).
+UD="$PLUGIN/agents/ui-designer-ko.md"
+_sa_A=$(awk '/^#### A\. /{f=1;next} f&&/^#### /{exit} f' "$SA")
+_sa_A2=$(awk '/^#### A2\. /{f=1;next} f&&/^#### /{exit} f' "$SA")
+_sa_D=$(awk '/^#### D\. /{f=1;next} f&&/^#### /{exit} f' "$SA")
+_t15() {  # $1=A절 $2=A2절 $3=D절
+  local m="" k
+  for k in 'templates/frontend-design-guide.md' 'templates/screen-design-guide.md' 'screen-shot.sh' '.specops/<BATCH_ID>/shots/<name>' '1280·390' 'SCREEN-SHOT: SKIP' '찍지 못하면 멈추지 않는다' '`|` 로 시작 금지' 'foundation 셸은 찍지 않는다'; do
+    printf '%s' "$1" | grep -qF -- "$k" || m="$m [A:$k]"
+  done
+  printf '%s' "$2" | grep -qF '.specops/<BATCH_ID>/shots/' || m="$m [A2:shots]"
+  printf '%s' "$3" | grep -qF '.specops/<BATCH_ID>/shots/' || m="$m [D:shots]"
+  printf '%s' "$m"
+}
+_m15=$(_t15 "$_sa_A" "$_sa_A2" "$_sa_D")
+[ -z "$_m15" ] && ok "T15.a start-all 2.5-A 지침·촬영·다듬기·촬영 실패 비차단 + A2·D 입력에 촬영 폴더" || nope "T15.a" "누락:$_m15"
+_n15a=$(_t15 "$(printf '%s' "$_sa_A" | grep -vF 'screen-shot.sh')" "$_sa_A2" "$_sa_D")
+_n15b=$(_t15 "$_sa_A" "$(printf '%s' "$_sa_A2" | sed 's#\.specops/<BATCH_ID>/shots/##')" "$_sa_D")
+_n15c=$(_t15 "$_sa_A" "$_sa_A2" "$(printf '%s' "$_sa_D" | sed 's#\.specops/<BATCH_ID>/shots/##')")
+{ [ -n "$_n15a" ] && [ "$_n15b" = " [A2:shots]" ] && [ "$_n15c" = " [D:shots]" ]; } \
+  && ok "T15.b 음성 — 촬영 줄·A2 입력·D 입력을 각각 지운 사본은 그 지점만 FAIL" || nope "T15.b" "a='$_n15a' b='$_n15b' c='$_n15c'"
+# T15.c: 촬영 실패 줄 자체가 '| 로 시작 금지' 를 갖는다 — 이 문구는 A 절의 다른 줄에도 있어 절 단위 검사로는 공허하다
+_skl=$(printf '%s\n' "$_sa_A" | grep -F 'SCREEN-SHOT: SKIP — <name>')
+{ [ -n "$_skl" ] && printf '%s' "$_skl" | grep -qF '`|` 로 시작 금지' && printf '%s' "$_skl" | grep -qF 'queue.md'; } \
+  && ok "T15.c 촬영 실패 줄에 queue.md 산문 줄·\`|\` 금지" || nope "T15.c" "줄='${_skl:0:120}'"
+printf '%s' "${_skl//\`|\` 로 시작 금지/}" | grep -qF '`|` 로 시작 금지' && nope "T15.d" "지운 줄에도 문구가 남는다" || ok "T15.d 음성 — 그 줄에서 문구를 지우면 FAIL"
+# T15.e: A 절 키마다 — 그 키를 지운 사본은 그 키만 FAIL (키별 진단력)
+_k15bad=""
+for k in 'templates/frontend-design-guide.md' 'templates/screen-design-guide.md' 'screen-shot.sh' '.specops/<BATCH_ID>/shots/<name>' '1280·390' 'SCREEN-SHOT: SKIP' '찍지 못하면 멈추지 않는다' 'foundation 셸은 찍지 않는다'; do
+  [ "$(_t15 "${_sa_A//"$k"/}" "$_sa_A2" "$_sa_D")" = " [A:$k]" ] || _k15bad="$_k15bad [$k]"
+done
+[ -z "$_k15bad" ] && ok "T15.e 음성 — A 절 키 8개를 하나씩 지우면 그 키만 FAIL" || nope "T15.e" "진단 불일치:$_k15bad"
+_t16() {  # $1=에이전트 본문
+  local m="" k
+  for k in '@1280.png' '@390.png' '위계' '정렬' '390 폭에서의 잘림·겹침' '`[시각]` 접두의 **Minor 로만**' '촬영 이미지 없음'; do
+    printf '%s' "$1" | grep -qF -- "$k" || m="$m [$k]"
+  done
+  printf '%s' "$m"
+}
+_ud=$(cat "$UD"); _ag=$(cat "$AG")
+[ -z "$(_t16 "$_ud")" ] && ok "T16.a ui-designer-ko 촬영 이미지 입력 · 범위 · Minor 상한 · 없을 때 한 줄" || nope "T16.a" "누락:$(_t16 "$_ud")"
+_k16bad=""
+for k in '@1280.png' '@390.png' '위계' '정렬' '390 폭에서의 잘림·겹침' '`[시각]` 접두의 **Minor 로만**' '촬영 이미지 없음'; do
+  [ "$(_t16 "${_ud//"$k"/}")" = " [$k]" ] || _k16bad="$_k16bad ud[$k]"
+  [ "$(_t16 "${_ag//"$k"/}")" = " [$k]" ] || _k16bad="$_k16bad ag[$k]"
+done
+[ -z "$_k16bad" ] && ok "T16.b 음성 — 두 에이전트에서 키 7개를 하나씩 지우면 그 키만 FAIL" || nope "T16.b" "진단 불일치:$_k16bad"
+# T16.d·e: 이미지 지적은 증명 줄이 필요 없고, Important 의 빈칸 증명 규칙은 그대로다 (AC-2)
+_t16d() { printf '%s' "$1" | grep -qF '`찾은 곳:`·`빈칸:` 줄 불필요' && printf '%s' "$1" | grep -qF 'Important 의 빈칸 증명 규칙은 그대로다'; }
+_t16d "$_ud" && ok "T16.d ui-designer-ko — 이미지 지적은 증명 줄 불필요 · Important 빈칸 증명 규칙 유지" || nope "T16.d" "문구 없음"
+{ ! _t16d "${_ud//줄 불필요/}" && ! _t16d "${_ud//Important 의 빈칸 증명 규칙은 그대로다/}"; } && ok "T16.e 음성 — 두 문구를 각각 지우면 FAIL" || nope "T16.e" "지워도 통과한다"
+_fm() { awk 'NR==1&&/^---/{f=1;next} f&&/^---/{exit} f' "$1" | grep -E '^(model|effort|tools|role):' | tr '\n' ';'; }
+[ "$(_fm "$UD")" = "model: opus;effort: high;tools: Read, Grep, Glob, Bash, Write;" ] \
+  && ok "T16.c ui-designer-ko frontmatter 불변(model·effort·tools)" || nope "T16.c" "$(_fm "$UD")"
+_m17=$(_t16 "$_ag")
+printf '%s' "$_ag" | grep -qF 'Critical·Important 로 올리지 않는다' || _m17="$_m17 [승격 금지]"
+printf '%s' "$_ag" | grep -qF '이미지는 위 `[시각]` Minor 의 근거로만 쓴다' || _m17="$_m17 [6종 문장]"
+printf '%s' "$_ag" | grep -qF '소스를 눈으로 보고 시각 품질을 단정하지 않는다' && _m17="$_m17 [구 문장 잔존]"
+[ -z "$_m17" ] && ok "T17.a design-reviewer-ko 촬영 이미지 입력 · [시각] Minor 상한 · 6종 Important 는 계측으로만 · 구 문장 제거" || nope "T17.a" "$_m17"
+printf '%s\n%s' "$_ag" '소스를 눈으로 보고 시각 품질을 단정하지 않는다' | grep -qF '소스를 눈으로 보고 시각 품질을 단정하지 않는다' \
+  && ok "T17.c 양성 대조 — 구 문장을 되살린 사본에서는 잔존 판정이 발화한다" || nope "T17.c" "잔존 판정 미발화"
+[ "$(_fm "$AG")" = "model: sonnet;effort: high;role: evaluator;tools: Read, Grep, Glob, Bash;" ] \
+  && ok "T17.b design-reviewer-ko frontmatter 불변(model·effort·role·tools — Write/Edit 없음)" || nope "T17.b" "$(_fm "$AG")"
 
 finish

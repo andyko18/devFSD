@@ -415,6 +415,10 @@ bash scripts/_internal/check-matrix-patterns.sh
 
 - `_internal/check-doc-numbers.sh` — 문서의 스위트 수 주장을 실측과 대조 (doc-lock). `DOC_NUMBERS_ROOT` 로 대상 트리 지정 가능. `run-all` 은 `test-doc-numbers.sh` 스위트를 통해 이 검사를 돌립니다 — 단독 실행도 가능합니다. 실측 재현이 `run-all.sh` 수집 목록과 드리프트하지 않도록 `doc-number-lock` 레코드가 양쪽 앵커를 잠급니다. 스킬·커맨드·서브에이전트·템플릿 개수는 개수 마커(doc-lock 뒤에 count 와 종류)를 단 줄만 대조한다 — 정의는 .structure-baseline 의 glob.
 
+## check-screen-quality.sh — 화면 쌍 정적 품질 계측 (경고 전용)
+
+- `_internal/check-screen-quality.sh <screen.md> <screen.html>` — 화면 쌍(.md + .html)의 정적 품질을 계측해 리포트합니다. 항상 exit 0 이고 판정은 `design-reviewer-ko` 가 합니다. anti 축에 반응형·표 넘침 규칙이 있다 — A-MEDIA-NONE(완결 페이지에 @media 0건) · A-TABLE-NOWRAP(표에 가로 스크롤 선언 없음). 둘 다 Minor·경고 전용이고 파일 단위 근사다.
+
 ## meter-tokens.sh — 토큰 사용량 관측 (관측 전용)
 
 FID 구간(`metrics.jsonl` 의 첫 `phase=fid-start` 부터 지금까지)에 Claude Code transcript 가 남긴 `usage` 를 모아 `.specops/<FID>/tokens.jsonl` 에 기록합니다. **관측 전용 · fail-open** — 런타임 실패는 언제나 exit 0(무기록 또는 `unmeasured` 사유 레코드)이고 인자 오류만 exit 2 입니다.

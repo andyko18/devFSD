@@ -24,6 +24,8 @@ check "AC-2 로그인 중 텍스트" '로그인 중'
 check "AC-4 viewport meta" 'width=device-width'
 check "AC-5 비밀번호 토글 버튼" 'toggle-password'
 check "AC-5 토글 aria-label" 'aria-label="비밀번호 표시/숨김"'
+check "좁은 폭 배치(@media) — 계측 규칙 A-MEDIA-NONE 대응" '@media (max-width: 480px)'
+check "한국어 줄바꿈 기본값" 'word-break: keep-all'
 
 echo ""
 echo "결과: PASS=${PASS}, FAIL=${FAIL}"

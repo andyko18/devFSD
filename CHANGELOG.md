@@ -5,7 +5,7 @@
 ## [Unreleased]
 
 ### Added
-- 브라우저 점검 하네스 보강(`ui-probe.cjs`) — ① `--memory` 로 점검한 화면(`baseUrl`·`routes`·`startCmd`·`storageState`)을 `.specops/memory/ui-probe.json` 에 기록해 다음 FID 가 URL 을 다시 찾지 않는다(서버 기동은 하네스가 아니라 integration-test-ko 가 기록의 `startCmd` 로 한다). ② `--mock` 으로 목업을 같은 폭으로 찍어 `<이름>@<폭>.mock.png` 를 구현 PNG 옆에 남긴다(판정 제외 — demo 가 나란히 보여 준다). ③ `--a11y-baseline` — 첫 실행은 하류의 기존 접근성 위반을 기준선에 기록하고 막지 않으며(`기준선 기록:` 줄로 모두 보임), 이후에는 새 위반(규칙이 새로 생기거나 노드 수가 늘어난 것)만 FAIL 이다. ④ `--storage-state` 로그인 상태, 없으면 `SKIP (NO_ENV)`. 기록·기준선 규칙은 브라우저 없이 시험되는 `ui-probe-state.cjs` 로 나눴고, 판정 로직은 가짜 Playwright 로 CI 에서도 시험한다. 새 플래그를 안 주면 출력·rc 는 v3.1.23 과 같다.
+- 브라우저 점검 하네스 보강(`ui-probe.cjs`) — ① `--memory` 로 점검한 화면(`baseUrl`·`routes`·`startCmd`·`storageState`)을 `.specops/memory/ui-probe.json` 에 기록해 다음 FID 가 URL 을 다시 찾지 않는다(서버 기동은 하네스가 아니라 integration-test-ko 가 기록의 `startCmd` 로 한다). ② `--mock` 으로 목업을 같은 폭으로 찍어 `<이름>@<폭>.mock.png` 를 구현 PNG 옆에 남긴다(판정 제외 — demo 가 나란히 보여 준다). ③ `--a11y-baseline` — 첫 실행은 하류의 기존 접근성 위반을 기준선에 기록하고 막지 않으며(`기준선 기록:` 줄로 모두 보임), 이후에는 새 위반(규칙이 새로 생기거나 노드 수가 늘어난 것)만 FAIL 이다. ④ `--storage-state` 로그인 상태, 파일이 없거나 읽히지 않거나 모양이 맞지 않으면 `SKIP (NO_ENV)`. 기록·기준선 규칙은 브라우저 없이 시험되는 `ui-probe-state.cjs` 로 나눴고, 판정 로직은 가짜 Playwright 로 CI 에서도 시험한다. 새 플래그를 안 주면 출력·rc 는 v3.1.23 과 같다.
 
 ## [3.1.23] — 2026-11-10
 

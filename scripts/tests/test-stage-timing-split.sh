@@ -551,6 +551,29 @@ EOF
 runs l11y --split --gap-cap-min 100000 --transcript-dir "$SB/td11n"; IN7=$(row '/plan 완료')
 runs l11y --split --gap-cap-min 100000 --transcript-dir "$SB/td11o"; OUT7=$(row '/plan 완료')
 ck "T11.n 7일 경계: 7일−1분은 작업 10079 · 7일+1분은 작업 0" "$IN7|$OUT7" "11540 10079 0 0 1461|11540 0 0 0 11540"
+# 시간순이 아닌 A 연속분: 파일 순서 H 10:00 · A 10:05 · A 10:01 · 표지 10:06 / A 10:09 · A 10:08 · 표지 10:10(트리거 없는 턴)
+#   접을 때 묶음의 최솟값을 남기지 않으면 둘째 턴이 10:09 부터라 작업 7 이 된다(기대 8 = 6 + 2).
+mktr "$SB/td11q/q.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"assistant","timestamp":"2026-10-01T10:05:00.000Z","message":{"content":[]}}
+{"type":"assistant","timestamp":"2026-10-01T10:01:00.000Z","message":{"content":[]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:06:00.000Z"}
+{"type":"assistant","timestamp":"2026-10-01T10:09:00.000Z","message":{"content":[]}}
+{"type":"assistant","timestamp":"2026-10-01T10:08:00.000Z","message":{"content":[]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:10:00.000Z"}
+EOF
+runs l11 --split --transcript-dir "$SB/td11q"
+ck "T11.p 시간순이 아닌 A 연속분: 접어도 묶음의 가장 이른 시각이 남아 작업 6+2=8(기타 12)" "$(row '/plan 완료')" "20 8 0 0 12"
+# 성능: 턴 끝 표지만 있는 파일에서 A 6만 줄 — 적재 단계에서 연속분을 접지 않으면 처리 시간이 줄 수의 제곱으로 늘어난다(CPU 시간으로 잰다 — T7.c 와 같은 방식)
+mkdir -p "$SB/td11r"
+awk 'BEGIN {
+  printf "{\"type\":\"user\",\"timestamp\":\"2026-10-01T10:00:00.000Z\",\"isMeta\":false,\"origin\":{\"kind\":\"human\"},\"message\":{\"content\":\"x\"}}\n"
+  for (k = 0; k < 60000; k++) { t = 36001 + k % 3000; printf "{\"type\":\"assistant\",\"timestamp\":\"2026-10-01T%02d:%02d:%02d.000Z\",\"message\":{\"content\":[]}}\n", int(t/3600), int(t%3600/60), t%60 }
+  printf "{\"type\":\"system\",\"subtype\":\"stop_hook_summary\",\"timestamp\":\"2026-10-01T11:00:00.000Z\"}\n"
+}' > "$SB/td11r/big.jsonl"
+TIMEFORMAT='%3U %3S'; { time TZ=UTC "$BASH_BIN" "$TT" "$SB/td11r/big.jsonl" > "$SB/td11r.out"; } 2>"$SB/cpu"; unset TIMEFORMAT
+_cl=$(tail -1 "$SB/cpu" | tr ',' '.'); CPU=$(printf '%s' "$_cl" | awk '{ printf "%.1f", $1 + $2 }')
+ck "T11.o A 6만 줄 + H·E 각 1줄(turn_duration 없음): CPU 6초 이내(cpu=${CPU}s) · 출력 정확히 3줄 H·A·E" "$(printf '%s' "$_cl" | grep -qE '^[0-9]+\.[0-9]{3} [0-9]+\.[0-9]{3}$' && awk -v c="$CPU" 'BEGIN{ print (c + 0 > 0 && c + 0 <= 6) ? 1 : 0 }' || echo bad)|$(wc -l < "$SB/td11r.out" | tr -d ' ')|$(cut -f2 "$SB/td11r.out" | tr '\n' ' ')" "1|3|H A E "
 
 # ══ AC-7: 읽기 전용 · 정적 규약 · 성능 ══
 BEFORE="$(cksum < "$SB/l3a/session-progress.md")|$(cat "$SB/td1/s1.jsonl" | cksum)|$(ls -A "$SB/tmp" | wc -l | tr -d ' ')"

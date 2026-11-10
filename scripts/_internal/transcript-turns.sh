@@ -4,7 +4,7 @@
 # 종류: D = system/turn_duration (값 = durationMs, 없거나 음수·비숫자·7일(604800000) 초과면 0 — 깨진 큰 값이 구간 루프를 폭주시키지 않게) · H = 사람 프롬프트(origin.kind=human)
 #       N = 알림이 연 턴(origin.kind=task-notification) · U = 그 밖(origin 부재·미인식 값) · F = 파일 경계(파일 사이에만, 값 0)
 #       H·N·U 는 user 레코드 중 isMeta 가 거짓이고 message.content 가 문자열인 것만(도구 결과 배열·메타 주입은 제외), 값은 0.
-#       E = 턴 끝 표지(system/stop_hook_summary) · A = 어시스턴트 기록(연속분은 첫 줄만) — 둘 다 값 0 이고, **D 가 한 건도 없는 파일에서만** 낸다
+#       E = 턴 끝 표지(system/stop_hook_summary) · A = 어시스턴트 기록(연속분은 첫 줄만 — 적재 단계에서 접고 묶음의 가장 이른 시각을 남긴다) — 둘 다 값 0 이고, **D 가 한 건도 없는 파일에서만** 낸다
 #         (Claude Code 2.1.312 무렵부터 turn_duration 이 기록되지 않는다 — 20261110 실측. D 가 있는 파일은 종전 출력 그대로다: 파일 단위 판정).
 #         E 는 Stop 훅이 하나라도 있는 세션에만 남는다. 호출자는 E 마다 '직전 트리거(없으면 직전 E 뒤 첫 A) ~ E' 를 작업 구간으로 쓴다.
 # 파일마다 시간순으로 정렬해 내고, 둘째 파일부터는 앞에 F 한 줄을 둔다 — 호출자가 세션 사이를 짝짓지 않게 하는 경계다.
@@ -58,7 +58,11 @@ jq -nRr --argjson loc "$LOCAL" '
     input_filename as $fn
     | (if .cur != null and .cur != $fn then .out += [(.buf | sort_by(.[0]) | norm)] | .buf = [] else . end)
     | .cur = $fn
-    | .buf += [ ($l | try fromjson catch null) | ev ])
+    | ([ ($l | try fromjson catch null) | ev ] | first // null) as $e
+    | if $e == null then .
+      elif $e[1] == "A" and (.buf | length) > 0 and .buf[-1][1] == "A" then
+        (if $e[0] < .buf[-1][0] then .buf[-1][0] = $e[0] else . end)
+      else .buf += [$e] end)
   | [ (.out + [.buf | sort_by(.[0]) | norm])[] | select(length > 0) ] as $g
   | $g | to_entries[]
   | (if .key > 0 then "0\tF\t0" else empty end), (.value[] | "\(.[0])\t\(.[1])\t\(.[2])")

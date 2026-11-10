@@ -165,4 +165,17 @@ _lg9=$(_m9 '<fieldset><legend>역할</legend><input type="radio" name="r" id="r-
 if [ "$_ok9" = "a11y-label=2/2" ] && [ "$_lg9" = "a11y-label=0/2" ]; then ok "T8.i 선택지마다 label(for/id) 이면 2/2, legend 만 두면 0/2 — 지침의 선택지 규칙이 계측기와 일치"; else nope "T8.i" "선택지 label=$_ok9 · legend 만=$_lg9"; fi
 rm -rf "$TMP9"
 
+# ── T9: 한국어 줄바꿈 기본값 (FID 20261110-design-visual-review-loop AC-4) ──
+_body9() { awk '/^[[:space:]]*body[[:space:]]*\{/{f=1} f{print} f&&/\}/{exit}' "$1"; }
+_body9 "$H" | grep -qE 'word-break:[[:space:]]*keep-all' && ok "T9.a templates/screen.html body 규칙에 word-break: keep-all" || nope "T9.a" "body 규칙에 keep-all 없음"
+TMP10=$(mktemp -d); sed 's/word-break:[[:space:]]*keep-all;//' "$H" > "$TMP10/h.html"
+_body9 "$TMP10/h.html" | grep -qE 'word-break:[[:space:]]*keep-all' && nope "T9.b" "지운 사본도 통과한다" || ok "T9.b 음성 — keep-all 을 지운 사본은 FAIL"
+rm -rf "$TMP10"
+SG9="$PLUGIN/templates/screen-design-guide.md"
+{ grep -qF 'word-break: keep-all' "$SG9" && grep -qF 'A-MEDIA-NONE' "$SG9" && grep -qF 'A-TABLE-NOWRAP' "$SG9"; } \
+  && ok "T9.c screen-design-guide ② 에 한국어 줄바꿈·계측 규칙 안내" || nope "T9.c" "지침 줄 없음"
+# 원문 지침은 그대로다 — 고쳤다면 이 해시를 의도적으로 갱신해야 한다(Apache-2.0 원문 · 머리말이 '수정 없음' 을 못박는다)
+[ "$(git hash-object "$PLUGIN/templates/frontend-design-guide.md" 2>/dev/null)" = "685c97f07226b59486b3a52fed56dc2adbea58be" ] \
+  && ok "T9.d templates/frontend-design-guide.md 원문 불변(blob 해시)" || nope "T9.d" "원문 지침이 바뀌었다 — $(git hash-object "$PLUGIN/templates/frontend-design-guide.md" 2>/dev/null)"
+
 finish

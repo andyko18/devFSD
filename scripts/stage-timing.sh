@@ -7,7 +7,7 @@
 # FID 단위 단계 소요는 show-fid-status.sh(/status)가 이미 낸다 — 이 스크립트는 FID 간 분포만 더한다.
 # 행 단위 루프에서 외부 프로세스를 띄우지 않는다 — sort 1회 + awk 2회(일수 산술)로 끝낸다.
 #
-# --split: Claude Code transcript 의 구조 필드(turn_duration·origin.kind)로 각 구간을 작업·사람·백그라운드·기타로 쪼갠다.
+# --split: Claude Code transcript 의 구조 필드(turn_duration·origin.kind — turn_duration 이 없는 파일은 턴 끝 표지 stop_hook_summary 와 어시스턴트 기록 시각)로 각 구간을 작업·사람·백그라운드·기타로 쪼갠다.
 #   transcript 본문은 읽지 않는다 — 읽는 일은 scripts/_internal/transcript-turns.sh(프라이버시 경계) 한 곳이 맡는다.
 # --by-agent: --split 을 내포하고, 서브에이전트 transcript(세션폴더/subagents/agent-ID.jsonl + .meta.json)의 구조 필드로
 #   서브에이전트 역할별 소요 표를 --split 표 뒤에 더한다. 읽는 일은 scripts/_internal/agent-spans.sh(프라이버시 경계) 한 곳이 맡는다.
@@ -134,6 +134,9 @@ TAB=$(printf '\t')
 # 세그먼트 생성(--split): 헬퍼의 사건 줄을 세션(파일)별로 짝지어 "시작·끝·범주" 줄(로컬 벽시계 초)로 낸다.
 #   범주 M=작업(turn_duration 구간) · H=사람 · N=백그라운드 · U=미분류(턴 종료 뒤 다음 트리거 종류).
 #   짝짓기는 같은 파일 안에서만 한다(파일 경계 F 에서 상태를 비운다) — 동시 세션의 사건이 엮이지 않게.
+#   turn_duration 이 없는 파일(헬퍼가 E·A 를 낸다)은 턴 끝 표지 E 마다 작업 구간 하나: 시작 = 직전 E 뒤의 마지막 트리거, 없으면 직전 E 뒤 첫 어시스턴트 기록(A).
+#   7일을 넘는 구간은 내지 않는다(turn_duration 상한과 같다). E 시각에는 Stop 훅 실행 시간이 들어 있어 종전 규칙보다 턴당 수 초 길다.
+#   어느 규칙이 쓰였는지는 "#rule" 줄(turn_duration 파일 수 · 턴 끝 표지 파일 수)로 넘겨 푸터에 보인다.
 #   방치 상한을 넘는 유휴 구간은 세그먼트에서 빼고 건수·합계만 "#x" 줄로 남긴다. 직전 turn_duration 없는 트리거는 "#nod".
 #   한 세션의 턴은 순차라 겹칠 수 없다 — 알림으로 재개된 턴의 durationMs 는 앞 턴 시작부터 누적될 수 있어(실측)
 #   turn_duration 구간의 시작을 같은 파일의 직전 턴 끝 또는 직전 트리거(pend — 턴은 그 턴을 연 트리거보다 앞서 시작할 수 없다)로 잘라낸다.
@@ -142,9 +145,17 @@ seg_stream() (   # 서브셸 + pipefail — 헬퍼가 실패(읽을 수 없는 �
   bash "$SELF_DIR/_internal/transcript-turns.sh" --local "${SEG_FILES[@]}" 2>/dev/null \
   | awk -F '\t' -v cap="$CAP" '
     BEGIN { capsec = cap * 60 }
-    $2 == "F" { dend = ""; pend = ""; next }
-    $2 == "D" { te = $1 + 0; tb = te - $3 / 1000; if (pend != "" && tb < pend) tb = pend; pend = te; if (tb < te) printf "%.3f\t%.3f\tM\n", tb, te; dend = te; next }
+    function rule_flush() { if (sawD) rd++; else if (sawE) re++; sawD = 0; sawE = 0 }
+    $2 == "F" { rule_flush(); dend = ""; pend = ""; trig = ""; fa = ""; next }
+    $2 == "A" { if (fa == "") fa = $1 + 0; next }
+    $2 == "E" {
+      sawE = 1; te = $1 + 0; tb = (trig != "") ? trig : fa
+      if (tb != "" && tb < te && te - tb <= 604800) printf "%.3f\t%.3f\tM\n", tb, te
+      dend = te; pend = te; trig = ""; fa = ""; next
+    }
+    $2 == "D" { sawD = 1; te = $1 + 0; tb = te - $3 / 1000; if (pend != "" && tb < pend) tb = pend; pend = te; if (tb < te) printf "%.3f\t%.3f\tM\n", tb, te; dend = te; next }
     {
+      trig = $1 + 0
       if ($2 == "U") nu++
       if (dend == "") { nod++; next }
       g = $1 - dend
@@ -152,6 +163,8 @@ seg_stream() (   # 서브셸 + pipefail — 헬퍼가 실패(읽을 수 없는 �
       dend = ""; pend = $1 + 0
     }
     END {
+      rule_flush()
+      printf "#rule\t%d\t%d\n", rd + 0, re + 0
       printf "#nod\t%d\n#u\t%d\n", nod + 0, nu + 0
       printf "#x\tH\t%d\t%d\n#x\tN\t%d\t%d\n#x\tU\t%d\t%d\n", xn["H"] + 0, xs["H"] + 0, xn["N"] + 0, xs["N"] + 0, xn["U"] + 0, xs["U"] + 0
     }'
@@ -227,7 +240,7 @@ function dn(y, m, d,   yy, mm) {
 }
 END { printf "\t%d\n", bad + 0 }' "$LEDGER" \
 | sort -t "$TAB" -k1,1 -k2,2n -k3,3nr \
-| STAGE_TIMING_LEDGER="$LEDGER" STAGE_TIMING_CAP="$CAP" STAGE_TIMING_TDIRNOTE="${TDIR_NOTE:-}" STAGE_TIMING_SEGFILE="$SEGTMP" STAGE_TIMING_BGFILE="$BGTMP" awk -v since="$SINCE" -v cap="$CAP" -v minn="$MINN" -v seg_ok="$SEG_OK" '
+| STAGE_TIMING_LEDGER="$LEDGER" STAGE_TIMING_CAP="$CAP" STAGE_TIMING_TDIRNOTE="${TDIR_NOTE:-}" STAGE_TIMING_NFILES="${#SEG_FILES[@]}" STAGE_TIMING_SEGFILE="$SEGTMP" STAGE_TIMING_BGFILE="$BGTMP" awk -v since="$SINCE" -v cap="$CAP" -v minn="$MINN" -v seg_ok="$SEG_OK" '
 # 표시용 원장 경로·방치 상한은 ENVIRON 으로 받아 원문 그대로 쓴다 — awk -v 는 역슬래시 이스케이프를 해석하고,
 # 거대 정수는 awk 구현마다 %d 표기가 갈린다. 비교용 숫자(cap·since·minn)는 -v 로 받는다.
 function dn(y, m, d,   yy, mm) {
@@ -286,7 +299,8 @@ BEGIN {
     segf = ENVIRON["STAGE_TIMING_SEGFILE"]
     while ((getline line < segf) > 0) {
       nf = split(line, F, "\t")
-      if (F[1] == "#nod") { nod = F[2] + 0 }
+      if (F[1] == "#rule") { ruleD = F[2] + 0; ruleE = F[3] + 0 }
+      else if (F[1] == "#nod") { nod = F[2] + 0 }
       else if (F[1] == "#u") { unn = F[2] + 0 }
       else if (F[1] == "#x") { xn[F[2]] = F[3] + 0; xs[F[2]] = F[4] + 0 }
       else { ns++; sgs[ns] = F[1] + 0; sge[ns] = F[2] + 0; sgc[ns] = F[3]; tot[F[3]] += F[2] - F[1]
@@ -378,6 +392,8 @@ END {
     printf "방치 상한 초과 유휴(transcript, 통계 제외): 사람 %d건 %d분 · 백그라운드 %d건 %d분 · 미분류 %d건 %d분\n", xn["H"] + 0, int(xs["H"] / 60 + 0.5), xn["N"] + 0, int(xs["N"] / 60 + 0.5), xn["U"] + 0, int(xs["U"] / 60 + 0.5)
     printf "겹침 %d구간 (작업+사람+백그라운드가 구간 wall 을 넘음 — 같은 세션 누적 turn_duration 은 직전 턴 끝·직전 트리거로 잘라냄 · 남는 겹침 = 동시 세션 가능성, 해당 구간의 기타는 0)\n", ovn + 0
     printf "직전 turn_duration 없이 시작한 트리거 %d건 (세션 시작·턴 중 대기열·기록 누락 포함)\n", nod + 0
+    nf = ENVIRON["STAGE_TIMING_NFILES"] + 0; rnone = nf - ruleD - ruleE; if (rnone < 0) rnone = 0
+    printf "판독 규칙별 세션 파일: turn_duration %d개 · 턴 끝 표지 %d개 · 둘 다 없음 %d개 (둘 다 없음 = 구간을 만들지 못한 파일 · 턴 끝 표지 규칙의 작업에는 Stop 훅 실행 시간이 포함됨)\n", ruleD, ruleE, rnone
     if (ENVIRON["STAGE_TIMING_BGFILE"] != "") { bgf = ENVIRON["STAGE_TIMING_BGFILE"]; printf "%d\n", int(gNa / 60 + 0.5) > bgf; close(bgf) }   # --by-agent 푸터가 비교할 백그라운드 열 합
   }
 }'

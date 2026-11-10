@@ -423,6 +423,158 @@ mktr "$SB/cfgI/projects/$ENC_W/s2.jsonl" < "$SB/cfg10/gone-w/s2.jsonl"
 OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfgI" SPECOPS_ROOT="$R10/.specops" "$BASH_BIN" "$ST" --split 2>"$SB/err"); RC=$?
 ck "T10.i 후보를 실경로로 먼저 중복 제거한 뒤 센다 → 1개 읽음 · 없는 worktree 1개" "$RC|$(cnt 'transcript 디렉토리 1개 읽음')|$(cnt '대응 디렉토리 없는 worktree 1개')" "0|1|1"
 
+# ══ AC-11 (20261110-measure-tools-doc-numbers): turn_duration 없는 transcript — 턴 끝 표지(stop_hook_summary) 규칙 ══
+# 원장 10:00~10:20. e1: 사람 10:00 → 턴 끝 10:04 → 사람 10:10 → 턴 끝 10:13 (작업 4+3=7 · 사람 6 · 기타 7)
+ledger l11 <<'EOF'
+## 20261001-aaa · A
+
+- 2026-10-01 10:20 /plan 완료 (x)
+- 2026-10-01 10:00 /specify 완료 (x)
+EOF
+mktr "$SB/td11/e1.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"assistant","timestamp":"2026-10-01T10:01:00.000Z","message":{"content":[{"type":"text","text":"BODY"}]}}
+{"type":"assistant","timestamp":"2026-10-01T10:03:00.000Z","message":{"content":[{"type":"text","text":"BODY"}]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:04:00.000Z","hookCount":2}
+{"type":"user","timestamp":"2026-10-01T10:10:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"assistant","timestamp":"2026-10-01T10:11:00.000Z","message":{"content":[{"type":"text","text":"BODY"}]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:13:00.000Z","hookCount":2}
+EOF
+E1=$(TZ=UTC "$BASH_BIN" "$TT" "$SB/td11/e1.jsonl")
+ck "T11.a 헬퍼: turn_duration 없는 파일은 턴 끝 표지 E 와 어시스턴트 기록 A(연속분은 첫 줄만)를 낸다 — 줄 전체(초·종류·값 0)" "$E1" "$(printf '%s\n' "1790848800	H	0" "1790848860	A	0" "1790849040	E	0" "1790849400	H	0" "1790849460	A	0" "1790849580	E	0")"
+runs l11 --split --transcript-dir "$SB/td11"
+ck "T11.b 작업 7 · 사람 6 · 백그라운드 0 · 기타 7 (합계 20)" "$(row '/plan 완료')" "20 7 6 0 7"
+ck "T11.c 규칙별 파일 수 줄: 턴 끝 표지 1개" "$(cnt '판독 규칙별 세션 파일: turn_duration 0개 · 턴 끝 표지 1개 · 둘 다 없음 0개')" "1"
+# (가) 트리거 없이 시작한 턴: 턴 끝 10:02 뒤 어시스턴트 10:05·10:06 → 턴 끝 10:08 — 작업은 10:05~10:08(3분), 10:02~10:05 는 작업·사람 아님
+# (다) 한 트리거 뒤 표지 2건: 위와 같은 모양(트리거 10:00 · 표지 10:02 · 어시스턴트 10:05 · 표지 10:08) — 작업 2 + 3 = 5
+mktr "$SB/td11b/e2.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"assistant","timestamp":"2026-10-01T10:01:00.000Z","message":{"content":[]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:02:00.000Z"}
+{"type":"assistant","timestamp":"2026-10-01T10:05:00.000Z","message":{"content":[]}}
+{"type":"assistant","timestamp":"2026-10-01T10:06:00.000Z","message":{"content":[]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:08:00.000Z"}
+EOF
+runs l11 --split --transcript-dir "$SB/td11b"
+ck "T11.d 트리거 없는 턴·한 트리거 뒤 표지 2건: 작업 2+3=5 · 사람 0 · 표지 사이 공백 3분은 기타(기타 15)" "$(row '/plan 완료')" "20 5 0 0 15"
+# (나) turn_duration 도 턴 끝 표지도 없는 파일 — 구간 0 · '둘 다 없음' 1
+mktr "$SB/td11c/e3.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"assistant","timestamp":"2026-10-01T10:05:00.000Z","message":{"content":[]}}
+{"type":"user","timestamp":"2026-10-01T10:10:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+EOF
+runs l11 --split --transcript-dir "$SB/td11c"
+ck "T11.e 표지가 전혀 없는 파일: 작업·사람 0 · 기타 20 · '둘 다 없음 1개'" "$(row '/plan 완료')|$(cnt '턴 끝 표지 0개 · 둘 다 없음 1개')" "20 0 0 0 20|1"
+# 혼합: turn_duration 과 턴 끝 표지를 둘 다 가진 파일은 종전 규칙만 — 표지로 인한 추가 구간 0
+mktr "$SB/td11d/m1.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"assistant","timestamp":"2026-10-01T10:01:00.000Z","message":{"content":[]}}
+{"type":"system","subtype":"turn_duration","timestamp":"2026-10-01T10:04:00.000Z","durationMs":120000}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:05:00.000Z"}
+{"type":"user","timestamp":"2026-10-01T10:10:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+EOF
+M1=$(TZ=UTC "$BASH_BIN" "$TT" "$SB/td11d/m1.jsonl" | cut -f2 | tr '\n' ' ')
+runs l11 --split --transcript-dir "$SB/td11d"
+ck "T11.f 혼합 파일: 헬퍼가 A·E 를 내지 않고(H D H) 작업은 durationMs 2분만 · 사람 6 · 규칙 줄은 turn_duration 1개" "$M1|$(row '/plan 완료')|$(cnt 'turn_duration 1개 · 턴 끝 표지 0개')" "H D H |20 2 6 0 12|1"
+# 두 규칙 파일을 함께: 각 파일이 자기 규칙으로 (m1 작업 2 + e1 작업 7 은 같은 시간대라 겹침 — 값 대신 규칙 줄만 본다)
+mkdir -p "$SB/td11e" && cp "$SB/td11/e1.jsonl" "$SB/td11d/m1.jsonl" "$SB/td11e/" && touch -t 203001010000 "$SB/td11e"/*.jsonl
+runs l11 --split --transcript-dir "$SB/td11e"
+ck "T11.g 두 규칙 파일을 함께 읽으면 파일 단위로 갈린다" "$(cnt 'turn_duration 1개 · 턴 끝 표지 1개 · 둘 다 없음 0개')" "1"
+# 시간대가 겹치지 않는 두 파일(이름순으로 읽힌다): a = turn_duration 규칙(작업 2 · 사람 6) · b = 트리거 없이 시작한 턴(A 10:12 → 표지 10:14 = 작업 2)
+#   파일 경계에서 트리거·첫 어시스턴트 기록을 비우지 않으면 b 의 작업이 a 의 마지막 트리거 10:10 부터 잡혀 4가 된다(행 20 6 6 0 8).
+mktr "$SB/td11j/a.jsonl" < "$SB/td11d/m1.jsonl"
+mktr "$SB/td11j/b.jsonl" <<'EOF'
+{"type":"assistant","timestamp":"2026-10-01T10:12:00.000Z","message":{"content":[]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:14:00.000Z"}
+EOF
+runs l11 --split --transcript-dir "$SB/td11j"
+ck "T11.j 두 파일의 값: 작업 2+2=4 · 사람 6 · 기타 10 — 표지로 인한 추가 구간 0 · 파일 경계를 넘는 짝짓기 0" "$(row '/plan 완료')|$(cnt 'turn_duration 1개 · 턴 끝 표지 1개 · 둘 다 없음 0개')" "20 4 6 0 10|1"
+# 한 턴 끝 사이에 트리거 2개: 마지막 트리거(10:03)부터 — 첫 트리거를 쓰면 20 6 0 0 14
+mktr "$SB/td11i/q.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"user","timestamp":"2026-10-01T10:03:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"assistant","timestamp":"2026-10-01T10:04:00.000Z","message":{"content":[]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:06:00.000Z"}
+EOF
+runs l11 --split --transcript-dir "$SB/td11i"
+ck "T11.i 트리거가 여럿이면 마지막 것부터: 작업 3 · 기타 17" "$(row '/plan 완료')" "20 3 0 0 17"
+# 표지 없이 끝난 마지막 턴은 구간을 내지 않는다: e1 뒤에 사람 10:15 · 어시스턴트 10:16 (끝에 표지 없음)
+{ cat "$SB/td11/e1.jsonl"; printf '%s\n' '{"type":"user","timestamp":"2026-10-01T10:15:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}' '{"type":"assistant","timestamp":"2026-10-01T10:16:00.000Z","message":{"content":[]}}'; } | mktr "$SB/td11k/k.jsonl"
+runs l11 --split --transcript-dir "$SB/td11k"
+ck "T11.k 표지 없이 끝난 마지막 턴: 작업 4+3=7 · 사람 6+2=8 · 10:15 이후 작업 0(기타 5)" "$(row '/plan 완료')" "20 7 8 0 5"
+# 연달아 표지 2건(사이에 어시스턴트 기록 없음): 둘째 표지는 구간을 내지 않는다
+mktr "$SB/td11l/l.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"assistant","timestamp":"2026-10-01T10:01:00.000Z","message":{"content":[]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:02:00.000Z"}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:03:00.000Z"}
+EOF
+runs l11 --split --transcript-dir "$SB/td11l"
+ck "T11.l 연달아 표지 2건: 작업 2 뿐(기타 18)" "$(row '/plan 완료')" "20 2 0 0 18"
+# 프라이버시: turn_duration 없는 파일의 A·E 경로에도 본문이 실리지 않는다(카나리 픽스처 tdc 는 turn_duration 이 있어 이 경로를 타지 않는다)
+mktr "$SB/td11p/p.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"CANARY-USER"}}
+{"type":"assistant","timestamp":"2026-10-01T10:01:00.000Z","message":{"content":[{"type":"text","text":"CANARY-ASSIST"},{"type":"tool_use","input":{"cmd":"CANARY-INPUT"}}]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:04:00.000Z","extra":"CANARY-HOOK","hookInfos":[{"command":"CANARY-CMD"}]}
+EOF
+PH=$(TZ=UTC TMPDIR="$SB/tmp" "$BASH_BIN" "$TT" --local "$SB/td11p/p.jsonl" 2>"$SB/perr"); PHE=$(cat "$SB/perr")
+runs l11 --split --transcript-dir "$SB/td11p"
+ck "T11.m 턴 끝 표지 경로의 카나리 0건(헬퍼·stage-timing stdout·stderr·임시 디렉토리) · 헬퍼 줄은 전부 '초 종류 숫자' 형식 · 작업 4" "$(printf '%s%s%s%s' "$PH" "$PHE" "$OUT" "$ERR" | grep -c CANARY)|$(grep -rl CANARY "$SB/tmp" 2>/dev/null | wc -l | tr -d ' ')|$(printf '%s\n' "$PH" | grep -vcE '^[0-9]+	[HNUAEDF]	[0-9]+$')|$(row '/plan 완료' | awk '{print $2}')" "0|0|0|4"
+# 7일 상한: 트리거에서 턴 끝까지 8일이면 작업 구간을 내지 않는다
+ledger l11x <<'EOF'
+## 20261001-aaa · A
+
+- 2026-10-09 10:20 /plan 완료 (x)
+- 2026-10-09 10:00 /specify 완료 (x)
+EOF
+mktr "$SB/td11f/x1.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:10:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-09T10:15:00.000Z"}
+EOF
+runs l11x --split --gap-cap-min 100000 --transcript-dir "$SB/td11f"
+ck "T11.h 작업 구간 하나가 7일을 넘으면 내지 않는다(작업 0)" "$(row '/plan 완료' | awk '{print $2}')" "0"
+# 7일 경계 짝: 원장 10-01 10:00 ~ 10-09 10:20(11540분). 트리거 10-01 10:00 → 표지 10-08 09:59(7일−1분 = 10079분 · 포함) / 10-08 10:01(7일+1분 · 제외)
+ledger l11y <<'EOF'
+## 20261001-aaa · A
+
+- 2026-10-09 10:20 /plan 완료 (x)
+- 2026-10-01 10:00 /specify 완료 (x)
+EOF
+mktr "$SB/td11n/in.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-08T09:59:00.000Z"}
+EOF
+mktr "$SB/td11o/out.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-08T10:01:00.000Z"}
+EOF
+runs l11y --split --gap-cap-min 100000 --transcript-dir "$SB/td11n"; IN7=$(row '/plan 완료')
+runs l11y --split --gap-cap-min 100000 --transcript-dir "$SB/td11o"; OUT7=$(row '/plan 완료')
+ck "T11.n 7일 경계: 7일−1분은 작업 10079 · 7일+1분은 작업 0" "$IN7|$OUT7" "11540 10079 0 0 1461|11540 0 0 0 11540"
+# 시간순이 아닌 A 연속분: 파일 순서 H 10:00 · A 10:05 · A 10:01 · 표지 10:06 / A 10:09 · A 10:08 · 표지 10:10(트리거 없는 턴)
+#   접을 때 묶음의 최솟값을 남기지 않으면 둘째 턴이 10:09 부터라 작업 7 이 된다(기대 8 = 6 + 2).
+mktr "$SB/td11q/q.jsonl" <<'EOF'
+{"type":"user","timestamp":"2026-10-01T10:00:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY"}}
+{"type":"assistant","timestamp":"2026-10-01T10:05:00.000Z","message":{"content":[]}}
+{"type":"assistant","timestamp":"2026-10-01T10:01:00.000Z","message":{"content":[]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:06:00.000Z"}
+{"type":"assistant","timestamp":"2026-10-01T10:09:00.000Z","message":{"content":[]}}
+{"type":"assistant","timestamp":"2026-10-01T10:08:00.000Z","message":{"content":[]}}
+{"type":"system","subtype":"stop_hook_summary","timestamp":"2026-10-01T10:10:00.000Z"}
+EOF
+runs l11 --split --transcript-dir "$SB/td11q"
+ck "T11.p 시간순이 아닌 A 연속분: 접어도 묶음의 가장 이른 시각이 남아 작업 6+2=8(기타 12)" "$(row '/plan 완료')" "20 8 0 0 12"
+# 성능: 턴 끝 표지만 있는 파일에서 A 6만 줄 — 적재 단계에서 연속분을 접지 않으면 처리 시간이 줄 수의 제곱으로 늘어난다(CPU 시간으로 잰다 — T7.c 와 같은 방식)
+mkdir -p "$SB/td11r"
+awk 'BEGIN {
+  printf "{\"type\":\"user\",\"timestamp\":\"2026-10-01T10:00:00.000Z\",\"isMeta\":false,\"origin\":{\"kind\":\"human\"},\"message\":{\"content\":\"x\"}}\n"
+  for (k = 0; k < 60000; k++) { t = 36001 + k % 3000; printf "{\"type\":\"assistant\",\"timestamp\":\"2026-10-01T%02d:%02d:%02d.000Z\",\"message\":{\"content\":[]}}\n", int(t/3600), int(t%3600/60), t%60 }
+  printf "{\"type\":\"system\",\"subtype\":\"stop_hook_summary\",\"timestamp\":\"2026-10-01T11:00:00.000Z\"}\n"
+}' > "$SB/td11r/big.jsonl"
+TIMEFORMAT='%3U %3S'; { time TZ=UTC "$BASH_BIN" "$TT" "$SB/td11r/big.jsonl" > "$SB/td11r.out"; } 2>"$SB/cpu"; unset TIMEFORMAT
+_cl=$(tail -1 "$SB/cpu" | tr ',' '.'); CPU=$(printf '%s' "$_cl" | awk '{ printf "%.1f", $1 + $2 }')
+ck "T11.o A 6만 줄 + H·E 각 1줄(turn_duration 없음): CPU 6초 이내(cpu=${CPU}s) · 출력 정확히 3줄 H·A·E" "$(printf '%s' "$_cl" | grep -qE '^[0-9]+\.[0-9]{3} [0-9]+\.[0-9]{3}$' && awk -v c="$CPU" 'BEGIN{ print (c + 0 > 0 && c + 0 <= 6) ? 1 : 0 }' || echo bad)|$(wc -l < "$SB/td11r.out" | tr -d ' ')|$(cut -f2 "$SB/td11r.out" | tr '\n' ' ')" "1|3|H A E "
+
 # ══ AC-7: 읽기 전용 · 정적 규약 · 성능 ══
 BEFORE="$(cksum < "$SB/l3a/session-progress.md")|$(cat "$SB/td1/s1.jsonl" | cksum)|$(ls -A "$SB/tmp" | wc -l | tr -d ' ')"
 runs l3a --split --transcript-dir "$SB/td1"

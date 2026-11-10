@@ -177,7 +177,7 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 
 ### `hooks/governance-lib.sh` 는 800줄 규칙 예외다
 
-`~/.claude/rules/coding-style.md` 는 "파일 800줄 max" 를 언어 한정 없이 적는다. 이 repo 는 그 규칙을 **`hooks/governance-lib.sh`(1892줄 · 함수 51개) 한 파일에 한해 적용하지 않는다** — 51개 함수가 하나의 판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록 · 우회 분류 · degraded 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다. 나눌 이유가 생기면 **되돌려-관찰(변이 주입)로 각 가드의 생존을 실증하며** 나눈다. 이 예외는 분할 검토를 영구 금지하지 않고 근거 없는 분할만 막는다. 예외는 이 **한 파일에만** 적용되며 다른 파일의 비대화를 정당화하지 않는다. (근거·이력: docs/governance-history.md §7)
+`~/.claude/rules/coding-style.md` 는 "파일 800줄 max" 를 언어 한정 없이 적는다. 이 repo 는 그 규칙을 **`hooks/governance-lib.sh` 한 파일에 한해 적용하지 않는다** — 이 파일의 함수들이 하나의 판정 계약(transcript 조인 · 면제 클래스 · 마찰 기록 · 우회 분류 · degraded 기록)을 공유하는 bash 라이브러리라 응집도가 곧 목적이고, 인터페이스는 훅이 source 해서 함수를 부르는 단일 표면이다. 나눌 이유가 생기면 **되돌려-관찰(변이 주입)로 각 가드의 생존을 실증하며** 나눈다. 이 예외는 분할 검토를 영구 금지하지 않고 근거 없는 분할만 막는다. 예외는 이 **한 파일에만** 적용되며 다른 파일의 비대화를 정당화하지 않는다. (근거·이력: docs/governance-history.md §7)
 
 ## `/doctor` 의 memory·bootstrap ⚠️ 는 정상이다 (정책의 알려진 결과)
 

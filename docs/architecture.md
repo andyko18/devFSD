@@ -4,7 +4,7 @@
 > **다루는 것**: 무엇을 보장하는가 · **어떤 장치로** 보장하는가 · 무엇을 보장하지 **않는가** · 비용은 얼마인가.
 > **다루지 않는 것**: 설치·사용법은 [README.md](../README.md), 기여 절차는 [CONTRIBUTING.md](../CONTRIBUTING.md), 내부 규약은 [CLAUDE.md](../CLAUDE.md).
 >
-> §5 규모 표는 2026-10-09 의 main(v2.17.0 이후) 실측이다. 그 밖의 본문 수치는 적힌 날짜의 실측이고, 추정치는 그렇다고 표시했다.
+> §5 의 개수는 doc-lock(scripts/_internal/check-doc-numbers.sh)이 실측과 대조한다 — 틀리면 검사가 실패한다. 그 밖의 본문 수치는 적힌 날짜의 실측이고, 추정치는 그렇다고 표시했다.
 
 ---
 
@@ -162,18 +162,14 @@ PR 생성                                                   ★ 멈춤
 
 | 항목 | 값 |
 |---|---|
-| 버전 | v2.17.0 (+ 미릴리즈 main) |
-| 릴리즈 횟수 | **144회** (2026-04-21 초기화 이후 약 5.5개월) |
-| 슬래시 커맨드 | 25건 |
-| 스킬 | 30건 (layer 1 메타 1 · layer 2 Engine 23 · layer 3 Harness 6) |
-| 서브에이전트 | 8건 |
-| 템플릿 | 37건 (md 36 + screen.html 1) |
-| 훅 스크립트 | 11건 · 3,252줄 |
-| 운영 스크립트 | 16,511줄 (테스트 제외 · `scripts/**` 비테스트 `.sh` 112파일 합) |
-| **테스트 코드** | **43,309줄 · 215 스위트** (`scripts/tests/**/test-*.sh` 합 · 스위트 수는 run-all 수집 기준) <!-- doc-lock: suite-count --> |
-| 구조 검사기 | `_internal/check-*.sh` 30건 |
+| 버전 | `.claude-plugin/plugin.json` 의 `version` (여기에 숫자를 적지 않는다 — 낡는다) |
+| 슬래시 커맨드 | 25건 <!-- doc-lock: count:commands --> |
+| 스킬 | 31건 <!-- doc-lock: count:skills --> |
+| 서브에이전트 | 15건 <!-- doc-lock: count:agents --> |
+| 템플릿 | 38건 (`templates/*.md`) <!-- doc-lock: count:templates --> |
+| **테스트** | **215 스위트** (스위트 수는 run-all 수집 기준) <!-- doc-lock: suite-count --> |
 
-**테스트 대 코드 비율 2.6 : 1.** 이 프로젝트가 스스로에게 요구하는 것과 같은 기준을 스스로 지키고 있는지를 보려면 이 숫자가 가장 빠르다.
+개수는 `scripts/_internal/check-doc-numbers.sh` 가 실측과 대조한다(틀리면 pre-commit·run-all 이 실패한다). 줄 수·릴리즈 횟수처럼 대조하지 않는 수치는 이 표에 두지 않는다.
 
 ### 자기 검증 장치
 

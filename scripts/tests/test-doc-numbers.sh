@@ -325,6 +325,79 @@ grep -q 'check-doc-numbers' "$PLUGIN/scripts/README.md" \
   && ok "T3.b scripts/README·CLAUDE.md 등재" \
   || nope "T3.b" "등재 누락"
 
+# ── T6: 개수 잠금 (20261110-measure-tools-doc-numbers AC-6) ───────────────────
+#   마커 문자열은 조립한다 — 리터럴로 두면 이 파일이 실 트리 스캔에 걸린다.
+CM='doc-lock: ''count:'
+sc=$(_mksandbox) || nope "T6.a" "sandbox 생성 실패"
+[ -n "${sc:-}" ] || { nope "T6-guard" "sandbox 없이는 진행하지 않는다"; finish; exit 1; }
+_reg "$sc"
+# 스위트 수 잠금 1줄(locked 0 판정 불가 경로를 피한다) + 종류별 파일: skills 3 · commands 2 · agents 1 · templates 4(.md) + html 1
+_addfile "$sc" docs/lock.md "게이트는 $EXP $WORD 를 돈다 <!-- doc-lock: suite-count -->"
+for n in a b c; do _addfile "$sc" "skills/$n/SKILL.md" x; done
+_addfile "$sc" skills/a/extra.md x
+for n in a b; do _addfile "$sc" "commands/$n.md" x; done
+_addfile "$sc" agents/a.md x
+for n in a b c d; do _addfile "$sc" "templates/$n.md" x; done
+_addfile "$sc" templates/screen.html x
+_addfile "$sc" docs/counts.md "| 스킬 | 3건 | <!-- ${CM}skills -->
+| 커맨드 | 2건 | <!-- ${CM}commands -->
+| 에이전트 | 1건 | <!-- ${CM}agents -->
+| 템플릿 | v3.1.24 기준 3,252줄 가운데 4건 | <!-- ${CM}templates -->"
+out=$(_run "$sc")
+case "$(_rc "$sc")|$out" in
+  "0|"*"locked 5 ·"*) ok "T6.a 4종류 일치 → rc=0 · locked 5 (단위어 없는 줄·한 자리 수·버전/쉼표 수 조각 건너뜀 · templates 는 .md 만)" ;;
+  *) nope "T6.a" "일치하는데 실패 — $out" ;;
+esac
+_t6_bad() { # <이름> <종류> <틀린 줄> <기대 문구>
+  _addfile "$sc" docs/bad.md "$3"
+  local o r; o=$(_run "$sc"); r=$(_rc "$sc")
+  case "$r|$o" in
+    "1|"*"docs/bad.md:1"*"$4"*) ok "$1" ;;
+    *) nope "$1" "rc=$r — $o" ;;
+  esac
+  _rmfile "$sc" docs/bad.md
+}
+_t6_bad "T6.b skills 불일치 → rc=1 · 파일:줄·기대·실제"       skills    "스킬 9건 <!-- ${CM}skills -->"       "종류 skills 기대=3 실제=9"
+_t6_bad "T6.c commands 불일치 → rc=1"                          commands  "커맨드 9건 <!-- ${CM}commands -->"   "종류 commands 기대=2 실제=9"
+_t6_bad "T6.d agents 불일치 → rc=1"                            agents    "에이전트 9건 <!-- ${CM}agents -->"   "종류 agents 기대=1 실제=9"
+_t6_bad "T6.e templates 불일치(html 을 센 5 는 틀린 값) → rc=1" templates "템플릿 5건 <!-- ${CM}templates -->"  "종류 templates 기대=4 실제=5"
+_t6_bad "T6.f 모르는 종류 → rc=1"                              x         "무언가 3건 <!-- ${CM}unknown -->"    "모르는 개수 종류 'unknown'"
+_t6_bad "T6.g 수치 없는 마커 줄 → rc=1"                        x         "스킬 여러 건 <!-- ${CM}skills -->"   "개수 마커 줄에 수치가 없다"
+_t6_bad "T6.h 한 줄에 개수 마커 2개 → rc=1"                    x         "스킬 3건 <!-- ${CM}skills --> 커맨드 2건 <!-- ${CM}commands -->" "개수 마커가 2개"
+_t6_bad "T6.i 버전·쉼표 수만 있고 정수 토큰이 없으면 수치 없음" x        "v3.1.24 · 3,252줄 <!-- ${CM}skills -->" "개수 마커 줄에 수치가 없다"
+_t6_bad "T6.l skills 문서값 < 실측(skill 을 더하고 문서를 안 고친 방향) → rc=1" skills "스킬 2건 <!-- ${CM}skills -->"      "종류 skills 기대=3 실제=2"
+_t6_bad "T6.m commands 문서값 < 실측 → rc=1"                                    commands "커맨드 1건 <!-- ${CM}commands -->"  "종류 commands 기대=2 실제=1"
+_t6_bad "T6.n agents 문서값 0 도 수치로 읽는다 → rc=1"                          agents   "에이전트 0건 <!-- ${CM}agents -->"  "종류 agents 기대=1 실제=0"
+_t6_bad "T6.o templates 문서값 < 실측 → rc=1"                                   templates "템플릿 3건 <!-- ${CM}templates -->" "종류 templates 기대=4 실제=3"
+_t6_bad "T6.p 종류 변형(콜론 뒤 공백)은 모르는 종류 → rc=1" x "스킬 3건 <!-- ${CM} skills -->" "모르는 개수 종류 ''"
+_t6_bad "T6.q 종류 변형(대문자 시작)은 모르는 종류 → rc=1"  x "스킬 3건 <!-- ${CM}Skills -->"  "모르는 개수 종류 ''"
+_t6_bad "T6.r 종류 변형(단수)은 모르는 종류 → rc=1"         x "스킬 3건 <!-- ${CM}skill -->"   "모르는 개수 종류 'skill'"
+_t6_bad "T6.s 마커 주석 안의 숫자는 수치가 아니다(주석 제거가 살아 있다) → 수치 없음" x "스킬 여러 건 <!-- 2026-11 ${CM}skills -->" "개수 마커 줄에 수치가 없다"
+_addfile "$sc" CHANGELOG.md "옛 기록: 스킬 9건 <!-- ${CM}skills -->"
+[ "$(_rc "$sc")" = 0 ] && ok "T6.j allowlist 경로(CHANGELOG)의 개수 마커 줄은 건너뛴다" || nope "T6.j" "$(_run "$sc")"
+# T6.t 파일시스템 기준(git 추적 무관 — validate-structure file_counts 와 같은 기준): 스테이징하지 않은 SKILL.md 도 센다.
+#   _addfile·git add 를 쓰지 않는다 — 쓰면 추적 수와 파일 수가 같아져 git ls-files 로 세는 잘못된 구현이 살아남는다.
+mkdir -p "$sc/skills/d" "$sc/skills/e" && printf 'x\n' > "$sc/skills/d/SKILL.md"; printf 'x\n' > "$sc/commands/n.txt"; printf 'x\n' > "$sc/agents/n.json"
+if [ -n "$(git -C "$sc" ls-files skills/d/SKILL.md 2>/dev/null)" ]; then
+  nope "T6.t" "전제 깨짐 — skills/d/SKILL.md 가 추적되고 있다(이 케이스는 미추적 파일이어야 한다)"
+else
+  printf '%s\n' "| 스킬 | 4건 | <!-- ${CM}skills -->" "| 커맨드 | 2건 | <!-- ${CM}commands -->" "| 에이전트 | 1건 | <!-- ${CM}agents -->" "| 템플릿 | 4건 | <!-- ${CM}templates -->" > "$sc/docs/counts.md"
+  r_ok=$(_rc "$sc")
+  printf '%s\n' "| 스킬 | 3건 | <!-- ${CM}skills -->" "| 커맨드 | 2건 | <!-- ${CM}commands -->" "| 에이전트 | 1건 | <!-- ${CM}agents -->" "| 템플릿 | 4건 | <!-- ${CM}templates -->" > "$sc/docs/counts.md"
+  o_bad=$(_run "$sc"); r_bad=$(_rc "$sc")
+  case "$r_ok|$r_bad|$o_bad" in
+    "0|1|"*"종류 skills 기대=4 실제=3"*) ok "T6.t 미추적 SKILL.md 도 센다(스킬 4) · SKILL.md 없는 폴더·다른 확장자는 세지 않는다(커맨드 2 · 에이전트 1 불변)" ;;
+    *) nope "T6.t" "rc_ok=$r_ok rc_bad=$r_bad — $o_bad" ;;
+  esac
+fi
+case "$(_run "$sb")" in *"suite-count=$EXP"*) ok "T6.k 개수 마커가 없는 종전 sandbox 의 결과는 그대로(suite-count 경로 불변)" ;; *) nope "T6.k" "$(_run "$sb")" ;; esac
+
+# T6.u 실 트리 가드: docs/architecture.md 의 개수 마커 4종이 각 1줄씩 있어야 한다 — 지워지면 잠금이 조용히 스위트 수 1종으로 돌아간다.
+for k in skills commands agents templates; do
+  n=$(git -C "$PLUGIN" grep -nF -e "${CM}${k}" -- docs/architecture.md 2>/dev/null | wc -l | tr -d ' ')
+  [ "$n" = 1 ] && ok "T6.u 실 트리 개수 마커($k) 1줄" || nope "T6.u" "docs/architecture.md 의 개수 마커($k) 가 ${n}줄 — 1줄이어야 한다"
+done
+
 # ── T5.a 실 인덱스 무접촉 — 이 스위트의 git 호출이 실 저장소에 닿지 않았다 ──
 # 사후 탐지다(예방은 상단 env unset · sb 가드 · 헬퍼 빈인자 가드). 조용한 오염만은 막는다.
 _idx_after=$(_idx_sig)

@@ -392,6 +392,12 @@ else
 fi
 case "$(_run "$sb")" in *"suite-count=$EXP"*) ok "T6.k 개수 마커가 없는 종전 sandbox 의 결과는 그대로(suite-count 경로 불변)" ;; *) nope "T6.k" "$(_run "$sb")" ;; esac
 
+# T6.u 실 트리 가드: docs/architecture.md 의 개수 마커 4종이 각 1줄씩 있어야 한다 — 지워지면 잠금이 조용히 스위트 수 1종으로 돌아간다.
+for k in skills commands agents templates; do
+  n=$(git -C "$PLUGIN" grep -nF -e "${CM}${k}" -- docs/architecture.md 2>/dev/null | wc -l | tr -d ' ')
+  [ "$n" = 1 ] && ok "T6.u 실 트리 개수 마커($k) 1줄" || nope "T6.u" "docs/architecture.md 의 개수 마커($k) 가 ${n}줄 — 1줄이어야 한다"
+done
+
 # ── T5.a 실 인덱스 무접촉 — 이 스위트의 git 호출이 실 저장소에 닿지 않았다 ──
 # 사후 탐지다(예방은 상단 env unset · sb 가드 · 헬퍼 빈인자 가드). 조용한 오염만은 막는다.
 _idx_after=$(_idx_sig)

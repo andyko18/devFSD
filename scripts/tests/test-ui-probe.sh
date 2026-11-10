@@ -414,6 +414,70 @@ EOF
 fi
 fi
 
+# U10 — 실브라우저 배치 계측 (AC-3·AC-4·AC-5): 없는 환경이면 SKIP 을 센다. 조각은 최소 재현이다(.specops 의 픽스처는 저장소에 없다)
+if [ "${HAVE_BROWSER:-0}" != 1 ]; then sk "U10 (이 환경에 Playwright·브라우저 없음)"; else
+  LY="$TMP/ly"; mkdir -p "$LY"
+  pg() { printf '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>t</title><style>body{margin:0;font:15px/1.6 sans-serif}%s</style></head><body><main>%s</main></body></html>' "$2" "$3" > "$LY/$1.html"; }
+  TBL='<table><tr><td>주문번호</td><td>주문 일시</td><td>주문자</td><td>상품 이름이 긴 칸</td><td>결제 금액</td><td>상태</td></tr></table>'
+  HINT='<div class="f"><span class="hint">최대 환불 가능액 184,000원</span><label for="a">환불 금액 (배송비 제외)</label><input id="a"></div>'
+  # ── 양성(결함)
+  pg clip '.box{overflow:hidden;border:1px solid #ccc}table{min-width:860px}td{white-space:nowrap;padding:8px}' "<h1>주문</h1><div class=\"box\">$TBL</div>"
+  pg over '.f{position:relative}@media (max-width:600px){.hint{position:absolute;top:6px;left:46px;background:rgba(255,243,205,.72)}}' "<h1>환불</h1>$HINT"
+  pg over_smooth 'html{scroll-behavior:smooth}.sp{height:2200px}.f{position:relative}.hint{position:absolute;top:6px;left:46px;background:rgba(255,243,205,.72)}' "<h1>긴 화면</h1><div class=\"sp\"></div>$HINT"
+  pg p_left '.box{overflow:hidden;width:300px;border:1px solid #ccc;margin-left:80px}.in{margin-left:-60px;width:200px;height:30px}' '<h1>왼쪽</h1><div class="box"><div class="in">왼쪽으로 잘린 칸</div></div>'
+  # ── 음성(정상·제외 조건) 과 그 조건만 뺀 양성 쌍 p_*
+  pg ok1 '.g{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}@media (max-width:600px){.g{grid-template-columns:1fr}}' '<h1>회원 상세</h1><div class="g"><div>누적 구매액 2,184,000원</div><div>주문 횟수 23회</div><div>등급 골드</div></div>'
+  pg x_ellipsis '.e{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:120px}' '<h1>말줄임</h1><div class="e"><span>아주 길어서 잘리는 상품 이름입니다 아주 길어서</span></div>'
+  pg p_ellipsis '.e{overflow:hidden;white-space:nowrap;width:120px}' '<h1>말줄임 없음</h1><div class="e"><span>아주 길어서 잘리는 상품 이름입니다 아주 길어서</span></div>'
+  pg x_sronly 'h1{margin:0;font-size:15px}.vh{position:absolute;top:0;left:0;width:1px;height:1px;overflow:hidden;white-space:nowrap}' '<h1>검색 화면 제목</h1><label class="vh" for="q">종목 검색</label><input id="q"><p>예시 데이터 안내 문구</p>'
+  pg p_sronly 'h1{margin:0;font-size:15px}.vh{position:absolute;top:0;left:0;white-space:nowrap}' '<h1>검색 화면 제목</h1><label class="vh" for="q">종목 검색</label><input id="q"><p>예시 데이터 안내 문구</p>'
+  pg x_hidden '.box{overflow:hidden;width:200px}.off{display:none}.inv{visibility:hidden}' '<h1>숨김</h1><div class="box"><div class="off" style="width:900px">숨긴 넓은 내용</div><div class="inv" style="width:900px">안 보이는 넓은 내용</div><p>보이는 글</p></div>'
+  pg p_hidden '.box{overflow:hidden;width:200px}' '<h1>숨김 아님</h1><div class="box"><div style="width:900px">보이는 넓은 내용 보이는 넓은 내용 보이는 넓은 내용</div><p>보이는 글</p></div>'
+  pg x_scroll '.w{overflow-x:auto}table{min-width:860px}td{white-space:nowrap;padding:8px}' "<h1>표</h1><div class=\"w\">$TBL</div>"
+  pg p_scroll '.w{overflow-x:hidden}table{min-width:860px}td{white-space:nowrap;padding:8px}' "<h1>표</h1><div class=\"w\">$TBL</div>"
+  pg x_sticky 'header{position:sticky;top:0}h1{margin:-14px 0 0;font-size:15px}p{margin:0 0 600px}' '<header>고정 머리글 제목</header><h1>머리글 아래로 지나가는 제목</h1><p>본문</p>'
+  pg p_sticky 'h1{margin:-14px 0 0;font-size:15px}p{margin:0 0 600px}' '<header>고정 머리글 제목</header><h1>머리글 아래로 지나가는 제목</h1><p>본문</p>'
+  pg x_nested '.c{position:relative;width:200px}.b{position:absolute;left:0;top:2px;color:#888}' '<h1>포함</h1><div class="c">부모 안의 글자 부모 안의 글자<span class="b">자식 글자 겹침 허용</span></div>'
+  pg p_nested '.c{position:relative;width:200px}.b{position:absolute;left:0;top:2px;color:#888}' '<h1>포함</h1><div class="c"><span>형제 글자 형제 글자 형제 글자</span><span class="b">다른 형제 글자 겹침</span></div>'
+  pg x_popup '.wrap{position:relative}p{margin:0}.pop{position:absolute;top:0;left:0;background:#fff;width:240px}' '<h1>검색</h1><div class="wrap"><p>아래에 깔린 목록 글자입니다</p><p>둘째 줄 목록 글자입니다</p><div class="pop">열린 드롭다운 항목 하나</div></div>'
+  pg p_popup '.wrap{position:relative}p{margin:0}.pop{position:absolute;top:0;left:0;width:240px}' '<h1>검색</h1><div class="wrap"><p>아래에 깔린 목록 글자입니다</p><p>둘째 줄 목록 글자입니다</p><div class="pop">열린 드롭다운 항목 하나</div></div>'
+  pg x_decor '.box{overflow:hidden;width:300px;height:20px;position:relative}.bar{width:900px;height:6px;background:#ccc}' '<h1>진행</h1><div class="box"><div class="bar"></div></div><p>본문</p>'
+  pg p_decor '.box{overflow:hidden;width:300px;position:relative}.bar{width:900px;background:#ccc}' '<h1>진행</h1><div class="box"><div class="bar">막대 안에 글자가 있다</div></div><p>본문</p>'
+  pg x_tiny '.box{overflow:hidden;width:300px;border:1px solid #ccc}.in{width:303px;height:30px}' '<h1>작은 삐져나옴</h1><div class="box"><div class="in">3px 삐져나온 칸</div></div>'
+  pg p_tiny '.box{overflow:hidden;width:300px;border:1px solid #ccc}.in{width:312px;height:30px}' '<h1>조금 삐져나옴</h1><div class="box"><div class="in">12px 삐져나온 칸</div></div>'
+  pg x_abs '.outer{position:relative;padding:8px}.card{overflow:hidden;width:200px;border:1px solid #ccc}.tip{position:absolute;left:150px;top:40px;width:160px;background:#fff;border:1px solid #999}' '<h1>툴팁</h1><div class="outer"><div class="card"><p>카드 안의 글</p><div class="tip">카드 밖으로 나오는 툴팁 글자</div></div></div>'
+  pg p_abs '.outer{padding:8px}.card{position:relative;overflow:hidden;width:200px;border:1px solid #ccc}.tip{position:absolute;left:150px;top:10px;width:160px;background:#fff;border:1px solid #999}' '<h1>툴팁</h1><div class="outer"><div class="card"><p>카드 안의 글</p><div class="tip">카드에 잘리는 툴팁 글자</div></div></div>'
+  pg x_root 'html,body{overflow-x:hidden}.off{position:absolute;left:100%;top:0;width:260px}' '<h1>정상</h1><p>화면 안의 글</p><nav class="off">화면 밖에 완전히 숨긴 서랍 메뉴</nav>'
+  pg p_root 'html,body{overflow-x:hidden}' '<h1>모바일 땜질</h1><div style="width:900px">화면보다 넓은 내용 화면보다 넓은 내용 화면보다 넓은 내용 화면보다 넓은 내용 화면보다 넓은 내용 화면보다 넓은 내용</div>'
+  pg x_smooth 'html{scroll-behavior:smooth}p{margin:0 0 1500px}' '<h1>부드러운 스크롤 화면</h1><p>첫 문단</p><p>둘째 문단</p><p>셋째 문단</p>'
+  # 알려진 구멍: 불투명한 배지가 라벨을 완전히 덮으면 '포개져 보이는 글자' 가 아니라 가림이라 잡지 않는다(열린 드롭다운과 구별 불가). 이 구멍을 메우면 이 조각이 적중으로 바뀐다 — 의도한 변경인지 확인할 것
+  pg x_badge_opaque '.f{position:relative}.hint{position:absolute;top:6px;left:46px;background:#fff3cd}' "<h1>환불</h1>$HINT"
+  lyrun() { node "$P" --out "$LY/out-$1" --widths 390,1280 "file://$LY/$1.html" 2>&1; }
+  out=$(lyrun clip)
+  [ "$(cnt "$out" 'clip@390 배치 경고 L-CLIP-X(가로 잘림): <table>')" = 1 ] && ! has "$out" 'clip@1280 배치 경고' && ! has "$out" 'L-OVERLAP' \
+    && [ "$(node -e 'const r=require(process.argv[1]).results;console.log(r.map(x=>x.width+":"+x.layout.clip.length).join(","))' "$LY/out-clip/ui-probe.json")" = '390:1,1280:0' ] \
+    && ok "U10a 가림 상자 밖으로 나간 표 — 390 에서 잘림 1건(가장 바깥 요소) · 1280 은 0 · 기록 일치(AC-3)" || no "U10a" "[$out]"
+  out=$(lyrun over)
+  [ "$(cnt "$out" 'over@390 배치 경고 L-OVERLAP(글자 겹침): ')" = 1 ] && has "$out" '환불 금액' && has "$out" '최대 환불 가능액' && ! has "$out" 'over@1280 배치 경고' \
+    && ok "U10b 포개진 글자 — 390 에서 겹침 1건(두 글자 덩어리 식별) · 1280 은 0(AC-4)" || no "U10b" "[$out]"
+  bad10=""
+  for n in ok1 x_ellipsis x_sronly x_hidden x_scroll x_sticky x_nested x_popup x_decor x_tiny x_abs x_root x_smooth x_badge_opaque; do
+    out=$(lyrun "$n"); { has "$out" '배치 경고' || has "$out" '배치 계측 못 함'; } && bad10="$bad10 [$n: $(printf '%s' "$out" | grep -F '배치' | head -2 | tr '\n' ' ')]"
+  done
+  for f in "$PLUGIN/screens/login.html" "$PLUGIN/templates/screen.html"; do
+    out=$(node "$P" --out "$LY/out-repo" --widths 390,1280 "file://$f" 2>&1); { has "$out" '배치 경고' || has "$out" '배치 계측 못 함'; } && bad10="$bad10 [$(basename "$f")]"
+  done
+  [ -z "$bad10" ] && ok "U10c 정상 화면·제외 조건 조각 14개·저장소 예시 2개 — 양 폭 경고 0 · 못 잰 것 0(AC-5)" || no "U10c" "적중:$bad10"
+  out=$(lyrun over_smooth)
+  [ "$(cnt "$out" 'over_smooth@390 배치 경고 L-OVERLAP(글자 겹침): ')" = 1 ] && [ "$(cnt "$out" 'over_smooth@1280 배치 경고 L-OVERLAP(글자 겹침): ')" = 1 ] \
+    && [ "$(node -e 'const fs=require("fs"),r=require(process.argv[1]).results;console.log(r.every(x=>x.overflow===false&&fs.statSync(x.png).size>0))' "$LY/out-over_smooth/ui-probe.json")" = true ] \
+    && ok "U10d 화면 아래쪽(뷰포트 밖)·smooth 스크롤 화면의 겹침도 잡는다 · 넘침 판정·PNG 는 그대로" || no "U10d" "[$out]"
+  miss10=""
+  for n in p_ellipsis p_hidden p_scroll p_decor p_tiny p_left p_abs p_root; do out=$(lyrun "$n"); [ "$(cnt "$out" "$n@390 배치 경고 L-CLIP-X(가로 잘림): ")" = 1 ] || miss10="$miss10 [$n]"; done
+  for n in p_sronly p_sticky p_nested p_popup; do out=$(lyrun "$n"); [ "$(cnt "$out" "$n@390 배치 경고 L-OVERLAP(글자 겹침): ")" = 1 ] || miss10="$miss10 [$n]"; done
+  [ -z "$miss10" ] && ok "U10e 양성 대조 — 제외 조건만 뺀 쌍 11개와 왼쪽 가장자리 조각은 390 에서 1건씩 적중(U10c 의 0건이 공허하지 않다)" || no "U10e" "미적중:$miss10"
+fi
+
 # U4c — integration-test-ko 가 새 플래그를 Step 3b 안에서 쓰게 한다 (AC-6) — 절을 잘라 그 안에서만 본다
 SEC=$(awk '/^### Step 3b/{f=1} /^## FAIL 분기/{f=0} f' "$INT")
 miss=""; for n in '--memory .specops/memory/ui-probe.json' '--a11y-baseline .specops/memory/ui-a11y-baseline.json' '--mock screens/' '기록의 `startCmd`' '1회만' '`기준선 기록:`' '--a11y-baseline-update' '`기록 안 함:`'; do has "$SEC" "$n" || miss="$miss [$n]"; done

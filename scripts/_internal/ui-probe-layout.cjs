@@ -11,9 +11,115 @@ const RULES = {
 };
 const MAX_LINES = 5;
 
-// 브라우저 안에서 돈다(Playwright 가 직렬화) — 바깥 변수를 참조하지 않는다. 본문은 Task 2 에서 채운다(이름은 바꾸지 않는다 — 테스트 대역이 fn.name 으로 구분한다)
+// 브라우저 안에서 돈다(Playwright 가 직렬화) — 바깥 변수를 참조하지 않는다
 function measureLayout() {
-  return { clip: [], overlap: [] };
+  const MINPX = 4;
+  const name = (el) => {
+    const t = (el.innerText || el.value || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+    const c = typeof el.className === 'string' && el.className.trim() ? `.${el.className.trim().split(/\s+/)[0]}` : '';
+    return `<${el.tagName.toLowerCase()}${c}>${t ? ` "${t}"` : ''}`;
+  };
+  const shown = (el) => {
+    if (el.checkVisibility) return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+    const cs = getComputedStyle(el); return cs.display !== 'none' && cs.visibility === 'visible' && cs.opacity !== '0';
+  };
+  const hasContent = (el) => {
+    if (/^(BUTTON|INPUT|SELECT|TEXTAREA|IMG|A)$/.test(el.tagName)) return true;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let n;
+    while ((n = w.nextNode())) if (n.nodeValue.trim()) return true;
+    return false;
+  };
+
+  // 잘림: 가로를 가리는 상자의 가장자리에 걸쳐 일부만 보이는 가장 바깥 요소
+  const clip = [];
+  // html·body 가 가로를 가리면(overflow-x hidden — 흔한 모바일 땜질) 화면 자체가 가림 상자다: 문서 폭 '넘침' 판정은 이 경우를 0 으로 본다(실측)
+  const rootClips = [document.documentElement, document.body].some((e) => /^(hidden|clip)$/.test(getComputedStyle(e).overflowX));
+  for (const box of [...(rootClips ? [document.body] : []), ...document.querySelectorAll('body *')]) {
+    const isRoot = box === document.body;
+    const cs = getComputedStyle(box);
+    if (!isRoot && (!/^(hidden|clip)$/.test(cs.overflowX) || cs.textOverflow === 'ellipsis' || !shown(box))) continue;
+    const b = box.getBoundingClientRect();
+    if (!isRoot && (b.width <= 1 || b.height <= 1)) continue;   // 낭독기 전용 숨김(1px 상자)
+    const left = isRoot ? 0 : b.left + box.clientLeft, right = isRoot ? document.documentElement.clientWidth : left + box.clientWidth;
+    const walk = (el) => {
+      for (const c of el.children) {
+        if (!shown(c)) continue;
+        // 가림 상자 밖에 기준(containing block)을 둔 absolute·fixed 자손은 그 상자에 잘리지 않는다(카드 안 DOM 의 툴팁·팝오버)
+        const pos = getComputedStyle(c).position;
+        if (!isRoot && (pos === 'fixed' || (pos === 'absolute' && !(c.offsetParent === box || (c.offsetParent && box.contains(c.offsetParent)))))) continue;
+        const r = c.getBoundingClientRect();
+        if (r.width <= 1 || r.height <= 1) continue;
+        const cut = (r.right > right + MINPX && r.left < right - MINPX) || (r.left < left - MINPX && r.right > left + MINPX);
+        if (cut && hasContent(c)) { clip.push(`${name(c)} — ${isRoot ? '화면(가로 스크롤 막힘)' : name(box)} 안에서 ${Math.round(Math.max(r.right - right, left - r.left))}px 가려짐`); continue; }
+        if (/^(hidden|clip|auto|scroll)$/.test(getComputedStyle(c).overflowX)) continue;   // 안쪽 가림·스크롤 상자는 자기 차례에 본다
+        walk(c);
+      }
+    };
+    walk(box);
+  }
+
+  // 겹침: 포함 관계가 아닌 두 요소의 보이는 글자 상자가 포개짐
+  const pinned = (el) => {
+    for (let e = el; e && e !== document.body; e = e.parentElement) { const p = getComputedStyle(e).position; if (p === 'fixed' || p === 'sticky') return true; }
+    return false;
+  };
+  const visibleRect = (el, r0) => {   // 가리는 조상 상자와 교차한 부분만(낭독기 전용 숨김·잘린 글자 제외)
+    let r = { left: r0.left, right: r0.right, top: r0.top, bottom: r0.bottom };
+    for (let e = el; e && e !== document.documentElement; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
+      const b = e.getBoundingClientRect();
+      r = { left: Math.max(r.left, b.left), right: Math.min(r.right, b.right), top: Math.max(r.top, b.top), bottom: Math.min(r.bottom, b.bottom) };
+      if (r.right <= r.left || r.bottom <= r.top) return null;
+    }
+    return r;
+  };
+  const opaque = (e) => {
+    const cs = getComputedStyle(e);
+    if (cs.backgroundImage !== 'none') return true;
+    const m = cs.backgroundColor.match(/rgba?\(([^)]+)\)/); if (!m) return false;
+    const p = m[1].split(',').map((x) => parseFloat(x));
+    return (p.length < 4 ? 1 : p[3]) >= 0.95;
+  };
+  const occluded = (A, B, x, y) => {   // 아래쪽 글자가 불투명한 층에 덮였으면 포개져 보이는 것이 아니라 가려진 것이다
+    const sy = window.scrollY;
+    window.scrollTo({ top: Math.max(0, y + sy - window.innerHeight / 2), behavior: 'instant' });   // smooth 스크롤 화면에서도 바로 옮긴다
+    const st = document.elementsFromPoint(x, y + sy - window.scrollY);
+    window.scrollTo({ top: sy, behavior: 'instant' });
+    const ia = st.indexOf(A.el), ib = st.indexOf(B.el);
+    if (ia < 0 || ib < 0) return false;
+    return st.slice(0, Math.max(ia, ib)).some(opaque);
+  };
+  const items = [];
+  const tw = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = tw.nextNode())) {
+    if (!node.nodeValue.trim()) continue;
+    const el = node.parentElement;
+    if (!el || /^(SCRIPT|STYLE|NOSCRIPT|OPTION|TITLE)$/.test(el.tagName) || !shown(el) || pinned(el)) continue;
+    const rg = document.createRange(); rg.selectNodeContents(node);
+    for (const r0 of rg.getClientRects()) {
+      const r = visibleRect(el, r0);
+      if (r && r.right - r.left >= MINPX && r.bottom - r.top >= MINPX) items.push({ el, r });
+    }
+  }
+  items.sort((a, b) => a.r.top - b.r.top);
+  const pairs = []; const overlap = [];
+  for (let i = 0; i < items.length; i++) {
+    for (let j = i + 1; j < items.length; j++) {
+      const A = items[i], B = items[j];
+      if (B.r.top >= A.r.bottom - MINPX) break;
+      if (A.el === B.el || A.el.contains(B.el) || B.el.contains(A.el)) continue;
+      const w = Math.min(A.r.right, B.r.right) - Math.max(A.r.left, B.r.left);
+      const h = Math.min(A.r.bottom, B.r.bottom) - Math.max(A.r.top, B.r.top);
+      if (w < MINPX || h < MINPX) continue;
+      if (pairs.some((k) => (k[0] === A.el && k[1] === B.el) || (k[0] === B.el && k[1] === A.el))) continue;   // 같은 쌍은 한 번
+      if (occluded(A, B, Math.max(A.r.left, B.r.left) + w / 2, Math.max(A.r.top, B.r.top) + h / 2)) continue;
+      pairs.push([A.el, B.el]);
+      overlap.push(`${name(A.el)} ↔ ${name(B.el)} — ${Math.round(w)}×${Math.round(h)}px 겹침`);
+    }
+  }
+  return { clip, overlap };
 }
 
 const unmeasured = (reason) => ({ state: 'unmeasured', reason });

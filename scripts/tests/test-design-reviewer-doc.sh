@@ -219,4 +219,26 @@ _swap=$(printf '%s' "$_row" | awk -F'|' 'BEGIN{OFS="|"}{t=$4;$4=$5;$5=t;print}')
 [ "$(_fm "$AG")" = "model: sonnet;effort: high;role: evaluator;tools: Read, Grep, Glob, Bash;" ] \
   && ok "T17.b design-reviewer-ko frontmatter 불변(model·effort·role·tools — Write/Edit 없음)" || nope "T17.b" "$(_fm "$AG")"
 
+# ── T18: 배치 계측 결과 배선 — 지침 ③ · 단일 경로 (FID 20261110-visual-severity-clip-overlap AC-7 ①②④) ──
+SG="$PLUGIN/templates/screen-design-guide.md"; SP="$PLUGIN/skills/specifying-ko/SKILL.md"
+_sg3=$(awk '/^## ③ /{f=1;next} f&&/^## /{exit} f' "$SG")
+_sp66=$(grep -F 'subagent_type: "devfsd:ui-designer-ko"' "$SP")
+_t18() {  # $1=③절 $2=6.6 dispatch 줄
+  local m=""
+  printf '%s' "$1" | grep -qF '.probe.txt' || m="$m [guide:probe.txt]"
+  printf '%s' "$1" | grep -qF 'UI-PROBE: SKIP' || m="$m [guide:SKIP]"
+  printf '%s' "$1" | grep -qF '찍을 때마다 덮어쓴다' || m="$m [guide:덮어쓴다]"
+  printf '%s' "$1" | grep -qF '0건으로 읽지 않는다' || m="$m [guide:0건 아님]"
+  printf '%s' "$2" | grep -qF '.specops/<FID>/shots/' || m="$m [6.6:shots]"
+  printf '%s' "$2" | grep -qF '.probe.txt' || m="$m [6.6:probe.txt]"
+  printf '%s' "$m"
+}
+[ -z "$(_t18 "$_sg3" "$_sp66")" ] && ok "T18.a 계측 결과 배선 — 지침 ③(남김·SKIP·덮어씀·0건 아님) · specifying 6.6 입력(촬영 폴더·계측 결과)" || nope "T18.a" "누락:$(_t18 "$_sg3" "$_sp66")"
+_n18=""
+[ "$(_t18 "${_sg3//UI-PROBE: SKIP/}" "$_sp66")" = " [guide:SKIP]" ] || _n18="$_n18 guide:SKIP"
+[ "$(_t18 "${_sg3//찍을 때마다 덮어쓴다/}" "$_sp66")" = " [guide:덮어쓴다]" ] || _n18="$_n18 guide:덮어쓴다"
+[ "$(_t18 "$_sg3" "${_sp66//.probe.txt/}")" = " [6.6:probe.txt]" ] || _n18="$_n18 6.6:probe"
+[ "$(_t18 "$_sg3" "${_sp66//.specops\/<FID>\/shots\//}")" = " [6.6:shots]" ] || _n18="$_n18 6.6:shots"
+[ -z "$_n18" ] && ok "T18.b 음성 — 지점마다 지우면 그 지점만 FAIL" || nope "T18.b" "진단 불일치:$_n18"
+
 finish

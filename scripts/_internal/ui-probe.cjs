@@ -8,6 +8,8 @@
 //   UI-PROBE: SKIP (NO_TOOL|NO_BROWSER — 사유)        — 판정하지 못함. PASS 로 위장하지 않는다
 //   UI-PROBE: SKIP (NO_ENV — 사유)                     — 로그인 상태 파일을 찾지·읽지 못했거나 모양이 맞지 않는다
 //   그 아래 문제마다 `  - <화면>@<폭> <종류>: <내용>` 한 줄, 그리고 `  png: <경로>` 줄들
+//   배치 계측(경고 — 판정에 들어가지 않는다): `  - <화면>@<폭> 배치 경고 L-CLIP-X|L-OVERLAP(<이름>): <설명>` · 못 잰 화면·폭은 `배치 계측 못 함: <사유>`
+//   규칙 정의: node ui-probe.cjs --rules  (ui-probe-layout.cjs 가 유일한 곳)
 //   <폴더>/ui-probe.json · <폴더>/<화면>@<폭>.png
 // rc: 0 PASS · 1 FAIL · 3 SKIP · 2 인자 오류
 //
@@ -23,6 +25,7 @@ const os = require('os');
 const { createRequire } = require('module');
 const { pathToFileURL } = require('url');
 const state = require('./ui-probe-state.cjs');
+const layout = require('./ui-probe-layout.cjs');
 
 const USAGE = 'usage: node ui-probe.cjs --out <폴더> [--widths 375,768,1280] [--memory <파일> [--start-cmd <명령>]] [--storage-state <파일>] [--mock <html>]... [--a11y-baseline <파일> [--a11y-baseline-update]] <URL>...';
 
@@ -30,7 +33,7 @@ const WARN_IMPACTS = ['critical', 'serious'];
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa'];
 
 function parseArgs(argv) {
-  const a = { out: '', widths: [375, 768, 1280], urls: [], memory: '', startCmd: '', storageState: '', mocks: [], baseline: '', baselineUpdate: false, missing: [] };
+  const a = { out: '', widths: [375, 768, 1280], urls: [], memory: '', startCmd: '', storageState: '', mocks: [], baseline: '', baselineUpdate: false, rules: false, missing: [] };
   let i = 0;
   const next = (k) => { if (i + 1 >= argv.length || argv[i + 1].startsWith('--')) { a.missing.push(k); return ''; } i += 1; return argv[i]; };
   for (; i < argv.length; i++) {
@@ -43,6 +46,7 @@ function parseArgs(argv) {
     else if (k === '--mock') a.mocks.push(next(k));
     else if (k === '--a11y-baseline') a.baseline = next(k);
     else if (k === '--a11y-baseline-update') a.baselineUpdate = true;
+    else if (k === '--rules') a.rules = true;
     else a.urls.push(k);
   }
   return a;
@@ -101,10 +105,10 @@ async function probeOne(browser, url, width, out, axeFile, doAxe, ssFile) {
   const consoleErrors = [];
   page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200)); });
   page.on('pageerror', (e) => consoleErrors.push(String(e.message || e).slice(0, 200)));
-  const r = { url, width, png: '', overflow: false, consoleErrors, a11y: null, loadError: '' };
+  const r = { url, width, png: '', overflow: false, consoleErrors, a11y: null, loadError: '', layout: null };
   try {
     await page.goto(url, { waitUntil: 'networkidle', timeout: 20000 }).catch(() => page.goto(url, { waitUntil: 'load', timeout: 20000 }));
-  } catch (e) { r.loadError = String(e.message || e).slice(0, 200); await ctx.close(); return r; }
+  } catch (e) { r.loadError = String(e.message || e).slice(0, 200); r.layout = layout.unmeasured('열기 실패'); await ctx.close(); return r; }
   r.overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
   r.png = path.join(out, `${slugOf(url)}@${width}.png`);
   await page.screenshot({ path: r.png, fullPage: true });
@@ -116,6 +120,7 @@ async function probeOne(browser, url, width, out, axeFile, doAxe, ssFile) {
       return res.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, help: v.help }));
     }, AXE_TAGS);
   }
+  r.layout = await layout.run(page);   // 화면 상태(스크롤)를 건드릴 수 있어 판정 입력을 다 모은 뒤 마지막에 잰다
   await ctx.close();
   return r;
 }
@@ -150,6 +155,7 @@ function decideBaseline(a, widest, extra) {
 
 async function main() {
   const a = parseArgs(process.argv.slice(2));
+  if (a.rules) { for (const l of layout.rulesTable()) console.log(l); process.exit(0); }
   if (a.missing.length) fail2(`${a.missing[0]} 에 값이 없다`);
   if (!a.out || a.widths.length === 0 || (a.urls.length === 0 && !a.memory)) fail2(USAGE);
   if (a.baselineUpdate && !a.baseline) fail2('--a11y-baseline-update 는 --a11y-baseline 과 함께 쓴다');
@@ -216,6 +222,7 @@ async function main() {
   const allAxe = Boolean(axeFile) && !results.some((r) => r.loadError) && widestRows.every((r) => Array.isArray(r.a11y));
   const bl = decideBaseline(a, widest, extra);
 
+  const L = layout.summarize(results.map((r) => ({ tag: `${slugOf(r.url)}@${r.width}`, layout: r.layout })));
   const issues = [];
   let over = 0, cerr = 0, severe = 0, minor = 0, same = 0, recorded = 0;
   for (const r of results) {
@@ -267,8 +274,9 @@ async function main() {
   let a11yNote = axeFile ? `접근성 심각 ${severe}${minor ? ` · 경미 ${minor}` : ''}` : '접근성 SKIP(axe-core 없음)';
   if (axeFile && bl.mode === 'compare') a11yNote += ` · 기준선 ${same}`;
   if (axeFile && bl.mode === 'record') a11yNote += ` · 기준선 기록 ${recorded}`;
-  console.log(`UI-PROBE: ${verdict} (${a.urls.length}화면·${a.widths.length}폭 · 넘침 ${over} · 콘솔 오류 ${cerr} · ${a11yNote})`);
+  console.log(`UI-PROBE: ${verdict} (${a.urls.length}화면·${a.widths.length}폭 · 넘침 ${over} · 콘솔 오류 ${cerr} · ${a11yNote}${L.note})`);
   for (const i of issues) console.log(`  - ${i}`);
+  for (const w of L.lines) console.log(`  - ${w}`);
   for (const e of extra) console.log(`  - ${e}`);
   for (const r of results) if (r.png) console.log(`  png: ${r.png}`);
   for (const m of mockPngs) console.log(`  mock: ${m}`);

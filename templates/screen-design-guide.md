@@ -27,4 +27,6 @@
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/screen-shot.sh screens/<name>.html .specops/<FID>/shots/<name>
 ```
 
+같은 명령이 끝에 배치 계측도 돌려 `.specops/<FID>/shots/<name>.probe.txt` 를 남긴다(찍을 때마다 덮어쓴다 — 이미지와 같은 시점). `배치 경고 L-CLIP-X`(가로 잘림)·`L-OVERLAP`(글자 겹침) 줄이 있으면 고친 뒤 다시 찍는다 — 화면 전문가와 설계 리뷰어가 이 줄을 Important 로 인용한다. `UI-PROBE: SKIP` 이면 재지 못한 것이다(브라우저 도구 없음 — 멈추지 않는다. 0건으로 읽지 않는다).
+
 나온 `@1280.png`·`@390.png` 를 Read 로 열어 보고 1~2회 다듬는다 — 위계(핵심 수치·주 액션이 먼저 보이는가) · 빈 공간 · 정렬 · 대비 · 390 에서 잘림·겹침 · ① 의 비교 기준이 보이는가 · 원문의 "흔한 기본값" 에 걸리는 장식을 하나 뺀다. `SCREEN-SHOT: SKIP` 이면 찍지 못했다고 사용자에게 적는다 — 확인한 척하지 않는다. 사용자에게는 다듬은 결과와 스크린샷 경로를 함께 보여 준다.

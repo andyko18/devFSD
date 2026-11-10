@@ -146,7 +146,7 @@ ne=1; for o in "$a1" "$a2" "$a3"; do printf '%s\n' "$o" | grep -q '^UI-PROBE: SK
 FK="$TMP/fakepw"; mkdir -p "$FK/node_modules/playwright-core" "$FK/node_modules/axe-core"
 : > "$FK/node_modules/axe-core/index.js"; : > "$FK/node_modules/axe-core/axe.min.js"
 cat > "$FK/node_modules/playwright-core/index.js" <<'EOF'
-// 가짜 Playwright — 화면별 결과는 FAKE_PW_FIX(slug → {fail, overflow, violations}), 컨텍스트마다 FAKE_PW_LOG 에 {width, storageState} 한 줄
+// 가짜 Playwright — 화면별 결과는 FAKE_PW_FIX(slug → {fail, overflow, violations, layout, layoutThrow, layoutThrowAt}), 컨텍스트마다 FAKE_PW_LOG 에 {width, storageState} 한 줄
 const fs = require('fs'), path = require('path');
 const FIX = process.env.FAKE_PW_FIX ? JSON.parse(fs.readFileSync(process.env.FAKE_PW_FIX, 'utf8')) : {};
 const log = (o) => { if (process.env.FAKE_PW_LOG) fs.appendFileSync(process.env.FAKE_PW_LOG, JSON.stringify(o) + '\n'); };
@@ -159,7 +159,14 @@ exports.chromium = { launch: async () => ({
     return { newPage: async () => ({
       on() {},
       goto: async (u) => { url = u; if ((FIX[slug(u)] || {}).fail) throw new Error('boom'); },
-      evaluate: async (fn, arg) => (Array.isArray(arg) ? ((FIX[slug(url)] || {}).violations || []) : Boolean((FIX[slug(url)] || {}).overflow)),
+      evaluate: async (fn, arg) => {
+        const f = FIX[slug(url)] || {};
+        if (typeof fn === 'function' && fn.name === 'measureLayout') {
+          if (f.layoutThrow || f.layoutThrowAt === opts.viewport.width) throw new Error('layout boom');
+          return 'layout' in f ? f.layout : { clip: [], overlap: [] };
+        }
+        return Array.isArray(arg) ? (f.violations || []) : Boolean(f.overflow);
+      },
       screenshot: async ({ path: p }) => fs.writeFileSync(p, png(opts.viewport.width)),
       addScriptTag: async () => {},
     }), close: async () => {} };
@@ -308,6 +315,50 @@ out=$(DEVFSD_UI_HARNESS_DIR="$FK2" FAKE_PW_FIX="$FIX" node "$P" --out "$TMP/e16"
 [ "$rc" -eq 0 ] && [ ! -e "$TMP/fb/b6.json" ] && has "$out" '기준선을 쓰지 않음: axe-core 를 찾지 못했다' && has "$out" '접근성 SKIP(axe-core 없음)' \
   && ok "U8e12 axe-core 없음 — 기준선 파일을 만들지 않고 안내(AC-4)" || no "U8e12" "rc=$rc [$out]"
 
+# U9 — 배치 계측(잘림·겹침): 경고만 · 판정 불변 · 못 잰 것은 0 이 아니다 (FID 20261110-visual-severity-clip-overlap AC-6·AC-9·AC-11)
+L="$PLUGIN/scripts/_internal/ui-probe-layout.cjs"
+cnt() { printf '%s\n' "$1" | awk -v k="$2" 'index($0, k) { n++ } END { print n + 0 }'; }   # 런타임에 조합되는 출력 줄을 세는 헬퍼(has 와 같은 이유 — 소스에 통째 리터럴이 없다)
+out=$(node "$P" --rules 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | grep -c '^| L-')" = 2 ] && printf '%s\n' "$out" | grep -E '^\| L-CLIP-X \|' | grep -qF '가로' && printf '%s\n' "$out" | grep -qE '^\| L-OVERLAP \|' \
+  && ok "U9a --rules — 규칙 2개 표 · 잘림 정의에 '가로'(AC-11) · 브라우저 없이 rc 0" || no "U9a" "rc=$rc [$out]"
+fix '{"a":{"layout":{"clip":["<table> — <div.card> 안에서 512px 가려짐"],"overlap":["<label> ↔ <span.hint> — 86×5px 겹침","x ↔ y — 9×9px 겹침"]}}}'
+out=$(fk --out "$TMP/l1" --widths 390 http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | sed -n 1p)" = 'UI-PROBE: PASS (1화면·1폭 · 넘침 0 · 콘솔 오류 0 · 접근성 심각 0 · 배치 경고 3(잘림 1 · 겹침 2))' ] \
+  && [ "$(printf '%s\n' "$out" | sed -n 2p)" = '  - a@390 배치 경고 L-CLIP-X(가로 잘림): <table> — <div.card> 안에서 512px 가려짐' ] \
+  && [ "$(cnt "$out" '배치 경고 L-OVERLAP(글자 겹침): ')" = 2 ] \
+  && [ "$(node -e 'const r=require(process.argv[1]).results[0].layout;console.log(r.state,r.clip.length,r.overlap.length)' "$TMP/l1/ui-probe.json")" = 'ok 1 2' ] \
+  && ok "U9b 경고만 있는 실행 — rc 0 · PASS · 요약에 건수 덧붙음 · 경고 줄 형식 · 기록에 같은 건수(AC-6)" || no "U9b" "rc=$rc [$out]"
+fix '{"a":{"overflow":true,"layout":{"clip":["c1"],"overlap":[]}}}'; out=$(fk --out "$TMP/l2" --widths 390 http://h:1/a 2>&1); rc=$?
+fix '{"a":{"overflow":true}}'; out0=$(fk --out "$TMP/l3" --widths 390 http://h:1/a 2>&1); rc0=$?
+[ "$rc" -eq 1 ] && [ "$rc0" -eq 1 ] && has "$out" 'a@390 가로 넘침' && has "$out0" 'UI-PROBE: FAIL (1화면·1폭 · 넘침 1 · 콘솔 오류 0 · 접근성 심각 0)' && ! has "$out0" '배치' \
+  && ok "U9c 판정은 넘침·콘솔·접근성만으로 — 경고가 있어도 없어도 같은 rc · 경고 0 이면 요약에 아무것도 안 붙는다" || no "U9c" "rc=$rc,$rc0 [$out|$out0]"
+many=$(node -e 'console.log(JSON.stringify({a:{layout:{clip:Array.from({length:8},(_,i)=>"c"+i),overlap:[]}}}))'); fix "$many"
+out=$(fk --out "$TMP/l4" --widths 390 http://h:1/a 2>&1)
+[ "$(printf '%s\n' "$out" | grep -c '배치 경고 L-CLIP-X')" = 6 ] && has "$out" '배치 경고 L-CLIP-X(가로 잘림): 외 3건' && has "$out" '배치 경고 8(잘림 8 · 겹침 0)' \
+  && ok "U9d 한 화면·폭·규칙에 5줄까지 + '외 N건' · 건수는 전부 센다" || no "U9d" "[$out]"
+many=$(node -e 'console.log(JSON.stringify({a:{layout:{clip:[],overlap:Array.from({length:8},(_,i)=>"o"+i)}}}))'); fix "$many"
+out=$(fk --out "$TMP/l4b" --widths 390 http://h:1/a 2>&1)
+[ "$(cnt "$out" '배치 경고 L-OVERLAP(글자 겹침): ')" = 6 ] && has "$out" '배치 경고 L-OVERLAP(글자 겹침): 외 3건' && has "$out" '배치 경고 8(잘림 0 · 겹침 8)' \
+  && ok "U9d2 겹침도 같은 상한 — 5줄 + '외 3건'" || no "U9d2" "[$out]"
+fix "{\"a\":{\"layoutThrow\":true,\"violations\":[$BN1]},\"b\":{\"layout\":{\"clip\":[\"c1\"],\"overlap\":[]}}}"
+out=$(fk --out "$TMP/l5" http://h:1/a http://h:1/b 2>&1); rc=$?
+fix "{\"a\":{\"violations\":[$BN1]},\"b\":{\"layout\":{\"clip\":[\"c1\"],\"overlap\":[]}}}"
+ref=$(fk --out "$TMP/l6" http://h:1/a http://h:1/b 2>&1); rcr=$?
+[ "$rc" -eq "$rcr" ] && [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | grep -c 'a@.* 배치 계측 못 함: 계측 중 오류: layout boom')" = 3 ] && has "$out" '배치 계측 못 함 3' \
+  && [ "$(printf '%s\n' "$out" | grep -c 'b@.* 배치 경고 L-CLIP-X')" = 3 ] && [ "$(printf '%s\n' "$out" | grep -F '접근성')" = "$(printf '%s\n' "$ref" | grep -F '접근성' | sed 's/ · 배치 경고 3(잘림 3 · 겹침 0)/ · 배치 경고 3(잘림 3 · 겹침 0) · 배치 계측 못 함 3/')" ] \
+  && [ "$(node -e 'const r=require(process.argv[1]).results;console.log(r.filter(x=>x.layout.state==="unmeasured").length,r.filter(x=>x.layout.state==="ok"&&x.layout.clip.length===1).length)' "$TMP/l5/ui-probe.json")" = '3 3' ] \
+  && ok "U9e 계측 예외 — 그 화면·폭만 '계측 못 함'(0 으로 쓰지 않음) · 다른 화면의 계측과 접근성 판정·rc 는 예외가 없을 때와 같다(AC-9)" || no "U9e" "rc=$rc/$rcr [$out] ref=[$ref]"
+fix '{"a":{"layout":"x"}}'; out=$(fk --out "$TMP/l7" --widths 390 http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && has "$out" 'a@390 배치 계측 못 함: 계측 결과를 읽지 못함' \
+  && ok "U9f 모양이 틀린 계측 결과는 0건이 아니라 '계측 못 함'" || no "U9f" "rc=$rc [$out]"
+fix '{"a":{"layoutThrowAt":390}}'; out=$(fk --out "$TMP/l9" --widths 390,1280 http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(cnt "$out" '배치 계측 못 함: ')" = 1 ] && has "$out" 'a@390 배치 계측 못 함: 계측 중 오류: layout boom' && has "$out" '배치 계측 못 함 1)' \
+  && [ "$(node -e 'console.log(require(process.argv[1]).results.map(x=>x.width+":"+x.layout.state).join(","))' "$TMP/l9/ui-probe.json")" = '390:unmeasured,1280:ok' ] \
+  && ok "U9h 한 폭에서만 예외 — 그 폭만 '계측 못 함', 같은 화면의 다른 폭은 계측됨(AC-9 화면·폭 단위)" || no "U9h" "rc=$rc [$out]"
+fix '{"zzz":{"fail":true}}'; out=$(fk --out "$TMP/l8" --widths 390 http://h:1/zzz 2>&1); rc=$?
+[ "$rc" -eq 1 ] && has "$out" 'zzz@390 열기 실패' && has "$out" 'zzz@390 배치 계측 못 함: 열기 실패' \
+  && ok "U9g 열지 못한 화면도 '계측 못 함'" || no "U9g" "rc=$rc [$out]"
+
 # U7 — 실브라우저 스모크: 가짜가 아닌 Playwright·axe 에서 같은 결과가 나오는지 (없는 환경이면 SKIP 을 세어 적는다)
 if [ "${HAVE_BROWSER:-0}" != 1 ]; then sk "U7 (이 환경에 Playwright·브라우저 없음)"; else
 cat > "$TMP/srv.cjs" <<'EOF'
@@ -363,6 +414,75 @@ EOF
 fi
 fi
 
+# U10 — 실브라우저 배치 계측 (AC-3·AC-4·AC-5): 없는 환경이면 SKIP 을 센다. 조각은 최소 재현이다(.specops 의 픽스처는 저장소에 없다)
+if [ "${HAVE_BROWSER:-0}" != 1 ]; then sk "U10 (이 환경에 Playwright·브라우저 없음)"; else
+  LY="$TMP/ly"; mkdir -p "$LY"
+  pg() { printf '<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>t</title><style>body{margin:0;font:15px/1.6 sans-serif}%s</style></head><body><main>%s</main></body></html>' "$2" "$3" > "$LY/$1.html"; }
+  TBL='<table><tr><td>주문번호</td><td>주문 일시</td><td>주문자</td><td>상품 이름이 긴 칸</td><td>결제 금액</td><td>상태</td></tr></table>'
+  HINT='<div class="f"><span class="hint">최대 환불 가능액 184,000원</span><label for="a">환불 금액 (배송비 제외)</label><input id="a"></div>'
+  # ── 양성(결함)
+  pg clip '.box{overflow:hidden;border:1px solid #ccc}table{min-width:860px}td{white-space:nowrap;padding:8px}' "<h1>주문</h1><div class=\"box\">$TBL</div>"
+  pg over '.f{position:relative}@media (max-width:600px){.hint{position:absolute;top:6px;left:46px;background:rgba(255,243,205,.72)}}' "<h1>환불</h1>$HINT"
+  pg over_smooth 'html{scroll-behavior:smooth}.sp{height:2200px}.f{position:relative}.hint{position:absolute;top:6px;left:46px;background:rgba(255,243,205,.72)}' "<h1>긴 화면</h1><div class=\"sp\"></div>$HINT"
+  pg p_left '.box{overflow:hidden;width:300px;border:1px solid #ccc;margin-left:80px}.in{margin-left:-60px;width:200px;height:30px}' '<h1>왼쪽</h1><div class="box"><div class="in">왼쪽으로 잘린 칸</div></div>'
+  # ── 음성(정상·제외 조건) 과 그 조건만 뺀 양성 쌍 p_*
+  pg ok1 '.g{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}@media (max-width:600px){.g{grid-template-columns:1fr}}' '<h1>회원 상세</h1><div class="g"><div>누적 구매액 2,184,000원</div><div>주문 횟수 23회</div><div>등급 골드</div></div>'
+  pg x_ellipsis '.e{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:120px}' '<h1>말줄임</h1><div class="e"><span>아주 길어서 잘리는 상품 이름입니다 아주 길어서</span></div>'
+  pg p_ellipsis '.e{overflow:hidden;white-space:nowrap;width:120px}' '<h1>말줄임 없음</h1><div class="e"><span>아주 길어서 잘리는 상품 이름입니다 아주 길어서</span></div>'
+  pg x_sronly 'h1{margin:0;font-size:15px}.vh{position:absolute;top:0;left:0;width:1px;height:1px;overflow:hidden;white-space:nowrap}' '<h1>검색 화면 제목</h1><label class="vh" for="q">종목 검색</label><input id="q"><p>예시 데이터 안내 문구</p>'
+  pg p_sronly 'h1{margin:0;font-size:15px}.vh{position:absolute;top:0;left:0;white-space:nowrap}' '<h1>검색 화면 제목</h1><label class="vh" for="q">종목 검색</label><input id="q"><p>예시 데이터 안내 문구</p>'
+  pg x_hidden '.box{overflow:hidden;width:200px}.off{display:none}.inv{visibility:hidden}' '<h1>숨김</h1><div class="box"><div class="off" style="width:900px">숨긴 넓은 내용</div><div class="inv" style="width:900px">안 보이는 넓은 내용</div><p>보이는 글</p></div>'
+  pg p_hidden '.box{overflow:hidden;width:200px}' '<h1>숨김 아님</h1><div class="box"><div style="width:900px">보이는 넓은 내용 보이는 넓은 내용 보이는 넓은 내용</div><p>보이는 글</p></div>'
+  pg x_scroll '.w{overflow-x:auto}table{min-width:860px}td{white-space:nowrap;padding:8px}' "<h1>표</h1><div class=\"w\">$TBL</div>"
+  pg p_scroll '.w{overflow-x:hidden}table{min-width:860px}td{white-space:nowrap;padding:8px}' "<h1>표</h1><div class=\"w\">$TBL</div>"
+  pg x_sticky 'header{position:sticky;top:0}h1{margin:-14px 0 0;font-size:15px}p{margin:0 0 600px}' '<header>고정 머리글 제목</header><h1>머리글 아래로 지나가는 제목</h1><p>본문</p>'
+  pg p_sticky 'h1{margin:-14px 0 0;font-size:15px}p{margin:0 0 600px}' '<header>고정 머리글 제목</header><h1>머리글 아래로 지나가는 제목</h1><p>본문</p>'
+  pg x_nested '.c{position:relative;width:200px}.b{position:absolute;left:0;top:2px;color:#888}' '<h1>포함</h1><div class="c">부모 안의 글자 부모 안의 글자<span class="b">자식 글자 겹침 허용</span></div>'
+  pg p_nested '.c{position:relative;width:200px}.b{position:absolute;left:0;top:2px;color:#888}' '<h1>포함</h1><div class="c"><span>형제 글자 형제 글자 형제 글자</span><span class="b">다른 형제 글자 겹침</span></div>'
+  pg x_popup '.wrap{position:relative}p{margin:0}.pop{position:absolute;top:0;left:0;background:#fff;width:240px}' '<h1>검색</h1><div class="wrap"><p>아래에 깔린 목록 글자입니다</p><p>둘째 줄 목록 글자입니다</p><div class="pop">열린 드롭다운 항목 하나</div></div>'
+  pg p_popup '.wrap{position:relative}p{margin:0}.pop{position:absolute;top:0;left:0;width:240px}' '<h1>검색</h1><div class="wrap"><p>아래에 깔린 목록 글자입니다</p><p>둘째 줄 목록 글자입니다</p><div class="pop">열린 드롭다운 항목 하나</div></div>'
+  pg x_decor '.box{overflow:hidden;width:300px;height:20px;position:relative}.bar{width:900px;height:6px;background:#ccc}' '<h1>진행</h1><div class="box"><div class="bar"></div></div><p>본문</p>'
+  pg p_decor '.box{overflow:hidden;width:300px;position:relative}.bar{width:900px;background:#ccc}' '<h1>진행</h1><div class="box"><div class="bar">막대 안에 글자가 있다</div></div><p>본문</p>'
+  pg x_tiny '.box{overflow:hidden;width:300px;border:1px solid #ccc}.in{width:303px;height:30px}' '<h1>작은 삐져나옴</h1><div class="box"><div class="in">3px 삐져나온 칸</div></div>'
+  pg p_tiny '.box{overflow:hidden;width:300px;border:1px solid #ccc}.in{width:312px;height:30px}' '<h1>조금 삐져나옴</h1><div class="box"><div class="in">12px 삐져나온 칸</div></div>'
+  pg x_abs '.outer{position:relative;padding:8px}.card{overflow:hidden;width:200px;border:1px solid #ccc}.tip{position:absolute;left:150px;top:40px;width:160px;background:#fff;border:1px solid #999}' '<h1>툴팁</h1><div class="outer"><div class="card"><p>카드 안의 글</p><div class="tip">카드 밖으로 나오는 툴팁 글자</div></div></div>'
+  pg p_abs '.outer{padding:8px}.card{position:relative;overflow:hidden;width:200px;border:1px solid #ccc}.tip{position:absolute;left:150px;top:10px;width:160px;background:#fff;border:1px solid #999}' '<h1>툴팁</h1><div class="outer"><div class="card"><p>카드 안의 글</p><div class="tip">카드에 잘리는 툴팁 글자</div></div></div>'
+  pg x_root 'html,body{overflow-x:hidden}.off{position:absolute;left:100%;top:0;width:260px}' '<h1>정상</h1><p>화면 안의 글</p><nav class="off">화면 밖에 완전히 숨긴 서랍 메뉴</nav>'
+  pg p_root 'html,body{overflow-x:hidden}' '<h1>모바일 땜질</h1><div style="width:900px">화면보다 넓은 내용 화면보다 넓은 내용 화면보다 넓은 내용 화면보다 넓은 내용 화면보다 넓은 내용 화면보다 넓은 내용</div>'
+  pg x_smooth 'html{scroll-behavior:smooth}p{margin:0 0 1500px}' '<h1>부드러운 스크롤 화면</h1><p>첫 문단</p><p>둘째 문단</p><p>셋째 문단</p>'
+  # 알려진 구멍: 불투명한 배지가 라벨을 완전히 덮으면 '포개져 보이는 글자' 가 아니라 가림이라 잡지 않는다(열린 드롭다운과 구별 불가). 이 구멍을 메우면 이 조각이 적중으로 바뀐다 — 의도한 변경인지 확인할 것
+  pg x_badge_opaque '.f{position:relative}.hint{position:absolute;top:6px;left:46px;background:#fff3cd}' "<h1>환불</h1>$HINT"
+  lyrun() { node "$P" --out "$LY/out-$1" --widths 390,1280 "file://$LY/$1.html" 2>&1; }
+  out=$(lyrun clip)
+  [ "$(cnt "$out" 'clip@390 배치 경고 L-CLIP-X(가로 잘림): <table>')" = 1 ] && ! has "$out" 'clip@1280 배치 경고' && ! has "$out" 'L-OVERLAP' \
+    && [ "$(node -e 'const r=require(process.argv[1]).results;console.log(r.map(x=>x.width+":"+x.layout.clip.length).join(","))' "$LY/out-clip/ui-probe.json")" = '390:1,1280:0' ] \
+    && ok "U10a 가림 상자 밖으로 나간 표 — 390 에서 잘림 1건(가장 바깥 요소) · 1280 은 0 · 기록 일치(AC-3)" || no "U10a" "[$out]"
+  out=$(lyrun over)
+  [ "$(cnt "$out" 'over@390 배치 경고 L-OVERLAP(글자 겹침): ')" = 1 ] && has "$out" '환불 금액' && has "$out" '최대 환불 가능액' && ! has "$out" 'over@1280 배치 경고' \
+    && ok "U10b 포개진 글자 — 390 에서 겹침 1건(두 글자 덩어리 식별) · 1280 은 0(AC-4)" || no "U10b" "[$out]"
+  bad10=""
+  for n in ok1 x_ellipsis x_sronly x_hidden x_scroll x_sticky x_nested x_popup x_decor x_tiny x_abs x_root x_smooth x_badge_opaque; do
+    out=$(lyrun "$n"); { has "$out" '배치 경고' || has "$out" '배치 계측 못 함'; } && bad10="$bad10 [$n: $(printf '%s' "$out" | grep -F '배치' | head -2 | tr '\n' ' ')]"
+  done
+  for f in "$PLUGIN/screens/login.html" "$PLUGIN/templates/screen.html"; do
+    out=$(node "$P" --out "$LY/out-repo" --widths 390,1280 "file://$f" 2>&1); { has "$out" '배치 경고' || has "$out" '배치 계측 못 함'; } && bad10="$bad10 [$(basename "$f")]"
+  done
+  [ -z "$bad10" ] && ok "U10c 정상 화면·제외 조건 조각 14개·저장소 예시 2개 — 양 폭 경고 0 · 못 잰 것 0(AC-5)" || no "U10c" "적중:$bad10"
+  out=$(lyrun over_smooth)
+  [ "$(cnt "$out" 'over_smooth@390 배치 경고 L-OVERLAP(글자 겹침): ')" = 1 ] && [ "$(cnt "$out" 'over_smooth@1280 배치 경고 L-OVERLAP(글자 겹침): ')" = 1 ] \
+    && [ "$(node -e 'const fs=require("fs"),r=require(process.argv[1]).results;console.log(r.every(x=>x.overflow===false&&fs.statSync(x.png).size>0))' "$LY/out-over_smooth/ui-probe.json")" = true ] \
+    && ok "U10d 화면 아래쪽(뷰포트 밖)·smooth 스크롤 화면의 겹침도 잡는다 · 넘침 판정·PNG 는 그대로" || no "U10d" "[$out]"
+  miss10=""
+  for n in p_ellipsis p_hidden p_scroll p_decor p_tiny p_left p_abs p_root; do out=$(lyrun "$n"); [ "$(cnt "$out" "$n@390 배치 경고 L-CLIP-X(가로 잘림): ")" = 1 ] || miss10="$miss10 [$n]"; done
+  for n in p_sronly p_sticky p_nested p_popup; do out=$(lyrun "$n"); [ "$(cnt "$out" "$n@390 배치 경고 L-OVERLAP(글자 겹침): ")" = 1 ] || miss10="$miss10 [$n]"; done
+  [ -z "$miss10" ] && ok "U10e 양성 대조 — 제외 조건만 뺀 쌍 11개와 왼쪽 가장자리 조각은 390 에서 1건씩 적중(U10c 의 0건이 공허하지 않다)" || no "U10e" "미적중:$miss10"
+  SSH="$PLUGIN/scripts/_internal/screen-shot.sh"
+  out=$(bash "$SSH" "$LY/over.html" "$LY/shot-over" 2>&1); rc=$?
+  if [ "$rc" -eq 3 ]; then sk "U10f (시스템 Chrome 없음 — 촬영 SKIP)"
+  else [ "$rc" -eq 0 ] && [ "$(grep -c 'over@390 배치 경고 L-OVERLAP' "$LY/shot-over.probe.txt")" = 1 ] && ! grep -q 'over@1280' "$LY/shot-over.probe.txt" \
+    && ok "U10f 촬영 스크립트 실물 — 실 Chrome·실 Playwright 로 찍으면 probe.txt 에 그 화면의 겹침이 남는다(AC-7)" || no "U10f" "rc=$rc [$out] [$(cat "$LY/shot-over.probe.txt" 2>&1)]"; fi
+fi
+
 # U4c — integration-test-ko 가 새 플래그를 Step 3b 안에서 쓰게 한다 (AC-6) — 절을 잘라 그 안에서만 본다
 SEC=$(awk '/^### Step 3b/{f=1} /^## FAIL 분기/{f=0} f' "$INT")
 miss=""; for n in '--memory .specops/memory/ui-probe.json' '--a11y-baseline .specops/memory/ui-a11y-baseline.json' '--mock screens/' '기록의 `startCmd`' '1회만' '`기준선 기록:`' '--a11y-baseline-update' '`기록 안 함:`'; do has "$SEC" "$n" || miss="$miss [$n]"; done
@@ -372,6 +492,19 @@ printf '%s\n' "$SEC" | grep -F -- '--storage-state' | grep -qF 'NO_ENV' || miss=
 # U4d — demo-ko 가 목업 PNG 를 같은 폭 구현 PNG 와 나란히 보여 준다 (AC-6) — 두 말이 같은 줄에 있어야 한다
 grep -n -F '.mock.png' "$DEMO" | grep -qF '나란히' && grep -n -F '.mock.png' "$DEMO" | grep -qF '폭마다' \
   && ok "U4d demo-ko — .mock.png 와 구현 PNG 를 폭마다 나란히 (같은 줄)" || no "U4d" ".mock.png 와 나란히·폭마다가 같은 줄에 없다"
+
+# U4e — integration-test-ko 브라우저 줄에 배치 경고 건수·못 잰 것, 경고는 판정 불변 (AC-10)
+_u4e() {  # $1=통합 테스트 스킬 본문 → 빠진 키
+  local m=""
+  printf '%s' "$1" | grep -F '**브라우저**: 실행(' | grep -qF '배치 경고 <N>' || m="$m [브라우저 줄:건수]"
+  printf '%s' "$1" | grep -F '**브라우저**: 실행(' | grep -qF '계측 못 함 <M>' || m="$m [브라우저 줄:못 잼]"
+  printf '%s' "$1" | grep -qF '경고는 판정을 바꾸지 않는다' || m="$m [판정 불변]"
+  printf '%s' "$1" | grep -qF '0 이 아니라 그렇게 적는다' || m="$m [0 아님]"
+  printf '%s' "$m"
+}
+_int=$(cat "$INT")
+[ -z "$(_u4e "$_int")" ] && [ "$(_u4e "${_int//경고는 판정을 바꾸지 않는다/}")" = " [판정 불변]" ] && [ "$(_u4e "${_int//배치 경고 <N>/}")" = " [브라우저 줄:건수]" ] && [ "$(_u4e "${_int//0 이 아니라 그렇게 적는다/}")" = " [0 아님]" ] \
+  && ok "U4e integration-test-ko — 브라우저 줄에 배치 경고 건수·못 잰 것 · 판정 불변 · 키를 지우면 그 키만 FAIL(AC-10)" || no "U4e" "없음:$(_u4e "$_int")"
 
 echo "── test-ui-probe: PASS=$PASS FAIL=$FAIL SKIP=$SKIPPED ──"
 [ "$FAIL" -eq 0 ]

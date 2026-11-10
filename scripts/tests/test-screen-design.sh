@@ -40,10 +40,53 @@ out=$(SCREEN_SHOT_CHROME=/nonexistent/chrome bash "$SS" "$H" "$TMP/x" 2>&1); rc=
 [ "$rc" -eq 3 ] && printf '%s' "$out" | grep -q '^SCREEN-SHOT: SKIP (찍지 못함' && [ ! -e "$TMP/x@1280.png" ] \
   && ok "T6b Chrome 없음 → SKIP(rc 3) · 파일 없음" || no "T6b" "rc=$rc out=[$out]"
 # T6c — Chrome 이 있으면 실제로 두 장을 만든다(없는 환경은 SKIP — 이 검사는 위장하지 않는다)
-out=$(bash "$SS" "$H" "$TMP/real" 2>&1); rc=$?
+out=$(SCREEN_SHOT_PROBE=0 bash "$SS" "$H" "$TMP/real" 2>&1); rc=$?
 if [ "$rc" -eq 3 ]; then echo "SKIP T6c (이 환경에 Chrome 없음)"
 elif [ "$rc" -eq 0 ] && [ -s "$TMP/real@1280.png" ] && [ -s "$TMP/real@390.png" ]; then ok "T6c Chrome 있음 → 1280·390 두 장 생성"
 else no "T6c" "rc=$rc out=[$out]"; fi
+
+# T6g~T6m — 촬영 끝에 배치 계측 파일 <접두>.probe.txt (FID 20261110-visual-severity-clip-overlap AC-7 ①②)
+FC="$TMP/fake-chrome"; cat > "$FC" <<'EOT'
+#!/usr/bin/env bash
+for a in "$@"; do case "$a" in --screenshot=*) printf 'PNG' > "${a#--screenshot=}" ;; esac; done
+EOT
+chmod +x "$FC"
+FKP="$TMP/fkp"; mkdir -p "$FKP/node_modules/playwright-core" "$TMP/empty-h"
+cat > "$FKP/node_modules/playwright-core/index.js" <<'EOT'
+// 가짜 Playwright — 계측 호출(fn.name === 'measureLayout')에만 FAKE_LAYOUT 을 돌려준다. 연 URL·폭을 FAKE_PW_LOG 에 남긴다
+const fs = require('fs');
+const L = process.env.FAKE_LAYOUT ? JSON.parse(process.env.FAKE_LAYOUT) : { clip: [], overlap: [] };
+const log = (o) => { if (process.env.FAKE_PW_LOG) fs.appendFileSync(process.env.FAKE_PW_LOG, JSON.stringify(o) + '\n'); };
+exports.chromium = { launch: async () => ({ newContext: async (opts) => { log({ width: opts.viewport.width }); return { newPage: async () => ({ on() {},
+  goto: async (u) => { log({ url: u }); },
+  evaluate: async (fn) => { if (typeof fn === 'function' && fn.name === 'measureLayout') { if (process.env.FAKE_LAYOUT_THROW) throw new Error('layout boom'); return L; } return false; },
+  screenshot: async ({ path: p }) => fs.writeFileSync(p, 'x'), addScriptTag: async () => {} }), close: async () => {} }; }, close: async () => {} }) };
+EOT
+shot() { SCREEN_SHOT_CHROME="$FC" bash "$SS" "$H" "$1" 2>&1; }
+cntf() { awk -v k="$2" 'index($0, k) { n++ } END { print n + 0 }' "$1"; }   # 파일에서 문자열이 든 줄 수(런타임에 만들어지는 로그 줄이라 소스에 리터럴이 없다)
+if ! command -v node >/dev/null 2>&1; then echo "SKIP T6g~T6m (node 없음)"; else
+  out=$(DEVFSD_UI_HARNESS_DIR="$TMP/empty-h" shot "$TMP/p1"); rc=$?
+  [ "$rc" -eq 0 ] && [ -s "$TMP/p1.probe.txt" ] && grep -q '^UI-PROBE: SKIP (NO_TOOL' "$TMP/p1.probe.txt" && [ "$(wc -l < "$TMP/p1.probe.txt" | tr -d ' ')" = 1 ] && printf '%s\n' "$out" | grep -qxF "SCREEN-PROBE: $TMP/p1.probe.txt" \
+    && ok "T6g 계측 도구 없음 — 촬영 rc 는 그대로 0 · probe.txt 에 SKIP 한 줄 · SCREEN-PROBE 줄" || no "T6g" "rc=$rc [$out] [$(cat "$TMP/p1.probe.txt" 2>&1)]"
+  : > "$TMP/pw.log"
+  out=$(DEVFSD_UI_HARNESS_DIR="$FKP" FAKE_PW_LOG="$TMP/pw.log" FAKE_LAYOUT='{"clip":["<table> — <div.card> 안에서 512px 가려짐"],"overlap":[]}' shot "$TMP/p2"); rc=$?
+  [ "$rc" -eq 0 ] && [ "$(grep -c 'L-CLIP-X' "$TMP/p2.probe.txt")" = 2 ] && ! grep -qE '^UI-PROBE:|png:' "$TMP/p2.probe.txt" \
+    && ok "T6h 적중 — probe.txt 에 폭마다 경고 줄만(판정 줄·png 줄 없음)" || no "T6h" "rc=$rc [$(cat "$TMP/p2.probe.txt" 2>&1)]"
+  [ "$(cntf "$TMP/pw.log" '{"width":390}')" = 1 ] && [ "$(cntf "$TMP/pw.log" '{"width":1280}')" = 1 ] && [ "$(cntf "$TMP/pw.log" 'width')" = 2 ] && [ "$(cntf "$TMP/pw.log" "{\"url\":\"file://$H\"}")" = 2 ] \
+    && ok "T6i 계측은 찍은 그 화면을 390·1280 두 폭으로 연다(인자 전달)" || no "T6i" "[$(cat "$TMP/pw.log")]"
+  DEVFSD_UI_HARNESS_DIR="$FKP" shot "$TMP/p2" >/dev/null
+  [ "$(cat "$TMP/p2.probe.txt")" = '배치 경고 0건 (390·1280 폭 · 화면을 연 상태 기준 · 세로 잘림과 불투명한 층에 덮인 글자는 재지 않는다)' ] \
+    && ok "T6j 다시 찍으면 덮어쓴다 — 적중이 사라지면 0건 한 줄" || no "T6j" "[$(cat "$TMP/p2.probe.txt" 2>&1)]"
+  out=$(DEVFSD_UI_HARNESS_DIR="$FKP" FAKE_LAYOUT_THROW=1 shot "$TMP/p5"); rc=$?
+  [ "$rc" -eq 0 ] && [ "$(grep -c '계측 중 오류: layout boom' "$TMP/p5.probe.txt")" = 2 ] && ! grep -q '0건' "$TMP/p5.probe.txt" \
+    && ok "T6k 계측 예외 — probe.txt 에 '계측 못 함' 줄이 남고 0건으로 바뀌지 않는다" || no "T6k" "rc=$rc [$(cat "$TMP/p5.probe.txt" 2>&1)]"
+  echo stale > "$TMP/p3.probe.txt"; echo stale > "$TMP/p4.probe.txt"   # 낡은 파일이 남지 않는지 본다
+  out=$(SCREEN_SHOT_PROBE=0 DEVFSD_UI_HARNESS_DIR="$FKP" shot "$TMP/p3"); rc=$?
+  [ "$rc" -eq 0 ] && [ ! -e "$TMP/p3.probe.txt" ] && ! printf '%s' "$out" | grep -q 'SCREEN-PROBE' && [ "$(printf '%s\n' "$out" | grep -c '^SCREEN-SHOT: ')" = 2 ] \
+    && ok "T6l SCREEN_SHOT_PROBE=0 — 계측 안 함 · 낡은 파일도 지워짐 · 촬영 출력은 종전과 같다" || no "T6l" "rc=$rc [$out]"
+  out=$(SCREEN_SHOT_CHROME=/nonexistent/chrome DEVFSD_UI_HARNESS_DIR="$FKP" bash "$SS" "$H" "$TMP/p4" 2>&1); rc=$?
+  [ "$rc" -eq 3 ] && [ ! -e "$TMP/p4.probe.txt" ] && ok "T6m 찍지 못하면(rc 3) 계측 파일이 없다 — 낡은 파일도 지워짐" || no "T6m" "rc=$rc"
+fi
 
 # T7 — frontend-design 원문을 그대로 들여왔다(Apache-2.0 고지·라이선스 사본) + devFSD 보충 지침
 FD="$PLUGIN/templates/frontend-design-guide.md"; FDL="$PLUGIN/templates/frontend-design-LICENSE.txt"

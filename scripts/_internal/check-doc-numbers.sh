@@ -127,6 +127,54 @@ while IFS= read -r rec; do
 #     grep 쪽에 붙여야 하는데, 그건 이 한 줄의 복잡도를 그 이득보다 크게 만든다.
 done < <(git ls-files -z | xargs -0 grep -IHnE -e "$RE" -- 2>/dev/null || true)
 
+# ── 개수 잠금: 종류별 개수 마커 줄의 수치를 실측 개수와 대조한다 (20261110) ─────────────
+#   마커 = "doc-lock: " + "count:" + 종류(skills·commands·agents·templates). 이 파일과 테스트는 그 문자열을
+#   이어 붙인 리터럴로 두지 않는다 — 두면 tracked 되는 순간 자기 스캔에 걸린다(위 SUITE_WORD 와 같은 이유).
+#   스위트 수 정규식과 **별개로** 수집한다 — 단위어가 없고 한 자리 수여도 잡힌다.
+#   실측 정의는 scripts/_internal/.structure-baseline 의 glob 과 같다(validate-structure file_counts — 파일시스템 기준).
+#   수치 = 주석(<!-- … -->)을 뺀 본문의 첫 정수 토큰: 앞뒤 글자가 숫자·마침표·쉼표가 아닌 1~4자리
+#   (버전 문자열·천 단위 쉼표 수의 조각은 수치가 아니다). 한계: 문장 끝 마침표가 바로 붙은 수("31.")는 토큰이 아니다.
+CMARK='doc-lock: ''count:'
+_count_kind() {
+  local n=0 f
+  case "$1" in
+    skills)    set -- skills/*/SKILL.md ;;
+    commands)  set -- commands/*.md ;;
+    agents)    set -- agents/*.md ;;
+    templates) set -- templates/*.md ;;
+    *) return 1 ;;
+  esac
+  for f in "$@"; do [ -f "$f" ] && n=$((n+1)); done
+  printf '%s' "$n"
+}
+clocked=0
+while IFS= read -r rec; do
+  [ -n "$rec" ] || continue
+  path=${rec%%:*}; rest=${rec#*:}; lno=${rest%%:*}; text=${rest#*:}
+  if _allowlisted "$path"; then hist=$((hist+1)); continue; fi
+  clocked=$((clocked+1))
+  nmark=$(printf '%s' "$text" | grep -oF -e "$CMARK" | wc -l | tr -d ' ')
+  if [ "${nmark:-0}" -gt 1 ]; then
+    echo "DOC-NUMBERS: FAIL $path:$lno 같은 줄에 개수 마커가 ${nmark}개 — 한 줄에 하나만 두세요" >&2
+    fail=$((fail+1)); continue
+  fi
+  kind=${text#*"$CMARK"}; kind=$(printf '%s' "$kind" | sed -E 's/^([a-z]*).*$/\1/')
+  want=$(_count_kind "$kind") || {
+    echo "DOC-NUMBERS: FAIL $path:$lno 모르는 개수 종류 '${kind}' — skills·commands·agents·templates 중 하나" >&2
+    fail=$((fail+1)); continue; }
+  body=$(printf '%s' "$text" | sed -E 's/<!--[^>]*-->//g')
+  got=$(printf '%s' "$body" | grep -oE '(^|[^0-9.,])[0-9]{1,4}([^0-9.,]|$)' | head -1 | grep -oE '[0-9]+' | head -1)
+  if [ -z "$got" ]; then
+    echo "DOC-NUMBERS: FAIL $path:$lno 개수 마커 줄에 수치가 없다 (종류 $kind · 기대=$want)" >&2
+    fail=$((fail+1)); continue
+  fi
+  if [ "$got" != "$want" ]; then
+    echo "DOC-NUMBERS: FAIL $path:$lno 종류 $kind 기대=$want 실제=$got — 마커 줄의 수치를 $want 로 고치세요" >&2
+    fail=$((fail+1))
+  fi
+done < <(git ls-files -z | xargs -0 grep -IHnF -e "$CMARK" -- 2>/dev/null || true)
+locked=$((locked+clocked))
+
 if [ "$fail" -gt 0 ]; then
   echo "DOC-NUMBERS: FAIL 위반 ${fail}건 (스캔 ${files}파일/${lines}줄)" >&2
   exit 1

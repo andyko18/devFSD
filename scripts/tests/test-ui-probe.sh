@@ -146,7 +146,7 @@ ne=1; for o in "$a1" "$a2" "$a3"; do printf '%s\n' "$o" | grep -q '^UI-PROBE: SK
 FK="$TMP/fakepw"; mkdir -p "$FK/node_modules/playwright-core" "$FK/node_modules/axe-core"
 : > "$FK/node_modules/axe-core/index.js"; : > "$FK/node_modules/axe-core/axe.min.js"
 cat > "$FK/node_modules/playwright-core/index.js" <<'EOF'
-// 가짜 Playwright — 화면별 결과는 FAKE_PW_FIX(slug → {fail, overflow, violations}), 컨텍스트마다 FAKE_PW_LOG 에 {width, storageState} 한 줄
+// 가짜 Playwright — 화면별 결과는 FAKE_PW_FIX(slug → {fail, overflow, violations, layout, layoutThrow, layoutThrowAt}), 컨텍스트마다 FAKE_PW_LOG 에 {width, storageState} 한 줄
 const fs = require('fs'), path = require('path');
 const FIX = process.env.FAKE_PW_FIX ? JSON.parse(fs.readFileSync(process.env.FAKE_PW_FIX, 'utf8')) : {};
 const log = (o) => { if (process.env.FAKE_PW_LOG) fs.appendFileSync(process.env.FAKE_PW_LOG, JSON.stringify(o) + '\n'); };
@@ -159,7 +159,14 @@ exports.chromium = { launch: async () => ({
     return { newPage: async () => ({
       on() {},
       goto: async (u) => { url = u; if ((FIX[slug(u)] || {}).fail) throw new Error('boom'); },
-      evaluate: async (fn, arg) => (Array.isArray(arg) ? ((FIX[slug(url)] || {}).violations || []) : Boolean((FIX[slug(url)] || {}).overflow)),
+      evaluate: async (fn, arg) => {
+        const f = FIX[slug(url)] || {};
+        if (typeof fn === 'function' && fn.name === 'measureLayout') {
+          if (f.layoutThrow || f.layoutThrowAt === opts.viewport.width) throw new Error('layout boom');
+          return 'layout' in f ? f.layout : { clip: [], overlap: [] };
+        }
+        return Array.isArray(arg) ? (f.violations || []) : Boolean(f.overflow);
+      },
       screenshot: async ({ path: p }) => fs.writeFileSync(p, png(opts.viewport.width)),
       addScriptTag: async () => {},
     }), close: async () => {} };
@@ -307,6 +314,50 @@ fix "{\"a\":{\"violations\":[$BN1]}}"
 out=$(DEVFSD_UI_HARNESS_DIR="$FK2" FAKE_PW_FIX="$FIX" node "$P" --out "$TMP/e16" --a11y-baseline "$TMP/fb/b6.json" http://h:1/a 2>&1); rc=$?
 [ "$rc" -eq 0 ] && [ ! -e "$TMP/fb/b6.json" ] && has "$out" '기준선을 쓰지 않음: axe-core 를 찾지 못했다' && has "$out" '접근성 SKIP(axe-core 없음)' \
   && ok "U8e12 axe-core 없음 — 기준선 파일을 만들지 않고 안내(AC-4)" || no "U8e12" "rc=$rc [$out]"
+
+# U9 — 배치 계측(잘림·겹침): 경고만 · 판정 불변 · 못 잰 것은 0 이 아니다 (FID 20261110-visual-severity-clip-overlap AC-6·AC-9·AC-11)
+L="$PLUGIN/scripts/_internal/ui-probe-layout.cjs"
+cnt() { printf '%s\n' "$1" | awk -v k="$2" 'index($0, k) { n++ } END { print n + 0 }'; }   # 런타임에 조합되는 출력 줄을 세는 헬퍼(has 와 같은 이유 — 소스에 통째 리터럴이 없다)
+out=$(node "$P" --rules 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | grep -c '^| L-')" = 2 ] && printf '%s\n' "$out" | grep -E '^\| L-CLIP-X \|' | grep -qF '가로' && printf '%s\n' "$out" | grep -qE '^\| L-OVERLAP \|' \
+  && ok "U9a --rules — 규칙 2개 표 · 잘림 정의에 '가로'(AC-11) · 브라우저 없이 rc 0" || no "U9a" "rc=$rc [$out]"
+fix '{"a":{"layout":{"clip":["<table> — <div.card> 안에서 512px 가려짐"],"overlap":["<label> ↔ <span.hint> — 86×5px 겹침","x ↔ y — 9×9px 겹침"]}}}'
+out=$(fk --out "$TMP/l1" --widths 390 http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | sed -n 1p)" = 'UI-PROBE: PASS (1화면·1폭 · 넘침 0 · 콘솔 오류 0 · 접근성 심각 0 · 배치 경고 3(잘림 1 · 겹침 2))' ] \
+  && [ "$(printf '%s\n' "$out" | sed -n 2p)" = '  - a@390 배치 경고 L-CLIP-X(가로 잘림): <table> — <div.card> 안에서 512px 가려짐' ] \
+  && [ "$(cnt "$out" '배치 경고 L-OVERLAP(글자 겹침): ')" = 2 ] \
+  && [ "$(node -e 'const r=require(process.argv[1]).results[0].layout;console.log(r.state,r.clip.length,r.overlap.length)' "$TMP/l1/ui-probe.json")" = 'ok 1 2' ] \
+  && ok "U9b 경고만 있는 실행 — rc 0 · PASS · 요약에 건수 덧붙음 · 경고 줄 형식 · 기록에 같은 건수(AC-6)" || no "U9b" "rc=$rc [$out]"
+fix '{"a":{"overflow":true,"layout":{"clip":["c1"],"overlap":[]}}}'; out=$(fk --out "$TMP/l2" --widths 390 http://h:1/a 2>&1); rc=$?
+fix '{"a":{"overflow":true}}'; out0=$(fk --out "$TMP/l3" --widths 390 http://h:1/a 2>&1); rc0=$?
+[ "$rc" -eq 1 ] && [ "$rc0" -eq 1 ] && has "$out" 'a@390 가로 넘침' && has "$out0" 'UI-PROBE: FAIL (1화면·1폭 · 넘침 1 · 콘솔 오류 0 · 접근성 심각 0)' && ! has "$out0" '배치' \
+  && ok "U9c 판정은 넘침·콘솔·접근성만으로 — 경고가 있어도 없어도 같은 rc · 경고 0 이면 요약에 아무것도 안 붙는다" || no "U9c" "rc=$rc,$rc0 [$out|$out0]"
+many=$(node -e 'console.log(JSON.stringify({a:{layout:{clip:Array.from({length:8},(_,i)=>"c"+i),overlap:[]}}}))'); fix "$many"
+out=$(fk --out "$TMP/l4" --widths 390 http://h:1/a 2>&1)
+[ "$(printf '%s\n' "$out" | grep -c '배치 경고 L-CLIP-X')" = 6 ] && has "$out" '배치 경고 L-CLIP-X(가로 잘림): 외 3건' && has "$out" '배치 경고 8(잘림 8 · 겹침 0)' \
+  && ok "U9d 한 화면·폭·규칙에 5줄까지 + '외 N건' · 건수는 전부 센다" || no "U9d" "[$out]"
+many=$(node -e 'console.log(JSON.stringify({a:{layout:{clip:[],overlap:Array.from({length:8},(_,i)=>"o"+i)}}}))'); fix "$many"
+out=$(fk --out "$TMP/l4b" --widths 390 http://h:1/a 2>&1)
+[ "$(cnt "$out" '배치 경고 L-OVERLAP(글자 겹침): ')" = 6 ] && has "$out" '배치 경고 L-OVERLAP(글자 겹침): 외 3건' && has "$out" '배치 경고 8(잘림 0 · 겹침 8)' \
+  && ok "U9d2 겹침도 같은 상한 — 5줄 + '외 3건'" || no "U9d2" "[$out]"
+fix "{\"a\":{\"layoutThrow\":true,\"violations\":[$BN1]},\"b\":{\"layout\":{\"clip\":[\"c1\"],\"overlap\":[]}}}"
+out=$(fk --out "$TMP/l5" http://h:1/a http://h:1/b 2>&1); rc=$?
+fix "{\"a\":{\"violations\":[$BN1]},\"b\":{\"layout\":{\"clip\":[\"c1\"],\"overlap\":[]}}}"
+ref=$(fk --out "$TMP/l6" http://h:1/a http://h:1/b 2>&1); rcr=$?
+[ "$rc" -eq "$rcr" ] && [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | grep -c 'a@.* 배치 계측 못 함: 계측 중 오류: layout boom')" = 3 ] && has "$out" '배치 계측 못 함 3' \
+  && [ "$(printf '%s\n' "$out" | grep -c 'b@.* 배치 경고 L-CLIP-X')" = 3 ] && [ "$(printf '%s\n' "$out" | grep -F '접근성')" = "$(printf '%s\n' "$ref" | grep -F '접근성' | sed 's/ · 배치 경고 3(잘림 3 · 겹침 0)/ · 배치 경고 3(잘림 3 · 겹침 0) · 배치 계측 못 함 3/')" ] \
+  && [ "$(node -e 'const r=require(process.argv[1]).results;console.log(r.filter(x=>x.layout.state==="unmeasured").length,r.filter(x=>x.layout.state==="ok"&&x.layout.clip.length===1).length)' "$TMP/l5/ui-probe.json")" = '3 3' ] \
+  && ok "U9e 계측 예외 — 그 화면·폭만 '계측 못 함'(0 으로 쓰지 않음) · 다른 화면의 계측과 접근성 판정·rc 는 예외가 없을 때와 같다(AC-9)" || no "U9e" "rc=$rc/$rcr [$out] ref=[$ref]"
+fix '{"a":{"layout":"x"}}'; out=$(fk --out "$TMP/l7" --widths 390 http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && has "$out" 'a@390 배치 계측 못 함: 계측 결과를 읽지 못함' \
+  && ok "U9f 모양이 틀린 계측 결과는 0건이 아니라 '계측 못 함'" || no "U9f" "rc=$rc [$out]"
+fix '{"a":{"layoutThrowAt":390}}'; out=$(fk --out "$TMP/l9" --widths 390,1280 http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(cnt "$out" '배치 계측 못 함: ')" = 1 ] && has "$out" 'a@390 배치 계측 못 함: 계측 중 오류: layout boom' && has "$out" '배치 계측 못 함 1)' \
+  && [ "$(node -e 'console.log(require(process.argv[1]).results.map(x=>x.width+":"+x.layout.state).join(","))' "$TMP/l9/ui-probe.json")" = '390:unmeasured,1280:ok' ] \
+  && ok "U9h 한 폭에서만 예외 — 그 폭만 '계측 못 함', 같은 화면의 다른 폭은 계측됨(AC-9 화면·폭 단위)" || no "U9h" "rc=$rc [$out]"
+fix '{"zzz":{"fail":true}}'; out=$(fk --out "$TMP/l8" --widths 390 http://h:1/zzz 2>&1); rc=$?
+[ "$rc" -eq 1 ] && has "$out" 'zzz@390 열기 실패' && has "$out" 'zzz@390 배치 계측 못 함: 열기 실패' \
+  && ok "U9g 열지 못한 화면도 '계측 못 함'" || no "U9g" "rc=$rc [$out]"
 
 # U7 — 실브라우저 스모크: 가짜가 아닌 Playwright·axe 에서 같은 결과가 나오는지 (없는 환경이면 SKIP 을 세어 적는다)
 if [ "${HAVE_BROWSER:-0}" != 1 ]; then sk "U7 (이 환경에 Playwright·브라우저 없음)"; else

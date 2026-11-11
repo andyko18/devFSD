@@ -66,5 +66,16 @@ has "$P" '비고 칸에도 `COMPREHENSION-RESULT` 줄을 옮겨 적지 않는다
 # ══ AC-4: plan-reviewer 와의 결합 금지 ══
 [ -s agents/plan-reviewer-ko.md ] && ! grep -qiE 'comprehension|이해 검사|재진술' agents/plan-reviewer-ko.md && ok "D.a plan-reviewer-ko 본문은 이해 검사를 모른다(결합 없음 · 파일 부재 시 FAIL)" || nope "D.a" "plan-reviewer-ko 부재 또는 이해 검사·재진술 언급"
 
+# ══ AC-7: 평가 케이스 데이터(실행 제외) ══
+EV=scripts/tests/llm-eval/skills/specifying-ko/evals.json
+CMP='[.cases[] | select(.agent=="comprehension-reviewer-ko")]'
+[ "$(jq "$CMP | length" "$EV")" = 4 ] && ok "E.a comprehension-reviewer-ko 평가 케이스 4건" || nope "E.a" "케이스 수 $(jq "$CMP | length" "$EV")"
+[ "$(jq "$CMP | map(select(.asserts[0].value | test(\"^결함\\\\(유형: .+ · 위치: \"))) | length" "$EV")" = 3 ] \
+  && ok "E.b 결함 3종 — 유형·위치 기록" || nope "E.b" "결함 케이스(유형·위치) 수"
+[ "$(jq "$CMP | map(select(.asserts[0].value | startswith(\"대조군\"))) | length" "$EV")" = 1 ] \
+  && ok "E.c 정상 대조군 1종" || nope "E.c" "대조군 수"
+e_t=0; for t in '맥락 의존 지시어' '부분 간 단절' '기존 동작 서술 모순'; do jq -e "$CMP | any(.asserts[0].value | contains(\"유형: $t\"))" "$EV" >/dev/null && e_t=$((e_t+1)); done
+[ "$e_t" = 3 ] && ok "E.d 결함 유형 3종이 서로 다르다" || nope "E.d" "유형 $e_t/3"
+
 
 finish

@@ -641,6 +641,50 @@
         "skills/planning-ko/arch-expert/patterns/frontend-react.md",
         "skills/planning-ko/arch-expert/patterns/frontend-nextjs.md"
       ]
+    },
+    {
+      "id": "e-70",
+      "agent": "comprehension-reviewer-ko",
+      "prompt": "[comprehension-reviewer-ko] 아래 spec·AC·plan 본문만 읽고 이해 검사하라(파일 경로 대신 본문이 인라인으로 주어진다. 이 밖의 정보는 없다).\n\n## spec\n정산 목록 화면에 상태 필터를 추가한다. 필터 동작은 기존 방식대로 한다.\n\n## AC\nAC-1: 상태 필터를 고르면 목록이 \"그 화면\"과 같은 방식으로 갱신된다.\n\n## plan\nTask 1: 그 화면의 필터 컴포넌트를 복사해 상태 값만 바꾼다. 테스트: 필터를 고르면 목록이 갱신된다.",
+      "asserts": [
+        {
+          "type": "llm_rubric",
+          "value": "결함(유형: 맥락 의존 지시어 · 위치: spec 첫 문단 \"기존 방식\", AC-1 \"그 화면\", plan Task 1 \"그 화면\"). 응답이 \"기존 방식\"·\"그 화면\"이 어느 방식·어느 화면을 가리키는지 문서에 없다고 [이해 불가] 또는 [오독 위험] 으로 지적한다. 지적은 Minor 로만 적고 Critical·Important 를 쓰지 않으며, 마지막 줄이 COMPREHENSION-RESULT: DONE 형식이다."
+        }
+      ]
+    },
+    {
+      "id": "e-71",
+      "agent": "comprehension-reviewer-ko",
+      "prompt": "[comprehension-reviewer-ko] 아래 spec·AC·plan 본문만 읽고 이해 검사하라(파일 경로 대신 본문이 인라인으로 주어진다. 이 밖의 정보는 없다).\n\n## spec\n§2 용어: \"마감\"은 월 단위 정산 배치가 끝나 그 달 매출이 확정된 상태를 뜻한다.\n\n## AC\nAC-1: 전표가 마감되면 수정할 수 없다.\n\n## plan\nTask 1: 전표 수정 API 는 전표의 마감 플래그가 true 이면 409 를 반환한다. 테스트: 마감 플래그가 true 인 전표를 수정하면 409.",
+      "asserts": [
+        {
+          "type": "llm_rubric",
+          "value": "결함(유형: 부분 간 단절 · 위치: spec §2 \"마감\" 정의 ↔ AC-1·plan Task 1 의 전표 마감 플래그). 응답이 spec 의 \"마감\"(월 배치 확정 상태)과 plan 의 전표 \"마감 플래그\"가 이어지지 않는다(플래그가 언제 true 가 되는지 문서에 없다)고 [이해 불가] 또는 [오독 위험] 으로 지적한다. 지적은 Minor 로만 적고 마지막 줄이 COMPREHENSION-RESULT: DONE 형식이다."
+        }
+      ]
+    },
+    {
+      "id": "e-72",
+      "agent": "comprehension-reviewer-ko",
+      "prompt": "[comprehension-reviewer-ko] 아래 spec·AC·plan 본문만 읽고 이해 검사하라(파일 경로 대신 본문이 인라인으로 주어진다. 이 밖의 정보는 없다).\n\n## spec\n배경: 현재 주문 취소는 배송이 시작되기 전에만 가능하다. 이번에 취소 사유 선택 입력을 추가한다.\n\n## AC\nAC-1: 취소 요청에 사유 코드가 없으면 400 을 반환한다.\n\n## plan\n§현재 구조 | 배송 중 취소 | POST /orders/{id}/cancel — 배송 중에도 호출되며 환불이 함께 처리된다 |\nTask 1: cancel 핸들러에 사유 코드 검증을 추가한다. 테스트: 사유 코드 없는 취소 요청은 400.",
+      "asserts": [
+        {
+          "type": "llm_rubric",
+          "value": "결함(유형: 기존 동작 서술 모순 · 위치: spec 배경 \"배송 시작 전에만 가능\" ↔ plan §현재 구조 \"배송 중에도 호출되며 환불 처리\"). 응답의 \"문서가 말하는 기존 시스템 동작\" 재진술이나 지적에서 두 서술이 모순이라는 점을 짚는다. 지적은 Minor 로만 적고 마지막 줄이 COMPREHENSION-RESULT: DONE 형식이다."
+        }
+      ]
+    },
+    {
+      "id": "e-73",
+      "agent": "comprehension-reviewer-ko",
+      "prompt": "[comprehension-reviewer-ko] 아래 spec·AC·plan 본문만 읽고 이해 검사하라(파일 경로 대신 본문이 인라인으로 주어진다. 이 밖의 정보는 없다).\n\n## spec\n로그 파일 크기를 읽기 쉬운 단위로 출력하는 humansize 함수를 scripts/util.sh 에 추가한다. 입력은 바이트 정수이고 1024 단위로 B·KB·MB 로 환산한다.\n\n## AC\nAC-1: humansize 1536 은 \"1.5KB\" 를 출력한다.\nAC-2: humansize 0 은 \"0B\" 를 출력한다.\n\n## plan\n§현재 구조: scripts/util.sh 는 로그 출력 보조 함수 모음이며 humansize 와 겹치는 함수는 없다.\nTask 1: scripts/util.sh 에 humansize 를 추가한다. 테스트: tests/test_util.sh 에서 1536 → 1.5KB, 0 → 0B 를 확인한다.",
+      "asserts": [
+        {
+          "type": "llm_rubric",
+          "value": "대조군(결함 없음 — 지적이 없어야 한다). 응답이 존재하지 않는 모순·단절·정의 누락을 지어내어 [이해 불가]·[오독 위험] 지적을 내지 않고(지적 0건 또는 \"없음\"), 마지막 줄이 COMPREHENSION-RESULT: DONE (지적 0) 이다."
+        }
+      ]
     }
   ]
 }

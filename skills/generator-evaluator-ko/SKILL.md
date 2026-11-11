@@ -23,9 +23,10 @@ used_by: implementing-ko (2단계 리뷰 패턴), requesting-code-review-ko, pla
 | batch 설계 리뷰 | `/start-all` Phase 2.5 (오케스트레이터) | screens + api-spec + data-model | `design-reviewer-ko` | design-review.md + `DESIGN-REVIEW-RESULT` |
 | 구현 Phase B | `implementer-ko` | 코드 + 테스트 | `spec-reviewer-ko` | 스펙 준수 판정 |
 | 구현 Phase C | `implementer-ko` | (동일 산출) | `code-reviewer-ko` | 코드 품질·보안·커버리지·DB 판정 |
+| 이해 검사 | `planning-ko` (메인 세션) | plan.md | `comprehension-reviewer-ko` | 이해 검사 보고 (Minor 경고 — `COMPREHENSION-RESULT`) |
 | self-config 감사 | — | (플러그인 자기 번들) | `red-team-ko` → `blue-team-ko` → `auditor-ko` | risk 등급 리포트 |
 
-**실재 에이전트는 `agents/` 15종뿐**: Generator 8 (`implementer-ko`·`req-designer-ko`·`ui-designer-ko`·`db-designer-ko`·`arch-designer-ko`·`api-designer-ko`·`security-designer-ko`·`test-designer-ko`) / Evaluator 7 (`spec-reviewer-ko`·`code-reviewer-ko`·`plan-reviewer-ko`·`design-reviewer-ko`·`red-team-ko`·`blue-team-ko`·`auditor-ko`). 이 표에 없는 에이전트를 dispatch 하지 마라 — 존재하지 않는다.
+**실재 에이전트는 `agents/` 16종뿐**: Generator 8 (`implementer-ko`·`req-designer-ko`·`ui-designer-ko`·`db-designer-ko`·`arch-designer-ko`·`api-designer-ko`·`security-designer-ko`·`test-designer-ko`) / Evaluator 8 (`spec-reviewer-ko`·`code-reviewer-ko`·`plan-reviewer-ko`·`design-reviewer-ko`·`red-team-ko`·`blue-team-ko`·`auditor-ko`·`comprehension-reviewer-ko`). 이 표에 없는 에이전트를 dispatch 하지 마라 — 존재하지 않는다.
 
 ## 엄격 규칙
 

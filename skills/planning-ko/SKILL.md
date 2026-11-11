@@ -271,7 +271,7 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 
 비-batch 에서 **테스트 전문가 패스가 발동할 때만** 적용한다(발동하지 않으면 plan-reviewer 를 종전대로 부른다). 종전엔 테스트 전문가 → 반영 → 리뷰 1회차 → 반영 → 2회차가 모두 직렬이라, plan 79분 가운데 리뷰 1회차와 그 반영이 통째로 대기였다(실측 20261105-specops-root-unify: 작성+테스트 전문가 약 34분 · 1회차+반영 약 19분 · 2회차+반영 약 23분, 리뷰어 자체는 중앙값 7분).
 
-1. 사전검사·경계 대조를 통과한 plan.md 로 테스트 전문가와 plan-reviewer 1회차를 **한 메시지의 `Agent` 호출 2개**로 함께 보낸다 — 입력은 각 절 dispatch 줄 그대로, **둘 다 같은 plan.md** 다. dispatch-log 에 `| <N> | <ISO-8601> | test-review-parallel | - | 동시 dispatch | test-designer-ko · plan-reviewer-ko(1회차) |` 1행.
+1. 사전검사·경계 대조를 통과한 plan.md 로 테스트 전문가와 plan-reviewer 1회차를 **한 메시지의 `Agent` 호출 2개**(아래 「이해 검사」를 더하면 3개)로 함께 보낸다 — 입력은 각 절 dispatch 줄 그대로, **둘 다 같은 plan.md** 다. dispatch-log 에 `| <N> | <ISO-8601> | test-review-parallel | - | 동시 dispatch | test-designer-ko · plan-reviewer-ko(1회차) |` 1행.
 2. 둘 다 돌아오면 **둘의 지적을 한 번에 plan.md 에 반영**한다(테스트 전문가 절의 반영 규칙 + 리뷰 지적 수정). 같은 자리를 다르게 고치라면 하나로 합쳐 쓰고, 맞서면 리뷰어 Critical 을 우선하고 다른 쪽을 `기각(근거)` 으로 적는다. 반영 뒤 사전검사·경계 대조를 1회 다시 돌린다.
 3. 2회차 — 1회차가 FAIL 이면 종전대로 재dispatch 한다. **1회차가 PASS 여도** 반영으로 plan.md 가 바뀌었으면 **2회차를 반드시 부른다** — 종전엔 테스트 반영이 리뷰 앞이었으므로, **최종 plan 은 모든 반영 뒤 한 번은 리뷰를 받는다**는 성질을 지킨다. 1회차 PASS 이고 반영이 0건이면 그대로 PASS 다.
 4. cap 계산은 그대로다 — 1회차·2회차가 종전의 초기 시도·재dispatch 이고, 2회차 FAIL 이면 아래 「cap 초과」 처리.
@@ -281,12 +281,23 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 - 전문가 반영 직후(발동한 패스가 있을 때): `… <FID> /plan-expert 완료 "전문가 반영 (<패스 목록>)"`
 - 리뷰 회차마다: `… <FID> /plan-review 완료 "<N>회차 <PASS|FAIL> · Critical <n> · Important <n>"`
 
+### 이해 검사 (comprehension-reviewer — 처음 읽는 독자, 20261111)
+
+비-batch 에서 plan-reviewer **1회차**를 부를 때마다 — 테스트 전문가 패스가 발동했든 아니든 — 같은 메시지의 `Agent` 호출에 `devfsd:comprehension-reviewer-ko` 를 **하나 더** 넣는다(순차 추가 금지 — 이해 검사가 plan 시간을 늘리지 않게 한다). 출처: google/elephant-goldfish-model@67353fc4 의 Comprehension 리뷰어(문서만 읽고 자기 말로 다시 쓰기).
+
+- **입력**: 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `plan.md`. 코드·memory·intent 는 주지 않는다.
+- **제외**: `§batch`(plan-reviewer DEFER)·`§lite`·`§유형: trivial`·promote(`promote-fid`)·foundation 은 부르지 않고 기록 행도 남기지 않는다. 2회차에는 부르지 않는다.
+- **판정 불변**: 지적은 모두 Minor 경고다. `PLAN-REVIEW-RESULT`·cap 계산·외부 critic 입력에 넣지 않는다.
+- **저장·반영**: 돌아온 보고 전문을 부모가 `.specops/<FID>/experts/comprehension.md` 로 저장하고, plan-reviewer 지적과 한 번에 반영한다. 지적마다 같은 파일 끝 `## 반영` 에 `반영(plan §/Task N)` · `이월(spec·AC 는 읽기 전용 — 사용자 확인 필요)` · `기각(근거)` 중 1줄을 적는다. `[이해 불가]`·`[오독 위험]` 은 문서를 고쳐 반영하고, "작성자는 안다"·"맥락상 명확하다" 는 기각 사유가 될 수 없다. 반영으로 plan.md 가 바뀌었으면 위 「1회차 동시 dispatch」 3번 규칙대로 plan-reviewer 2회차를 부른다.
+- **모델 불가·산출 없음**: sonnet 을 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). 보고가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | comprehension | comprehension-reviewer-ko | 산출 없음 | - |` 를 남기고 진행한다.
+- **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 dispatch-log 전체에서 `DONE`·`IMPL` 을 구현 증거로 읽으므로, 비고 칸에도 `COMPREHENSION-RESULT` 줄을 옮겨 적지 않는다): dispatch-log 에 `| <N> | <ISO-8601> | comprehension | comprehension-reviewer-ko | 반영 | experts/comprehension.md (지적 N · 반영 N · 이월 N · 기각 N) |`. 단계 칸이 `comprehension` 이라 `review-cost.sh` 의 plan-reviewer 라운드 집계(단계 칸에 `plan-reviewer` 를 포함한 행만)에 섞이지 않는다.
+
 ### 비-batch — plan-reviewer dispatch
 
 자체 검토 통과 후 `devfsd:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다. 이 리뷰어는 **spec 대조 2관점(스펙 커버리지·스펙 정합) + 엔지니어링 4관점(TDD·플레이스홀더·파일경계·타입일관성)** 6관점을 fresh 시각으로 수행한다 (구 general-purpose Plan Document Reviewer 의 spec 대조 역할을 전용 Evaluator 로 흡수 — 20260723, dispatch 1회로 단일화).
 
 **dispatch:** `Agent` 도구, `subagent_type: "devfsd:plan-reviewer-ko"`
-입력: `.specops/<FID>/spec.md`(요구 원본) + `.specops/<FID>/plan.md`(검토 대상) + `.specops/<FID>/plan-boundary.txt`(경계 대조 입력) 경로
+입력: `.specops/<FID>/spec.md`(요구 원본) + `.specops/<FID>/plan.md`(검토 대상) + `.specops/<FID>/plan-boundary.txt`(경계 대조 입력) 경로 (1회차에는 위 「이해 검사」 의 에이전트를 같은 메시지에 더한다 — 테스트 전문가 패스 발동 여부와 무관)
 
 **판정 처리 (cap=2):**
 

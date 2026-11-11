@@ -43,5 +43,25 @@ has "$A" '코드·`\.specops/memory/\*`·`intent\.md`·다른 FID·README 포함
 grep -qE 'agents/ .*← 16건' README.md && grep -qE '^│ +design-reviewer · comprehension-reviewer' README.md && ok "R.a README agents 16건 + 이름(다음 줄 이어짐)" || nope "R.a" "README agents 줄"
 grep -qE '^\| comprehension-reviewer-ko .*\| sonnet · high \|' README.md && ok "R.b README 모델 표 행(sonnet · high)" || nope "R.b" "README 모델 표 행 없음"
 
+# ══ AC-3·AC-5: planning-ko 합류·제외·기록·반영 규칙 ══
+P=skills/planning-ko/SKILL.md
+has "$P" '^### 이해 검사 \(comprehension-reviewer' && ok "P.a planning-ko 에 이해 검사 절" || nope "P.a" "절 제목 없음"
+has "$P" 'devfsd:comprehension-reviewer-ko' '순차 추가 금지' '한 메시지의 `Agent` 호출 2개\*\*\(아래 「이해 검사」를 더하면 3개\)' \
+  && ok "P.b 같은 메시지 합류(순차 추가 금지) · 1회차 동시 dispatch 문구 연동" || nope "P.b" "합류 문구 누락"
+has "$P" '`§batch`\(plan-reviewer DEFER\)·`§lite`·`§유형: trivial`·promote\(`promote-fid`\)·foundation 은 부르지 않고 기록 행도 남기지 않는다' '2회차에는 부르지 않는다' \
+  && ok "P.c 제외 조건 5종 · 2회차 미호출" || nope "P.c" "제외·2회차 문구 누락"
+has "$P" '`PLAN-REVIEW-RESULT`·cap 계산·외부 critic 입력에 넣지 않는다' && ok "P.d 판정 불변(PLAN-REVIEW-RESULT·cap·critic)" || nope "P.d" "판정 불변 문구 누락"
+has "$P" '\| comprehension \| comprehension-reviewer-ko \| 반영 \| experts/comprehension\.md' '\| comprehension \| comprehension-reviewer-ko \| 산출 없음 \|' \
+  && ! grep -qE '\| comprehension \| comprehension-reviewer-ko \| (DONE|IMPL) ' "$P" \
+  && ok "P.e 기록 행 형식(결과 칸 DONE·IMPL 금지)" || nope "P.e" "기록 행 형식"
+has "$P" '"작성자는 안다"·"맥락상 명확하다" 는 기각 사유가 될 수 없다' '이월\(spec·AC 는 읽기 전용' '1회차 동시 dispatch」 3번 규칙대로 plan-reviewer 2회차를 부른다' \
+  && ok "P.f 반영 규칙(기각 사유 금지 · 이월 · 2회차)" || nope "P.f" "반영 규칙 문구 누락"
+has "$P" '모델 불가·산출 없음.*sonnet 을 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다\(부모가 대신 검토하지 않는다\)' \
+  && ok "P.g 모델 불가 — 같은 에이전트 override 재dispatch(부모 대행 금지)" || nope "P.g" "모델 불가 문구 누락"
+has "$P" '1회차에는 위 「이해 검사」 의 에이전트를 같은 메시지에 더한다 — 테스트 전문가 패스 발동 여부와 무관' \
+  && ok "P.h 비-batch plan-reviewer dispatch 절에도 합류 문구(테스트 전문가 미발동 경로)" || nope "P.h" "비-batch dispatch 절 연결 문구 누락"
+has "$P" '비고 칸에도 `COMPREHENSION-RESULT` 줄을 옮겨 적지 않는다' \
+  && ok "P.i 상세 칸에 결과 줄 금지(reconcile-check 가 dispatch-log 전체의 DONE 을 구현 증거로 읽는다)" || nope "P.i" "상세 칸 금지 문구 누락"
+
 
 finish

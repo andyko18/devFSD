@@ -490,8 +490,8 @@ fi
 # GH-ci.doc: gh 선택 의존이 문서화됐는가 (GH-10 과 동형 — 의존 고지는 문서가 유일한 층)
 #   CLAUDE.md 측은 'gh' 로 grep 하면 안 된다 — 기존 문장("gh pr create" 등)에 이미 매치해
 #   편집 전부터 green 인 vacuous 검사가 된다. 고유 문구로 잠근다.
-grep -q 'check-ci-status' "$PLUGIN/scripts/README.md" && grep -q 'CI 상태 경고' "$PLUGIN/CLAUDE.md" \
-  && ok "GH-ci.doc CLAUDE.md·scripts/README gh 의존 고지" \
+grep -q 'check-ci-status' "$PLUGIN/scripts/README.md" && grep -q 'CI 상태 경고' "$PLUGIN/scripts/tests/CLAUDE.md" \
+  && ok "GH-ci.doc scripts/tests/CLAUDE.md·scripts/README gh 의존 고지" \
   || nope "GH-ci.doc" "문서 고지 부재"
 
 # ── 20260908 full-suite 마커 (생산측) ────────────────────────────────

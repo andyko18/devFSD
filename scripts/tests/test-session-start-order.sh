@@ -96,16 +96,24 @@ ctx_j(){ # $1=sandbox — 이미 구성된 샌드박스에서 훅 재실행 → 
   jq -j '.hookSpecificOutput.additionalContext' "$1/outj.json" > "$1/ctxj.txt" 2>/dev/null
 }
 
-# T-bud.a 조건부 블록 0개 경로는 8,000자 이하 + 메타 SKILL.md 본문 전 행 포함 (AC-1)
-#   8,000 은 래칫이다 — 조건부 블록·rehydrate 몫(~1,500자)을 남겨 둔다. 메타가 다시 커지면 여기서 멈춘다.
+# T-bud.a 조건부 블록 0개 경로는 4,564자 이하 + 메타 SKILL.md 본문 전 행 포함 (AC-1)
+#   4,564 는 래칫이다 — 20261112 슬림화 전 7,608자의 60%(실측 3,611자). 메타가 다시 커지면 여기서 멈춘다.
+#   조건부 상세(부트스트랩·재개·적색 플래그)는 주입하지 않고 같은 폴더 보조 문서로 둔다.
 ctx_j "$SB2"
 n_a=$(u16_of "$SB2/outj.json"); miss_a=0
 while IFS= read -r l; do
   [ -z "$l" ] && continue
   grep -qF -- "$l" "$SB2/ctxj.txt" || miss_a=$((miss_a+1))
 done < "$PLUGIN/skills/using-specops-ko/SKILL.md"
-if [ "${n_a:-99999}" -le 8000 ] && [ "$miss_a" -eq 0 ]; then ok "T-bud.a 조건부 0개 ${n_a}자 <= 8000 · 메타 본문 전 행 포함"
-else ng "T-bud.a 조건부 0개 총량/메타 전량" "chars=${n_a:-없음} limit=8000 누락행=$miss_a"; fi
+if [ "${n_a:-99999}" -le 4564 ] && [ "$miss_a" -eq 0 ]; then ok "T-bud.a 조건부 0개 ${n_a}자 <= 4564 · 메타 본문 전 행 포함"
+else ng "T-bud.a 조건부 0개 총량/메타 전량" "chars=${n_a:-없음} limit=4564 누락행=$miss_a"; fi
+
+# T-ref.a meta 블록이 보조 문서 디렉터리 절대경로를 준다 — Read 는 ${CLAUDE_PLUGIN_ROOT} 를 치환하지 않는다.
+#   값까지 본다: 비었거나, 미치환 변수($)가 남았거나, 플러그인의 그 폴더가 아니면 본문의 포인터(bootstrap-resume.md 등)가 끊긴다.
+ref_dir=$(sed -n 's/^보조 문서 디렉터리(Read 용 절대경로): \(.*\)$/\1/p' "$SB2/ctxj.txt" | head -1)
+if [ -n "$ref_dir" ] && [ "$ref_dir" = "$PLUGIN/skills/using-specops-ko" ] && [ -f "$ref_dir/bootstrap-resume.md" ] \
+   && [ -f "$ref_dir/guardrails.md" ] && [ -f "$ref_dir/freework-pending.md" ]; then ok "T-ref.a 보조 문서 디렉터리 절대경로 = 플러그인 폴더 · 보조 파일 3개 실재"
+else ng "T-ref.a 보조 문서 디렉터리" "값='${ref_dir}' 기대='$PLUGIN/skills/using-specops-ko'"; fi
 
 # T-pend.a pending 블록이 실재하는 절차 파일 절대경로를 가리킨다 (AC-4 ①)
 #   절차 본문은 메타 skill 밖(freework-pending.md)이라, 블록의 경로가 틀리면 자유작업 기록 경로가 끊긴다.
@@ -239,11 +247,11 @@ doc_has(){ # $1=파일  $2=grep 패턴  $3=TEST ID  $4=설명
   if [ -f "$PLUGIN/$1" ] && grep -q "$2" "$PLUGIN/$1"; then ok "$3 $4"
   else ng "$3 $4" "$1 에 '$2' 없음"; fi
 }
-doc_has CLAUDE.md 'specops-ko-anchor' "T-ord.f" "CLAUDE.md 조립 순서 계약 기재"
+doc_has hooks/CLAUDE.md 'specops-ko-anchor' "T-ord.f" "hooks/CLAUDE.md 조립 순서 계약 기재"
 doc_has README.md '조립 순서' "T-ord.g" "README.md 조립 순서 요약 기재"
 doc_has skills/context-resets-ko/SKILL.md '최후미' "T-ord.h" "context-resets-ko rehydrate 최후미 서술"
-doc_has CLAUDE.md '문자 10,000' "T-ord.i" "CLAUDE.md 인라인 한도(문자 10,000) 서술"
-doc_has CLAUDE.md 'UTF-16 단위' "T-ord.j" "CLAUDE.md 한도 단위 한정어(UTF-16) — 코드포인트 오해 방지"
+doc_has hooks/CLAUDE.md '문자 10,000' "T-ord.i" "hooks/CLAUDE.md 인라인 한도(문자 10,000) 서술"
+doc_has hooks/CLAUDE.md 'UTF-16 단위' "T-ord.j" "hooks/CLAUDE.md 한도 단위 한정어(UTF-16) — 코드포인트 오해 방지"
 
 # T-bud.i 앞 블록 폭주 — 미완 batch 14개여도 batch-resume 은 상세 3개 + 건수 1줄로 접혀 총량이 9,500 이하다 (20261002-batch-resume-hook-cap)
 #   ★ 공허 가드(실행 단언): 같은 픽스처의 직접 실행(상한 없음) 블록이 훅 블록의 2배 이상이어야 한다 — 상한이 실제로 접고 있다는 증거.

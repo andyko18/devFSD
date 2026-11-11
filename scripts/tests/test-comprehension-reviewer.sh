@@ -77,8 +77,8 @@ CMP='[.cases[] | select(.agent=="comprehension-reviewer-ko")]'
 e_t=0; for t in '맥락 의존 지시어' '부분 간 단절' '기존 동작 서술 모순'; do jq -e "$CMP | any(.asserts[0].value | contains(\"유형: $t\"))" "$EV" >/dev/null && e_t=$((e_t+1)); done
 [ "$e_t" = 3 ] && ok "E.d 결함 유형 3종이 서로 다르다" || nope "E.d" "유형 $e_t/3"
 
-# ══ AC-6: CHANGELOG [Unreleased] 기재 ══
-UNREL=$(awk '/^## \[Unreleased\]/ {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md)
-printf '%s\n' "$UNREL" | grep -q 'comprehension-reviewer-ko' && ok "C.a CHANGELOG [Unreleased] 에 이해 검사 리뷰어 기재" || nope "C.a" "[Unreleased] 에 comprehension-reviewer-ko 없음"
+# ══ AC-6: CHANGELOG 기재 ══
+#   [Unreleased] 만 보면 릴리즈가 항목을 버전 절로 옮기는 순간 빨개진다(v3.1.28 발행 뒤 main 에서 실측) — 기재 여부는 파일 전체로 본다.
+grep -q 'comprehension-reviewer-ko' CHANGELOG.md && ok "C.a CHANGELOG 에 이해 검사 리뷰어 기재" || nope "C.a" "CHANGELOG 에 comprehension-reviewer-ko 없음"
 
 finish

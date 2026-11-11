@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **세션 시작 때 매번 실리는 플러그인 몫을 줄였다.** 루트 `CLAUDE.md` 를 28,754B 에서 9,805B 로 줄였다 — 거버넌스 엔진 상세는 `hooks/CLAUDE.md`, 테스트 명령 상세는 `scripts/tests/CLAUDE.md`, SKILL.md frontmatter 규약과 서브에이전트 리뷰 패턴은 `skills/CLAUDE.md` 로 원문 그대로 옮겼다(하위 디렉터리의 CLAUDE.md 는 그 폴더 파일을 읽을 때만 로드된다). SessionStart 가 주입하는 메타 skill 본문도 11,531B 에서 4,952B 로 줄였다 — 신호 감지·배제 조건·진입 분기만 남기고, 부트스트랩 4분기·재개 통보 절차는 `skills/using-specops-ko/bootstrap-resume.md`, 흐름도·적색 플래그·5원칙은 `guardrails.md` 로 옮겨 필요할 때 Read 한다(훅이 그 폴더의 절대경로를 함께 준다). 빈 폴더 기준 훅 출력은 7,608자에서 3,611자가 됐다. 보조 문서를 필요할 때 실제로 읽는지는 유료 행동 평가로만 확인할 수 있어 아직 재지 않았다.
+
 ## [3.1.28] — 2026-11-11
 
 ### Added

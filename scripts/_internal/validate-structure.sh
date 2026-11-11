@@ -389,7 +389,8 @@ issues = [f"chain.yaml에만: {f} → {t}" for f, t in sorted(declared - actual)
 issues += [f"SKILL.md에만: {f} → {t}" for f, t in sorted(actual - declared)]
 
 # 메타 skill 화살표 목록: 인접 pair ⊆ declared (요약 목록이라 생략 허용 — 존재하지 않는 edge 주장만 FAIL)
-meta = open('skills/using-specops-ko/SKILL.md', encoding='utf-8').read()
+# 메타 본문은 슬림화돼(20261112) chain 흐름도가 같은 폴더 보조 문서(guardrails.md)에 있다 — 폴더의 md 전부를 읽는다.
+meta = ''.join(open(p, encoding='utf-8').read() + '\n' for p in sorted(glob.glob('skills/using-specops-ko/*.md')))
 for line in meta.splitlines():
     if '→' not in line or '-ko' not in line:
         continue

@@ -10,6 +10,8 @@ PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && cd ../.. && pwd)
 source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 SKILL="$PLUGIN/skills/using-specops-ko/SKILL.md"
+# 4분기 표 전체는 20261112 에 보조 문서로 옮겼다 — 본문에는 발동 조건과 전체 안내 1줄만 남는다.
+BOOT="$PLUGIN/skills/using-specops-ko/bootstrap-resume.md"
 
 
 eval_branch() {
@@ -33,7 +35,7 @@ has_specops=$([ -d .specops ] && echo 1 || echo 0)
 has_claude=$([ -f CLAUDE.md ] && echo 1 || echo 0)
 branch=$(eval_branch "$has_specops" "$has_claude")
 cd /tmp && rm -rf "$TMPDIR"
-if [ "$branch" = "전체" ] && grep -q "프로젝트가 초기화되지 않았습니다" "$SKILL"; then
+if [ "$branch" = "전체" ] && grep -q "프로젝트가 초기화되지 않았습니다" "$SKILL" && grep -q "프로젝트가 초기화되지 않았습니다" "$BOOT"; then
   ok "T1.a 둘 다 부재 → 분기='전체' + SKILL.md 메시지 명시"
 else
   nope "T1.a 전체" "branch=${branch}, SKILL grep 결과 확인 필요"
@@ -47,7 +49,7 @@ has_specops=$([ -d .specops ] && echo 1 || echo 0)
 has_claude=$([ -f CLAUDE.md ] && echo 1 || echo 0)
 branch=$(eval_branch "$has_specops" "$has_claude")
 cd /tmp && rm -rf "$TMPDIR"
-if [ "$branch" = "부분-claude" ] && grep -q "CLAUDE.md\` 가 없습니다" "$SKILL"; then
+if [ "$branch" = "부분-claude" ] && grep -q "CLAUDE.md\` 가 없습니다" "$BOOT"; then
   ok "T2.a CLAUDE.md 만 부재 → 분기='부분-claude' + SKILL.md 메시지 명시"
 else
   nope "T2.a 부분-claude" "branch=${branch}"
@@ -61,7 +63,7 @@ has_specops=$([ -d .specops ] && echo 1 || echo 0)
 has_claude=$([ -f CLAUDE.md ] && echo 1 || echo 0)
 branch=$(eval_branch "$has_specops" "$has_claude")
 cd /tmp && rm -rf "$TMPDIR"
-if [ "$branch" = "부분-specops" ] && grep -q "\.specops/\` 가 없습니다" "$SKILL"; then
+if [ "$branch" = "부분-specops" ] && grep -q "\.specops/\` 가 없습니다" "$BOOT"; then
   ok "T3.a .specops 만 부재 → 분기='부분-specops' + SKILL.md 메시지 명시"
 else
   nope "T3.a 부분-specops" "branch=${branch}"
@@ -76,7 +78,7 @@ has_specops=$([ -d .specops ] && echo 1 || echo 0)
 has_claude=$([ -f CLAUDE.md ] && echo 1 || echo 0)
 branch=$(eval_branch "$has_specops" "$has_claude")
 cd /tmp && rm -rf "$TMPDIR"
-if [ "$branch" = "정상" ] && grep -qE "안내 X|정상 specifying-ko 진입" "$SKILL"; then
+if [ "$branch" = "정상" ] && grep -qE "안내 X|정상 specifying-ko 진입" "$BOOT"; then
   ok "T4.a 둘 다 존재 → 분기='정상' + SKILL.md '안내 X' 명시"
 else
   nope "T4.a 정상" "branch=${branch}"

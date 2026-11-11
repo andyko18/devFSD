@@ -299,11 +299,11 @@ else
   nope "T2.e" "run-all 과 검사의 수집 목록이 다르다 — 실측값이 거짓이 된다"
 fi
 
-# T2.f CLAUDE.md 가 suite-count 마커로 잠겼다 (AC-7③)
-if grep -q 'doc-lock: suite-count' "$PLUGIN/CLAUDE.md" 2>/dev/null; then
-  ok "T2.f CLAUDE.md 가 suite-count 마커로 잠겼다 (AC-7③)"
+# T2.f scripts/tests/CLAUDE.md 가 suite-count 마커로 잠겼다 (AC-7③ — 테스트 명령 상세는 20261112 에 루트에서 이 파일로 옮겼다)
+if grep -q 'doc-lock: suite-count' "$PLUGIN/scripts/tests/CLAUDE.md" 2>/dev/null; then
+  ok "T2.f scripts/tests/CLAUDE.md 가 suite-count 마커로 잠겼다 (AC-7③)"
 else
-  nope "T2.f" "CLAUDE.md 에 마커가 없다 — 검사가 자기 저장소에서 FAIL 한다"
+  nope "T2.f" "scripts/tests/CLAUDE.md 에 마커가 없다 — 검사가 자기 저장소에서 FAIL 한다"
 fi
 
 # ── T3: 등재 ──────────────────────────────────────────────

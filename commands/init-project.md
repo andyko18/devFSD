@@ -204,7 +204,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 
 - `scripts/_internal/init-project.sh` — 본 슬래시의 오케스트레이터
 - `templates/{constitution,PRD,CLAUDE,README,DESIGN,project-context,decisions,...}.md` — 14종+원장 템플릿(전체 목록 — KIND 별 부분 활성)
-- `skills/using-specops-ko/SKILL.md` — 프로젝트 최초 진입 감지 분기
+- `skills/using-specops-ko/bootstrap-resume.md` — 프로젝트 최초 진입 감지 분기(본문 SKILL.md 가 가리킨다)
 - `skills/specifying-ko/SKILL.md` — `.specops/memory/*` 자동 감지 (Step 1)
 
 ---

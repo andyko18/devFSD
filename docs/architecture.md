@@ -285,7 +285,7 @@ PPT·엑셀·기획서처럼 **테스트할 코드가 없는** 작업은 chain �
 | 문서 | 내용 |
 |---|---|
 | [README.md](../README.md) | 설치·진입로·트러블슈팅 |
-| [CLAUDE.md](../CLAUDE.md) | 내부 규약 — chain SoT · 분기 마커 · frontmatter 필수 필드 |
+| [CLAUDE.md](../CLAUDE.md) | 내부 규약 — chain SoT · 분기 마커 (상세: `hooks/CLAUDE.md` 거버넌스 · `skills/CLAUDE.md` frontmatter 필수 필드 · `scripts/tests/CLAUDE.md` 테스트 명령) |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | 기여 절차 · PR 전 필수 체크 |
 | [CHANGELOG.md](../CHANGELOG.md) | 102 릴리즈 이력 |
 | [case-studies/](case-studies/) | dogfood 마찰 분석 3건 |

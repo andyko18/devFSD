@@ -343,7 +343,7 @@ devFSD/
 └── CLAUDE.md · DESIGN.md · CONTRIBUTING.md · CHANGELOG.md
 ```
 
-내부 규약 상세(chain SoT · 분기 마커 · frontmatter 필수 필드 · design-first 대칭)는 [CLAUDE.md](CLAUDE.md), 설계 근거·한계·규모 실측은 [docs/architecture.md](docs/architecture.md) 참조.
+내부 규약 상세(chain SoT · 분기 마커 · design-first 대칭)는 [CLAUDE.md](CLAUDE.md), 거버넌스 훅 상세는 [hooks/CLAUDE.md](hooks/CLAUDE.md) · frontmatter 필수 필드는 [skills/CLAUDE.md](skills/CLAUDE.md) · 테스트 명령 상세는 [scripts/tests/CLAUDE.md](scripts/tests/CLAUDE.md), 설계 근거·한계·규모 실측은 [docs/architecture.md](docs/architecture.md) 참조.
 
 ---
 

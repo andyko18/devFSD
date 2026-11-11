@@ -175,7 +175,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /
    **[공통 — 껍데기 판정·채움 요건]** (모드 무관 적용 · batch 제외 · foundation 셸에는 적용):
    - 화면 파일이 **이미 있으면** 먼저 판정한다:
      `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/{name}.md screens/{name}.html`
-     - exit 1(정상) → 재사용. 재생성 금지 (false-trigger 방지). 단 `<미확정 — 근거 필요>` 중 이번 기능이 확정하는 것은 **그 마커만** 채운다(init 보강분).
+     - exit 1(정상) → 재사용. 재생성 금지 (false-trigger 방지). 단 `<미확정 — 근거 필요>` 중 이번 기능이 확정하는 것은 **그 마커만** 채운다(init 보강·설계 완료분).
      - exit 0(껍데기) → 재사용 금지. 아래 생성 루프를 그대로 진행해 덮어쓴다.
    - **`.md` 채움 요건**: `screens/{name}.md` 는 **필수 8섹션**(목적 · Layout · Components · States · Interactions · 필드 정의표 · 데이터 소스 · 에러 메시지)을 실제 내용으로 완성한다. 조건부 4섹션(RBAC 권한별 표시 · 반응형 브레이크포인트 · 접근성 · 진입/이탈 경로)은 **해당할 때만** 넣는다 — 미해당 섹션을 `—` 로 채우지 않는다. (`/design-screen(s)` 와 동일 요건 — lifecycle 안/밖 비대칭 해소)
    - **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` **§2 타이포·§3 간격** · §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip).
@@ -220,6 +220,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /
    - memory 문서가 **부재**하면(예: UI-only 로 init 되어 api-spec 미생성) → 생성 여부를 사용자에게 확인 (제공 API 인지 외부 소비 인지 구분 — 제공이면 `templates/api-spec.md`, 외부 소비면 `templates/api-spec-consumer.md` 기반 생성)
    - 반영 완료 후 Step 6 진행
    **[계약 칸 점검 — 경고 전용 (20261021)]**: `api-spec.md` 를 고쳤으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-api-contract.sh <FID>` 를 한 번 실행한다(바꾼 행만 · Status 열·오류 형식·오류 코드·목록 정책·멱등 정책·rate limit·버전 전략). `WARN` 줄이 있으면 대화형은 사용자에게 보여 주고 지금 채울지 묻는다. 막지 않는다 — 종료 코드와 무관하게 Step 6 진행(같은 판정을 검증 러너가 evidence.md `### api-contract` 에 다시 남긴다). **보안 칸**: `api-spec.md` 또는 `data-model.md` 를 고쳤으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-security-design.sh <FID>` 를 한 번 실행한다(바꾼 행의 Auth 칸·URL 민감정보·응답 민감 필드 · 인증 방식·권한 모델·CORS·CSRF·개인정보 분류·보존·삭제 칸 · 위험 기능 결정) — `WARN` 은 위와 같이 다루고, 이것도 막지 않는다(같은 판정을 검증 러너가 evidence.md `### security-design` 에 다시 남긴다).
+   **[통합 뷰 갱신 — 5.5·5.6 직후 1회]**: 5.5·5.6 에서 화면·인터페이스를 만들거나 고쳤으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh` 를 1회 실행해 출력된 경로를 알리고 사용자 검토(8) 질문(§일괄 은 승인 묶음)에 싣는다. rc≠0 은 1줄 알림만(막지 않는다). batch 분기면 실행하지 않는다(Phase 2.5-E 몫).
 6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
    - **AC 필수 필드 (기계 검증)** — AC 블록마다 `### AC-<n>: <제목>` 헤더 + **Given·When·Then·우선순위** 를 반드시 채운다. `**우선순위**` 값은 `must`·`should`·`nice-to-have` 중 하나. 판정 SoT = `scripts/_internal/check-ac-format.sh` (구현 직전 `emit-context.sh` 가 자동 호출 — 미충족 시 dispatch 가 열리지 않는다). **`**우선순위**` 는 서식이 아니라 스위치다** — 없으면 `emit-context` 의 must AC 역방향 커버리지 검사가 그 AC 를 보지 못해, 필수 AC 가 태스크 매핑 없이 통과하고 영영 구현되지 않는다. 쓰지 않는 템플릿 골격 AC(`<...>`·`...`)는 **남기지 말고 삭제**한다(골격 잔존도 차단 대상).
    - **AC 개수 상한 (should — 하드 게이트가 아니다)** — 코드 변경이 **50줄 미만이면 AC 6건**을 넘기지 않는 것을 권고한다. 넘어간다면 **계약이 아니라 설명을 쓰고 있는지** 의심하라. AC 가 늘면 plan·tasks·리뷰 대상이 함께 늘어 **비용이 곱으로 번진다** (실측 20260808: 코드 **18줄** 변경에 AC **12건** → plan 558줄·tasks 468줄·plan-reviewer 2회 dispatch). `check-ac-format.sh` 는 개수를 **검사하지 않는다** — 계약이 진짜로 필요하면 6건을 넘겨도 된다. 이 상한은 **되묻는 장치**지 금지가 아니다. (반대 방향 주의: 상한을 지키려고 **must AC 를 빠뜨리면** `emit-context` 의 역방향 커버리지가 막는다 — 줄일 것은 AC 개수가 아니라 **설명으로 쓴 AC** 다.)

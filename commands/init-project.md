@@ -15,7 +15,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 
 프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 14종 산출물**(풀스택 기준 — 종류·선택별 7~14종)을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다. (구 `/start-project` 에서 rename.)
 
-**축소 계약 (v1.50)**: Intake 1 → Skeleton → Light enrich(게이트 1) → **Commit 1**. bash 단계는 화면 파일을 만들지 않는다(이름 목록만) — 화면 본문은 Phase 11 보강(UI 종류 · 미확정 마커 허용)이 초안을 만들고 `/start-all` Phase 2.5 가 FR 확정 뒤 메운다.
+**축소 계약 (v1.50)**: Intake 1 → Skeleton → Light enrich(게이트 1) → **Commit 1**. bash 단계는 화면 파일을 만들지 않는다(이름 목록만) — 화면 본문은 Phase 11 이 만든다(UI 종류): **첫 마일스톤(M1) 범위는 화면·인터페이스를 설계 완료까지**(§M1 설계 완료 규약 — 설계 리뷰 1회 포함) 하고, 그 밖은 초안(미확정 마커 허용)으로 둔다. `/start-all` Phase 2.5 는 설계 완료 표지가 붙은 것을 다시 설계하지 않고 새로 생기거나 달라진 것만 다룬다.
 
 ## Process
 
@@ -61,13 +61,13 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 5: CLAUDE.md 자동 생성 (PRD §1 + constitution 원칙 5개 인용)
    - Phase 6: DESIGN.md (UI/풀스택/모바일만) — 디자인 방향 카탈로그(`templates/design-directions.md`, 9개)에서 1택 → 방향 선언·다이얼·§1 팔레트 9색·§8 방향 특성을 채운다
    - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**. 표가 이미 있으면 **보존**하고 표에 없는 이름만 끝에 덧붙인다(기존 행·손으로 쓴 줄 무변경)
-     - **★ 이 목록의 소비자**: `/design-screen(s)`(fence 갱신) · **`/start-all` Phase 2.5-A**(Step 1 `list` 로 화면셋에 합류 · Step 4 `sync` 로 갱신 · `diff` 로 잔여 고지 — 20260906 배선). 마스터에만 있고 어느 FR 도 언급하지 않은 화면은 **queue 헤더에 고지**되며, 비차단이므로 batch 는 계속 진행된다.
+     - **★ 이 목록의 소비자**: `/design-screen(s)`(fence 갱신) · **`/start-all` Phase 2.5-A**(Step 1 `list` 로 화면셋에 합류 · `designed` 로 설계 완료분 제외 · Step 4 `sync` 로 갱신 · `diff` 로 잔여 고지 — 20260906 배선). 마스터에만 있고 어느 FR 도 언급하지 않은 화면은 **queue 헤더에 고지**되며, 비차단이므로 batch 는 계속 진행된다.
    - Phase 8: 종류별 산출물 매트릭스 (8a~8i: requirements/architecture/frontend/backend/data-model/api-spec/api-spec-consumer/test-strategy/process-design)
      - `api-spec-consumer.md`(8g)는 **14종 밖**이다 — UI·모바일 + 소비 계약 `y` 일 때만 생성된다.
    - Phase 9: README.md 자동 생성 (PRD §1 인용)
    - Phase 10: `.specops/.gitignore`(없으면 생성 · 있으면 **병합** — 사용자 규칙 보존) + session-progress + **원장 골격**(`project-context.md`·`decisions.md`) + **스테이징만**(커밋은 Phase 11 단일 · 범위는 init 산출물뿐 — 미리 stage 돼 있던 다른 파일·기존 앱의 `screens/` 는 건드리지 않는다). `SPECOPS_INIT_COMMIT_NOW=1` 이면 bash에서 즉시 커밋. 종결 커밋은 Phase 11 의 `init-finalize.sh` 가 수행.
 3. **Phase 11 — Light enrich** (bash 종료 후, 아래 §Phase 11 섹션 준수)
-4. **설계 통합 뷰 생성** (커밋 뒤 — 생성물이라 커밋 대상이 아니다): `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh` 를 실행하고 출력된 경로를 사용자에게 알린다("전체 설계를 한 화면에서 보려면 `<경로>` 를 브라우저로 여세요"). 실패(rc≠0 — python3 부재 등)는 1줄 고지만 하고 부트스트랩을 실패로 만들지 않는다. `--enrich` 뒤에도 같다.
+4. **설계 통합 뷰 생성** (생성물이라 커밋 대상이 아니다): `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh` 를 실행하고 출력된 경로를 사용자에게 알린다("전체 설계를 한 화면에서 보려면 `<경로>` 를 브라우저로 여세요"). **두 번 만든다** — ① Phase 11 승인 게이트 직전(보강·설계 리뷰 반영 뒤 — 사용자가 이 HTML 로 화면·인터페이스 설계를 보고 승인한다 · 수정 요청을 반영해 게이트를 다시 받을 때마다 다시 만든다) ② 종결 커밋 뒤(커밋된 내용과 같은 지문으로 남긴다). 실패(rc≠0 — python3 부재 등)는 1줄 고지만 하고 부트스트랩을 실패로 만들지 않는다 — 게이트는 요약만으로 받는다. `--enrich` 도 같다.
 5. 종료 후 안내: "이제 `/start \"<첫 기능>\"` 또는 `/start-foundation` → `/start-all` 으로 lifecycle 진입하세요"
 
 ## Phase 11 — Light enrich (bash 종료 후)
@@ -81,9 +81,9 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 **깊게** (원칙: bash 생성분 · 해당 KIND만 — 예외: `screens/<name>.md` 는 bash 비생성분이라 보강이 아니라 **새로 만든다**. `process-design.md` 는 bash 가 골격을 만들며 KIND 조건이 붙지 않는다):
 - `PRD.md` — **§1~2 는 Phase 4 확정분이라 건드리지 않는다**(사용자 응답 덮어쓰기 금지). 보강 대상은 `<TODO>` 가 남는 **§목적·성공 판정 · NFR · 리스크 · 기술 스택**뿐. e2e V21 이 `PRD.md` 를 스캔 대상으로 **지정**하므로 담당이 비면 게이트가 검사만 하고 채우는 주체가 없다(20260806 실측: 부트스트랩 직후 원시 `<TODO>` 10곳 잔존).
 - `requirements.md` — M1 FR 세부 분해(must) + M2/M3 시점 명시(should)
-- `api-spec.md` · `data-model.md` — PRD에서 도출된 실 엔드포인트·엔티티. **`<!-- specops:example:start -->`…`:end -->` 예시 블록은 마커째 삭제**한다(전자상거래 샘플 — 남기면 유령 스키마가 설계 계약이 되고 `scan-enrich-placeholders.sh` 가 미채움 판정).
+- `api-spec.md` · `data-model.md` — PRD에서 도출된 실 엔드포인트·엔티티. M1 범위는 §M1 설계 완료 규약까지 간다. **`<!-- specops:example:start -->`…`:end -->` 예시 블록은 마커째 삭제**한다(전자상거래 샘플 — 남기면 유령 스키마가 설계 계약이 되고 `scan-enrich-placeholders.sh` 가 미채움 판정).
 - `frontend-architecture.md` · `backend-architecture.md` — 스택 표 실값
-- `screens/<name>.md` + `screens/<name>.html` — **UI KIND일 때만**. 입력은 `screens-overview.md` fence 안 화면 이름 목록. 상세는 아래 §화면 보강 규약
+- `screens/<name>.md` + `screens/<name>.html` — **UI KIND일 때만**. 입력은 `screens-overview.md` fence 안 화면 이름 목록. 상세는 아래 §화면 보강 규약 · M1 범위 화면은 §M1 설계 완료 규약
 - `process-design.md` — 업무 프로세스 설계. `templates/process-design.md` 기반으로 `.specops/memory/process-design.md` 를 **채운다** — 골격은 bash Phase 8i 가 만든다(정본 14종 편입, 20261008). 골격이 없으면(`--enrich` 로 들어온 구 프로젝트) 같은 템플릿으로 새로 만든다. **KIND 무관 항상 산출**(CLI 도 `사용자 → 명령 → 처리 → 출력` 흐름을 갖는다). 프로세스마다 트리거·행위자·화면·API·테이블·결과·예외
   - **하류 이관** (`--enrich` · `--resume` 실행 시): 구 이름 `.specops/memory/intent.md` 가 프로세스 형식(본문에 `트리거`)으로 있고 `process-design.md` 가 없으면 `git mv .specops/memory/intent.md .specops/memory/process-design.md` 를 제안한다 [y/n]. 사용자가 거절하면 그대로 둔다 — **자동 개명·덮어쓰지 않는다**. `§auto` 는 제안만 기록하고 변경하지 않는다
 - `DESIGN.md` — **UI KIND일 때만**. 머리의 `디자인 방향` 선택을 `decisions.md` 결정 표에 행으로 upsert 한다(주제 `디자인 방향` · 출처 `init Phase6`) — 그 행의 이유·검토한 대안 칸도 채운다(근거가 없으면 비운다)
@@ -107,8 +107,26 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 - **산출**: `templates/screen.md` 기반으로 `screens/<name>.md` 를, `templates/screen.html` 기반으로 `screens/<name>.html` 을 **함께** 생성한다. 양쪽의 `<!-- specops:screen-placeholder ... -->` 줄을 **삭제**한다 — `.html` 은 `design-screen.sh` 가 **마커만** 보므로 이 삭제가 곧 채움 선언이다.
 - **채움**: 필수 8섹션(목적·Layout·Components·States·Interactions·필드 정의표·데이터 소스·에러 메시지)을 **모두** 둔다. PRD 로 도출되지 않는 항목은 `<미확정 — 근거 필요>` 로 채운다 — 이 마커는 `design-screen.sh` 의 "헤더+본문 존재" 판정을 통과하고 `scan-enrich-placeholders.sh` 제외 ①에도 걸리므로 **두 게이트가 함께 통과**한다. 조건부 4섹션(RBAC·반응형·접근성·진입/이탈)은 해당할 때만 넣는다.
 - **DESIGN.md 준수**: `DESIGN.md` §6.1 화면 원형 · §7 상태 표현을 읽고 따른다(부재 시 skip). `/design-screen(s)` 와 동일 의무다.
-- **표 목적 칸 갱신**: 보강한 화면의 `screens-overview.md` 행에서 목적 칸(셋째 칸)의 `예정 — /start-all Phase 2.5` 를 `init 보강 (미확정 <N>)` 으로 바꾼다(`<N>` = 그 화면에 남은 미확정 마커 수). **마커 수 상한은 두지 않는다** — 상한은 근거 없는 숫자이고, 남은 미확정은 `/start-all` Phase 2.5 가 FR 확정 후 메운다.
+- **표 목적 칸 갱신**: 보강한 화면의 `screens-overview.md` 행에서 목적 칸(셋째 칸)의 `예정 — /start-all Phase 2.5` 를 `init 보강 (미확정 <N>)` 으로 바꾼다(`<N>` = 그 화면에 남은 미확정 마커 수). **마커 수 상한은 두지 않는다** — 상한은 근거 없는 숫자이고, 남은 미확정은 `/start-all` Phase 2.5 가 FR 확정 후 메운다. M1 범위 화면이 아래 §M1 설계 완료 규약의 리뷰를 통과하면 이 칸은 `init 설계 완료 (미확정 <N>)` 이 된다.
 - **비UI KIND**: 화면 보강 전체를 graceful skip 한다(FAIL 아님).
+
+**§M1 설계 완료 규약** (20261112 — 첫 마일스톤 범위의 화면·인터페이스는 init 에서 끝낸다):
+
+> 왜: 종전에는 init 이 화면·IF 를 초안으로 한 번 쓰고 `/start-all` Phase 2.5 가 같은 것을 다시 설계·리뷰·승인했다(설계 2회·승인 2회). 게다가 init 끝의 설계 통합 뷰에는 뒤에서 할 설계가 보이지 않았다. M1 범위만 init 에서 설계 완료로 올리고, 사용자는 init 의 승인 1회에서 통합 뷰로 확인한다.
+
+- **범위 판정**: `requirements.md` 의 M1 FR 가운데 `[공통]`(foundation 범위)이 아닌 것이 대상이다. 그 FR 이 쓰는 화면·엔드포인트·테이블은 `process-design.md` 의 프로세스 행(화면·API·테이블 칸)과 PRD M1 서술로 정한다. 어느 마일스톤에 속하는지 근거가 없는 화면은 M1 로 올리지 않는다(초안으로 둔다) — 추정으로 M1 에 넣으면 그 판단을 `가정:` 으로 다이제스트에 싣는다. M2 이후 범위는 위 §화면 보강 규약의 초안 그대로다(`init 보강`).
+- **셸 3종은 여기서도 만들지 않는다** — `app-shell`·`layout`·`login` 과 `[공통]` FR 의 공통 API·공통 테이블은 `/start-foundation` 몫이다.
+- **화면 (UI KIND)**: M1 화면은 필수 8섹션을 실값으로 채운다. 근거 4원으로 정해지지 않는 값은 `가정:` 을 붙여 정하고 다이제스트에 싣는다 — `<미확정 — 근거 필요>` 는 가정조차 세울 수 없는 것(외부 계약·사용자만 아는 수치)에만 남긴다. 목업은 `templates/frontend-design-guide.md` 를 그대로 따르고(디자인 계획을 `.md` 의 `## 디자인 계획` 절에 쓴다 · 업무 화면 보충은 `templates/screen-design-guide.md`), 화면마다 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/screen-shot.sh screens/<name>.html .specops/.init-design/shots/<name>` 로 1280·390 두 장을 찍어 Read 로 보고 1~2회 다듬는다. `SCREEN-SHOT: SKIP`(rc 3)이면 다듬기 없이 진행하고 승인 요약에 "촬영 못 함 — <name>" 을 적는다(본 것처럼 적지 않는다). 입력 접근성(label for↔id)은 `/design-screen` 과 같은 요건이다.
+- **인터페이스 (api-spec·data-model 이 있는 KIND)**: M1 화면의 `## Interactions` 를 우선해 엔드포인트·테이블을 도출한다(화면이 없으면 M1 FR 에서). `api-spec.md` 채택 정의방식 섹션에 메서드·경로·요청/응답·인증·오류를, `data-model.md` 에 엔티티 표·ERD·인덱스를 채운다. **정합**: 서버를 부르는 Interaction 마다 대응 엔드포인트 행이, 화면의 데이터 소스·필드마다 대응 엔티티·컬럼이 있어야 한다. 가정 규칙은 화면과 같다.
+- **화면 전문가 1회 → 설계 리뷰 1회** (M1 화면 또는 M1 인터페이스를 하나라도 만들었을 때):
+  1. M1 화면이 있으면 `Agent` 도구 `subagent_type: "devfsd:ui-designer-ko"` 1회 — 입력은 경로만(M1 `screens/<name>.md`·`.html` · 촬영 폴더 `.specops/.init-design/shots/` · `requirements.md` · `DESIGN.md`), 산출은 `.specops/.init-design/experts/ui.md`(산출 경로의 `<FID>` 자리에 `.init-design` 을 쓰고 spec·AC 대신 `requirements.md` 의 M1 FR 을 본다고 프롬프트에 적는다). 지적은 반영하거나 기각해 그 파일 끝 `## 반영` 에 1줄씩 적고, `## 확인 필요` 질문은 승인 게이트에서 함께 묻는다.
+  2. `Agent` 도구 `subagent_type: "devfsd:design-reviewer-ko"` 1회 — 컨텍스트는 `init` 모드(BATCH_ID·FID 없음) · M1 FR 목록(`requirements.md`) · M1 화면 목록 · 촬영 폴더 · `api-spec.md` · `data-model.md`. 부모가 stdout 을 `.specops/.init-design/design-review.md` 에 저장한다. `FAIL` 이면 이슈를 고치고 **1회만** 다시 dispatch 한다. 지정 모델을 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 부른다(부모가 대신 리뷰하지 않는다).
+  - `.specops/.init-design/` 은 `.specops/.gitignore` 의 `.init-*` 규칙으로 무시된다(커밋 대상이 아니다).
+- **설계 완료 표지 — 리뷰를 통과한 것에만 단다** (`/start-all` Phase 2.5 가 이 표지를 보고 건너뛴다):
+  - 화면: `screens-overview.md` 그 행의 목적 칸을 `init 설계 완료 (미확정 <N>)` 으로 쓴다. 판독은 `check-screens-overview.sh designed`.
+  - 인터페이스: `api-spec.md`·`data-model.md` 머리(제목 줄 아래)에 `<!-- specops:init-designed: M1 -->` 한 줄을 넣는다.
+  - 재시도 뒤에도 `FAIL` 이면 남은 이슈가 걸린 화면에는 표지를 달지 않고(`init 보강` 으로 둔다) 이슈가 인터페이스에 걸렸으면 머리 주석도 넣지 않는다 — 남은 이슈는 승인 요약에 싣고, 표지 없는 것은 `/start-all` Phase 2.5 가 종전대로 설계·리뷰한다. 리뷰를 돌리지 못했으면 아무 표지도 달지 않는다.
+- **graceful skip**: 비UI KIND 는 화면 축을, `api-spec.md`·`data-model.md` 가 둘 다 없는 KIND(CLI·라이브러리 등)는 인터페이스 축을 건너뛴다. 두 축이 다 없으면 이 규약 전체를 건너뛴다(FAIL 아님 · 전문가·리뷰 dispatch 없음).
 
 **사실성 계약 (Karpathy 원칙 — karpathy-ko)**:
 - 서술 근거는 **근거 4원**만: ① 사전 문서(브레인스토밍 메모 · Phase 0 에서 사용자가 확인한 기존 기획 문서) ② 사용자 응답(Phase 2~8 입력) ③ 검증 가능한 사실 ④ 인터뷰 응답(Phase 11.5). 이 외 창작 금지.
@@ -129,6 +147,8 @@ should (수치·상세 — 근거 없으면 마커 + 사유):
 
 **단일 승인 게이트 + 가정 다이제스트** (전문 재출력 금지 — 요약+변경 diff 1회):
 1. 깊게 대상 전부 보강 → **1회** 요약 제시 → 게이트 `[y/번호 수정]`
+   - M1 설계 완료분: 화면 목록(표지 `init 설계 완료`/`init 보강`) · 인터페이스 요약(엔드포인트·테이블 수) · 설계 리뷰 결과(Critical/Important/Minor 건수와 남은 이슈) · 화면 전문가의 `## 확인 필요` 질문
+   - **통합 뷰 경로를 질문에 함께 싣는다** — "전체 설계: `<.specops/design-overview.html 경로>` (브라우저로 열어 화면·인터페이스를 확인하세요)". 생성하지 못했으면 그 사실을 1줄로 적는다
    - `가정:` 전건 번호 목록 + 결정급 ★ 표시
    - `y` = 전체 승인, 번호 = 해당 가정만 수정 후 재제시 (루프 cap 없음 — 사용자 주권)
    - **수정 요청을 반영한 뒤에는 다시 게이트를 받는다** — 반영 직후 곧바로 종결 커밋하지 않는다(실기록: 수정 요청 뒤 재승인 없이 커밋). `y` 를 받은 내용과 커밋하는 내용이 같아야 한다
@@ -156,7 +176,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 
  커밋 실패 시 rc=1 과 사유·재시도 안내가 출력되며 산출물은 staged 로 보존된다. bash 만 단독 실행할 때의 즉시커밋은 `SPECOPS_INIT_COMMIT_NOW=1` 이다.
 
-**무인 계약**: e2e-test-ko·§auto 무인 진입 시 승인 게이트를 **자동수락** 하고 Phase 11.5 인터뷰·가정 **건별 승인을 생략**한다 (HARD GATE 없이 완주 설계 정합). 단 가정 다이제스트·원장 기록은 **무인에서도 수행** — 사후 감사 경로.
+**무인 계약**: e2e-test-ko·§auto 무인 진입 시 승인 게이트를 **자동수락** 하고 Phase 11.5 인터뷰·가정 **건별 승인을 생략**한다 (HARD GATE 없이 완주 설계 정합). 단 가정 다이제스트·원장 기록은 **무인에서도 수행** — 사후 감사 경로. §M1 설계 완료 규약의 전문가·리뷰 dispatch 와 표지 규칙(리뷰 통과분에만)은 무인에서도 같다.
 
 ## --enrich (소급 보강 단독 실행)
 
@@ -165,6 +185,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 - 대상 = 원시 placeholder(`<...>`) 또는 `<미확정 — 근거 필요>` 가 **잔존 문서만** (문서 자체가 상태 — 재실행 멱등 수렴). Light enrich 깊이 규칙 동일.
 - 사용자 기작성 본문 무변경 보존.
 - 기존 프로젝트(과거 부트스트랩)에 소급 적용하는 경로.
+- §M1 설계 완료 규약도 같다 — 이미 `init 설계 완료` 인 화면과 머리 주석이 있는 인터페이스 문서는 다시 설계하지 않고, `init 보강` 으로 남은 M1 화면만 올린다.
 - Phase 11.5 인터뷰·가정 다이제스트 게이트를 **대화형 규칙 그대로** 적용한다 (멱등 계약 유지 — 대상 판정은 위 잔존 기준(원시 placeholder·미확정 마커)과 동일하며, `## §보강 가정 다이제스트` 섹션 내 `가정:` 은 잔존 판정에서 제외).
 
 ## 사용 예
@@ -187,9 +208,11 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 → bash … init-project.sh --answers .specops/.init-answers mychat
    (빠진 키가 있으면 rc=2 로 목록을 알려 준다 → 채워서 재실행)
 → 14종 골격(해당 KIND 활성분) + 원장 골격 스테이징
-→ Phase 11.5 인터뷰 ≤5 → Light enrich → 게이트 1회 [y]
+→ Phase 11.5 인터뷰 ≤5 → Light enrich → M1 화면·인터페이스 설계 완료(전문가 1회 → 설계 리뷰 1회)
+→ 설계 통합 뷰 생성 → 게이트 1회 [y] (질문에 통합 뷰 경로)
 → bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh → "init-finalize: 커밋 완료 <sha> (N파일)"
-→ "이제 /start-foundation 또는 /start-all 로 lifecycle 진입하세요"
+→ 설계 통합 뷰 다시 생성(커밋본 기준)
+→ "이제 /start-foundation 또는 /start-all 로 lifecycle 진입하세요" (/start-all Phase 2.5 는 설계 완료분을 건너뛴다)
 ```
 
 ## 안티패턴
@@ -197,7 +220,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 - **lifecycle chain 자동 진입 금지** — 본 슬래시는 부트스트랩 **단독**. spec/clarify/plan 등은 `/start` 가 진입.
 - **자동 chain 강제 시도 금지** — 5원칙 4 (사용자 주권) 위반.
 - **재실행으로 덮어쓰기 금지** — `.specops/memory/` 존재 시 명시 안내 후 [y/N] 확인 (Phase 1).
-- **Phase 7(bash)에서 screens 파일 생성 금지** — 화면 초안은 Phase 11 보강, 본설계는 start-all 2.5.
+- **Phase 7(bash)에서 screens 파일 생성 금지** — 화면은 Phase 11 이 만든다(M1 범위는 설계 완료, 그 밖은 초안 → start-all 2.5).
+- **리뷰를 통과하지 않은 화면·인터페이스에 설계 완료 표지 달기 금지** — 표지는 `/start-all` Phase 2.5 의 설계·리뷰를 건너뛰게 한다. 리뷰 없이 달면 품질 게이트가 사라진다.
 - **stdin 으로 답을 순서대로 밀어 넣기 금지** — 답변 파일(`--answers`)을 쓴다. 스크립트가 rc=2 로 멈추면 출력이 알려 준 키를 채운다(기본값으로 넘어가도록 우회하지 않는다).
 
 ## 참조
@@ -209,4 +233,4 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 
 ---
 
-*specops-ko v2.17.0 · 2026-10-09 · 답변 파일 · Light enrich · 원장 · Phase7 목록만 · 커밋1*
+*specops-ko v2.17.0 · 2026-11-12 · 답변 파일 · Light enrich · M1 설계 완료 · 원장 · Phase7 목록만 · 커밋1*

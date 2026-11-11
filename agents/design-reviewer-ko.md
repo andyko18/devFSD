@@ -1,6 +1,6 @@
 ---
 name: design-reviewer-ko
-description: /start-all Phase 2.5가 dispatch하는 batch 화면·인터페이스 설계 리뷰 — Interactions↔api-spec·data-model 정합·껍데기·cross-FR 충돌·foundation-baseline·foundation-shell 재작성·플레이스홀더. 추측 판정 금지.
+description: /start-all Phase 2.5가 dispatch하는 batch 화면·인터페이스 설계 리뷰(/init-project Phase 11 의 M1 설계 리뷰도 맡는다) — Interactions↔api-spec·data-model 정합·껍데기·cross-FR 충돌·foundation-baseline·foundation-shell 재작성·플레이스홀더. 추측 판정 금지.
 model: sonnet
 effort: high
 role: evaluator
@@ -29,6 +29,10 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 - 화면 품질 계측기: `scripts/_internal/check-screen-quality.sh` (직접 실행 — read-only·항상 exit 0)
 
 화면·IF **둘 다 부재**면 `DESIGN-REVIEW-RESULT: SKIP` 후 종료 (부모도 호출하지 않는 것이 정상).
+
+**리뷰 범위 (batch)**: 부모가 "이번 batch 가 만들거나 고친 화면·IF 행" 목록을 주면 판정 대상은 그것뿐이다. `/init-project` 에서 설계 완료된 재사용분(목적 칸 `init 설계 완료` · 문서 머리 `<!-- specops:init-designed: M1 -->`)은 대조 근거로만 읽고 이슈를 내지 않는다 — 단 대상과 **모순**되면 그 모순을 대상 쪽 이슈로 낸다. 목록을 받지 않았으면 전부가 대상이다(종전).
+
+**init 모드** (`/init-project` Phase 11 — 부모가 `init` 모드라고 적는다): `BATCH_ID`·FID·`spec.md` 가 없다. 위 1·2·5 대신 `.specops/memory/requirements.md` 의 M1 FR 목록과 M1 화면 목록을 받는다 — 표의 "전 FID spec §범위" 는 "M1 FR" 로, "담당 FR 범위" 는 "M1 FR 범위" 로 읽는다. 촬영 폴더는 `.specops/.init-design/shots/`, 부모의 저장 경로는 `.specops/.init-design/design-review.md` 다. foundation-baseline·foundation-shell·cross-FR 관점은 대상이 없으면 적용하지 않는다(init 은 셸 3종과 공통 IF 를 만들지 않는다 — 만들었으면 Important). `가정:` 으로 표시된 값은 미확정으로 세지 않는다. 판정 형식·기준은 같다.
 
 ## 검증 절차
 
@@ -130,6 +134,7 @@ Minor: <N>건
 ## 참조
 
 - `commands/start-all.md` Phase 2.5-D — 본 에이전트를 dispatch하는 부모
+- `commands/init-project.md` §M1 설계 완료 규약 — init 모드로 dispatch하는 부모
 - `agents/plan-reviewer-ko.md` — 동일 Evaluator 패턴
 
 ## 다음 단계

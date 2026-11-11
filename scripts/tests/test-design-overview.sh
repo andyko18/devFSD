@@ -253,4 +253,69 @@ rm -rf "$t"
 grep -q '^design-overview\.html$' "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh" \
   && ok "D9 .specops/.gitignore 규칙에 생성물 무시" || nope "D9" "무시 규칙 부재"
 
+# ── W: 설계가 끝나는 지점마다 통합 뷰를 다시 만든다 + M1 설계 완료 (20261112) ──────────────
+# 왜: 생성기는 init 끝과 수동 /design-overview 에서만 불렸다 — 화면·인터페이스 설계는 그 뒤(/start Step 5.5·5.6 ·
+#   /start-all Phase 2.5)에서 하므로 HTML 에 보이지 않았고, init 과 Phase 2.5 가 같은 설계를 두 번 했다.
+#   절 단위로 본다 — 파일 어딘가의 언급만으로 통과하면 호출 지점을 지워도 살아남는다.
+_W_GEN='bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh'
+_wsec() { awk -v s="$2" -v e="$3" '$0 ~ s {f=1} f && $0 ~ e && !($0 ~ s) {exit} f' "$1"; }   # $1=file $2=시작 ERE $3=끝 ERE
+_whas() {  # $1=id·설명 $2=본문 $3...=모두 들어 있어야 하는 고정 문자열
+  local _d="$1" _b="$2" _m=""; shift 2
+  for _n in "$@"; do printf '%s' "$_b" | grep -qF -- "$_n" || _m="$_m [$_n]"; done
+  [ -z "$_m" ] && ok "$_d" || nope "$_d" "누락:$_m"
+}
+_C="$PLUGIN/commands"; _SP="$PLUGIN/skills/specifying-ko/SKILL.md"; _SA="$_C/start-all.md"; _IP="$_C/init-project.md"
+
+# W1 호출 지점 6곳 — 생성 명령 · 경로 안내 · 실패 비차단
+_whas "W1.a specifying-ko 5.5·5.6 직후 1회 (6 앞)" "$(_wsec "$_SP" '^5[.]6[.] ' '^6[.] [*][*]설계 문서 작성')" \
+  "$_W_GEN" '통합 뷰 갱신 — 5.5·5.6 직후 1회' '사용자 검토(8) 질문' '막지 않는다' 'batch 분기면 실행하지 않는다'
+_whas "W1.b start-all 2.5-E 승인 직전" "$(_wsec "$_SA" '^#### E[.] ' '^#### F[.] ')" \
+  "0. **설계 통합 뷰 다시 생성** — 질문 전에 \`$_W_GEN\`" '막지 않는다' '전체 설계: `<통합 뷰 경로>`' '4 의 승인 묶음만 묻는 batch 도 이 생성은 한다'
+_whas "W1.c start-foundation 셸·공통 IF 설계 직후" "$(_wsec "$_C/start-foundation.md" '^## Process' '^## manifest')" \
+  "$_W_GEN" '설계 통합 뷰 갱신' '막지 않는다'
+_whas "W1.d design-screen 끝" "$(_wsec "$_C/design-screen.md" '^### Step 6: 설계 통합 뷰 갱신' '^## 사용 예')" "$_W_GEN" '막지 않는다'
+_whas "W1.e design-screens 루프 끝 1회" "$(_wsec "$_C/design-screens.md" '^[*][*]Step 3-5' '^## 참조')" "$_W_GEN" '1회 다시 만든다' '막지 않는다'
+_whas "W1.f design-interface 끝" "$(_wsec "$_C/design-interface.md" '^### Step 5: 설계 통합 뷰 갱신' '^## 안티패턴')" "$_W_GEN" '막지 않는다'
+_whas "W1.g design-interfaces 루프 끝 1회" "$(_wsec "$_C/design-interfaces.md" '^## Step 3: 설계 통합 뷰 갱신' '^## 참조')" "$_W_GEN" '막지 않는다'
+# 순서: specifying 의 갱신 줄은 5.6 뒤 · 6 앞이어야 한다(설계 문서 작성 뒤로 밀리면 검토 질문에 경로를 못 싣는다)
+_l56=$(grep -n '^5\.6\. ' "$_SP" | head -1 | cut -d: -f1); _lov=$(grep -n '통합 뷰 갱신 — 5.5·5.6 직후 1회' "$_SP" | head -1 | cut -d: -f1); _l6=$(grep -n '^6\. \*\*설계 문서 작성' "$_SP" | head -1 | cut -d: -f1)
+[ -n "$_l56" ] && [ -n "$_lov" ] && [ -n "$_l6" ] && [ "$_l56" -lt "$_lov" ] && [ "$_lov" -lt "$_l6" ] \
+  && ok "W1.h specifying 갱신 줄 위치 (5.6 < 갱신 < 6)" || nope "W1.h" "5.6=$_l56 갱신=$_lov 6=$_l6"
+
+# W2 init — 승인 게이트 전에 만들고 질문에 경로를 싣는다
+_whas "W2.a init 통합 뷰 2회(게이트 직전·커밋 뒤)" "$(grep -F '4. **설계 통합 뷰 생성**' "$_IP")" \
+  "$_W_GEN" 'Phase 11 승인 게이트 직전' '종결 커밋 뒤' '부트스트랩을 실패로 만들지 않는다'
+_whas "W2.b init 게이트 질문에 통합 뷰 경로" "$(_wsec "$_IP" '^[*][*]단일 승인 게이트' '^[*][*]가정 다이제스트 [+] 결정 원장')" \
+  '통합 뷰 경로를 질문에 함께 싣는다' '설계 리뷰 결과'
+
+# W3 init §M1 설계 완료 규약 — 범위·셸 제외·리뷰 1회·표지는 리뷰 통과분에만·graceful skip
+_m1=$(_wsec "$_IP" '^[*][*]§M1 설계 완료 규약' '^[*][*]사실성 계약')
+_whas "W3.a M1 범위·공통 제외·M2 초안" "$_m1" '`[공통]`(foundation 범위)이 아닌 것이 대상' '어느 마일스톤에 속하는지 근거가 없는 화면은 M1 로 올리지 않는다' 'M2 이후 범위는' '`app-shell`·`layout`·`login`'
+_whas "W3.b 가정 표기·정합" "$_m1" '`가정:` 을 붙여 정하고 다이제스트에 싣는다' '서버를 부르는 Interaction 마다 대응 엔드포인트 행'
+_whas "W3.c 전문가 1회 → 리뷰 1회 · 재시도 1회" "$_m1" 'subagent_type: "devfsd:ui-designer-ko"' 'subagent_type: "devfsd:design-reviewer-ko"' '**1회만** 다시 dispatch' '.specops/.init-design/design-review.md'
+_whas "W3.d 표지 2종 — 리뷰 통과분에만" "$_m1" '리뷰를 통과한 것에만 단다' 'init 설계 완료 (미확정 <N>)' '<!-- specops:init-designed: M1 -->' '리뷰를 돌리지 못했으면 아무 표지도 달지 않는다'
+_whas "W3.e graceful skip" "$_m1" '비UI KIND 는 화면 축을' '이 규약 전체를 건너뛴다'
+# 초안 표지(M2 이후)와 사실성 계약은 그대로다 — 완성하느라 근거 규칙이 풀리면 안 된다
+grep -qF 'init 보강 (미확정 <N>)' "$_IP" && grep -qF '근거 4원' "$_IP" && grep -qF '무인에서도 같다' "$_IP" \
+  && ok "W3.f 초안 표지·근거 4원·무인 동일 규칙 유지" || nope "W3.f" "init 보강/근거 4원/무인 문구 소실"
+# 표지 문자열은 쓰는 쪽(init)·읽는 쪽(start-all·판독기)이 같아야 한다
+_chk="$PLUGIN/scripts/_internal/check-screens-overview.sh"
+grep -qF 'init 설계 완료' "$_chk" && grep -qF 'check-screens-overview.sh designed' "$_SA" && grep -qF "grep -l 'specops:init-designed'" "$_SA" \
+  && ok "W3.g 표지 문자열 — init·start-all·판독기 일치" || nope "W3.g" "표지 문자열 불일치"
+
+# W4 start-all Phase 2.5 — 설계 완료분 건너뛰기 · 달라진 것만 · 표지 없으면 종전
+_a=$(_wsec "$_SA" '^#### A[.] ' '^#### A2[.] '); _b=$(_wsec "$_SA" '^#### B[.] ' '^#### C[.] '); _d=$(_wsec "$_SA" '^#### D[.] ' '^#### E[.] ')
+_whas "W4.a 2.5-A 설계 완료 화면 건너뛰기·예외 2" "$_a" 'check-screens-overview.sh designed' 'A2·D 의 대상에도 넣지 않는다' '표지가 낡은 것이다' '**달라진 화면**이다' 'SCREEN-DESIGN: SKIP — init 설계 완료 재사용'
+_whas "W4.b 2.5-B 설계 완료 IF 재사용·표지 없으면 D" "$_b" "grep -l 'specops:init-designed'" 'INTERFACE-DESIGN: SKIP — init 설계 완료 재사용' '**표지가 없는 문서**는 리뷰된 적이 없다' '산출로 세어 D 에 넘긴다'
+_whas "W4.c 2.5-D 재사용 SKIP 은 산출 아님·대상 목록" "$_d" '은 산출이 아니다 — 그 설계는 init 에서 이미 리뷰됐다' '이번 batch 가 만들거나 고친 화면·IF 행 목록'
+# 게이트 보존 — 산출이 있으면 리뷰는 여전히 항상 돈다(건너뛰기가 D 자체를 없애면 안 된다)
+_whas "W4.d D 리뷰·Critical 정지 보존" "$_d" '**하나라도 산출**되면 **항상** Evaluator를 돌린다' 'HARD-GATE: design-reviewer Critical cap'
+# 리뷰어가 init 모드와 대상 목록을 안다
+_AGR="$PLUGIN/agents/design-reviewer-ko.md"
+_whas "W4.e design-reviewer-ko init 모드·리뷰 범위" "$(cat "$_AGR")" '**init 모드**' '.specops/.init-design/design-review.md' '**리뷰 범위 (batch)**' '목록을 받지 않았으면 전부가 대상이다'
+_whas "W4.f ui-designer-ko init 입력" "$(cat "$PLUGIN/agents/ui-designer-ko.md")" '**init 에서 부르면**' '.specops/.init-design/experts/ui.md'
+# .init-design 은 init 의 .gitignore 규칙(.init-*)에 걸려야 한다 — 규칙이 바뀌면 리뷰 산출물이 미추적 파일로 남는다
+grep -qx '\.init-\*' "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh" \
+  && ok "W4.g .specops/.init-design 은 .init-* 규칙으로 무시된다" || nope "W4.g" ".init-* 규칙 부재"
+
 finish

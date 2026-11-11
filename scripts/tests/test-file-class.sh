@@ -22,6 +22,9 @@ type fc::is_doc >/dev/null 2>&1 || { echo "FATAL: fc::is_doc 미정의" >&2; exi
 CORPUS='CHANGELOG.md|doc
 README.md|doc
 CLAUDE.md|doc
+scripts/tests/CLAUDE.md|doc
+hooks/CLAUDE.md|code
+skills/CLAUDE.md|code
 docs/guide.md|doc
 notes.txt|doc
 spec.rst|doc

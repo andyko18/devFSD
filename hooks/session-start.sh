@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # specops-ko · SessionStart hook (Claude Code 전용)
 # 역할 (merged):
-#   1) skills/using-specops-ko/SKILL.md 전체를 JSON additionalContext 로 주입
+#   1) skills/using-specops-ko/SKILL.md 전체(슬림 본문 — 상세는 같은 폴더 보조 문서)를 JSON additionalContext 로 주입
 #      → Claude Code 세션 진입 시 `<EXTREMELY_IMPORTANT>` 블록으로 자동 활성
 #   2) .specops/session-progress.md 최신 블록(있으면)을 동일 additionalContext 뒤에 이어 주입
 #      → 재접속 세션에서 FID/상태 rehydrate
@@ -82,9 +82,11 @@ meta_escaped=$(escape_for_json "$meta_content")
 #   rehydrate 는 7.8KB 로 커서 앞에 두면 뒤를 전부 밀어내므로 최후미에 둔다
 #   (clarify Q1 — 참조 데이터라 절단 손실이 가장 작다).
 #   계약 잠금: scripts/tests/test-session-start-order.sh
-anchor_block="<specops-ko-anchor>\ndevFSD 자율 Lifecycle 플러그인 활성.\n바로 아래 지시 블록을 최우선으로 즉시 처리하라 (자유작업 pending · 재개 힌트).\n메타 skill 'using-specops-ko' 본문은 이 컨텍스트 하단에 전문 첨부 — 기능 요청 신호 감지 시 반드시 따른다.\n</specops-ko-anchor>"
+anchor_block="<specops-ko-anchor>\ndevFSD 자율 Lifecycle 플러그인 활성.\n바로 아래 지시 블록을 최우선으로 즉시 처리하라 (자유작업 pending · 재개 힌트).\n메타 skill 'using-specops-ko' 핵심 본문은 이 컨텍스트 하단에 첨부 — 기능 요청 신호 감지 시 반드시 따른다(상세는 본문이 가리키는 보조 문서를 Read).\n</specops-ko-anchor>"
 
-meta_block="<EXTREMELY_IMPORTANT>\ndevFSD 자율 Lifecycle 플러그인이 활성화돼 있다.\n\n**아래는 'devfsd:using-specops-ko' 메타 skill 본문 — 모든 대화 시작 시 이 지시를 최우선으로 따른다. 다른 skill 은 Skill 도구로 호출한다:**\n\n${meta_escaped}\n</EXTREMELY_IMPORTANT>"
+# 보조 문서(bootstrap-resume.md·guardrails.md) 디렉터리 절대경로 — Read 는 ${CLAUDE_PLUGIN_ROOT} 를 치환하지 않는다(freework-pending 과 같은 이유).
+ref_dir_json=$(escape_for_json "${PLUGIN_ROOT}/skills/using-specops-ko")
+meta_block="<EXTREMELY_IMPORTANT>\ndevFSD 자율 Lifecycle 플러그인이 활성화돼 있다.\n\n**아래는 'devfsd:using-specops-ko' 메타 skill 본문 — 모든 대화 시작 시 이 지시를 최우선으로 따른다. 다른 skill 은 Skill 도구로 호출한다:**\n\n${meta_escaped}\n\n보조 문서 디렉터리(Read 용 절대경로): ${ref_dir_json}\n</EXTREMELY_IMPORTANT>"
 
 rehydrate_out=""
 reconcile_out=""

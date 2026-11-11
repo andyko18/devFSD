@@ -94,7 +94,7 @@ fi
 
 # ── 소비측 문서 잠금 (T5) ─────────────────────────────────────────────────
 # T-se.f doc-lock: CLAUDE.md 가 조회 경로를 안내한다 (생성측만 강화하고 소비측을 빼먹는 패턴 방지)
-if grep -q 'scope-explain.sh' "$PLUGIN/CLAUDE.md"; then
+if grep -q 'scope-explain.sh' "$PLUGIN/CLAUDE.md" && grep -q 'SPECOPS_DRYRUN' "$PLUGIN/hooks/CLAUDE.md"; then
   PASS=$((PASS+1)); echo "PASS T-se.f CLAUDE.md 조회 경로 안내"
 else
   FAIL=$((FAIL+1)); echo "FAIL T-se.f CLAUDE.md 안내 부재"

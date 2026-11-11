@@ -580,7 +580,7 @@ jq -n '{skill:"karpathy-ko",cases:[{id:"e-1",prompt:"p",asserts:[{type:"llm_rubr
 _run '{"text":"응답"}\n{"text":"통과로 봅니다"}' SKILL_EVAL_DIR="$TMP/data4" -- --evals
 _line e-1 | grep -qF 'FAIL  (첫 실패 contains:없는낱말QQ' && _line e-1 | grep -qF '채점 실패' && printf '%s' "$RUN_OUT" | grep -q 'pass=0 fail=1 skip=0' \
   && ok "T8.aj 러너: 채점 ERROR 뒤의 결정적 FAIL 도 평가 — SKIP 으로 덮지 않음" || nope "T8.aj" "$RUN_OUT"
-if grep -q 'run-judge-calibration.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-judge-calibration.sh' "$PLUGIN/scripts/README.md"; then
+if grep -q 'run-judge-calibration.sh' "$PLUGIN/scripts/tests/CLAUDE.md" && grep -q 'run-judge-calibration.sh' "$PLUGIN/scripts/README.md"; then
   ok "T8.r CLAUDE.md · scripts/README.md 에 보정 러너 등재"; else nope "T8.r" "run-judge-calibration.sh 미등재"; fi
 # karpathy 행동 eval = 보정을 통과한 llm_rubric — 쓰는 문안이 보정 세트가 검증한 문안과 같아야 한다
 _krub=$(jq -r '[.cases[].asserts[]|select(.type!="llm_rubric")]|length' "$LE/skills/karpathy-ko/evals.json")
@@ -588,7 +588,7 @@ _krub=$(jq -r '[.cases[].asserts[]|select(.type!="llm_rubric")]|length' "$LE/ski
 _kmiss=$(jq -rn --slurpfile c "$LE/judge-calibration/cases.jsonl" --slurpfile e "$LE/skills/karpathy-ko/evals.json" '[$e[0].cases[] | {p:.prompt, v:(.asserts[].value)} | . as $k | select(([$c[] | select(.prompt==$k.p and .rubric==$k.v)]|length)==0)] | length')
 [ "$_krub" = 0 ] && [ "$_kmiss" = 0 ] && ok "T8.t karpathy 행동 eval = llm_rubric 이며 (프롬프트, 문안) 쌍이 보정 세트가 검증한 쌍" || nope "T8.t" "비-rubric ${_krub} · 미검증 문안 ${_kmiss}"
 # T7 (AC-6) 문서 등재 — 수동 러너는 CLAUDE.md 테스트 명령 + scripts/README.md llm-eval 절에 적는다
-if grep -q 'run-skill-evals.sh' "$PLUGIN/CLAUDE.md" && grep -q 'run-skill-evals.sh' "$PLUGIN/scripts/README.md"; then
+if grep -q 'run-skill-evals.sh' "$PLUGIN/scripts/tests/CLAUDE.md" && grep -q 'run-skill-evals.sh' "$PLUGIN/scripts/README.md"; then
   ok "T7 CLAUDE.md · scripts/README.md 등재"; else nope "T7" "run-skill-evals.sh 미등재"; fi
 # T9 `claude plugin eval` 스위트 구조 (20261007-doc-conformance) — 실행은 수동(토큰 비용)이고 여기서는 데이터 계약만 잠근다
 #   공식 plugin-evals: 케이스 = prompt.md(+선택 case.yaml) + graders/*.md ≥1(type 필수). 케이스당 grader 가 없으면 로드 실패.
@@ -700,7 +700,7 @@ _ctx_bad=$(jq -r '.cases[] | select(.id|test("^e-(5|7|8|9)$")) | select(.prompt|
 _ctx_bad="$_ctx_bad$(jq -r '.cases[] | select(.id|test("^e-(10|11|12)$")) | select(.prompt|contains("검토 컨텍스트 5종")|not) | .id' "$EJ" | tr '\n' ' ')"
 [ -z "$_ctx_bad" ] && ok "T10.j e-5·e-7~e-12 prompt 에 컨텍스트 충족 문구(e-6 은 의도적 누락 시나리오)" || nope "T10.j" "문구 누락:$_ctx_bad"
 [ "$(jq '[.cases[0:4][] | has("agent")] | any' "$EJ")" = false ] && ok "T10.k e-1~e-4 는 agent 필드 없음(불변)" || nope "T10.k" "e-1~e-4 에 agent 필드"
-if grep -q 'SKILL_EVAL_INJECT' "$PLUGIN/scripts/README.md" && grep -q 'SKILL_EVAL_INJECT' "$PLUGIN/CLAUDE.md" \
+if grep -q 'SKILL_EVAL_INJECT' "$PLUGIN/scripts/README.md" && grep -q 'SKILL_EVAL_INJECT' "$PLUGIN/scripts/tests/CLAUDE.md" \
    && grep -q 'N≥3' "$PLUGIN/scripts/README.md" && grep -q '별도 승인' "$PLUGIN/scripts/README.md"; then
   ok "T10.l 문서에 INJECT 사용법·측정 프로토콜(N≥3·비용 별도 승인)"; else nope "T10.l" "README/CLAUDE.md 에 SKILL_EVAL_INJECT·N≥3·별도 승인 누락"; fi
 
@@ -757,7 +757,7 @@ if [ "$(_ncalls)" -eq 3 ] && cmp -s "$TMP/offb-1.args" "$TMP/calls/1.args" \
 else nope "T11.e" "$RUN_OUT"; fi
 
 if grep -q 'SKILL_EVAL_EFFORT' "$PLUGIN/scripts/README.md" && grep -q 'SKILL_EVAL_MODEL' "$PLUGIN/scripts/README.md" \
-   && grep -q 'SKILL_EVAL_EFFORT' "$PLUGIN/CLAUDE.md" && grep -q 'SKILL_EVAL_MODEL' "$PLUGIN/CLAUDE.md" \
+   && grep -q 'SKILL_EVAL_EFFORT' "$PLUGIN/scripts/tests/CLAUDE.md" && grep -q 'SKILL_EVAL_MODEL' "$PLUGIN/scripts/tests/CLAUDE.md" \
    && grep -q '파일럿' "$PLUGIN/scripts/README.md" && grep -q '별도 승인' "$PLUGIN/scripts/README.md"; then
   ok "T11.f 문서에 노브·파일럿 프로토콜(별도 승인) 병기 (AC-4)"
 else nope "T11.f" "README/CLAUDE.md 에 SKILL_EVAL_EFFORT·SKILL_EVAL_MODEL·파일럿·별도 승인 누락"; fi
@@ -841,7 +841,7 @@ if [ "$(_ncalls)" -eq 3 ] && cmp -s "$TMP/offc-1.args" "$TMP/calls/1.args" && cm
   ok "T12.g 빈 값 = off — candidate 호출 인자·출력 바이트 동일·표기 없음 (AC-R-1)"
 else nope "T12.g" "$RUN_OUT"; fi
 
-if grep -q 'SKILL_EVAL_CASES' "$PLUGIN/scripts/README.md" && grep -q 'SKILL_EVAL_CASES' "$PLUGIN/CLAUDE.md" && grep -q '≈ \$16' "$PLUGIN/scripts/README.md"; then
+if grep -q 'SKILL_EVAL_CASES' "$PLUGIN/scripts/README.md" && grep -q 'SKILL_EVAL_CASES' "$PLUGIN/scripts/tests/CLAUDE.md" && grep -q '≈ \$16' "$PLUGIN/scripts/README.md"; then
   ok "T12.h 문서에 SKILL_EVAL_CASES 사용법·정정 비용(≈ \$16) 병기 (AC-5)"
 else nope "T12.h" "README/CLAUDE.md 에 SKILL_EVAL_CASES 또는 ≈ \$16 누락"; fi
 echo "--- SUMMARY ---"

@@ -256,7 +256,7 @@ else
 fi
 
 # T5.b 문서 등재 — scripts/README.md + CLAUDE.md 에 run-evals.sh 언급
-if grep -q 'run-evals.sh' "$PLUGIN/scripts/README.md" && grep -q 'run-evals.sh' "$PLUGIN/CLAUDE.md"; then
+if grep -q 'run-evals.sh' "$PLUGIN/scripts/README.md" && grep -q 'run-evals.sh' "$PLUGIN/scripts/tests/CLAUDE.md"; then
   PASS=$((PASS+1)); echo "PASS T5.b 문서 등재"
 else
   FAIL=$((FAIL+1)); echo "FAIL T5.b 문서 등재"
@@ -460,7 +460,7 @@ else FAIL=$((FAIL+1)); echo "FAIL T13 (rc=$rc out=$out)"; fi
 rm -rf "$TD"
 
 # ── T14 LLM_EVAL_RUNS 문서화 (AC-S-1) ──
-if grep -q 'LLM_EVAL_RUNS' "$PLUGIN/scripts/README.md" && grep -q 'LLM_EVAL_RUNS' "$PLUGIN/CLAUDE.md"; then
+if grep -q 'LLM_EVAL_RUNS' "$PLUGIN/scripts/README.md" && grep -q 'LLM_EVAL_RUNS' "$PLUGIN/scripts/tests/CLAUDE.md"; then
   PASS=$((PASS+1)); echo "PASS T14 LLM_EVAL_RUNS 문서 등재"
 else FAIL=$((FAIL+1)); echo "FAIL T14 (README/CLAUDE 미등재)"; fi
 

@@ -80,7 +80,7 @@ fi
 
 # T6.c 적색 플래그 대칭 — 과잉 발동도 적색 플래그 (AC-4)
 #   ★ 고유 문구 단독 앵커 — '공회전' 은 배제 조건 블록에도 있어 행 삭제해도 PASS 하는 반쪽 tautology 였다 (code-reviewer I-2)
-if grep -q '과잉 발동' "$META"; then
+if grep -q '과잉 발동' "$META" && grep -q '과잉 발동도 적색 플래그다' "$(dirname "$META")/guardrails.md"; then  # 표 원문은 guardrails.md(20261112 분리) · 본문은 포인터
   PASS=$((PASS+1)); echo "PASS T6.c 적색 플래그 대칭 (과잉 발동)"
 else
   FAIL=$((FAIL+1)); echo "FAIL T6.c — 적색 플래그 반대 방향 행 부재"

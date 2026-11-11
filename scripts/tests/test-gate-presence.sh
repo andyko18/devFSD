@@ -272,10 +272,10 @@ else
 fi
 # 20261008 스위트 상한 — 부하(load 17)에서 test-validate-structure(단독 114s)가 300s 상한 TIMEOUT 으로 거짓 FAIL → 기본 600 doc-lock: historical (당시 실측)
 if grep -qF 'SPECOPS_SUITE_TIMEOUT:-600' scripts/tests/run-all.sh && ! grep -qF 'SPECOPS_SUITE_TIMEOUT:-300' scripts/tests/run-all.sh \
-   && grep -qF '스위트별 600s 상한' CLAUDE.md && ! grep -qF '스위트별 300s 상한' CLAUDE.md; then
-  ok "run-all 스위트 상한 기본 600s (run-all.sh·CLAUDE.md 정합)"
+   && grep -qF '스위트별 600s 상한' scripts/tests/CLAUDE.md && ! grep -qF '스위트별 300s 상한' scripts/tests/CLAUDE.md && ! grep -qF '스위트별 300s 상한' CLAUDE.md; then
+  ok "run-all 스위트 상한 기본 600s (run-all.sh·scripts/tests/CLAUDE.md 정합)"
 else
-  nope "run-all 스위트 상한 기본값 불일치" "run-all.sh 기본 600 또는 CLAUDE.md 서술 누락"
+  nope "run-all 스위트 상한 기본값 불일치" "run-all.sh 기본 600 또는 scripts/tests/CLAUDE.md 서술 누락"
 fi
 
 # ── 20261005 전체 스위트 신선도 확인 (verifying-evidence-ko) ──
@@ -459,11 +459,44 @@ fi
 # CLAUDE.md 는 매 세션 로드된다 — 사건 이력·근거는 docs/governance-history.md 로 두고 규칙만 남긴다(실측 32,368B → 29,000B 이하).
 _cm_bytes=$(wc -c < "$PLUGIN/CLAUDE.md" | tr -d ' ')
 _gh_secs=$(grep -c -E '^## [1-7]\. ' "$PLUGIN/docs/governance-history.md" 2>/dev/null || echo 0)
-if [ "$_cm_bytes" -le 29000 ] && [ "$_gh_secs" -eq 7 ]; then
-  ok "T-diet CLAUDE.md ${_cm_bytes}B ≤ 29000 · docs/governance-history.md 절 7개"
+# 20261112-claude-md-split-session-diet: 상세는 하위 CLAUDE.md(그 폴더 파일을 읽을 때만 로드)로 옮기고 루트 상한을 10,240B 로 낮췄다(실측 28,754B → 9,805B).
+if [ "${_cm_bytes:-99999}" -le 10240 ] && [ "$_gh_secs" -eq 7 ]; then
+  ok "T-diet CLAUDE.md ${_cm_bytes}B ≤ 10240 · docs/governance-history.md 절 7개"
 else
-  nope "T-diet" "CLAUDE.md ${_cm_bytes}B (상한 29000) · governance-history 절 ${_gh_secs}/7 — 이력·근거는 docs 로"
+  nope "T-diet" "CLAUDE.md ${_cm_bytes}B (상한 10240) · governance-history 절 ${_gh_secs}/7 — 상세는 하위 CLAUDE.md 로"
 fi
+# T-diet.split — 옮긴 상세가 목적지에 있고(루트에는 없고) 루트가 그 파일을 가리킨다. 하위 파일은 on-demand 로드 한도(40,000자) 아래.
+#   토큰은 "목적지에 있다 + 루트에 없다" 쌍으로 본다 — 복사(루트 잔존)와 누락을 둘 다 잡는다.
+_diet_bad=""
+_diet_moved() { # $1=목적지 파일  $2..=상세 토큰
+  local f="$1" t n; shift
+  [ -s "$PLUGIN/$f" ] || { _diet_bad="$_diet_bad [$f 부재]"; return; }
+  n=$(wc -m < "$PLUGIN/$f" | tr -d ' '); [ "${n:-99999}" -le 40000 ] || _diet_bad="$_diet_bad [$f ${n}자>40000]"
+  grep -qF "$f" "$PLUGIN/CLAUDE.md" || _diet_bad="$_diet_bad [루트에 $f 포인터 없음]"
+  for t in "$@"; do
+    grep -qF -- "$t" "$PLUGIN/$f" || _diet_bad="$_diet_bad [$f 에 '$t' 없음]"
+    ! grep -qF -- "$t" "$PLUGIN/CLAUDE.md" || _diet_bad="$_diet_bad [루트에 '$t' 잔존]"
+  done
+}
+_diet_moved hooks/CLAUDE.md '**조립 순서 계약**' '문자 10,000' '예산 9,500자 가드' 'Hard block' 'SPECOPS_BYPASS_REASON' '_files_all_docs' \
+  '_audit_scope_class' 'ensure-session-progress.sh' '_gov_apply_record_root' 'SPECOPS_DRYRUN' '_verify_exec_evidence' '_vs_stale_blocks' \
+  'GOVERNANCE-DISABLED' '_exec_rc' 'quick-scope.sh' 'quick-unstaged' '응집도가 곧 목적'
+_diet_moved scripts/tests/CLAUDE.md 'CI 상태 경고' '스위트별 600s 상한' '**릴리즈 대상**' 'find-tree-writes.sh' 'LLM_EVAL_RUNS' 'run-skill-evals.sh' \
+  'SKILL_EVAL_INJECT' 'run-judge-calibration.sh' 'phase25-checklist.md' 'governance/test-rules.sh' 'GH-env.4'
+_diet_moved skills/CLAUDE.md 'reference_upstream:' 'discipline: true' 'red-team-ko' 'test-review-evidence-rules'
+if [ -z "$_diet_bad" ]; then ok "T-diet.split 하위 CLAUDE.md 3개 — 상세 토큰 목적지 존재·루트 부재·포인터·40,000자 이하"
+else nope "T-diet.split" "$_diet_bad"; fi
+# T-diet.meta — 메타 skill 은 매 세션 주입된다: 본문 ≤ 5,000B, 조건부 상세는 같은 폴더 보조 문서(원문)에, 본문이 가리키는 md 는 실재.
+_ms="$PLUGIN/skills/using-specops-ko"; _ms_bad=""
+_ms_bytes=$(wc -c < "$_ms/SKILL.md" | tr -d ' '); [ "${_ms_bytes:-99999}" -le 5000 ] || _ms_bad="$_ms_bad [SKILL.md ${_ms_bytes}B>5000]"
+for _r in $(grep -oE '`[a-z-]+\.md`' "$_ms/SKILL.md" | tr -d '`' | sort -u); do [ -s "$_ms/$_r" ] || _ms_bad="$_ms_bad [포인터 $_r 부재]"; done
+grep -qF 'bootstrap-resume.md' "$_ms/SKILL.md" && grep -qF 'guardrails.md' "$_ms/SKILL.md" || _ms_bad="$_ms_bad [보조 문서 포인터 없음]"
+for _t in '`/init-project --resume` 권장 [y/N]' '능동 재개 제안' '**다음 단계 추론**'; do grep -qF -- "$_t" "$_ms/bootstrap-resume.md" 2>/dev/null || _ms_bad="$_ms_bad [bootstrap-resume 에 '$_t' 없음]"; done
+for _t in '## 적색 플래그' '## 5원칙 주입' 'Phase C chain 재배선' 'sales-ppt' '→ planning-ko → decomposing-ko' 'devfsd:advisor-ko'; do grep -qF -- "$_t" "$_ms/guardrails.md" 2>/dev/null || _ms_bad="$_ms_bad [guardrails 에 '$_t' 없음]"; done
+for _t in '/lifecycle DONE' '/finishing 완료' 'PR #N 생성' 'DONE (PR'; do
+  grep -qF -- "$_t" "$_ms/SKILL.md" && grep -qF -- "$_t" "$_ms/bootstrap-resume.md" || _ms_bad="$_ms_bad [종결 마커 '$_t' 본문·보조 불일치]"; done
+if [ -z "$_ms_bad" ]; then ok "T-diet.meta 메타 SKILL.md ${_ms_bytes}B ≤ 5000 · 포인터 실재 · 보조 문서 원문 · 종결 마커 일치"
+else nope "T-diet.meta" "$_ms_bad"; fi
 
 # 단일 대화형 plan 리뷰 한도 초과: Critical 0 이고 Important 를 모두 반영하면 묻지 않고 진행 · 아니면 정지 (20261019-plan-review-cap-autopass)
 SKP=skills/planning-ko/SKILL.md

@@ -81,6 +81,8 @@ fresh() {
   rm -rf "$T"; mkdir -p "$T"
   cp "$PLUGIN/README.md" "$PLUGIN/CLAUDE.md" "$PLUGIN/LICENSE" "$T/" 2>/dev/null
   cp -R "$PLUGIN/docs" "$T/docs"
+  # README 가 가리키는 하위 CLAUDE.md(20261112 분리) — 없으면 기준선이 F7-broken-link 로 깨진다
+  for _sub in hooks skills scripts/tests; do mkdir -p "$T/$_sub" && cp "$PLUGIN/$_sub/CLAUDE.md" "$T/$_sub/" 2>/dev/null; done
 }
 edit() { local f="$1"; shift; [ -f "$f" ] || return 0; sed "$@" "$f" > "$f.new" && mv "$f.new" "$f"; }   # BSD·GNU sed 공통 — -i 를 쓰지 않는다
 inject() {   # <기대 코드> <설명> — 변이는 호출 전에 $T 에 적용한다

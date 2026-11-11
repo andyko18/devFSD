@@ -200,6 +200,7 @@ reference_upstream: specops-ko 독자 추가
 
 ### Phase 2.5 — batch 통합 design-first (화면 → 인터페이스)
 > **왜 여기 통합 단계인가**: specifying Step 5.5·5.6은 batch에서 **SKIP**한다. FR마다 화면·IF를 돌리면 batch 이점을 깨뜨리므로, 구현 직전 **1회 통합**한다. 통상 순서: **A 화면 → A2 화면 전문가 → B 인터페이스 → C cross-FR → D 무거운 설계 리뷰 → E 승인 → F 커밋**.
+> **init 설계 완료분은 다시 하지 않는다 (20261112)**: `/init-project` Phase 11 이 M1 범위 화면·인터페이스를 설계·리뷰까지 끝내고 표지를 남긴다(화면 = `screens-overview.md` 목적 칸 `init 설계 완료` · 인터페이스 = `api-spec.md`·`data-model.md` 머리 `<!-- specops:init-designed: M1 -->`). 이 단계는 **새로 생기거나 달라진 것만** 설계·리뷰한다. 표지가 없는 프로젝트(구 부트스트랩 · init 리뷰 미통과)는 종전대로 전부 한다.
 
 #### A. 통합 화면 설계 (UI 기능 시)
 
@@ -211,6 +212,7 @@ reference_upstream: specops-ko 독자 추가
      - 출력 이름을 FR 취합 결과와 **합집합**으로 화면셋을 정한다.
      - 마스터에만 있는 이름은 queue 상단에 `화면 마스터 전용: <name>… (FR 미언급 — 이번 batch 설계 대상 여부 판단)` **헤더 산문 줄**로 기록한다(**`|` 로 시작 금지** — `batch-state.sh` 가 표 행으로 오인한다).
      - 마스터 부재(미부트스트랩)면 빈 출력 — **그대로 진행**(비차단).
+   - **init 설계 완료 화면셋**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screens-overview.sh designed` 의 출력 이름이다(표지 없으면 빈 출력 — 종전 동작). 이 화면의 처리는 Step 4 의 `init 설계 완료 화면` 줄을 따른다.
    - **신호 없음(순수 API·CLI·데이터 batch)** — **합집합 기준**이다(FR 신호가 0 이어도 마스터 전용 이름이 있으면 **신호 있음**) → `SCREEN-DESIGN: SKIP — <근거>` 를 `queue.md`에 기록 후 **B(인터페이스)로 진행** (Phase 3 직행 금지 — API batch도 B가 본설계).
 2. **DESIGN.md 토큰 적용** — 취합된 **전체 화면셋**에 프로젝트 `DESIGN.md` 토큰을 공통 적용한다(부재 시 `templates/screen.html` 기본 토큰).
 3. **★ foundation 셸 baseline 불변 (20260812)**: 화면 생성 **직전** snapshot → **직후** verify. allowlist(`app-shell`·`layout`·`login`) ∩ `<!-- foundation-shell -->` 파일 해시가 바뀌면 FAIL → Phase 2.5 중단.
@@ -228,6 +230,7 @@ reference_upstream: specops-ko 독자 추가
    - **파일이 없으면 생성**한다(기능 화면).
    - **이미 있고**(비-셸) `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/<name>.md screens/<name>.html` → exit 1(정상) → **재사용**.
    - **이미 있고** exit 0(껍데기) → **재사용 금지**. DESIGN.md 토큰으로 덮어쓰고 **껍데기 마커 줄을 삭제**한다.
+   - **init 설계 완료 화면** (Step 1 의 `designed` 화면셋): 다시 만들거나 덮어쓰지 않고, 찍지 않고, A2·D 의 대상에도 넣지 않는다 — init 에서 화면 전문가와 설계 리뷰를 이미 거쳤다. 예외 둘: ① 위 `--check` 가 exit 0(껍데기)이거나 파일이 없으면 표지가 낡은 것이다 — 일반 화면으로 설계하고 목적 칸의 `init 설계 완료` 를 지운다 ② 이번 batch FR 의 spec 이 그 화면에 없는 Interactions·필드·상태를 요구하거나 적힌 것과 다르게 정하면 **달라진 화면**이다 — 그 부분만 고치고(나머지 본문 유지) 다시 찍어 A2·D 대상에 넣는다. 아래 `init 미확정 해소` 로 마커를 채운 화면도 달라진 화면으로 센다. 새 화면·달라진 화면이 0 이면 `SCREEN-DESIGN: SKIP — init 설계 완료 재사용 (<N>화면)` 을 `queue.md` 헤더 산문 줄로 기록하고(**`|` 로 시작 금지**) B 로 간다 — 이 SKIP 은 산출이 아니다(A2 는 `UI-EXPERT: SKIP`).
    - 해당 FID spec.md §참조에 경로가 없으면 추가한다.
    - **DESIGN.md 준수**: 화면 작성 시 `DESIGN.md` **§2 타이포·§3 간격** · §6 레이아웃 패턴 · §6.1 화면 원형 · §7 상태 표현 · §8 원칙/안티패턴 · §9 AI 지침을 읽고 따른다 (DESIGN.md 부재 시 skip). `/start`·`/maintain` 의 Step 5.5 `[공통]` 과 동일 요건 — batch 라고 축이 줄지 않는다.
    - **입력 접근성**: 입력(input·select·textarea)마다 label 의 for 속성과 입력 id 를 같은 값으로 짝지어 연결한다(label 이 입력을 감싸거나 aria-label 도 허용 — for 없이 형제로만 둔 label 은 연결이 아니다). 라디오·체크박스는 선택지마다 자기 label 을 두고 그룹 이름은 fieldset 과 legend 로 둔다. 템플릿 html 의 주석 속 입력 예시를 복사해 쓴다.
@@ -241,7 +244,7 @@ reference_upstream: specops-ko 독자 추가
      ```
      - `sync` 는 fence **안에만** 추가하고 멱등이다(2회 실행해도 중복 없음).
      - `diff` 잔여 차집합은 queue 헤더 산문 줄로 기록 + 사용자 고지. **차단하지 않는다** — 정당한 불일치가 많다(다음 마일스톤 선등재·`/design-screen` 개별 생성분).
-   - **init 미확정 해소**: 재사용하는 화면에 `<미확정 — 근거 필요>` 가 남아 있고 이번 batch FR 이 그 값을 확정했으면 **그 마커만** 채운다(나머지 본문 유지). 채운 뒤 그 화면의 `screens-overview.md` 행 **목적 칸**에 적힌 `init 보강 (미확정 N)` 의 N 을 남은 마커 수로 고친다(0 이면 한 줄 목적으로 바꾼다) — `sync` 는 행을 추가할 뿐 칸을 고치지 않는다
+   - **init 미확정 해소**: 재사용하는 화면에 `<미확정 — 근거 필요>` 가 남아 있고 이번 batch FR 이 그 값을 확정했으면 **그 마커만** 채운다(나머지 본문 유지). 채운 뒤 그 화면의 `screens-overview.md` 행 **목적 칸**에 적힌 `init 보강 (미확정 N)` 의 N 을 남은 마커 수로 고친다(0 이면 한 줄 목적으로 바꾼다 · `init 설계 완료 (미확정 N)` 은 N 만 고치고 표지는 둔다 — D 를 통과하면 설계 완료 그대로다) — `sync` 는 행을 추가할 뿐 칸을 고치지 않는다
 5. **[§auto 모드]**: 화면별 대화형 승인 **없이** 자동 반영. 생성 화면 목록은 batch PR 다이제스트에 집계. **셸 불변은 §auto도 HARD**.
 6. **[§일괄 모드]**: §auto 와 같이 대화 승인 없이 반영하고 생성 화면 목록을 E 승인 묶음에 싣는다. 셸 불변은 HARD 그대로다.
 
@@ -274,6 +277,7 @@ reference_upstream: specops-ko 독자 추가
    - `SKIP`(마커 0) → 진행(구 프로젝트).
    - memory 부재 시: 대화형은 생성 확인, §auto는 신규 생성 금지·각 FID spec에 "인터페이스 미반영: memory 부재" 기록.
    - **init 미확정 해소**: 갱신하는 행에 `<미확정 — 근거 필요>` 가 남아 있고 이번 batch FR 이 그 값을 확정했으면 **그 마커만** 채운다(나머지 본문 유지 · `<!-- foundation-baseline -->` 마커 안은 제외).
+   - **init 설계 완료 인터페이스**: `grep -l 'specops:init-designed' .specops/memory/api-spec.md .specops/memory/data-model.md` 로 표지를 본다. 표지가 있는 문서에서 이번 batch FR 이 쓰는 엔드포인트·테이블이 이미 같은 계약으로 적혀 있으면 그 행은 건드리지 않는다(재사용 — 산출이 아니다). 없는 행은 추가하고 계약이 달라지는 행은 그 행만 고친다 — 추가·변경한 행과 위에서 마커를 채운 행이 이번 batch 의 인터페이스 산출이다. 산출이 0 이면 `INTERFACE-DESIGN: SKIP — init 설계 완료 재사용` 을 `queue.md` 에 기록하고 C 로 간다. **표지가 없는 문서**는 리뷰된 적이 없다 — 이번 batch FR 이 쓰는 기존 행도 산출로 세어 D 에 넘긴다(종전과 같다).
 3. 각 FID spec.md §1에 반영 요약 1줄(`**자동 결정 인터페이스**` 또는 대화형 동등 요약) + §참조에 api-spec/data-model 경로.
 4. **[§auto 모드]**: 인터페이스 대화형 승인 없이 자동 append(가역 — PR 다이제스트 집계). **마커 안 불변은 §auto도 HARD**.
 5. **[§일괄 모드]**: 대화 승인 없이 반영한다. memory 문서가 없으면 템플릿(제공 `templates/api-spec.md` · 외부 소비 `templates/api-spec-consumer.md` · `templates/data-model.md`)으로 만들고 E 승인 묶음에 싣는다(§auto 의 생성 금지와 다르다 — 사람이 E 에서 본다). 마커 안 불변은 HARD 그대로다.
@@ -285,9 +289,9 @@ reference_upstream: specops-ko 독자 추가
 
 #### D. 무거운 설계 리뷰 (`design-reviewer-ko`)
 
-> A(화면) 또는 B(IF) 중 **하나라도 산출**되면 **항상** Evaluator를 돌린다. 둘 다 SKIP이면 D·E 생략 → F(커밋 없이 Phase 3) 또는 빈 design 커밋 생략 후 Phase 3. (`§일괄` 은 E 4 의 승인 묶음만은 묻는다)
+> A(화면) 또는 B(IF) 중 **하나라도 산출**되면 **항상** Evaluator를 돌린다. init 설계 완료분을 재사용만 해서 남긴 SKIP(`… — init 설계 완료 재사용`)은 산출이 아니다 — 그 설계는 init 에서 이미 리뷰됐다. 둘 다 SKIP이면 D·E 생략 → F(커밋 없이 Phase 3) 또는 빈 design 커밋 생략 후 Phase 3. (`§일괄` 은 E 4 의 승인 묶음만은 묻는다)
 
-1. **dispatch** — `Agent` 도구, `subagent_type: "devfsd:design-reviewer-ko"`. 컨텍스트: `BATCH_ID` · PLAN_DONE FID 목록 · `screens/` · 촬영 이미지 폴더 `.specops/<BATCH_ID>/shots/`(A 가 찍었으면 — 이미지와 배치 계측 결과 `<name>.probe.txt`) · `api-spec.md` · `data-model.md` · 각 FID `spec.md` 경로.
+1. **dispatch** — `Agent` 도구, `subagent_type: "devfsd:design-reviewer-ko"`. 컨텍스트: `BATCH_ID` · PLAN_DONE FID 목록 · `screens/` · 촬영 이미지 폴더 `.specops/<BATCH_ID>/shots/`(A 가 찍었으면 — 이미지와 배치 계측 결과 `<name>.probe.txt`) · `api-spec.md` · `data-model.md` · 각 FID `spec.md` 경로 · **이번 batch 가 만들거나 고친 화면·IF 행 목록**(판정 대상 — init 설계 완료 재사용분은 대조 근거로만 읽는다고 적는다 · 표지가 없는 프로젝트는 목록 없이 전부).
 2. 부모는 리뷰어 stdout을 `.specops/<BATCH_ID>/design-review.md`에 저장한다 (리뷰어는 Write 없음).
 3. 시그널 처리:
    | 결과 | 동작 |
@@ -301,10 +305,12 @@ reference_upstream: specops-ko 독자 추가
 
 #### E. 설계 승인 게이트
 
+0. **설계 통합 뷰 다시 생성** — 질문 전에 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh` 를 1회 실행한다(모델 호출 없음). 출력 1줄의 경로(`.specops/design-overview.html`)를 1 의 제시와 2·4 의 질문에 함께 싣는다. rc≠0(python3 없음·설계 문서 없음)이면 `통합 뷰 생성 못 함 — <사유>` 1줄만 알리고 그대로 묻는다(막지 않는다). D·E 를 생략하고 4 의 승인 묶음만 묻는 batch 도 이 생성은 한다.
 1. `design-review.md` 요약(Critical/Important/Minor 건수 + 상위 이슈) + 화면 목록 + IF 변경 요약을 제시.
+   - init 설계 완료라 다시 설계하지 않은 화면·인터페이스(재사용 목록 — `SCREEN-DESIGN`·`INTERFACE-DESIGN` 의 재사용 SKIP 줄)
    - FR 별 intent 1줄 요약(문제 → 기대 결과) — `.specops/<FID>/intent.md` 에서 발췌
    - A2 의 `experts/ui.md` `## 확인 필요` 질문(있으면) — 사용자가 답한 내용은 화면 파일에 반영한 뒤 F 로 간다
-2. 대화형: **"이 설계로 구현 진행? [y/n]"**
+2. 대화형: **"이 설계로 구현 진행? [y/n]"** — 질문 바로 앞줄에 "전체 설계: `<통합 뷰 경로>`" 를 붙인다(0 에서 만들었으면)
    - `n` → A/B 수정 후 D부터 재개 (리뷰 재실행)
    - `y` → F
 3. **[§auto 모드]**: D가 PASS(또는 Important-only cap 자동통과)면 본 게이트 **자동 통과**. Critical cap 정지 시 E에 도달하지 않는다. 화면·IF·design-review 결과는 batch PR 다이제스트에 집계.

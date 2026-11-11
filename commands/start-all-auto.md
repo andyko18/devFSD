@@ -61,7 +61,7 @@ Phase 0~3 오케스트레이션(batch-id 결정·`requirements.md` 탐색·FR �
 | Phase 2 일괄 리뷰 게이트 | digest 후 **자동 통과** → Phase 2.5 직행 | ❌ |
 | Phase 2.5-A 화면 마스터 대조 | `list` 합류 · `sync` 갱신 · `diff` 잔여는 **PR 다이제스트로 집계**. 전 모드 rc=0 이라 **정지 없음** | ❌ |
 | Phase 2.5-A→B→C | 화면·IF 대화형 승인 **없이** 자동 반영. 표면 없으면 해당 축만 SKIP. **A는 foundation-shell 불변** · **B는 foundation-baseline 마커 불변**(snapshot→verify HARD, §auto 동일) | ❌ / 🛑 baseline |
-| Phase 2.5-D `design-reviewer-ko` | 화면 또는 IF 산출 시 **항상** dispatch. FAIL 1회 수정 재시도. **Critical≥1 cap → 정지**(§auto 자동통과 금지). Important-only cap → 자동통과+기록(가역) | 🛑 Critical / ⚠️ Important |
+| Phase 2.5-D `design-reviewer-ko` | 화면 또는 IF 산출 시 **항상** dispatch(init 설계 완료분을 재사용만 한 SKIP 은 산출이 아니다 — init 에서 리뷰됐다). FAIL 1회 수정 재시도. **Critical≥1 cap → 정지**(§auto 자동통과 금지). Important-only cap → 자동통과+기록(가역) | 🛑 Critical / ⚠️ Important |
 | Phase 2.5-E 설계 승인 | D PASS/Important-only cap 후 **자동 통과** · Critical cap이면 미도달 · 다이제스트 집계 | ❌ |
 | Phase 3 implement/verify cap 초과 | systematic-debugging → 1회 재시도 → 재실패 시 정지 | ⚠️ |
 | Phase 3 파괴적/덮어쓰기 task | mini HARD GATE 정지 (§auto 우회 불가) | 🛑 |

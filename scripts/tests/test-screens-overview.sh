@@ -114,4 +114,31 @@ o9=$(_run sync "$k"); rc9s=$?
   || nope "S9" "list=$l9 out=$o9 rc=$rc9l/$rc9s"
 rm -rf "$k"
 
+# S10: ★ designed — 목적 칸이 `init 설계 완료` 로 시작하는 행만 (20261112 · /start-all Phase 2.5-A 건너뛰기 표지)
+#   초안 표지(`init 보강`)·목적 문장 중간의 같은 낱말·fence 밖 행은 세지 않는다 — 세면 설계·리뷰 안 된 화면이
+#   Phase 2.5 를 건너뛴다(품질 게이트 누락). 표지가 하나도 없으면 빈 출력(구 프로젝트 = 종전 동작).
+g=$(mktemp -d); mkdir -p "$g/.specops/memory" "$g/screens"
+cat > "$g/.specops/memory/screens-overview.md" <<'EOF'
+| name | 제목 | 목적 | 상세 | 미리보기 |
+|---|---|---|---|---|
+<!-- screens-table:start -->
+| orders | 주문 목록 | init 설계 완료 (미확정 0) | [x](y) | [x](y) |
+| order-detail | 주문 상세 |  init 설계 완료 (미확정 2)  | [x](y) | [x](y) |
+| stats | 통계 | init 보강 (미확정 4) | [x](y) | [x](y) |
+| notice | 공지 | 공지 열람 — init 설계 완료 뒤 문구 수정 | [x](y) | [x](y) |
+| login | login | 예정 — /start-all Phase 2.5 | [x](y) | [x](y) |
+<!-- screens-table:end -->
+| ghost | 유령 | init 설계 완료 (미확정 0) | [x](y) | [x](y) |
+EOF
+o10=$(_run designed "$g"); rc10=$?
+[ "$o10" = "orders
+order-detail" ] && [ "$rc10" -eq 0 ] \
+  && ok "S10 designed — 설계 완료 표지 행만 (초안·문장 중간·fence 밖 제외 · rc=0)" || nope "S10" "rc=$rc10 out=$o10"
+d10=$(mktemp -d); _fixture "$d10"
+o10b=$(_run designed "$d10"); rc10b=$?
+[ -z "$o10b" ] && [ "$rc10b" -eq 0 ] && ok "S10.b 표지 없는 마스터 → 빈 출력 · rc=0 (종전 동작)" || nope "S10.b" "rc=$rc10b out=$o10b"
+o10c=$(SPECOPS_SCREENS_OVERVIEW="$g/none.md" SPECOPS_SCREENS_DIR="$g/screens" bash "$CHK" designed 2>&1); rc10c=$?
+[ -z "$o10c" ] && [ "$rc10c" -eq 0 ] && ok "S10.c 마스터 부재 → 빈 출력 · rc=0 (비차단)" || nope "S10.c" "rc=$rc10c out=$o10c"
+rm -rf "$g" "$d10"
+
 finish

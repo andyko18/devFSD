@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # check-screens-overview.sh — 화면 목록 마스터 ↔ 실제 screens/ 대조·동기화
-# 사용: bash scripts/_internal/check-screens-overview.sh <list|diff|sync>
+# 사용: bash scripts/_internal/check-screens-overview.sh <list|designed|diff|sync>
+#   designed — 목적 칸이 `init 설계 완료` 로 시작하는 화면 이름만 낸다(20261112).
+#     /init-project Phase 11 이 M1 범위 화면을 설계·리뷰까지 끝냈다는 표지다 —
+#     /start-all Phase 2.5-A 가 이 이름을 다시 설계·리뷰하지 않는다. 표지가 없으면 빈 출력(종전 동작).
 #
 # 왜: /init-project Phase 7 이 만든 .specops/memory/screens-overview.md 를
 #   /start-all Phase 2.5-A 가 읽지도 쓰지도 않아, 사용자가 정의한 화면이
@@ -47,6 +50,20 @@ _master_names() {
     }
   ' "$OVERVIEW"
 }
+# 목적 칸(셋째 칸)이 `init 설계 완료` 로 **시작**하는 행만 — 초안 표지 `init 보강 (미확정 N)` 과
+#   손으로 쓴 목적 문장 속의 같은 낱말(칸 중간)은 세지 않는다.
+_designed_names() {
+  _fence_ok || return 0
+  awk '
+    /^<!-- screens-table:start -->/ { inside=1; next }
+    /^<!-- screens-table:end -->/   { inside=0; next }
+    inside && /^\|/ {
+      split($0, f, "|")
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", f[2]); gsub(/^[[:space:]]+|[[:space:]]+$/, "", f[4])
+      if (f[2] != "name" && f[2] != "" && index(f[4], "init 설계 완료") == 1) print f[2]
+    }
+  ' "$OVERVIEW"
+}
 _screen_names() {
   [ -d "$SCREENS_DIR" ] || return 0
   for f in "$SCREENS_DIR"/*.md; do [ -f "$f" ] || continue; basename "$f" .md; done
@@ -54,6 +71,7 @@ _screen_names() {
 
 case "$MODE" in
   list) _master_names; exit 0 ;;
+  designed) _designed_names; exit 0 ;;
   diff|sync)
     if [ ! -f "$OVERVIEW" ]; then
       echo "SCREENS-OVERVIEW: SKIP (마스터 부재 — $OVERVIEW)"; exit 0

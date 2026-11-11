@@ -14,6 +14,7 @@ reference_upstream: addyosmani/agent-skills@HEAD skills/frontend-ui-engineering 
 ## 받는 컨텍스트
 
 - 이번에 만들거나 고친 `screens/<name>.md`·`screens/<name>.html` · `.specops/<FID>/spec.md` · `acceptance-criteria.md` · 프로젝트 `DESIGN.md`(있으면) · `.specops/memory/api-spec.md`(있으면)
+- **init 에서 부르면**(`/init-project` Phase 11 — 부모가 그렇게 적는다): spec·AC 가 없다. `.specops/memory/requirements.md` 의 M1 FR 을 그 자리에 읽고, 산출 경로와 촬영 폴더의 `<FID>` 자리는 `.init-design` 이다(`.specops/.init-design/experts/ui.md`). `가정:` 으로 표시된 값은 빈칸으로 세지 않는다.
 - 경로만 받고 직접 Read 한다.
 - 촬영 이미지(있으면): `.specops/<FID 또는 BATCH_ID>/shots/<화면>@1280.png`·`<화면>@390.png` — 화면을 만든 쪽이 `screen-shot.sh` 로 찍어 둔 것이다. 경로를 받지 않았어도 이 규약 위치를 확인한다. 같은 폴더의 배치 계측 결과 `<화면>.probe.txt`(촬영과 함께 남는다 — 규칙 정의는 `ui-probe.cjs --rules`)도 읽는다.
 

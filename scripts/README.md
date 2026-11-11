@@ -3,7 +3,7 @@
 > 구성 (v1.72.0 기준): `_internal/` (validate-structure·init-project·run-verification 등 내부 유틸) ·
 > `dag/` (parse-dag·emit-context·validate-context) · `tests/` (run-all aggregator ≈ **142** suites + llm-eval) ·
 > 루트 (release.sh·gbrain-append.sh·session-progress-append.sh·git-branch-create.sh·show-fid-status.sh·slug.sh 등).
-> baseline: commands=25 · skills=31 · templates=36 · agents=15 — 수치는 자주 바뀐다. 정본은 `scripts/_internal/.structure-baseline` 이다.
+> baseline: commands=25 · skills=31 · templates=36 · agents=16 — 수치는 자주 바뀐다. 정본은 `scripts/_internal/.structure-baseline` 이다.
 > 아래 절들은 초기 (v0.1~v0.2) 스크립트의 상세 설명 — 경로는 현행 (`_internal/`) 기준으로 갱신됨.
 
 ## v0.1 — 기존
@@ -48,7 +48,7 @@ scripts/_internal/validate-structure.sh --json   # CI 통합용 JSON
 | 항목 | 실패 조건 |
 |---|---|
 | `directories` | 필수 디렉토리 부재 |
-| `file_counts` | `.structure-baseline` glob 카운트 불일치 (현재 commands=25·skills=31·templates=36·agents=15 — 정본은 `.structure-baseline`) |
+| `file_counts` | `.structure-baseline` glob 카운트 불일치 (현재 commands=25·skills=31·templates=36·agents=16 — 정본은 `.structure-baseline`) |
 | `meta_injection` | `session-start.sh` 메타 skill 주입 누락 |
 | `frontmatter` | YAML 파싱 실패 (pyyaml 부재 시 SKIP — 한계 고백) |
 | `no_superpowers` | `commands/`·`agents/` 에 superpowers 런타임 참조 발견 |

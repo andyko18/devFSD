@@ -63,5 +63,8 @@ has "$P" '1회차에는 위 「이해 검사」 의 에이전트를 같은 메�
 has "$P" '비고 칸에도 `COMPREHENSION-RESULT` 줄을 옮겨 적지 않는다' \
   && ok "P.i 상세 칸에 결과 줄 금지(reconcile-check 가 dispatch-log 전체의 DONE 을 구현 증거로 읽는다)" || nope "P.i" "상세 칸 금지 문구 누락"
 
+# ══ AC-4: plan-reviewer 와의 결합 금지 ══
+[ -s agents/plan-reviewer-ko.md ] && ! grep -qiE 'comprehension|이해 검사|재진술' agents/plan-reviewer-ko.md && ok "D.a plan-reviewer-ko 본문은 이해 검사를 모른다(결합 없음 · 파일 부재 시 FAIL)" || nope "D.a" "plan-reviewer-ko 부재 또는 이해 검사·재진술 언급"
+
 
 finish

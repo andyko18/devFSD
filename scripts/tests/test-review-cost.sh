@@ -555,6 +555,32 @@ TZV=Asia/Seoul runs big --transcript-dir "$SB/bigtd"
 T1=$SECONDS
 ck "T9.c 합성 대형 입력(FID 400개 · 라운드 1200행 · 서브에이전트 150개)이 rc=0 · 20초 이내(CPU 경합 여유 — 실측 수 초. 10초 상한 M-1 은 verify 가 실환경으로 잰다)" "$RC|$(printf '%s\n' "$OUT" | grep -cF 'FID 400개')|$([ $((T1 - T0)) -le 20 ] && echo fast)" "0|1|fast"
 
+# ══ 이해 검사(EGM 차용 1/5): 단계 칸이 comprehension 인 행은 plan-reviewer 집계에 섞이지 않는다 ══
+CMPROW='| 2 | 2026-09-01T10:00:00+09:00 | comprehension | comprehension-reviewer-ko | 반영 | experts/comprehension.md (지적 2 · 반영 2 · 이월 0 · 기각 0) |'
+dl k1 20261111-cmp <<EOF
+$HDR
+$(pr 1 FAIL 'Critical: 1건 · Important: 2건')
+$(pr 3 PASS)
+EOF
+runs k1; K_BASE="$OUT"; K_BASE_RC=$RC
+dl k2 20261111-cmp <<EOF
+$HDR
+$(pr 1 FAIL 'Critical: 1건 · Important: 2건')
+$CMPROW
+$(pr 3 PASS)
+EOF
+runs k2; K_CMP="$OUT"; K_CMP_RC=$RC
+ck "Tcmp.a comprehension 행이 섞여도 집계 출력이 바이트 동일하다(라운드·분포·FAIL 비율·기타 행 수 불변) · rc=0" "$([ "$K_BASE" = "$K_CMP" ] && [ "$K_BASE_RC" = 0 ] && [ "$K_CMP_RC" = 0 ] && echo same || echo differ)" "same"
+# 되돌려-관찰용 대조: 같은 행의 단계 칸이 plan-reviewer 면 집계에 잡힌다(기타 행으로) — 위 단언이 공허하지 않다는 증거
+dl k3 20261111-cmp <<EOF
+$HDR
+$(pr 1 FAIL 'Critical: 1건 · Important: 2건')
+${CMPROW/| comprehension |/| plan-reviewer |}
+$(pr 3 PASS)
+EOF
+runs k3; K_MUT="$OUT"
+ck "Tcmp.b 대조: 단계 칸이 plan-reviewer 인 같은 행은 출력을 바꾼다(Tcmp.a 가 공허하지 않다)" "$([ "$K_BASE" != "$K_MUT" ] && echo differ || echo same)" "differ"
+
 # ══ AC-10: 문서 ══
 SEC=$(awk '/^## review-cost.sh/ { on = 1; next } /^## / { on = 0 } on' "$PLUGIN/scripts/README.md")
 kw() { if printf '%s\n' "$SEC" | grep -qF -- "$1"; then printf y; else printf n; fi; }

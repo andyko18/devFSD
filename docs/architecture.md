@@ -165,9 +165,9 @@ PR 생성                                                   ★ 멈춤
 | 버전 | `.claude-plugin/plugin.json` 의 `version` (여기에 숫자를 적지 않는다 — 낡는다) |
 | 슬래시 커맨드 | 25건 <!-- doc-lock: count:commands --> |
 | 스킬 | 31건 <!-- doc-lock: count:skills --> |
-| 서브에이전트 | 15건 <!-- doc-lock: count:agents --> |
+| 서브에이전트 | 16건 <!-- doc-lock: count:agents --> |
 | 템플릿 | 38건 (`templates/*.md`) <!-- doc-lock: count:templates --> |
-| **테스트** | **215 스위트** (스위트 수는 run-all 수집 기준) <!-- doc-lock: suite-count --> |
+| **테스트** | **216 스위트** (스위트 수는 run-all 수집 기준) <!-- doc-lock: suite-count --> |
 
 개수는 `scripts/_internal/check-doc-numbers.sh` 가 실측과 대조한다(틀리면 pre-commit·run-all 이 실패한다). 줄 수·릴리즈 횟수처럼 대조하지 않는 수치는 이 표에 두지 않는다.
 

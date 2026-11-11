@@ -101,11 +101,12 @@ fi
 
 # T15.a 실제 repo — agent_tools 가 role: evaluator 역방향 스캔으로 7종 검사
 #   (Phase 2.5 design-reviewer-ko 추가로 6→7)
+#   (comprehension-reviewer-ko 추가로 7→8)
 ev_count=$(grep -l '^role: evaluator' "$PLUGIN"/agents/*.md 2>/dev/null | grep -c . || true)
-if [ "$ev_count" -eq 7 ] && bash "$SCRIPT" 2>&1 | grep -q 'agent_tools: OK'; then
-  PASS=$((PASS+1)); echo "PASS T15.a role: evaluator 마킹 7종 + 역방향 스캔 OK"
+if [ "$ev_count" -eq 8 ] && bash "$SCRIPT" 2>&1 | grep -q 'agent_tools: OK'; then
+  PASS=$((PASS+1)); echo "PASS T15.a role: evaluator 마킹 8종 + 역방향 스캔 OK"
 else
-  FAIL=$((FAIL+1)); echo "FAIL T15.a evaluator 마킹 $ev_count/7 또는 agent_tools 비OK"
+  FAIL=$((FAIL+1)); echo "FAIL T15.a evaluator 마킹 $ev_count/8 또는 agent_tools 비OK"
 fi
 
 # T15.b 가짜 evaluator (role: evaluator + Write) 자동 편입 적발 — 스크립트 무수정 (AC-2)

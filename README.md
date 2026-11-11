@@ -263,6 +263,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | api-designer-ko (API 계약 전문가) | opus · high | API 계약 결함은 소비자가 생긴 뒤 고치기 어렵다 — 엔드포인트를 바꾸는 계획만 집중 검토 |
 | security-designer-ko (보안 설계 전문가) | opus · high | 인가·신뢰 경계 결함은 코드 뒤 스캐너가 못 잡는다 — 인증·인가·입력 경계·개인정보를 다루는 계획만 집중 검토 |
 | test-designer-ko (테스트 설계 전문가) | opus · high | 계획 리뷰를 통과한 테스트가 틀린 구현도 통과시킨다 — 테스트를 만들거나 고치는 계획의 검증력을 집중 검토 |
+| comprehension-reviewer-ko (이해 검사 리뷰어) | sonnet · high | 문서만 읽는 처음 보는 독자의 재진술은 깊은 추론보다 역할 격리가 핵심이다 — plan 1회차에서 경고(Minor)만 낸다 |
 | red-team-ko · blue-team-ko · auditor-ko | 세션 모델 계승 | 드문 self-config 감사 |
 
 외부 critic(`scripts/critic-ask.sh`)도 기본 opus, fallback sonnet 이다(`CRITIC_CLAUDE_MODEL`·`CRITIC_CLAUDE_FALLBACK` 로 변경).
@@ -334,8 +335,8 @@ devFSD/
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
 ├── skills/             flat: skills/<name>/SKILL.md × 31
 │                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 Harness(원칙)
-├── agents/             ← 15건  implementer · req-designer · ui-designer · db-designer · arch-designer · api-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
-│                              design-reviewer · red-team · blue-team · auditor
+├── agents/             ← 16건  implementer · req-designer · ui-designer · db-designer · arch-designer · api-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
+│                              design-reviewer · comprehension-reviewer · red-team · blue-team · auditor
 ├── templates/          ← 40건 (lifecycle 20 + /init-project 산출 14 + 기타 6)
 ├── scripts/            doctor · release · gbrain · security-scan · dag/ · tests/ · _internal/
 ├── docs/               설계 노트 · 갭 분석 · upstream drift log · audit/(자기 평가·제안 스냅샷) · adoption-notes(도입 전 알아둘 것 상세) · assets/(히어로 SVG)

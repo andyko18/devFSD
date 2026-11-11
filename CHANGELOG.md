@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.28] — 2026-11-11
+
 ### Added
 
 - **plan 단계에 "처음 읽는 독자" 이해 검사가 붙는다 (경고 전용).** 새 리뷰어 `comprehension-reviewer-ko` 가 plan-reviewer 1회차와 같은 메시지에서 spec·AC·plan 문서만 읽고(코드·memory·intent 는 열지 않는다) "이 문서가 제안하는 것"과 "문서가 말하는 기존 시스템 동작"을 자기 말로 먼저 적은 뒤, 못 적는 절은 `[이해 불가]`, 두 가지로 읽히는 곳은 `[오독 위험]` 으로 Minor 경고를 낸다. plan 판정(`PLAN-REVIEW-RESULT`)·cap·라운드 집계는 바뀌지 않는다. google/elephant-goldfish-model(Apache-2.0)의 Comprehension 리뷰어를 차용했다. 효과는 아직 측정하지 않았다 — 결함을 심은 문서로 한 전후 평가(별도 승인)가 끝나기 전까지 경고 전용이다. 에이전트 15→16건, 스위트 215→216.
@@ -3688,7 +3690,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.27...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.28...HEAD
+[3.1.28]: https://github.com/andyko18/devFSD/compare/v3.1.27...v3.1.28
 [3.1.27]: https://github.com/andyko18/devFSD/compare/v3.1.26...v3.1.27
 [3.1.26]: https://github.com/andyko18/devFSD/compare/v3.1.25...v3.1.26
 [3.1.25]: https://github.com/andyko18/devFSD/compare/v3.1.24...v3.1.25

@@ -98,9 +98,13 @@ run_once() {  # $1=prompt → stdout=stream-json. LLM_EVAL_TIMEOUT 워치독 (ba
   # < /dev/null: while 루프의 fixtures FD 0 상속 차단 / cd "$SANDBOX": 부작용 격리 (exec 으로 pid=claude 유지)
   local out_f pid flag
   out_f=$(mktemp)
+  # 잡 컨트롤(set -m)로 실행기를 자기 프로세스 그룹의 리더로 띄운다 — 시간초과 때 `kill -- -$pid` 로 전 자손을 한 번에 끝낸다.
+  #   종전 `pkill -P` → `kill` 두 단계는 그 사이에 본체가 띄운 새 자식을 놓쳤다(20261112-flaky-tests-stabilize 실측 12회 중 8회 잔존).
+  set -m
   (cd "$SANDBOX" && exec "$CLAUDE_BIN" -p "$1" --output-format stream-json --verbose \
     --max-turns "$MAX_TURNS" --allowedTools Skill) < /dev/null > "$out_f" 2>"$R_ERR" &
   pid=$!
+  set +m
   # 워치독 stdout/stderr 차단 필수 — 미차단 시 자식 sleep 이 명령치환 파이프를 물고 EOF 지연 (hang)
   # 워치독은 신호로 정리하지 않는다 — 부모는 flag 만 지우고 워치독이 1초 안에 스스로 끝난다(run-bounded.sh 와 같은 방식).
   #   종전 `kill watcher` → `pkill -P watcher` 는 sleep 이 재부모화돼 질의마다 고아 `sleep $TIMEOUT_S` 를 남겼고,
@@ -109,7 +113,7 @@ run_once() {  # $1=prompt → stdout=stream-json. LLM_EVAL_TIMEOUT 워치독 (ba
   flag=$(mktemp)
   ( lim=$TIMEOUT_S; case "$lim" in ''|*[!0-9]*) lim=${lim%%.*}; case "$lim" in ''|*[!0-9]*) lim=0 ;; esac; lim=$((lim + 1)) ;; esac
     n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done
-    [ -e "$flag" ] || exit 0; : > "$R_MARK"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+    [ -e "$flag" ] || exit 0; : > "$R_MARK"; kill -TERM -- "-$pid" 2>/dev/null; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
   wait "$pid" 2>/dev/null || true
   rm -f "$flag"
   cat "$out_f"; rm -f "$out_f"

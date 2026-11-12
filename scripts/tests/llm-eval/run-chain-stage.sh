@@ -15,12 +15,16 @@ fi
 
 run_once() {  # $1=prompt → stdout stream-json (plan-ab 워치독 복제)
   local of pid flag; of=$(mktemp); flag=$(mktemp)
+  # 잡 컨트롤(set -m)로 실행기를 자기 프로세스 그룹의 리더로 띄운다 — 시간초과 때 `kill -- -$pid` 로 전 자손을 한 번에 끝낸다.
+  #   종전 `pkill -P` → `kill` 두 단계는 그 사이에 본체가 띄운 새 자식을 놓쳤다(20261112-flaky-tests-stabilize 실측 12회 중 8회 잔존).
+  set -m
   "$CLAUDE_BIN" -p "$1" --output-format stream-json --verbose --max-turns 2 > "$of" 2>/dev/null < /dev/null &
   pid=$!
+  set +m
   # 워치독: 부모는 flag 만 지운다 — 신호 정리는 고아 sleep·멈춤을 남긴다(run-evals.sh run_once 주석 참조)
   ( lim=$TIMEOUT_S; case "$lim" in ''|*[!0-9]*) lim=${lim%%.*}; case "$lim" in ''|*[!0-9]*) lim=0 ;; esac; lim=$((lim + 1)) ;; esac
     n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done
-    [ -e "$flag" ] || exit 0; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+    [ -e "$flag" ] || exit 0; kill -TERM -- "-$pid" 2>/dev/null; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
   wait "$pid" 2>/dev/null || true
   rm -f "$flag"
   cat "$of"; rm -f "$of"

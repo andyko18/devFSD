@@ -81,7 +81,7 @@ else
 fi
 
 syn=""; out_f=""; err_f=""; mark=""; flag=""; pid=""
-cleanup() { [ -n "${pid:-}" ] && { pkill -P "$pid"; kill "$pid"; } 2>/dev/null; rm -f "$syn" "$syn.cut" "$out_f" "$err_f" "$mark" "$flag" 2>/dev/null; }
+cleanup() { [ -n "${pid:-}" ] && { kill -TERM -- "-$pid"; pkill -P "$pid"; kill "$pid"; } 2>/dev/null; rm -f "$syn" "$syn.cut" "$out_f" "$err_f" "$mark" "$flag" 2>/dev/null; }
 trap cleanup EXIT
 
 # 프롬프트 합성: prompt-file + 구분자 + 대상 파일들 (NFR-3 200KB 절단)
@@ -124,13 +124,17 @@ _invoke_provider() {
 }
 
 out_f=$(mktemp); err_f=$(mktemp); mark=$(mktemp); rm -f "$mark"; flag=$(mktemp)
+# 잡 컨트롤(set -m)로 실행기를 자기 프로세스 그룹의 리더로 띄운다 — 시간초과 때 `kill -- -$pid` 로 전 자손을 한 번에 끝낸다.
+#   종전 `pkill -P` → `kill` 두 단계는 그 사이에 본체가 띄운 새 자식을 놓쳤다(20261112-flaky-tests-stabilize 실측 12회 중 8회 잔존).
+set -m
 _invoke_provider < "$syn" > "$out_f" 2>"$err_f" &
 pid=$!
+set +m
 # 워치독 — 출력 차단 + 마커 + 자식 정리 (bash 3.2). 부모는 신호를 보내지 않고 flag 만 지운다 —
 #   워치독이 1초 안에 스스로 끝난다(run-bounded.sh 와 같은 방식 · 신호 정리는 고아 sleep·멈춤을 남긴다 — 20260929-run-evals-orphan-sleep)
 ( lim=$TIMEOUT_S; case "$lim" in ''|*[!0-9]*) lim=${lim%%.*}; case "$lim" in ''|*[!0-9]*) lim=0 ;; esac; lim=$((lim + 1)) ;; esac
   n=0; while [ "$n" -lt "$lim" ]; do [ -e "$flag" ] || exit 0; sleep 1; n=$((n + 1)); done
-  [ -e "$flag" ] || exit 0; : > "$mark"; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
+  [ -e "$flag" ] || exit 0; : > "$mark"; kill -TERM -- "-$pid" 2>/dev/null; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null ) >/dev/null 2>&1 &
 wait "$pid" 2>/dev/null; rc=$?
 pid=""
 rm -f "$flag"

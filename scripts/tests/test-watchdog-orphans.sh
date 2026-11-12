@@ -118,6 +118,44 @@ else
   pkill -P "$sp_pid" 2>/dev/null; kill "$sp_pid" 2>/dev/null
   nope "T4" "20회 연속 실행이 60초 안에 끝나지 않음 — 워치독 정리 경로 멈춤"
 fi
+
+# T5 (20261112-flaky-tests-stabilize AC-3) 자식을 차례로 둘 띄우는 실행기 — 시간초과 정리 뒤 둘째 자식이 고아로 남지 않는다
+#   종전 `pkill -P "$pid"; kill "$pid"` 는 두 단계라, 첫 자식이 죽은 직후 본체가 둘째 자식을 띄우면 그 자식이 남았다
+#   (실측: 12회 중 8회 잔존 — T1.1.b 가 부하 때 `잔존 1/0` 으로 떨어지던 원인). 프로세스 그룹 종료는 그 창이 없다.
+_two() {  # <긴 sleep 값> → `sleep 3` 뒤 `sleep <값>` 을 차례로 띄우는 stub 경로 (stdout)
+  printf '#!/usr/bin/env bash\nsleep 3\nsleep %s\n' "$1" > "$TMP/two$1"; chmod +x "$TMP/two$1"
+  printf '%s' "$TMP/two$1"
+}
+_two_left() {  # <긴 sleep 값> → 남은 둘째 자식 수 (첫 자식이 죽고 본체가 둘째를 띄울 틈을 준 뒤 센다)
+  sleep 2
+  _count "^sleep $1\$"
+}
+_check_two() {  # <id> <라벨> <긴 sleep 값> <실행 명령…> — 3회 반복해 잔존 합계 0
+  local id="$1" label="$2" h="$3" i=0 left=0 n; shift 3
+  while [ "$i" -lt 3 ]; do
+    "$@" >/dev/null 2>&1
+    n=$(_two_left "$h"); left=$((left + n)); i=$((i + 1))
+  done
+  [ "$left" -eq 0 ] && ok "$id $label 두 단계 자식 실행기 시간초과 3회 → 둘째 자식 잔존 0" \
+    || nope "$id" "$label 둘째 자식 잔존 합계=$left (그룹 종료 아님)"
+}
+h=$((BASE + 111)); _check_two T5.1 run-evals.sh          "$h" _llm run-evals.sh          "$TMP/fx.jsonl"  1 "$(_two "$h")"
+h=$((BASE + 112)); _check_two T5.2 run-pressure-evals.sh "$h" _llm run-pressure-evals.sh "$TMP/pfx.jsonl" 1 "$(_two "$h")"
+h=$((BASE + 113)); _check_two T5.3 run-plan-ab.sh        "$h" _llm run-plan-ab.sh        "$TMP/ab"        1 "$(_two "$h")"
+h=$((BASE + 114)); _check_two T5.4 run-chain-stage.sh    "$h" _llm run-chain-stage.sh    "$TMP/cs"        1 "$(_two "$h")"
+h=$((BASE + 115)); _check_two T5.5 critic-ask.sh         "$h" _critic 1 "$(_two "$h")"
+# T5.6 판정 보존 — 두 단계 실행기에서도 시간초과 판정 문구는 종전과 같다
+h=$((BASE + 116)); out=$(_llm run-evals.sh "$TMP/fx.jsonl" 1 "$(_two "$h")"); _two_left "$h" >/dev/null
+printf '%s' "$out" | grep -q 'TIMEOUT 1s' && ok "T5.6 두 단계 실행기 시간초과 → 판정 문구 유지 (TIMEOUT 1s)" \
+  || nope "T5.6" "out=$(printf '%s' "$out" | tail -2 | tr '\n' ' ')"
+# T5.7 5곳 종료 줄 동일 — 그룹 종료(`kill -TERM -- "-$pid"`)가 한 곳에서만 빠져 조용히 되돌아가지 않게 잠근다
+KILLG='kill -TERM -- "-$pid" 2>/dev/null; pkill -P "$pid" 2>/dev/null; kill "$pid" 2>/dev/null'
+drift=""
+for f in scripts/tests/llm-eval/run-evals.sh scripts/tests/llm-eval/run-pressure-evals.sh scripts/tests/llm-eval/run-plan-ab.sh \
+         scripts/tests/llm-eval/run-chain-stage.sh scripts/critic-ask.sh; do
+  grep -qF -- "$KILLG" "$PLUGIN/$f" || drift="$drift $f"
+done
+[ -z "$drift" ] && ok "T5.7 5곳 시간초과 종료 줄이 프로세스 그룹 종료로 동일" || nope "T5.7" "그룹 종료 줄 없음:$drift"
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

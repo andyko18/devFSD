@@ -280,12 +280,19 @@ CI_SH="$PLUGIN/scripts/_internal/check-ci-status.sh"
 CI_RCS=""   # GH-ci.6 이 집계할 전 경로 종료코드(.5·.5b 는 test-timing-serial.sh 가 자체 확인)
 
 # gh stub 디렉터리 생성 — $1=stub 본문 → stdout=디렉터리 경로
+#   stub 은 불리면 `<디렉터리>/gh.called` 를 남긴다 — "gh 를 부르지도 않고 무출력이라 통과" 를 가려낸다.
 _ci_stub() {
   local d; d=$(mktemp -d)
-  printf '%s\n' "$1" > "$d/gh"
+  printf '#!/usr/bin/env bash\n: > "$0.called"\n%s\n' "$1" > "$d/gh"
   chmod +x "$d/gh"
   printf '%s' "$d"
 }
+# origin 이 있는 임시 저장소 — gh 응답을 판정하는 단언(.4 .1 .2 .1b)은 여기서 돈다.
+#   종전에는 실저장소(`cd "$PLUGIN"`)에서 돌아 origin 유무에 기댔다: origin 없는 사본(git archive·원격을 뗀 복제본)에서
+#   check-ci-status.sh 가 gh 를 부르기 전에 조용히 끝나 GH-ci.1 이 `rc=0 out=[]` 로 떨어지고, 나머지 셋은 헛통과했다
+#   (20261112-flaky-tests-stabilize — "부하 때 흔들림" 으로 오인되던 실패의 실제 원인).
+CI_REPO=$(mktemp -d)
+(cd "$CI_REPO" && git init -q && git remote add origin https://example.test/x.git)
 
 # GH-ci.3: gh 부재 → 무출력 exit 0 (AC-3)
 #   PATH 를 통째로 교체하므로 bash·jq·git 심링크가 필수다 — 없으면 `bash: command not found`
@@ -310,11 +317,11 @@ if [ -f "$CI_SH" ]; then
   D=$(_ci_stub '#!/usr/bin/env bash
 echo "gh: not authenticated" >&2
 exit 1')
-  out=$(cd "$PLUGIN" && PATH="$D:$PATH" bash "$CI_SH" 2>&1); rc=$?
+  out=$(cd "$CI_REPO" && PATH="$D:$PATH" bash "$CI_SH" 2>&1); rc=$?
   CI_RCS="$CI_RCS $rc"
-  [ "$rc" -eq 0 ] && [ -z "$out" ] \
+  [ "$rc" -eq 0 ] && [ -z "$out" ] && [ -f "$D/gh.called" ] \
     && ok "GH-ci.4 gh 실패 → 무출력 exit 0" \
-    || nope "GH-ci.4" "rc=$rc out=[$out]"
+    || nope "GH-ci.4" "rc=$rc out=[$out] gh=$([ -f "$D/gh.called" ] && echo 호출됨 || echo 미호출)"
   rm -rf "$D"
 else
   nope "GH-ci.4" "check-ci-status.sh 부재"
@@ -345,7 +352,7 @@ if [ -f "$CI_SH" ]; then
 cat <<JSON
 [{"conclusion":"failure","headSha":"abc123def4567890fedcba","url":"https://example.test/runs/42"}]
 JSON')
-  out=$(cd "$PLUGIN" && PATH="$D:$PATH" bash "$CI_SH" 2>&1); rc=$?
+  out=$(cd "$CI_REPO" && PATH="$D:$PATH" bash "$CI_SH" 2>&1); rc=$?
   CI_RCS="$CI_RCS $rc"
   if [ "$rc" -eq 0 ] \
      && printf '%s' "$out" | grep -q 'failure' \
@@ -353,7 +360,7 @@ JSON')
      && printf '%s' "$out" | grep -q 'https://example.test/runs/42'; then
     ok "GH-ci.1 CI red → 결론·SHA·URL 경고"
   else
-    nope "GH-ci.1" "rc=$rc out=[$out]"
+    nope "GH-ci.1" "rc=$rc out=[$out] gh=$([ -f "$D/gh.called" ] && echo 호출됨 || echo 미호출)"
   fi
   rm -rf "$D"
 else
@@ -366,11 +373,11 @@ if [ -f "$CI_SH" ]; then
 cat <<JSON
 [{"conclusion":"success","headSha":"0123456789abcdef","url":"https://example.test/runs/43"}]
 JSON')
-  out=$(cd "$PLUGIN" && PATH="$D:$PATH" bash "$CI_SH" 2>&1); rc=$?
+  out=$(cd "$CI_REPO" && PATH="$D:$PATH" bash "$CI_SH" 2>&1); rc=$?
   CI_RCS="$CI_RCS $rc"
-  [ "$rc" -eq 0 ] && [ -z "$out" ] \
+  [ "$rc" -eq 0 ] && [ -z "$out" ] && [ -f "$D/gh.called" ] \
     && ok "GH-ci.2 CI green → 무출력" \
-    || nope "GH-ci.2" "rc=$rc out=[$out]"
+    || nope "GH-ci.2" "rc=$rc out=[$out] gh=$([ -f "$D/gh.called" ] && echo 호출됨 || echo 미호출)"
   rm -rf "$D"
 else
   nope "GH-ci.2" "check-ci-status.sh 부재"
@@ -385,17 +392,19 @@ if [ -f "$CI_SH" ]; then
 cat <<JSON
 [{"headSha":"deadbeef00112233","url":"https://example.test/runs/45"}]
 JSON')
-  out=$(cd "$PLUGIN" && PATH="$D:$PATH" bash "$CI_SH" 2>&1); rc=$?
+  out=$(cd "$CI_REPO" && PATH="$D:$PATH" bash "$CI_SH" 2>&1); rc=$?
   CI_RCS="$CI_RCS $rc"
-  if [ "$rc" -eq 0 ] && [ -z "$out" ]; then
+  if [ "$rc" -eq 0 ] && [ -z "$out" ] && [ -f "$D/gh.called" ]; then
     ok "GH-ci.1b conclusion 부재 → 필드 시프트 없이 조용히 skip"
   else
-    nope "GH-ci.1b" "rc=$rc out=[$out]"
+    nope "GH-ci.1b" "rc=$rc out=[$out] gh=$([ -f "$D/gh.called" ] && echo 호출됨 || echo 미호출)"
   fi
   rm -rf "$D"
 else
   nope "GH-ci.1b" "check-ci-status.sh 부재"
 fi
+
+rm -rf "$CI_REPO"
 
 # GH-ci.6: 전 경로 종료코드가 예외 없이 0 (AC-6)
 #   위 6개 시나리오(.3 .4 .4b .1 .2 .1b)가 CI_RCS 에 rc 를 적재해 뒀다(.5·.5b 는 test-timing-serial.sh 로 이동). 0 아닌 값이 하나라도 있으면 FAIL.

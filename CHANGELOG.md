@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.0] — 2026-11-12
+
 ### Changed
 
 - **⚠ BREAKING — `/start`·`/maintain` 과 자연어 진입이 갈래를 자동으로 고른다 (속도·토큰).** 진입할 때 위험 신호(인증·권한 변경 · DB 스키마 변경 · 데이터 삭제·이관 · 기존 API 응답 형태 변경 · 되돌릴 수 없는 외부 작업)를 `scripts/basic-path.sh route` 가 판정한다 — `/basic` 이 쓰던 판정 그대로다. **신호가 없으면 기본 경로**(지금의 `/basic` 절차: spec 1장 승인 → 주 세션 직접 구현 → 스펙·코드 리뷰 + 보안 스캔 동시 1회 → 검증 1회 → PR), **있으면 풀 경로**(종전 그대로)이고, 어느 쪽인지와 이유를 1줄로 알린다. 종전에는 `/start`·`/maintain`·자연어 진입이 항상 풀 경로였다.
@@ -3795,7 +3797,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.36...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/andyko18/devFSD/compare/v3.1.36...v4.0.0
 [3.1.36]: https://github.com/andyko18/devFSD/compare/v3.1.35...v3.1.36
 [3.1.35]: https://github.com/andyko18/devFSD/compare/v3.1.34...v3.1.35
 [3.1.34]: https://github.com/andyko18/devFSD/compare/v3.1.33...v3.1.34

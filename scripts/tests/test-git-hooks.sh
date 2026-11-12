@@ -809,6 +809,81 @@ rm -f "$_fc/scripts/_internal/full-suite-fresh.sh"
 _fc_fp > "$_fc/.specops/.full-suite-pass"
 _fc_case T23.c "헬퍼 부재 → 전체 실행 (fail-closed)" RAN
 
+# ── PR.* 작업 브랜치 push 는 관련 스위트로 판정한다 (20261113 speed — scripts/_internal/prepush-related.sh) ──
+#   전체 스위트는 PR 의 CI(run-all · 머지 필수)가 본다. 기본 브랜치·태그·애매한 경우는 종전대로 전체다.
+#   픽스처: 위 T22·T23 이 쓰던 트리를 그대로 쓴다(신선도 헬퍼는 T23.c 가 지웠다 → 통과 기록 skip 없이 이 분기까지 온다).
+#   관련 스위트 러너는 스텁이다 — `--list` 는 .specops/rr-list(종료 코드 rr-list-rc), 실행은 .rel-ran 을 남기고 rr-rc 로 끝난다.
+cat > "$_fc/scripts/tests/run-related.sh" <<'STUB'
+#!/usr/bin/env bash
+S="${SPECOPS_ROOT:-.specops}"
+if [ "${1:-}" = "--list" ]; then cat >/dev/null; cat "$S/rr-list" 2>/dev/null; exit "$(cat "$S/rr-list-rc" 2>/dev/null || echo 0)"; fi
+printf '%s\n' "$@" > "$S/.rel-ran"
+echo "==== run-related: suites PASS=$# FAIL=0 (total=$#) ===="
+exit "$(cat "$S/rr-rc" 2>/dev/null || echo 0)"
+STUB
+# 훅과 헬퍼는 작업 트리의 것을 넣는다 — 픽스처 생성이 추적 파일만 옮기면 새 헬퍼가 빠진다(그러면 PR.11 만 공허하게 통과한다).
+cp "$PRE_PUSH" "$_fc/.githooks/pre-push"; cp "$PLUGIN/scripts/_internal/prepush-related.sh" "$_fc/scripts/_internal/prepush-related.sh" 2>/dev/null
+_pr_git() { git -C "$_fc" -c user.name=t -c user.email=t@t -c commit.gpgsign=false "$@"; }
+_pr_base=$(_pr_git rev-parse -q --verify HEAD 2>/dev/null)
+_pr_git update-ref refs/remotes/origin/main "$_pr_base" 2>/dev/null
+_pr_git add -A >/dev/null 2>&1 && _pr_git commit -q -m "feat: branch work" >/dev/null 2>&1
+_pr_head=$(_pr_git rev-parse -q --verify HEAD 2>/dev/null)
+# $1=remote ref $2=local sha $3...=env → PR_RC · PR_GOT(full|related|none) · PR_ERR
+_pr_run() {
+  local rref="$1" lsha="$2"; shift 2
+  rm -f "$_fc/.specops/.ran" "$_fc/.specops/.rel-ran"
+  PR_ERR=$( cd "$_fc" && printf 'refs/heads/feat %s %s 0000000000000000000000000000000000000000\n' "$lsha" "$rref" \
+    | env SPECOPS_RUN_ALL= "$@" bash .githooks/pre-push 2>&1 >/dev/null ); PR_RC=$?
+  PR_GOT=none; [ -f "$_fc/.specops/.rel-ran" ] && PR_GOT=related; [ -f "$_fc/.specops/.ran" ] && PR_GOT="full${PR_GOT#none}"
+}
+_pr_case() { # $1=id·설명 $2=기대 rc $3=기대 실행(full|related|none)
+  { [ "$PR_RC" = "$2" ] && [ "$PR_GOT" = "$3" ]; } && ok "$1" || nope "$1" "기대 rc=$2·$3 실제 rc=$PR_RC·$PR_GOT err=$(printf '%s' "$PR_ERR" | head -2 | tr '\n' ' ')"
+}
+if [ -z "$_pr_base" ] || [ -z "$_pr_head" ] || [ "$_pr_base" = "$_pr_head" ]; then
+  for _l in "PR.1 작업 브랜치 → 관련 스위트만" "PR.2 관련 스위트 실패 → 차단" "PR.3 기본 브랜치 push → 전체" "PR.4 관련 스위트를 고를 수 없음 → 전체" \
+            "PR.5 추적 파일 미커밋 변경 → 전체" "PR.6 FORCE_FULL → 전체" "PR.7 push 커밋이 HEAD 가 아님 → 전체" "PR.8 같은 트리 통과 기록 → 건너뜀" \
+            "PR.9 통과 기록에 없는 스위트 → 다시 실행" "PR.10 태그 push → 전체" "PR.11 헬퍼 부재 → 전체"; do _t22_dead "$_l"; done
+else
+  printf 'scripts/tests/test-a.sh\nscripts/tests/test-b.sh\n' > "$_fc/.specops/rr-list"
+  rm -f "$_fc/.specops/rr-list-rc" "$_fc/.specops/rr-rc" "$_fc/.specops/.related-suite-pass"
+  _pr_run refs/heads/feat "$_pr_head"
+  _pr_case "PR.1 작업 브랜치 → 관련 스위트만" 0 related
+  { [ "$(cat "$_fc/.specops/.rel-ran" 2>/dev/null | tr '\n' ' ')" = "scripts/tests/test-a.sh scripts/tests/test-b.sh " ] && printf '%s' "$PR_ERR" | grep -q 'CI' && printf '%s' "$PR_ERR" | grep -q 'SPECOPS_FORCE_FULL=1'; } \
+    && ok "PR.1b 고른 스위트를 그대로 돌리고 CI 위임·강제 방법을 알린다" || nope "PR.1b" "ran=$(cat "$_fc/.specops/.rel-ran" 2>/dev/null | tr '\n' ' ') err=$PR_ERR"
+  echo 1 > "$_fc/.specops/rr-rc"
+  _pr_run refs/heads/feat "$_pr_head"
+  _pr_case "PR.2 관련 스위트 실패 → 차단" 1 related
+  printf '%s' "$PR_ERR" | grep -q -- '--no-verify' && ok "PR.2b 차단 문구에 탈출구(--no-verify)" || nope "PR.2b" "$PR_ERR"
+  rm -f "$_fc/.specops/rr-rc"
+  _pr_run refs/heads/main "$_pr_head"
+  _pr_case "PR.3 기본 브랜치 push → 전체" 0 full
+  echo 3 > "$_fc/.specops/rr-list-rc"
+  _pr_run refs/heads/feat "$_pr_head"
+  _pr_case "PR.4 관련 스위트를 고를 수 없음 → 전체" 0 full
+  rm -f "$_fc/.specops/rr-list-rc"
+  printf '\n# pr dirty\n' >> "$_fc/scripts/tests/run-all.sh"
+  _pr_run refs/heads/feat "$_pr_head"
+  _pr_case "PR.5 추적 파일 미커밋 변경 → 전체" 0 full
+  _pr_git checkout -q -- scripts/tests/run-all.sh 2>/dev/null
+  _pr_run refs/heads/feat "$_pr_head" SPECOPS_FORCE_FULL=1
+  _pr_case "PR.6 FORCE_FULL → 전체" 0 full
+  _pr_run refs/heads/feat "$_pr_base"
+  _pr_case "PR.7 push 커밋이 HEAD 가 아님 → 전체" 0 full
+  { printf '%s\n' "$(_fc_fp)"; cat "$_fc/.specops/rr-list"; } > "$_fc/.specops/.related-suite-pass"   # 지문 출력에는 줄바꿈이 없다
+  _pr_run refs/heads/feat "$_pr_head"
+  _pr_case "PR.8 같은 트리 통과 기록 → 건너뜀" 0 none
+  printf '%s' "$PR_ERR" | grep -q '관련 스위트.*이미 통과' && ok "PR.8b 건너뜀 사유를 알린다" || nope "PR.8b" "$PR_ERR"
+  { printf '%s\n' "$(_fc_fp)"; echo scripts/tests/test-a.sh; } > "$_fc/.specops/.related-suite-pass"
+  _pr_run refs/heads/feat "$_pr_head"
+  _pr_case "PR.9 통과 기록에 없는 스위트 → 다시 실행" 0 related
+  rm -f "$_fc/.specops/.related-suite-pass"
+  _pr_run refs/tags/v9.9.9 "$_pr_head"
+  _pr_case "PR.10 태그 push → 전체" 0 full
+  rm -f "$_fc/scripts/_internal/prepush-related.sh"
+  _pr_run refs/heads/feat "$_pr_head"
+  _pr_case "PR.11 헬퍼 부재 → 전체" 0 full
+fi
+
 rm -rf "$_fc"; trap - EXIT
 fi
 

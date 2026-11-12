@@ -10,8 +10,9 @@
 #   실행은 run-all.sh 와 같은 병렬 풀이다 — SPECOPS_RUN_ALL_JOBS(기본 코어 수·상한 8 · 1 = 하나씩) · `# run-all: serial` 표시 스위트는 풀 뒤.
 #
 # 소비자: `/basic` 의 검증 1회(basic-path.sh related → seal 의 test_command). **전체 스위트의 대체가 아니다** —
-#   전체는 push 전 게이트(.githooks/pre-push)와 PR 의 CI 가 맡는다. 그래서 이 러너는:
-#   - 전체 스위트 통과 마커(.specops/.full-suite-pass)를 쓰지 않는다 → pre-push 는 이 실행을 통과 기록으로 치지 않는다.
+#   전체는 PR 의 CI 와 기본 브랜치·태그 push 의 push 전 게이트(.githooks/pre-push)가 맡는다(작업 브랜치 push 는 관련 스위트로 판정 — 20261113). 그래서 이 러너는:
+#   - 전체 스위트 통과 마커(.specops/.full-suite-pass)를 쓰지 않는다 → 기본 브랜치·태그 push 는 이 실행을 통과 기록으로 치지 않는다.
+#     전부 통과하면 관련 스위트 통과 기록(.specops/.related-suite-pass)을 남긴다 → 작업 브랜치 push 는 같은 트리·같은 스위트면 다시 돌지 않는다(prepush-related.sh).
 #   - `VERIFY: …` 토큰을 내지 않는다 → 커밋 훅(R-1)의 실행 증거가 되지 않는다(증거는 run-verification.sh 가 낸다).
 #   - 스위트별 소요는 `.specops/suite-times-related.tsv` 에 남긴다(전체 스위트의 기록 suite-times.tsv 와 다른 파일).
 #
@@ -26,16 +27,17 @@
 #   - 어느 스위트도 언급하지 않는 코드 파일이 하나라도 있으면 rc 3 (관련 테스트를 특정할 수 없다).
 #   - 고른 스위트가 RELATED_MAX 개를 넘으면 rc 3 (그만큼 넓게 닿는 변경은 전체 스위트가 맞다).
 # 한계: 이름 언급으로 찾는다 — 스위트가 파일을 변수 조합으로만 가리키거나(이름이 글자로 없음), 두 단계 이상의 간접 의존이면
-#   놓친다. 이름이 주석에만 나와도 관련으로 친다(넓게 잡는 쪽). 놓친 것은 push 전 게이트와 CI 의 전체 스위트가 잡는다.
+#   놓친다. 이름이 주석에만 나와도 관련으로 친다(넓게 잡는 쪽). 놓친 것은 PR 의 CI 전체 스위트가 잡는다(기본 브랜치·태그 push 는 push 전 게이트도 전체다).
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 
 # 이 수를 넘게 닿으면 전체 스위트로 돌린다(여기 한 곳에서 고친다).
 #   20261112 실측(관련 48개 — 러너 5 + 스위트 2 변경): 하나씩 591초 · 병렬 풀 172초 · 전체 스위트(222개 병렬) 358초(같은 세션 · 첫 실측 416초).
-#   병렬이면 48개도 전체보다 빠르지만 상한은 올리지 않았다 — 관련 스위트로 검증하면 전체 통과 기록이 없어 push 전 게이트가
-#   전체를 한 번 더 돈다(172 + 358초). 전체로 검증하면 게이트가 건너뛴다(358초 + push 0.8초 — 희생용 복제본 실측). 넓게 닿는 변경은 전체 한 번이 싸다.
-#   소요는 개수가 아니라 무거운 스위트 몇 개가 정한다(상위 7개가 591초 중 394초) — 스위트별 소요 자료가 생기면 기준을 소요로 바꾼다.
-RELATED_MAX=30
+#   20261113: 30 → 80. 종전에는 관련으로 검증해도 push 전 게이트가 전체를 한 번 더 돌아(172 + 358초) 넓게 닿는 변경은 전체 한 번이 쌌다.
+#   이제 작업 브랜치 push 는 관련 스위트 통과 기록으로 건너뛰므로(prepush-related.sh) 그 이중 비용이 없다.
+#   실측(같은 날 · 병렬 8): 관련 68개 157초 · 전체 337초. 소요는 개수가 아니라 무거운 스위트 몇 개가 정한다(68개 중 상위 4개가 합 361초).
+#   80 을 넘으면 전체와 차이가 작아지고(추정) 그만큼 넓게 닿는 변경은 전체가 맞다 — 스위트별 소요 자료(.specops/suite-times.tsv)로 기준을 바꾸는 것은 뒤로 둔다.
+RELATED_MAX=80
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 ALWAYS="scripts/_internal/validate-structure.sh scripts/tests/test-doc-numbers.sh scripts/tests/test-propagation.sh"
 
@@ -186,6 +188,17 @@ echo "$rc" > "$w/rc.$i"
 exit 0
 WORKER
 
+# 통과 기록 (20261113) — 전부 통과하면 `.specops/.related-suite-pass` 에 **실행 전** 비문서 지문(첫 줄)과 돌린 스위트(이후 줄)를
+#   남긴다. 소비자는 scripts/_internal/prepush-related.sh 하나다(작업 브랜치 push 에서 같은 트리·같은 스위트면 다시 돌지 않는다).
+#   전체 스위트 통과 기록(.full-suite-pass)과는 다른 파일이고 `VERIFY:` 토큰도 여전히 내지 않는다. 실패하면 기록을 지운다.
+#   지문을 낼 수 없거나(NO_GIT·UNHASHABLE·헬퍼 부재) `.specops/` 가 없으면 남기지 않는다(run-all.sh 의 마커와 같은 규칙).
+_RSP_MARKER="$PLUGIN/${SPECOPS_ROOT:-.specops}/.related-suite-pass"
+_RSP_TREE=NO_GIT
+if [ -f "$PLUGIN/scripts/_internal/verification-state.sh" ]; then
+  _RSP_TREE=$( { cd "$PLUGIN" && . "$PLUGIN/scripts/_internal/verification-state.sh" && vs::nondoc_fingerprint; } 2>/dev/null ) || _RSP_TREE=NO_GIT
+  [ -n "$_RSP_TREE" ] || _RSP_TREE=NO_GIT
+fi
+
 printf '%s\n' "$@" | sort -u > "$WORK/list"
 : > "$WORK/par"; : > "$WORK/ser"
 i=0
@@ -248,6 +261,10 @@ echo ""
 echo "==== run-related: suites PASS=$PASS FAIL=$FAIL (total=$((PASS + FAIL))) — 관련 스위트만 돌렸다(전체 스위트 아님) ===="
 if [ "$FAIL" -gt 0 ]; then
   printf 'FAILED: %s\n' "${FAILED[@]}"
+  rm -f "$_RSP_MARKER"
   exit 1
+fi
+if [ "$_RSP_TREE" != "NO_GIT" ] && [ "$_RSP_TREE" != "UNHASHABLE" ] && [ -d "$(dirname "$_RSP_MARKER")" ]; then
+  { printf '%s\n' "$_RSP_TREE"; cat "$WORK/list"; } > "$_RSP_MARKER" 2>/dev/null || true
 fi
 exit 0

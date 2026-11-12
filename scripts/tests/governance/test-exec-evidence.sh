@@ -242,6 +242,20 @@ for _c in 'poetry run pytest tests/ -q' 'uv run pytest -q' 'pnpm --dir frontend 
 VERIFY: PASS")
   _verify_exec_evidence "$_tx"; ck "T64 확장 러너 인정: $_c" 0 $?
 done
+# T64r — rtk 접두(`rtk` · `rtk proxy`)를 단 러너도 인정된다. 실물(20261112): 출력 원문을 보려고 `rtk proxy bash
+#   scripts/tests/run-all.sh` 로 돌린 전체 스위트가 222/222 로 통과했는데 실행 증거로 치지 않아 6분을 다시 돌렸다.
+#   커밋 쪽 트리거(rules.jsonl R-1)는 이미 `rtk` 접두를 읽는다 — 러너 쪽만 몰랐다.
+for _c in 'rtk proxy bash scripts/tests/run-all.sh' 'cd /repo && rtk proxy bash scripts/tests/run-all.sh 2>&1 | tail -15' \
+          'rtk bash scripts/tests/run-all.sh' 'CI=1 rtk proxy pytest -q'; do
+  _tx=$(_mk_run_tx "$_c" "1 passed
+VERIFY: PASS")
+  _verify_exec_evidence "$_tx"; ck "T64r rtk 접두 러너 인정: $_c" 0 $?
+done
+# T64s — 접두는 rtk 뿐이다: 다른 낱말이 앞에 서면 종전대로 불인정(위장 표면을 넓히지 않는다)
+for _c in 'echo proxy bash scripts/tests/run-all.sh' 'rtkx bash scripts/tests/run-all.sh' 'rtk gain bash scripts/tests/run-all.sh'; do
+  _tx=$(_mk_run_tx "$_c" "VERIFY: PASS")
+  _verify_exec_evidence "$_tx"; ck "T64s 다른 접두는 불인정: $_c" 1 $?
+done
 rm -rf "$_t64d"
 
 # T25 — 앵커 리터럴 재등장 감지 (변수화 역행 잠금)

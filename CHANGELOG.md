@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.34] — 2026-11-12
+
 ### Added
 
 - **풀 경로(`/start`·`/maintain`)가 구현 구간을 새 대화 맥락에서 돌린다 — 사용자 동작 없음 (토큰).** `decomposing-ko` 가 tasks 를 쓴 뒤 `scripts/split-session.sh decide <FID>` 로 판정하고, `yes` 면 구현~성능 게이트를 헤드리스 자식 세션(`claude -p`)에 맡긴다. 주 세션은 백그라운드 실행의 종료 알림으로 깨어나 검증 러너를 직접 1회 돌린 뒤(R-2 실행 증거는 세션별) PR 생성 게이트(데모·PR 질문)로 간다. 자식이 사용자에게 물어야 하면 `split/held.md` 에 적고 멈추고, 주 세션이 묻고 `--resume` 으로 같은 자식을 이어 간다. 절차: `skills/decomposing-ko/session-split.md`.
@@ -3751,7 +3753,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.33...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.34...HEAD
+[3.1.34]: https://github.com/andyko18/devFSD/compare/v3.1.33...v3.1.34
 [3.1.33]: https://github.com/andyko18/devFSD/compare/v3.1.32...v3.1.33
 [3.1.32]: https://github.com/andyko18/devFSD/compare/v3.1.31...v3.1.32
 [3.1.31]: https://github.com/andyko18/devFSD/compare/v3.1.30...v3.1.31

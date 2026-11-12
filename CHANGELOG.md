@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **풀 경로(`/start`·`/maintain`)에서 거의 걸리지 않던 반복 단계를 줄였다 (속도).** 실측(20261112): 풀 경로 기계 시간 약 150분 — plan 36~43분 · 구현 62~82분.
+  - **구현 뒤 재리뷰 없음** — end-loaded B/C 지적은 수정 라운드 1회로 고치고 관련 테스트 통과를 확인한 뒤 verify 로 간다. 구현자가 고치지 못한 Critical 은 종전대로 전역 재시도 1회 뒤 HARD GATE 다. 근거: 재리뷰 221행 중 통과가 아닌 것 4행. 되돌리기: tasks.md `review_mode: per-task`.
+  - **plan 리뷰 2회차는 1회차에 Critical 이 있을 때만** — Important 만이면 반영하고 진행한다(`Critical: <N>건` 줄 기계 판정). 전문가·이해 검사 반영이 2회차를 의무화하던 규칙을 뺐다. DB·구조·API·보안·테스트 전문가와 plan-reviewer 1회차를 한 메시지에서 함께 보낸다. 근거: 리뷰 평균 1.9회 · 1회차 Critical 합 72건 · 2회차 14건.
+  - **태스크를 묶는다** — 작은 변경(구현 파일 5개 이하)은 태스크 3개 이하, 같은 파일을 고치는 태스크는 하나로, `depends_on` 은 실제 산출 의존만. plan-reviewer 의 "3파일 초과 Critical"·"5분 초과 Important" 를 뺐다. outputs 가 겹치지 않는 태스크는 한 메시지에서 동시에 dispatch 하는 것이 기본이다. 근거: 구현자 dispatch 94건 중 85% 단독 직렬.
+  - **게이트 사전 판정** — 새 `scripts/_internal/gate-preflight.sh` 가 보안·통합·성능 게이트의 적용 여부를 한 번에 판정해, 표면이 분명히 없는 게이트는 skill 을 부르지 않고 SKIP 을 근거(spec 절·줄 인용)와 함께 기록한다. 애매하면 종전대로 skill 이 판정한다. 근거: 게이트 137건 중 실결함 4건.
+  - **chain**: `verifying-evidence-ko → security-review-ko` 가 primary edge 다. `requesting`·`receiving-code-review-ko` 는 고정 단계에서 빠졌고 per-task·§batch·게이트 FAIL 뒤 재진입에서만 호출된다(10월 이후 실제 실행 0건).
+  - **clarifying**: 열린 질문이 없으면 사용자에게 묻지 않는다 — 발굴한 DESIRABLE 은 가정(`ASSUMED`)으로 적고 승인 묶음에서 한 번에 확인받는다. 근거: 11월 질문 30개 중 답이 바뀐 것 4개.
+  - **수정 라운드 뒤 전체 스위트를 한 번 다시 백그라운드로 띄운다** — verify 가 그 통과 기록을 재사용한다(종전엔 verify 가 포그라운드로 다시 돌았다). verify·pre-push 의 통과 기록 재사용 자체는 기존 장치(`full-suite-fresh.sh`) 그대로다.
+  - **plan 단계 dispatch 에 실행 상한** — 전문가·plan-reviewer·이해 검사 프롬프트에 "긴 명령 2회 이내 · 전체 스위트 실행 금지" 를 적는다(보안 전문가 패스가 발동한 FID 는 제외).
+
+
 ## [3.1.29] — 2026-11-12
 
 ### Changed

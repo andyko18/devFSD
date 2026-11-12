@@ -260,7 +260,7 @@ fi
 
 # ── 20261005 전체 스위트 병행 · 리뷰어 실행 예산 (implementing-ko) ──
 # Phase A 직후 run-all 백그라운드 병행(리뷰 대기와 겹침) + 리뷰어 실행량 상한. 문구가 사라지면 병행·예산이 조용히 꺼진다.
-if has skills/implementing-ko/SKILL.md '전체 스위트 병행' 'run-all\.sh --quiet' 'run-all\.log' '증거가 아니다' '라운드마다 다시 띄우지 않는다' 'FAILED. 줄을 사용자에게 알리되' '임시 복사본'; then
+if has skills/implementing-ko/SKILL.md '전체 스위트 병행' 'run-all\.sh --quiet' 'run-all\.log' '증거가 아니다' '수정 라운드의 마지막 커밋 뒤 전체 스위트를 \*\*한 번\*\* 다시 백그라운드로' 'verify 가 그 결과를 재사용' 'FAILED. 줄을 사용자에게 알리되' '임시 복사본'; then
   ok "implementing-ko 전체 스위트 병행 계약 존재 (백그라운드·log·비증거·수정 라운드·FAIL 알림·실 트리 변조 금지)"
 else
   nope "implementing-ko 전체 스위트 병행 계약 소실" "병행 실행 절차 또는 안전 규칙 부재"
@@ -287,7 +287,7 @@ else
 fi
 # ── 20261005 end-loaded 리뷰 완료 FID 의 기계적 단계 생략 (verifying-evidence-ko → review-skip-pass.sh) ──
 # 조건 충족 시 requesting·receiving-code-review-ko 를 호출하지 않고 security-review-ko 로 간다. 문구가 사라지면 두 skill 이 다시 매번 주입된다.
-if has skills/verifying-evidence-ko/SKILL.md 'review-skip-pass\.sh' 'rc 0 .*호출하지 않고.*Skill: devfsd:security-review-ko' 'rc 1 이면.*아래 기본 경로다' '판정이 애매하면 기본 경로다'; then
+if has skills/verifying-evidence-ko/SKILL.md 'review-skip-pass\.sh' 'rc 0 .*호출하지 않고\*\* 2 로 간다' 'rc 1 이면.*`devfsd:requesting-code-review-ko` 를 호출한다' '판정이 애매하면 rc 1 로 본다' '^Skill: devfsd:security-review-ko$'; then
   ok "verifying-evidence-ko review-skip-pass fast path 존재 (rc 0 → security-review · rc 1 → 종전 · 애매하면 기본)"
 else
   nope "verifying-evidence-ko review-skip-pass fast path 소실" "end-loaded FID 의 기계적 리뷰 단계 생략 문구 부재"
@@ -373,9 +373,9 @@ else
   nope "dev-autonomy.md 넘길 수 없는 것 소실" "보안·스펙 미충족이 backlog 로 흘러 PR 까지 갈 수 있다"
 fi
 #   환경이 없어 못 돌린 게이트는 조용히 SKIP 하지 않는다(리뷰 I2) · 사전 승인된 태스크는 Step 0 을 다시 묻지 않는다(I4)
-if has "$A" '실행 환경이 없어' '조용히 SKIP 하면 검증되지 않은 채' 'Step 0\(승인 요청\)을 다시 묻지 않는다' '재리뷰를 거친다' \
+if has "$A" '실행 환경이 없어' '조용히 SKIP 하면 검증되지 않은 채' 'Step 0\(승인 요청\)을 다시 묻지 않는다' '재리뷰 없이 verify 로 간다' \
    && ! grep -qE '환경 미비로 실행 불가' "$A"; then
-  ok "dev-autonomy.md: 환경 미비는 묻는다 · 사전 승인 뒤 재질문 없음 · 수정 라운드는 재리뷰"
+  ok "dev-autonomy.md: 환경 미비는 묻는다 · 사전 승인 뒤 재질문 없음 · 수정 라운드는 재리뷰 없이 verify"
 else
   nope "dev-autonomy.md 환경·재질문·재리뷰 규칙 소실" "$A"
 fi
@@ -966,7 +966,7 @@ for _n in '**발동 판단**은 각 절 기준 그대로 먼저 끝내고' '발�
   '4-1. 재판단 — 반영으로 plan.md 가 바뀌었으면 `check-security-design.sh` 를 다시 1회 실행' '발동하지 않았던 절은 바뀐 plan 으로 발동 기준을 다시 본다'; do
   printf '%s' "$_par" | grep -qF -- "$_n" || _miss="$_miss [$_n]"
 done
-printf '%s\n' "$_par" | grep -qxF -- '5. 다음 — 반영을 모두 마친 뒤 사전검사·경계 대조 재실행 1회 → 테스트 전문가 패스와 plan-reviewer 1회차를 한 메시지에서 동시에 dispatch 한다(아래 「1회차 동시 dispatch」 — 테스트 패스가 발동하지 않으면 plan-reviewer 만 종전대로).' || _miss="$_miss [5단계 문장]"
+printf '%s\n' "$_par" | grep -qxF -- '5. 다음 — 이 절의 패스가 돌아오기를 기다리지 않는다. 발동한 패스와 테스트 전문가 패스·plan-reviewer 1회차를 **같은 메시지**에서 함께 dispatch 하고(아래 「1회차 동시 dispatch」), 3 의 반영과 사전검사·경계 대조 재실행 1회는 모두 돌아온 뒤 한 번에 한다.' || _miss="$_miss [5단계 문장]"
 [ "$(printf '%s\n' "$_par" | grep -o '테스트 전문가' | wc -l | tr -d ' ')" = 1 ] || _miss="$_miss [테스트 전문가가 5단계 밖에 나옴]"
 printf '%s\n' "$_par" | grep -q 'test-designer' && _miss="$_miss [병렬 절에 test-designer]"
 _l41=$(printf '%s\n' "$_par" | grep -n '^4-1\. 재판단' | head -1 | cut -d: -f1); _l5s=$(printf '%s\n' "$_par" | grep -n '^5\. 다음' | head -1 | cut -d: -f1); _l4s=$(printf '%s\n' "$_par" | grep -n '^4\. 실패' | head -1 | cut -d: -f1)
@@ -992,15 +992,16 @@ _l_cc=$(grep -n '^### 1회차 동시 dispatch' "$_PL" | head -1 | cut -d: -f1)
 _l_cce=""; [ -n "$_l_cc" ] && _l_cce=$(awk -v s="$_l_cc" 'NR>s && /^### /{print NR; exit}' "$_PL")
 _cc=""; { [ -n "$_l_cc" ] && [ -n "$_l_cce" ]; } && _cc=$(sed -n "$((_l_cc+1)),$((_l_cce-1))p" "$_PL")
 _miss=""
-for _n in '테스트 전문가 패스가 발동할 때만' '한 메시지의 `Agent` 호출 2개' '둘 다 같은 plan.md' '둘의 지적을 한 번에 plan.md 에 반영' \
-  '1회차가 PASS 여도' '2회차를 반드시 부른다' '최종 plan 은 모든 반영 뒤 한 번은 리뷰를 받는다' 'cap 계산은 그대로' \
+for _n in '**항상** 적용한다' '한 메시지의 `Agent` 호출 2개' '둘 다 같은 plan.md' '둘의 지적을 한 번에 plan.md 에 반영' \
+  '**1회차에 Critical 이 있을 때만** 부른다' "grep -qE '^Critical:[[:space:]]*0([^0-9]|\$)' .specops/<FID>/plan-review.md" 'Critical 이 있는 것으로 본다' '**2회차 없이 진행**한다' \
+  '반영할 수 없는 Important' '진행하지 않고 사용자에게 묻는다' '3회차 없음' '1회차 Critical 합 72건 · 2회차 Critical 합 14건' \
   '`| <N> | <ISO-8601> | test-review-parallel | - | 동시 dispatch | test-designer-ko · plan-reviewer-ko(1회차) |`' \
   '/plan-draft 완료' '/plan-expert 완료' '/plan-review 완료'; do
   printf '%s' "$_cc" | grep -qF -- "$_n" || _miss="$_miss [$_n]"
 done
 printf '%s\n' "$_cc" | grep -oE '`\| [^|`]* \| [^|`]* \| test-review-parallel \|[^`]*`' | grep -qE 'DONE|IMPL' && _miss="$_miss [DONE·IMPL 행]"
 if [ -n "$_l_cc" ] && [ -n "$_l_ts9" ] && [ -n "$_l_pr9" ] && [ "$_l_ts9" -lt "$_l_cc" ] && [ "$_l_cc" -lt "$_l_pr9" ] && [ -z "$_miss" ]; then
-  ok "planning-ko 1회차 동시 dispatch — 테스트 전문가 < 이 절 < plan-reviewer · 동시 호출 · 한 번 반영 · 최종 plan 리뷰 보장 · cap 그대로 · 기록 · 하위 단계 3종"
+  ok "planning-ko 1회차 동시 dispatch — 테스트 전문가 < 이 절 < plan-reviewer · 동시 호출 · 한 번 반영 · 2회차는 1회차 Critical 일 때만(기계 판정) · 기록 · 하위 단계 3종"
 else
   nope "planning-ko 1회차 동시 dispatch" "위치(ts=$_l_ts9 cc=$_l_cc pr=$_l_pr9) 또는 없음:$_miss"
 fi

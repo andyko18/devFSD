@@ -34,10 +34,10 @@ wave loop 전에 아래 태스크를 모은다:
 |---|---|---|
 | "계속할까요?"·다음 단계 확인 | **묻지 않는다.** chain 의 다음 단계로 간다 | (기록 불요) |
 | 순서·진행 방식 선택 (무엇을 먼저) | 추천안으로 정한다 | `order` |
-| 리뷰어의 Important — **이번 FID 가 만들거나 고친 코드의 결함**이고 AC·spec 을 바꾸지 않아도 된다 | 고친다 — 수정 라운드 1회에 모아 재dispatch 하고 **재리뷰를 거친다**(직렬 B→C · 리뷰 재시도 cap 을 소모한다) | `fixed` |
+| 리뷰어의 Important — **이번 FID 가 만들거나 고친 코드의 결함**이고 AC·spec 을 바꾸지 않아도 된다 | 고친다 — 수정 라운드 1회에 모아 재dispatch 하고 관련 테스트 통과를 확인한 뒤 **재리뷰 없이 verify 로 간다**(`review_mode: per-task` 만 재리뷰) | `fixed` |
 | 리뷰어의 Important — 이번 FID **이전부터 있던 결함**이거나, 고치려면 **AC·spec 문언을 바꿔야** 한다 | 고치지 않는다. 다음 작업으로 넘긴다 | `backlog` |
 | 구현 중 발견한 범위 밖 요구·설계 결정 | 위 두 줄과 같은 기준 — 계약 안이면 처리, 계약 밖이면 넘긴다 | `fixed`/`backlog` |
-| 리뷰 재시도 cap 소진 뒤 Important 만 남음 | 추가 라운드 없이 넘긴다 | `backlog` |
+| 수정 라운드 뒤에도 Important 만 남음 | 추가 라운드 없이 넘긴다 | `backlog` |
 | 게이트 적용성 판정 — 해당 표면이 없다(통합·성능·보안 게이트의 graceful skip) | 근거를 evidence 에 적고 SKIP | (게이트가 evidence 에 남긴다) |
 | Suggestion | 기록하지 않는다(리뷰 리포트에 남아 있다) | — |
 
@@ -54,7 +54,7 @@ wave loop 전에 아래 태스크를 모은다:
 | 상황 | 처리 |
 |---|---|
 | **예상 못 한 비가역 작업·repo 밖 흔적** — 구현자가 `NEEDS_APPROVAL` 반환(사전 승인 범위 밖) | 종전대로 즉시 묻는다 — `needs-approval.md`. 끝에 알리면 이미 실행된 뒤다 |
-| **Critical 미해결** — Phase B FAIL 또는 Phase C `NEEDS_FIX` 가 cap 과 전역 재시도 1회 뒤에도 남음 | `HARD-GATE` 로 멈춘다 |
+| **Critical 미해결** — Phase B FAIL 또는 Phase C `NEEDS_FIX` 의 지적을 수정 라운드와 전역 재시도 1회 뒤에도 고치지 못함(구현자 `BLOCKED`·관련 테스트 FAIL) | `HARD-GATE` 로 멈춘다 |
 | 리뷰어 판정 `NEEDS_DISCUSSION` | 선택지를 그대로 제시하고 판단을 기다린다(`§auto` 도 자동 선택 금지) |
 | 보안 스캔 Critical/High 가 수정 루프 뒤에도 남음 | `security-review-ko` 의 chain 차단 그대로 |
 | 표면은 있는데 **실행 환경이 없어** 통합·성능·보안 게이트를 돌릴 수 없다 | 각 게이트 skill 의 질문 그대로(환경 설정 후 재실행 / skip) — 조용히 SKIP 하면 검증되지 않은 채 PR 로 간다 |

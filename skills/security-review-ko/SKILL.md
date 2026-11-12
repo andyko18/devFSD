@@ -17,7 +17,7 @@ used_by: receiving-code-review-ko (단일 모드 chain 진입), /start-all (batc
 
 **핵심 원칙**: "주장 전에 증거." verifying-evidence-ko의 철칙을 계승. 스캔을 실행하지 않고 "안전"을 주장하는 것은 부정직이다.
 
-**선결 조건**: 본 skill은 `receiving-code-review-ko` 완료 후 호출된다. 코드 리뷰 이슈가 미해결이면 본 skill 진입 전에 해결한다.
+**선결 조건**: 본 skill은 `verifying-evidence-ko` 통과 뒤(per-task·§batch 는 `receiving-code-review-ko` 완료 뒤) 호출된다. 코드 리뷰 이슈가 미해결이면 본 skill 진입 전에 해결한다.
 
 ---
 
@@ -181,7 +181,7 @@ grep -qE '^\*\*§batch\*\*:' .specops/<FID>/spec.md && echo "BATCH" || echo "SIN
 
 - **batch 모드** (`**§batch**` 라벨 감지) → `BATCH-SECURITY-DONE: <FID>` 출력 + **halt**. integration-test-ko 미호출. `/start-all` 오케스트레이터가 다음 단계(통합)를 제어한다
 
-**[단일 모드]** (`**§batch**` 라벨 없는 경우) — **Critical/High 0건 (PASS) 또는 표면 없음(SKIP)** → 즉시 호출:
+**[단일 모드]** (`**§batch**` 라벨 없는 경우) — **Critical/High 0건 (PASS) 또는 표면 없음(SKIP)** → 먼저 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/gate-preflight.sh <FID> --next-after security` 를 실행한다. 출력이 `NEXT: performance-test-ko` 면 통합 게이트는 사전 판정이 이미 SKIP 으로 기록했다 — integration-test-ko 를 호출하지 않고 `devfsd:performance-test-ko` 를 호출한다. 그 밖(출력이 `NEXT: integration-test-ko` · rc 1)은 아래 기본 경로다 — 즉시 호출:
 
 ```
 Skill: devfsd:integration-test-ko
@@ -189,4 +189,4 @@ Skill: devfsd:integration-test-ko
 
 integration-test-ko가 통합 표면을 판정하고 → performance-test-ko → PR 생성 게이트로 chain한다.
 
-본 security-review-ko는 단일 모드에서 **integration-test-ko 이외의 다음 스킬을 호출하지 않는다** (FAIL 시 systematic-debugging-ko 경유 후 chain 복귀, batch halt 제외).
+본 security-review-ko는 단일 모드에서 **integration-test-ko 이외의 다음 스킬을 호출하지 않는다** (위 사전 판정의 performance-test-ko 직행, FAIL 시 systematic-debugging-ko 경유 후 chain 복귀, batch halt 제외).

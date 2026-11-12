@@ -51,7 +51,7 @@ grep -q 'teeth' "$SPEC" && grep -qE 'verify.*(유지|불변|그대로)|teeth (�
 grep -q 'TDD 5스텝' "$DEC" && grep -qE 'teeth (불변|유지)|정상과 동일' "$DEC" \
   && ok "AC-7b decompose teeth(TDD·게이트) 불변 명시" || nope "AC-7b" "decompose teeth 불변 명시 소실"
 # chain.yaml 의 verify/security edge 가 여전히 선언돼 있는지 (축약이 edge 삭제 안 함)
-grep -q 'verifying-evidence-ko, to: requesting-code-review-ko' "$PLUGIN/hooks/chain.yaml" \
+grep -q 'verifying-evidence-ko, to: security-review-ko' "$PLUGIN/hooks/chain.yaml" \
   && grep -q 'security-review-ko' "$PLUGIN/hooks/chain.yaml" \
   && ok "AC-7c chain.yaml verify/security edge 불변" || nope "AC-7c" "verify/security edge 소실"
 

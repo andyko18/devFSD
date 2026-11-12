@@ -327,7 +327,7 @@ fix_count > 3 **또는 `attempt-fp.sh check` rc 1(동일 실패 지문 연속)**
 
 ## session-progress append (v0.4-pre P1 신설)
 
-evidence.md 작성 + 모든 검증 PASS 직후, requesting-code-review-ko 호출 직전에:
+evidence.md 작성 + 모든 검증 PASS 직후, 다음 skill 호출 직전에:
 ```
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /verify PASS "evidence.md, AC N/N"
 ```
@@ -341,14 +341,18 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /verify BL
 
 모든 검증 항목 PASS + verify-loop.md 삭제 + session-progress append 후:
 
-**[fast path — end-loaded 리뷰 완료 FID]** 먼저 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/review-skip-pass.sh <FID>` 를 실행한다. rc 0 (`review-skip-pass: OK`)이면 requesting·receiving-code-review-ko 를 **호출하지 않고** 곧바로 `Skill: devfsd:security-review-ko` 를 호출한다 — 두 단계가 남기던 산출물(review-skip.md·session-progress 두 줄)을 스크립트가 이미 남겼다. rc 1 이면(per-task·§batch·리포트 누락·review-skip.md/review-request.md 기존재 등) 아래 기본 경로다. 판정이 애매하면 기본 경로다.
+**1. 리뷰 단계 통과 기록** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/review-skip-pass.sh <FID>` 를 실행한다. rc 0 (`review-skip-pass: OK`)이면 requesting·receiving-code-review-ko 를 **호출하지 않고** 2 로 간다 — 두 단계가 남기던 산출물(review-skip.md·session-progress 두 줄)을 스크립트가 이미 남겼다. rc 1 이면(per-task·§batch·리포트 누락·review-skip.md/review-request.md 기존재 등) 아래 기본 경로다 — `devfsd:requesting-code-review-ko` 를 호출한다(그 skill 이 receiving → security 로 이어 간다). 판정이 애매하면 rc 1 로 본다.
+
+> 종전엔 requesting·receiving-code-review-ko 가 chain 의 고정 단계였다. end-loaded B/C 가 FID 전체 diff 를 이미 리뷰하므로 20261112 에 고정 단계에서 뺐다(10월 이후 두 skill 의 실제 실행 0건 — 전부 위 스크립트가 통과시켰다). per-task·§batch 는 rc 1 로 종전 경로를 그대로 탄다.
+
+**2. 게이트 사전 판정** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/gate-preflight.sh <FID>` 를 한 번 실행하고 출력의 `NEXT:` 줄의 skill 을 호출한다. 스크립트는 보안·통합·성능 게이트 가운데 표면이 분명히 없는 것만 SKIP 으로 판정해 evidence.md 와 session-progress 에 근거(spec 절·줄 인용)와 함께 기록한다 — SKIP 으로 기록된 게이트의 skill 은 **호출하지 않는다**. `NEXT: performance-test-ko` 는 성능 게이트가 SKIP 이어도 나온다(그 skill 이 PR 생성 게이트를 담고 있다). rc 1 이면(판정 불가) 아무것도 기록되지 않았다 — 아래 기본 경로대로 `devfsd:security-review-ko` 부터 차례로 호출한다. 스크립트 출력에 없는 SKIP 을 직접 써넣지 않는다.
 
 기본 경로 — 즉시 호출:
 
 ```
-Skill: devfsd:requesting-code-review-ko
+Skill: devfsd:security-review-ko
 ```
 
-requesting-code-review-ko가 전체 변경사항에 대한 외부 리뷰를 요청한다. 본 verifying-evidence-ko는 정상 chain 전진 시 **requesting-code-review-ko 이외의 다음 스킬을 호출하지 않는다** (예외: 위 fast path 의 security-review-ko 직행, 아래 fix_loop 상한 초과 복구).
+본 verifying-evidence-ko는 정상 chain 전진 시 **security-review-ko 이외의 다음 스킬을 호출하지 않는다** (예외: 위 1 의 rc 1 → requesting-code-review-ko, 위 2 의 `NEXT:` 가 가리키는 integration-test-ko·performance-test-ko, 아래 fix_loop 상한 초과 복구).
 
 fix_loop 상한(3회) 초과 시: `devfsd:systematic-debugging-ko` 호출 (근본 원인 분석 후 chain 복귀).

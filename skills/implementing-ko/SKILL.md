@@ -118,13 +118,13 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
     ─────────────────────────────────────────────────────────
     ↓ ready 비어 있음 (전부 A 완료)
 [END-LOADED REVIEW] (review_mode≠per-task 일 때 필수)
-  최초 B·C 쌍: **한 메시지에서 동시 dispatch** → 「최초 B/C 쌍 병렬」(재라운드는 직렬 B→C)
+  최초 B·C 쌍: **한 메시지에서 동시 dispatch** → 「최초 B/C 쌍 병렬」(end-loaded 는 재리뷰 없음 — 「수정 라운드」)
   Phase B 1회: spec-reviewer-ko — FID 전체(전 task context·AC·diff)
     → SubagentStop 훅(hooks/save-review-report.sh)이 **task마다** reviews/<tid>-B-report.md 저장
       (판정 SoT = reviews 파일 · report 부재 시 부모 fallback 저장 — 반환 전문에서 tid 별로)
       (반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장 — `저장:` 경로 목록이 아니면 옛 report 를 반환 전문으로 교체) · 단 `review-saved.sh check` rc 0 이면 다시 쓰지 않는다(「end-loaded B/C 산출물 규약」)
     → dispatch-log 행은 부모가 기록: 각 tid 행(경로 `reviews/<tid>-B-report.md` 또는 ## task-<tid> + B 셀)
-    → FAIL 시 feedback → 관련 implementer 재dispatch(cap=2 FID 단위) → B 재실행
+    → FAIL 시 feedback → 관련 implementer 재dispatch 1회(「수정 라운드」) → 관련 테스트 통과면 **재리뷰 없이** verify
   Phase C 1회: code-reviewer-ko — FID 전체 + B-report 경로들(최초 병렬은 `병렬 dispatch: yes (B 판정 대기)`)
     → reviews/<tid>-C-report.md (또는 -C-feedback) 동일 규약
   최종 통합 code-reviewer: **SKIP** (end-loaded C가 전체 구현을 이미 봄 — E2와 동형)
@@ -133,6 +133,8 @@ DAG-AWARE PARALLEL 분기: ←────────────────�
     ↓
 devfsd:verifying-evidence-ko 호출
 ```
+
+**동시 dispatch 가 기본이다 (20261112)**: ready 에 outputs 가 겹치지 않는 태스크가 2개 이상이면 **반드시 한 메시지의 `Agent` 호출 여러 개로 함께** 보낸다 — 하나씩 보내는 것은 outputs 가 겹치거나 `depends_on` 이 걸려 있을 때뿐이다. ready 가 2개 이상인데 하나씩 보냈으면 dispatch-log 에 `| <N> | <ISO-8601> | SERIAL:<tid> | - | 직렬 | <겹치는 파일 또는 의존 tid> |` 1행으로 사유를 남긴다. 구현자가 도는 동안 주 세션은 기다리기만 하지 않는다 — 다음 wave 의 context 검증(`validate-context.sh`)과 PR 본문 초안을 준비한다. 근거: 구현자 dispatch 94건 중 85%가 단독 직렬이었고, 그동안 주 세션은 94% 놀았다.
 
 **DAG 파싱 실패 fallback (advisor 협의 13:00)**: `dag::find_independent_batch` 가 빈 출력 + stderr WARN 반환 → SEQUENTIAL 분기로 자동 fallback. 강제 차단 안 함 (v0.4a; v0.4b strict mode 옵션 검토).
 
@@ -202,12 +204,23 @@ Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스�
 
 ## Phase B/C 자동 재dispatch 정책 (Wave 2 U5)
 
+### 수정 라운드 — end-loaded 는 재리뷰 없이 verify (20261112)
+
+end-loaded(기본)에서 최초 B·C 가 지적을 내면 **수정 라운드 1회**로 끝낸다 — 고친 뒤 B·C 를 다시 부르지 않는다.
+
+1. B FAIL·C `NEEDS_FIX` 의 feedback 과 계약 안 Important(`dev-autonomy.md` §2)를 **한 번에 모아** 영향받은 tid 의 `devfsd:implementer-ko` 를 재dispatch 한다(feedback **경로만** · 아래 상향 규칙). 서로 outputs 가 겹치지 않는 tid 는 한 메시지에서 동시에 보낸다.
+2. 구현자가 `DONE` 이고 그 태스크의 관련 테스트가 통과하면 dispatch-log 에 tid 마다 `| <N> | <ISO-8601> | REVIEW-FIX:<tid> | implementer-ko | FIXED | reviews/<tid>-<B|C>-feedback.md |` 1행을 남기고 **재리뷰 없이** `verifying-evidence-ko` 로 간다. 고친 코드의 검증은 verify(AC 대조·전체 스위트·fix_loop)가 맡는다.
+3. 구현자가 고치지 못하면(`BLOCKED` · 관련 테스트 FAIL · Critical 지적을 반영하지 않은 `DONE_WITH_CONCERNS`) **Critical 미해결**이다 — 아래 「cap 초과 처리」(전역 재시도 1회 → HARD GATE)를 그대로 탄다. verify 로 넘기지 않는다.
+4. C `NEEDS_DISCUSSION` 은 종전대로 사용자 판단 대기다(수정 라운드 대상이 아니다).
+
+근거(과거 161 FID 실측): 구현 뒤 재리뷰 221행 가운데 통과가 아닌 것은 **4행**이었다(재리뷰는 B 다음 C 를 차례로 돌아 리뷰 구간을 한 번 더 썼다). 되돌리려면 tasks.md 에 `review_mode: per-task` 를 적는다(태스크별 A→B→C 와 재리뷰 루프가 종전 그대로다).
+
 | Phase | FAIL 시 동작 | 재dispatch subagent_type | cap | cap 초과 시 |
 |---|---|---|---|---|
-| B (spec-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-B-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `devfsd:implementer-ko` | **per-task**: task 당 1회 (B=1/2). **end-loaded**: FID 당 1회 재시도(관련 task만 재구현) | 아래 「cap 초과 처리」 — 전역 재시도 뒤에도 남으면 `HARD-GATE: <task-id> Phase B cap 초과` |
-| C (code-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-C-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `devfsd:implementer-ko` | **per-task**: task 당 1회 (C=1/2). **end-loaded**: FID 당 1회 | 아래 「cap 초과 처리」 — 전역 재시도 뒤에도 남으면 `HARD-GATE: <task-id> Phase C cap 초과` |
+| B (spec-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-B-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `devfsd:implementer-ko` | **per-task**: task 당 1회 (B=1/2) 후 B 재실행. **end-loaded**: FID 당 수정 라운드 1회(관련 task만 재구현 · 재리뷰 없음) | 아래 「cap 초과 처리」 — 전역 재시도 뒤에도 남으면 `HARD-GATE: <task-id> Phase B cap 초과` |
+| C (code-reviewer-ko FAIL) | reviewer feedback (`reviews/<task-id>-C-feedback.md`) 을 추가 컨텍스트로 1회 자동 재dispatch | `devfsd:implementer-ko` | **per-task**: task 당 1회 (C=1/2) 후 C 재실행. **end-loaded**: B 와 같은 수정 라운드에 합친다 | 아래 「cap 초과 처리」 — 전역 재시도 뒤에도 남으면 `HARD-GATE: <task-id> Phase C cap 초과` |
 
-**cap=2 (Phase별 독립)** — Phase B 최대 2회 시도 (`B=0/2` → `B=1/2` → `B=2/2 EXCEEDED`), Phase C 최대 2회 시도 (`C=0/2` → `C=1/2` → `C=2/2 EXCEEDED`). Phase B/C 는 각자 독립된 cap 을 가지며 공유하지 않는다. cap 초과 시 곧바로 멈추지 않는다 — 아래 「cap 초과 처리」의 전역 재시도 1회 뒤에도 Critical 이 남을 때만 HARD GATE 다. end-loaded FAIL 시에도 feedback 파일은 **영향받은 tid마다** 저장하고 dispatch-log에 tid 행을 남긴다(감사 정합).
+**cap=2 (Phase별 독립 · per-task)** — Phase B 최대 2회 시도 (`B=0/2` → `B=1/2` → `B=2/2 EXCEEDED`), Phase C 최대 2회 시도 (`C=0/2` → `C=1/2` → `C=2/2 EXCEEDED`). Phase B/C 는 각자 독립된 cap 을 가지며 공유하지 않는다. end-loaded 는 리뷰 1회 + 수정 라운드 1회가 전부이고, 수정 라운드가 실패하면 cap 초과로 본다. cap 초과 시 곧바로 멈추지 않는다 — 아래 「cap 초과 처리」의 전역 재시도 1회 뒤에도 Critical 이 남을 때만 HARD GATE 다. end-loaded FAIL 시에도 feedback 파일은 **영향받은 tid마다** 저장하고 dispatch-log에 tid 행을 남긴다(감사 정합).
 
 ## Evaluator 모델 불가 fallback (P1 — 20260718 test2 정주행 회고)
 
@@ -268,17 +281,17 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
 - `.specops/<FID>/reviews/<task-id>-C-feedback.md` — code-reviewer-ko 출력. **SubagentStop 훅이 저장** — 부모는 같은 fallback 조건일 때만 저장
 
 전달 규약 (본문 페이로드 금지 — 항상 **경로만**):
-- **PASS 경로 (Phase B→C, 직렬 재라운드)**: Phase B PASS 시 부모는 `reviews/<task-id>-B-report.md` 경로를 Phase C(code-reviewer-ko) dispatch context.md 의 "Phase B PASS 보고서" 항목에 **경로로** 명시. code-reviewer-ko 는 이 경로를 read 해 PASS 진입 자격을 확인 (경로 누락 시에만 SKIP).
+- **PASS 경로 (Phase B→C, per-task 직렬)**: Phase B PASS 시 부모는 `reviews/<task-id>-B-report.md` 경로를 Phase C(code-reviewer-ko) dispatch context.md 의 "Phase B PASS 보고서" 항목에 **경로로** 명시. code-reviewer-ko 는 이 경로를 read 해 PASS 진입 자격을 확인 (경로 누락 시에만 SKIP).
 - **FAIL 경로**: Phase B/C FAIL 직후 훅이 저장한 위 feedback 경로를 확인한 뒤(fallback 조건이면 부모가 저장) implementer-ko 재dispatch, 경로만 추가 컨텍스트로 전달.
 
 ### 최초 B/C 쌍 병렬 (20261006-review-bc-parallel)
 
-B 는 거의 항상 통과(1회차 FAIL 6/101)하는데 직렬이라 FID 당 약 8~9분이 더해졌다. end-loaded **최초** B·C 는 **한 메시지에서 동시 dispatch** 한다(재라운드·per-task 는 직렬 B→C). 두 프롬프트에 실 트리 변조 금지·임시 복사본 규칙을 반복하고, C 에는 B-report 경로 대신 `병렬 dispatch: yes (B 판정 대기)` 를 준다. 한쪽 dispatch 가 실패하면 실패한 쪽만 위 Evaluator 모델 불가 fallback 을 적용하고 다른 쪽을 기다리며 사후 대조 규칙은 동일하다. 병렬은 리뷰 축소가 아니므로 strict 위험 프로파일의 B/C 축소 금지와 충돌하지 않는다.
+B 는 거의 항상 통과(1회차 FAIL 6/101)하는데 직렬이라 FID 당 약 8~9분이 더해졌다. end-loaded B·C 는 **한 메시지에서 동시 dispatch** 한다(per-task 는 직렬 B→C · end-loaded 는 재리뷰가 없다 — 「수정 라운드」). 두 프롬프트에 실 트리 변조 금지·임시 복사본 규칙을 반복하고, C 에는 B-report 경로 대신 `병렬 dispatch: yes (B 판정 대기)` 를 준다. 한쪽 dispatch 가 실패하면 실패한 쪽만 위 Evaluator 모델 불가 fallback 을 적용하고 다른 쪽을 기다리며 사후 대조 규칙은 동일하다. 병렬은 리뷰 축소가 아니므로 strict 위험 프로파일의 B/C 축소 금지와 충돌하지 않는다.
 
 **사후 대조(필수)** — 둘 다 끝나면 `reviews/<tid>-B-report.md` 판정을 읽어 tid 마다 dispatch-log 에 Phase 셀 `BC-PAR-CHECK:<tid>` 행(결과·B/C 리포트 경로)을 남긴다. 이 행이 없으면 `check-review-audit.sh` 가 `PENDING(병렬` C 리포트를 FAIL 한다.
 - B PASS → 결과 `B PASS`. C 판정을 채택한다.
-- B FAIL → 결과 `C 폐기(B FAIL)`. C 결과는 채택하지 않고 implementer 재dispatch 컨텍스트에 B feedback·C 보고서 경로를 함께 준다. 재라운드 C 가 같은 파일명으로 덮어쓴다.
-사후 대조는 tid 단위다 — C 는 FID 전체 1회지만 B PASS tid 의 C 판정만 채택하고 B FAIL tid 의 C 만 폐기한다. 폐기는 C cap 을 소모하지 않으며 재라운드는 영향 tid 만 직렬 B→C 로 다시 돈다. 훅이 지우지 않는 옛 `-B-feedback.md` 가 남아도 행은 그 tid 의 실제 B 판정(`B PASS`·`C 폐기`)대로 쓴다.
+- B FAIL → 결과 `C 폐기(B FAIL)`. C **판정**은 채택하지 않고 수정 라운드의 implementer 재dispatch 컨텍스트에 B feedback·C 보고서 경로를 함께 준다(C 의 지적은 참고 입력이다).
+사후 대조는 tid 단위다 — C 는 FID 전체 1회지만 B PASS tid 의 C 판정만 채택하고 B FAIL tid 의 C 만 폐기한다. 수정 라운드는 영향 tid 만 다시 구현하고 재리뷰는 하지 않는다. 훅이 지우지 않는 옛 `-B-feedback.md` 가 남아도 행은 그 tid 의 실제 B 판정(`B PASS`·`C 폐기`)대로 쓴다.
 
 ## 전체 스위트 병행 (20261005-dedupe-test-runs)
 
@@ -289,7 +302,7 @@ bash "$(git rev-parse --show-toplevel)"/scripts/tests/run-all.sh --quiet > ".spe
 ```
 
 - **증거가 아니다**: R-1/R-2 게이트 증거는 verify 단계 `run-verification.sh` 의 `VERIFY: PASS` 실행 출력이다. 이 실행은 verify 가 전체 스위트를 생략할 근거(통과 마커)를 만들 뿐이다.
-- **수정 라운드**: Phase B/C FAIL 로 코드가 바뀌면 마커 지문이 달라져 STALE 이 되고 verify 가 포그라운드로 다시 돈다. 라운드마다 다시 띄우지 않는다.
+- **수정 라운드**: Phase B/C 지적으로 코드가 바뀌면 마커 지문이 달라져 STALE 이 된다. 수정 라운드의 마지막 커밋 뒤 전체 스위트를 **한 번** 다시 백그라운드로 띄우고 verify 가 그 결과를 재사용한다(다시 띄우지 않으면 verify 가 포그라운드로 돈다).
 - **FAIL 이면**: 종료 후 `run-all.log` 의 `FAILED` 줄을 사용자에게 알리되 B/C 는 막지 않는다. 최종 판정은 verify 의 포그라운드 재실행이다(flaky 를 숨기지 않는다).
 - **실 트리 변조 금지**: 병행 스위트가 실 트리를 읽는 동안 리뷰어가 되돌려-관찰·변이를 실 트리에서 하면 스위트가 오염된다. 그 관찰은 **임시 복사본**에서만 한다(dispatch 프롬프트에 명시).
 - `§batch` FID 에는 적용하지 않는다 — FR 마다 스위트를 띄우면 곱으로 번진다.
@@ -388,7 +401,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 - 장면 설정 컨텍스트 생략 (서브에이전트는 태스크가 어디에 맞는지 이해해야 함)
 - 서브에이전트 질문 무시 (진행 전에 답하기)
 - "근접함"으로 스펙 준수 인정 (스펙 리뷰어가 이슈 발견 = 미완료)
-- 리뷰 루프 생략 (리뷰어 이슈 발견 → 구현자 수정 → 다시 리뷰)
+- 수정 생략 (리뷰어 이슈 발견 → 구현자 수정 → 관련 테스트 통과 확인. per-task 는 다시 리뷰)
 - 구현자 자체검토를 실제 리뷰로 대체 (둘 다 필요)
 - **스펙 준수 ✅ 전에 코드 품질 리뷰 시작** (순서 어김)
 - 어느 리뷰라도 이슈 미해결인 채 다음 태스크로 이동
@@ -400,9 +413,9 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 **리뷰어가 이슈 발견하면**:
 - 구현자(같은 서브에이전트)가 수정
-- 리뷰어 재리뷰
-- 승인까지 반복
-- 재리뷰 생략 금지
+- end-loaded: 관련 테스트 통과를 확인하고 verify 로 간다(재리뷰 없음 — 「수정 라운드」)
+- per-task: 리뷰어 재리뷰, 승인까지 반복
+- Critical 을 고치지 못한 채 verify 로 넘기지 않는다
 
 **서브에이전트가 태스크 실패하면**:
 - **수정 서브에이전트**를 구체 지시로 dispatch
@@ -430,7 +443,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 **품질 게이트**:
 - 자체검토가 핸드오프 전 이슈 포착
 - 2단계 리뷰: 스펙 준수 → 코드 품질
-- 리뷰 루프로 수정이 실제 동작함 보장
+- 수정 라운드 + verify 로 수정이 실제 동작함 보장
 - 스펙 준수로 과잉·부족 구축 방지
 - 코드 품질로 구현이 잘 만들어졌음 보장
 

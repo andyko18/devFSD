@@ -39,6 +39,11 @@ printf '%s' "$blk" | grep -qF '확인됨 · 부분 · 빠짐' \
 
 # C5: 경량 모드의 DESIRABLE 발굴이 범주표를 쓴다
 grep -qF '범주표로 훑어' "$CL" && ok "C5 경량 모드 범주표 사용" || nope "C5" "경량 모드 미갱신"
+# C5b (20261112 speed): 열린 질문이 없으면 묻지 않는다 — 발굴한 DESIRABLE 은 ASSUMED 로 적고 승인 묶음에서 확인받는다
+grep -qF '**찾은 것은 묻지 않는다 (20261112)**' "$CL" && grep -qF '질문 묶음을 만들지 않는다' "$CL" \
+  && grep -qF '승인 묶음 7번(`ASSUMED` 로 정한 것)에 그대로 보이고' "$CL" && grep -qF '**사용자에게 묻는 단계는 건너뛴다**' "$CL" \
+  && ! grep -qF 'DESIRABLE 발굴 ≥1건 → 최대 3건 묶음 질문 1회 (사용자 응답)' "$CL" \
+  && ok "C5b 열린 질문 0 → 질문 없이 ASSUMED · 승인 묶음에서 확인" || nope "C5b" "경량 모드가 여전히 질문 묶음을 만든다"
 
 # C6: clarifications.md 형식 — 범주 점검 줄 · 추천 줄
 grep -qF '**범주 점검**: 빠짐 N · 부분 M' "$CL" && grep -qF '**추천**: <선택지 — 근거 한 줄>' "$CL" \

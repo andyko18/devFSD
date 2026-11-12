@@ -18,7 +18,7 @@ flowchart TD
 ```
 
 - B/C는 **1회씩**이지만 감사 파일은 **tid마다** `reviews/<tid>-B-report.md` / `-C-report.md`.
-- 최초 B·C 는 **동시 dispatch** — C 는 `PENDING(병렬` 로 쓰고 부모가 B 판정 뒤 dispatch-log 에 `BC-PAR-CHECK:<tid>` 행을 남긴다(없으면 `check-review-audit.sh` FAIL). 재라운드는 직렬.
+- 최초 B·C 는 **동시 dispatch** — C 는 `PENDING(병렬` 로 쓰고 부모가 B 판정 뒤 dispatch-log 에 `BC-PAR-CHECK:<tid>` 행을 남긴다(없으면 `check-review-audit.sh` FAIL). 지적은 수정 라운드 1회로 고치고 재리뷰 없이 verify 로 간다 · per-task 는 직렬.
 - requesting 추가 리뷰는 end-loaded C와 중복 → `review-skip.md` (`end-loaded: …`).
 - **`/start-all` Phase 3**: FR마다 위 end-loaded implementing → verify → request/receive(또는 end-loaded skip). batch 단위 B/C 1회는 **쓰지 않음**.
 

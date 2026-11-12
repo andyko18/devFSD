@@ -106,6 +106,16 @@ _bp "$d" approve "$FID" >/dev/null; rc=$?; mv "$d/.specops/$FID/spec.md.bak" "$d
 _bp "$d" approve "$FID" >/dev/null
 
 # ── Z seal → 기존 검증 러너 ──
+# 관제판 단계 기록 (20261112) — review 는 구현 완료·리뷰 진행 줄만 남긴다(판정·산출물 없음). 승인 전에는 거부한다.
+SP="$d/.specops/session-progress.md"
+d0=$(_repo prog); _bp "$d0" start "$FID" "줄 수 세기 명령에 옵션 추가" >/dev/null
+out=$(_bp "$d0" review "$FID"); rc=$?
+[ "$rc" = 1 ] && ! grep -qE '^- [0-9-]+ [0-9:]+ /implement ' "$d0/.specops/session-progress.md" && ok "P1 승인 전 review → rc 1 · 기록 없음" || no "P1" "rc=$rc $out"
+out=$(_bp "$d" review "$FID"); rc=$?
+[ "$rc" = 0 ] && [ "$(grep -cE '^- [0-9-]+ [0-9:]+ /(review 진행|implement 완료) ' "$SP")" = 2 ] \
+  && [ "$(grep -nE ' /(review|implement) ' "$SP" | head -1 | grep -c '/review 진행')" = 1 ] \
+  && ok "P2 review → 구현 완료 · 리뷰 진행 기록(리뷰 줄이 위)" || no "P2" "rc=$rc $out"
+[ ! -e "$d/.specops/$FID/tasks.md" ] && ok "P3 review 는 태스크 문서를 만들지 않는다" || no "P3"
 printf '#!/usr/bin/env bash\ngrep -c . "$1"\n' > "$d/scripts/count.sh"
 printf '#!/usr/bin/env bash\nf=$(mktemp); printf "a\\n\\nb\\n" > "$f"; [ "$(bash scripts/count.sh "$f")" = 2 ]; rc=$?; rm -f "$f"; exit $rc\n' > "$d/scripts/tests/test-count.sh"
 chmod +x "$d/scripts/count.sh" "$d/scripts/tests/test-count.sh"
@@ -123,6 +133,8 @@ t="$d/.specops/$FID/tasks.md"
 [ "$rc" = 0 ] && grep -q '^review_mode: end-loaded' "$t" && grep -q '"scripts/count.sh"' "$t" && grep -q 'ac: \[AC-1\]' "$t" \
   && grep -q 'test_command: "bash scripts/tests/test-count.sh"' "$t" && ! grep -q '\.specops/' "$t" \
   && ok "Z3 seal → 1-태스크 문서(outputs=변경 파일 · AC · test_command · .specops 제외)" || no "Z3" "rc=$rc $out"
+[ "$(grep -cE '^- [0-9-]+ [0-9:]+ /review 완료 ' "$SP")" = 1 ] && [ "$(grep -cE ' /review 완료 ' "$SP")" = 1 ] \
+  && ok "P4 seal 성공 → 리뷰 완료 기록 1줄(rc 4·rc 3 으로 막힌 seal 은 남기지 않았다)" || no "P4" "$(grep -c '/review 완료' "$SP")"
 ( cd "$d" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/check-review-audit.sh" "$FID" 2>&1 ) | grep -q '^REVIEW-AUDIT: PASS' \
   && ok "Z4 ★ 기존 리뷰 감사(check-review-audit — 병렬 쌍 사후 대조 포함) PASS" || no "Z4" "$(cd "$d" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/check-review-audit.sh" "$FID" 2>&1)"
 vout=$( cd "$d" && bash "$PLUGIN/scripts/_internal/run-verification.sh" "$FID" 2>&1 ); vrc=$?
@@ -198,6 +210,9 @@ has "$C" '인증·권한 변경 · DB 스키마 변경 · 데이터 삭제·이�
 has "$C" '갈래를 바꾸지 않고 **설계 확인 범위만**' 'DESIGN: none' 'DESIGN: update' 'DESIGN: approve' \
   && ok "D6 화면 변경량은 설계 확인 범위만 정한다(3단계)" || no "D6"
 has "$C" '**자연어로 이 경로를 추론**' '**아직 재지 않았다**' '미실행 게이트' && ok "D7 자연어 추론 금지 · 미측정 고지 · 미실행 게이트 표기" || no "D7"
+has "$C" 'basic-path.sh review <FID>' && grep -qF "cmds: ['/approve', BASIC_CMD]" "$PLUGIN/hooks/progress-pane.tsx" \
+  && for c in /implement /review /verify /lifecycle; do grep -qF "cmds: ['$c']" "$PLUGIN/hooks/progress-pane.tsx" || exit 1; done \
+  && ok "D10 리뷰 dispatch 전 review 기록 · 관제판 기본 경로 단계가 이 스크립트의 기록 이름을 읽는다" || no "D10"
 has "$C" 'basic-path.sh related' 'RELATED: none' '**프로젝트의 테스트 명령 전체**' '**전체 스위트는 여기서 돌리지 않는다**' 'push 전 게이트' \
   && ok "D9 검증 명령은 related 의 답 · 매핑 없으면 전체 명령 · 전체 스위트는 push 전 게이트와 CI" || no "D9"
 grep -qF '(`/basic` 도 같다)' "$PLUGIN/skills/using-specops-ko/SKILL.md" && grep -qF '넷 다 슬래시 전용' "$PLUGIN/skills/using-specops-ko/SKILL.md" \

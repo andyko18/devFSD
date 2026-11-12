@@ -67,19 +67,30 @@ export function fidOf(progress: string): string | undefined {
 }
 
 const FID_RE = /^\d{8}-[a-z0-9-]+$/
-const STAGES: readonly { key: string; cmd: string; label: string }[] = [
-  { key: 'analyze', cmd: '/analyze', label: '분석' },
-  { key: 'specify', cmd: '/specify', label: '명세' },
-  { key: 'clarify', cmd: '/clarify', label: '명확화' },
-  { key: 'plan', cmd: '/plan', label: '설계' },
-  { key: 'tasks', cmd: '/tasks', label: '분해' },
-  { key: 'implement', cmd: '/implement', label: '구현' },
-  { key: 'verify', cmd: '/verify', label: '검증' },
-  { key: 'security', cmd: '/security-review', label: '보안' },
-  { key: 'integration', cmd: '/integration-test', label: '통합' },
-  { key: 'performance', cmd: '/performance-test', label: '성능' },
-  { key: 'demo', cmd: '/demo', label: '데모' },
-  { key: 'pr', cmd: '/lifecycle', label: 'PR' },
+type StageDef = { key: string; cmds: readonly string[]; label: string }
+const STAGES: readonly StageDef[] = [
+  { key: 'analyze', cmds: ['/analyze'], label: '분석' },
+  { key: 'specify', cmds: ['/specify'], label: '명세' },
+  { key: 'clarify', cmds: ['/clarify'], label: '명확화' },
+  { key: 'plan', cmds: ['/plan'], label: '설계' },
+  { key: 'tasks', cmds: ['/tasks'], label: '분해' },
+  { key: 'implement', cmds: ['/implement'], label: '구현' },
+  { key: 'verify', cmds: ['/verify'], label: '검증' },
+  { key: 'security', cmds: ['/security-review'], label: '보안' },
+  { key: 'integration', cmds: ['/integration-test'], label: '통합' },
+  { key: 'performance', cmds: ['/performance-test'], label: '성능' },
+  { key: 'demo', cmds: ['/demo'], label: '데모' },
+  { key: 'pr', cmds: ['/lifecycle'], label: 'PR' },
+]
+// devFSD: `/basic` 경로의 단계 — 기록 이름은 scripts/basic-path.sh 가 남긴다(start `/basic` · approve `/approve` ·
+//   review `/implement`+`/review` · seal `/review` · done `/lifecycle`), `/verify` 는 commands/basic.md 7번이 남긴다.
+const BASIC_CMD = '/basic'
+const BASIC_STAGES: readonly StageDef[] = [
+  { key: 'specify', cmds: ['/approve', BASIC_CMD], label: '명세' },
+  { key: 'implement', cmds: ['/implement'], label: '구현' },
+  { key: 'review', cmds: ['/review'], label: '리뷰' },
+  { key: 'verify', cmds: ['/verify'], label: '검증' },
+  { key: 'pr', cmds: ['/lifecycle'], label: 'PR' },
 ]
 const VERIFY_WORDS = ['PASS', 'STALE', 'FAIL', 'PARTIAL', 'NOT_RUN', 'WAIVED']
 
@@ -144,26 +155,44 @@ function markOf(word: string): StageMark['mark'] {
   return '●'
 }
 
+/** 기본 경로(`/basic`) FID 인가 — 그 FID 섹션에 `/basic` 기록 줄이 있다. */
+export function isBasicLane(progress: string, fid: string): boolean {
+  return recordsOf(progress, fid).some(r => r.cmd === BASIC_CMD)
+}
+
+function stageDefsOf(recs: readonly { cmd: string }[]): readonly StageDef[] {
+  return recs.some(r => r.cmd === BASIC_CMD) ? BASIC_STAGES : STAGES
+}
+
 export function stagesOf(progress: string, fid: string): StageMark[] {
   const recs = recordsOf(progress, fid)
+  const defs = stageDefsOf(recs)
+  const isBasic = defs === BASIC_STAGES
+  const newestOf = (s: StageDef) => recs.find(r => s.cmds.includes(r.cmd))
+  // 기본 경로는 스크립트가 순서를 강제한다(봉인은 승인·리뷰 보고서를, 검증은 봉인을 요구) —
+  //   기록이 빠진 단계라도 뒤 단계에 기록이 있으면 지난 단계다.
+  const lastRecorded = defs.reduce((at, s, i) => (newestOf(s) ? i : at), -1)
 
-  return STAGES.flatMap(s => {
-    const newest = recs.find(r => r.cmd === s.cmd)
+  return defs.flatMap((s, i) => {
+    const newest = newestOf(s)
     if (!newest && s.key === 'analyze') return []
+    const open: StageMark['mark'] = isBasic && i < lastRecorded ? '✓' : '○'
 
-    return [{ key: s.key, label: s.label, mark: newest ? markOf(newest.word) : '○' }]
+    return [{ key: s.key, label: s.label, mark: newest ? markOf(newest.word) : open }]
   })
 }
 
 /** devFSD: 지금 하는 단계 — 가장 최근 기록의 단계, 그 기록이 완료면 다음 미완 단계. lifecycle 완료면 null. */
 export function currentStageKey(progress: string, fid: string): string | null {
   if (isLifecycleDone(progress, fid)) return null
-  const newest = recordsOf(progress, fid).find(r => STAGES.some(s => s.cmd === r.cmd))
+  const recs = recordsOf(progress, fid)
+  const defs = stageDefsOf(recs)
+  const newest = recs.find(r => defs.some(s => s.cmds.includes(r.cmd)))
   if (!newest) return null
-  const at = STAGES.findIndex(s => s.cmd === newest.cmd)
-  if (markOf(newest.word) !== '✓' && markOf(newest.word) !== '–') return STAGES[at]?.key ?? null
+  const at = defs.findIndex(s => s.cmds.includes(newest.cmd))
+  if (markOf(newest.word) !== '✓' && markOf(newest.word) !== '–') return defs[at]?.key ?? null
 
-  return STAGES[at + 1]?.key ?? null
+  return defs[at + 1]?.key ?? null
 }
 
 /** devFSD: 검증 배지 상태를 단계 막대에 맞춘다(기록 없는 ○ 는 그대로) + 현재 단계 표시. */

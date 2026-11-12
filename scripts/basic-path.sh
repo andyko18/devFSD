@@ -5,6 +5,7 @@
 #   basic-path.sh lane "<요청 한 줄>" [<FID>]   갈래 판정만 한다(쓰지 않는다) — `LANE: basic|full <신호>` 1줄
 #   basic-path.sh start <FID> "<요청 한 줄>"    갈래 판정 → FID 폴더·진행 기록·spec 골격(기본 브랜치 위면 브랜치도)
 #   basic-path.sh approve <FID>                 사용자 승인 뒤: spec 절 확인 → 갈래 재판정 → acceptance-criteria.md 도출
+#   basic-path.sh review <FID>                  구현 뒤·리뷰 dispatch 직전: 진행 기록만 남긴다(구현 완료 · 리뷰 진행 — 관제판 단계 표시)
 #   basic-path.sh related                       검증에 쓸 test_command 제안 — `RELATED: <명령>` 또는 `RELATED: none — <사유>`(쓰지 않는다)
 #   basic-path.sh seal <FID> "<test_command>"   리뷰 뒤: 변경 파일로 갈래 재판정 → 1-태스크 문서 · 리뷰 감사 행
 #   basic-path.sh design-scope <화면 수> [new|flow]   화면 설계 확인 범위 — `DESIGN: none|update|approve`
@@ -161,6 +162,16 @@ case "$ACTION" in
     echo "BASIC: APPROVED $FID"
     ;;
 
+  review)
+    # 진행 기록만 남긴다 — 관제판(hooks/progress-pane.tsx 의 BASIC_STAGES)이 이 줄로 구현·리뷰 단계를 표시한다. 판정·산출물은 없다.
+    #   `/implement` 줄은 훅이 코드 변경 시각으로 읽는다(governance-lib.sh _verify_passed_in_progress) — 검증보다 앞에 남으므로 뜻이 맞다.
+    FID="${2:-}"; [ -n "$FID" ] || _die "usage: $0 review <FID>"; _fid_ok "$FID"
+    [ -f "$SPECOPS/$FID/acceptance-criteria.md" ] || _die "acceptance-criteria.md 가 없다 — start → approve 를 먼저 실행한다"
+    bash "$APPEND" "$FID" /implement 완료 "주 세션 직접 구현 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
+    bash "$APPEND" "$FID" /review 진행 "스펙·코드 리뷰 + 보안 스캔 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
+    echo "BASIC: REVIEWING $FID"
+    ;;
+
   seal)
     FID="${2:-}"; ARG="${3:-}"
     [ -n "$FID" ] && [ -n "$ARG" ] || _die "usage: $0 seal <FID> \"<test_command>\""
@@ -208,6 +219,7 @@ case "$ACTION" in
         done
       } >> "$LOG"
     fi
+    bash "$APPEND" "$FID" /review 완료 "리뷰 반영·봉인 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     echo "BASIC: SEALED $FID — 이제 run-verification.sh $FID 를 실행한다(봉인 뒤 코드를 고치면 다시 seal)"
     ;;
 
@@ -220,5 +232,5 @@ case "$ACTION" in
     echo "BASIC: DONE $FID"
     ;;
 
-  *) _die "usage: $0 {related | lane \"<요청>\" [<FID>] | start <FID> \"<요청>\" | approve <FID> | seal <FID> \"<test_command>\" | design-scope <화면 수> [new|flow] | done <FID> \"<요약>\"}" ;;
+  *) _die "usage: $0 {related | lane \"<요청>\" [<FID>] | start <FID> \"<요청>\" | approve <FID> | review <FID> | seal <FID> \"<test_command>\" | design-scope <화면 수> [new|flow] | done <FID> \"<요약>\"}" ;;
 esac

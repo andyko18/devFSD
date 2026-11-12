@@ -329,6 +329,7 @@ bash scripts/_internal/check-task-receipt.sh <FID> <task-id>    # 0=면제 · 1=
 bash scripts/basic-path.sh lane "<요청 한 줄>" [<FID>]      # 갈래 판정만 — LANE: basic | full <신호> (rc 0 | 3)
 bash scripts/basic-path.sh start <FID> "<요청 한 줄>"       # 판정 → FID 폴더·진행 기록·spec 골격 (3=풀 경로 대상)
 bash scripts/basic-path.sh approve <FID>                    # 승인 뒤: spec 절 확인 · 재판정 · acceptance-criteria.md 도출
+bash scripts/basic-path.sh review <FID>                     # 구현 뒤·리뷰 직전: 진행 기록만(구현 완료 · 리뷰 진행 — 관제판 단계 표시)
 bash scripts/basic-path.sh related                          # 검증에 쓸 test_command 제안 — RELATED: <명령> | RELATED: none — <사유>
 bash scripts/basic-path.sh seal <FID> "<test_command>"      # 리뷰 뒤: 변경 파일로 재판정 · tasks.md · 리뷰 감사 행 (4=리뷰 보고서 없음)
 bash scripts/basic-path.sh design-scope <화면 수> [new|flow] # 화면 설계 확인 범위 — none | update | approve
@@ -336,6 +337,8 @@ bash scripts/basic-path.sh done <FID> "<한 줄 요약>"        # 종결 기록
 ```
 
 풀 신호는 `risk-profile.sh` 의 `rp::detect_strict_signals`(영문 낱말·경로)에 한글 낱말 5종을 더해 본다. 이 경로의 FID 는 spec + AC + tasks 를 가진 정식 구조라 커밋·PR 은 기존 R-1·R-2 가 그대로 판정한다(`run-verification.sh` 의 `VERIFY: PASS` 필요).
+
+진행 기록은 `start`(`/basic 시작`) → `approve`(`/approve 완료`) → `review`(`/implement 완료` · `/review 진행`) → `seal`(`/review 완료`) → 검증(`/verify PASS`) → `done`(`/lifecycle DONE`) 순으로 남고, 관제판은 `/basic` 줄이 있는 FID 에서 이 줄들로 5단계(명세 → 구현 → 리뷰 → 검증 → PR)를 보여 준다(`hooks/progress-pane.tsx` 의 `BASIC_STAGES`).
 
 `related` 는 스위트 매핑(`scripts/tests/run-related.sh`)이 있는 저장소에서만 변경 파일이 닿는 스위트를 골라 `bash scripts/tests/run-related.sh <스위트…>` 를 낸다 — 검증 러너가 그것만 돌리고, 전체 스위트는 push 전 게이트와 PR 의 CI 가 맡는다. 매핑이 없거나(하류 프로젝트) 고를 수 없으면(`none`) 종전대로 프로젝트의 테스트 명령 전체다. `seal` 은 관련 스위트 명령에 지금 변경이 닿는 스위트가 빠져 있으면 거부한다.
 

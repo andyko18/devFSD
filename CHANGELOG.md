@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.33] — 2026-11-12
+
 ### Changed
 
 - **`/basic` 의 검증 1회가 관련 스위트만 돈다 (속도).** 새 `basic-path.sh related` 가 변경 파일이 닿는 스위트를 골라 `test_command` 로 제안하고(`RELATED: bash scripts/tests/run-related.sh <스위트…>`), 검증 러너가 그것만 포그라운드로 돌린다. 전체 스위트는 push 전 게이트(`pre-push` — 같은 트리의 통과 기록이 있으면 건너뛴다)와 PR 의 CI 가 맡는다. 고르는 규칙(새 `scripts/tests/run-related.sh --list`): 변경된 스위트 자신 + 그 파일 이름을 언급하는 스위트 + 그 파일을 source·호출하는 스크립트(한 단계)의 스위트 + 상시 스위트(구조 검증·문서 수치·전파 원장). **애매하면 전체다** — 어느 스위트도 언급하지 않는 코드 파일이 있거나 30개를 넘게 닿으면 `RELATED: none` 이고 종전대로 프로젝트의 테스트 명령 전체를 쓴다. 스위트 매핑이 없는 저장소(하류 프로젝트)는 항상 `none` 이라 동작이 그대로다. `seal` 은 관련 스위트 명령에 지금 변경이 닿는 스위트가 빠져 있으면 거부한다. **커밋·PR 훅과 검증 러너는 고치지 않았다** — R-1 은 원래 전체 스위트를 요구하지 않고 `tasks.md` 의 `test_command` 실행 결과(`VERIFY: PASS`)를 본다. 관련 스위트 러너는 전체 스위트 통과 마커도 `VERIFY` 토큰도 만들지 않는다. 실측(이 저장소): `basic-path.sh` 변경의 관련 스위트 18개 · `release.sh` 22개 · 전체 220개.
@@ -3731,7 +3733,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.32...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.33...HEAD
+[3.1.33]: https://github.com/andyko18/devFSD/compare/v3.1.32...v3.1.33
 [3.1.32]: https://github.com/andyko18/devFSD/compare/v3.1.31...v3.1.32
 [3.1.31]: https://github.com/andyko18/devFSD/compare/v3.1.30...v3.1.31
 [3.1.30]: https://github.com/andyko18/devFSD/compare/v3.1.29...v3.1.30

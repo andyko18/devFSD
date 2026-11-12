@@ -318,12 +318,21 @@ bash scripts/_internal/check-task-receipt.sh <FID> <task-id>    # 0=면제 · 1=
 bash scripts/basic-path.sh lane "<요청 한 줄>" [<FID>]      # 갈래 판정만 — LANE: basic | full <신호> (rc 0 | 3)
 bash scripts/basic-path.sh start <FID> "<요청 한 줄>"       # 판정 → FID 폴더·진행 기록·spec 골격 (3=풀 경로 대상)
 bash scripts/basic-path.sh approve <FID>                    # 승인 뒤: spec 절 확인 · 재판정 · acceptance-criteria.md 도출
+bash scripts/basic-path.sh related                          # 검증에 쓸 test_command 제안 — RELATED: <명령> | RELATED: none — <사유>
 bash scripts/basic-path.sh seal <FID> "<test_command>"      # 리뷰 뒤: 변경 파일로 재판정 · tasks.md · 리뷰 감사 행 (4=리뷰 보고서 없음)
 bash scripts/basic-path.sh design-scope <화면 수> [new|flow] # 화면 설계 확인 범위 — none | update | approve
 bash scripts/basic-path.sh done <FID> "<한 줄 요약>"        # 종결 기록
 ```
 
 풀 신호는 `risk-profile.sh` 의 `rp::detect_strict_signals`(영문 낱말·경로)에 한글 낱말 5종을 더해 본다. 이 경로의 FID 는 spec + AC + tasks 를 가진 정식 구조라 커밋·PR 은 기존 R-1·R-2 가 그대로 판정한다(`run-verification.sh` 의 `VERIFY: PASS` 필요).
+
+`related` 는 스위트 매핑(`scripts/tests/run-related.sh`)이 있는 저장소에서만 변경 파일이 닿는 스위트를 골라 `bash scripts/tests/run-related.sh <스위트…>` 를 낸다 — 검증 러너가 그것만 돌리고, 전체 스위트는 push 전 게이트와 PR 의 CI 가 맡는다. 매핑이 없거나(하류 프로젝트) 고를 수 없으면(`none`) 종전대로 프로젝트의 테스트 명령 전체다. `seal` 은 관련 스위트 명령에 지금 변경이 닿는 스위트가 빠져 있으면 거부한다.
+
+```bash
+bash scripts/tests/run-related.sh --list [<변경 파일>…]   # 관련 스위트 고르기 (3=고를 수 없다 → 전체 스위트)
+bash scripts/tests/run-related.sh <스위트 경로>…          # 그 스위트만 실행 — 통과 마커·VERIFY 토큰을 만들지 않는다
+bash scripts/_internal/ci-suite-pass.sh                   # 같은 커밋 트리가 원격 CI 의 run-all 을 통과했는가 (0=통과 · 1=STALE — release.sh pre-flight 가 쓴다)
+```
 
 ## quick-fix.sh / quick-scope.sh — `/quick-fix` 경로 (명세 없는 1-태스크 FID)
 

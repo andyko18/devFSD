@@ -89,20 +89,32 @@ if git -C "$PLUGIN_ROOT" remote get-url origin > /dev/null 2>&1; then
   fi
 fi
 
+# 검사 실패 시 **무엇이 실패했는지** 보인다 — 종전에는 출력을 버려 "pre-flight 검증 실패" 한 줄뿐이었고,
+#   부하로 스위트 하나가 흔들려도 어느 것인지 알 수 없었다(20261112). 실패 줄(run-all 의 `FAIL …`·`FAILED: <스위트>`·
+#   요약 줄 · validate-structure 의 ❌)만 추리고, 추릴 줄이 없으면 끝 10줄을 보인다. 전체 출력은 임시 파일에 남긴다.
 _run_check() {
-  local label="$1"
+  local label="$1" log rc=0 picked
+  log=$(mktemp "${TMPDIR:-/tmp}/specops-release-check.XXXXXX") || log=/dev/null
   if [ -n "$PREFLIGHT_CMD" ]; then
     # 테스트 전용 override (RELEASE_PREFLIGHT_CMD=true/false) — 프로덕션 미설정
-    if ! eval "$PREFLIGHT_CMD" > /dev/null 2>&1; then
-      echo "Error: pre-flight 검증 실패 ($label)" >&2
-      exit 1
-    fi
+    eval "$PREFLIGHT_CMD" > "$log" 2>&1 || rc=$?
   else
-    if ! bash "$PLUGIN_ROOT/$label" > /dev/null 2>&1; then
-      echo "Error: pre-flight 검증 실패 ($label)" >&2
-      exit 1
-    fi
+    bash "$PLUGIN_ROOT/$label" > "$log" 2>&1 || rc=$?
   fi
+  if [ "$rc" -ne 0 ]; then
+    echo "Error: pre-flight 검증 실패 ($label · exit=$rc)" >&2
+    if [ -s "$log" ]; then
+      picked=$(grep -E '^(FAIL|FAILED:|====|⏱|❌)' "$log" | head -30 || true)
+      [ -n "$picked" ] || picked=$(tail -10 "$log")
+      printf '%s\n' "$picked" | sed 's/^/  /' >&2
+      echo "  전체 출력: $log" >&2
+      echo "  실패한 스위트만 다시: bash <FAILED 줄의 경로> — 단독으로 통과하면 부하에 흔들린 것이다" >&2
+    else
+      [ "$log" = /dev/null ] || rm -f "$log"
+    fi
+    exit 1
+  fi
+  [ "$log" = /dev/null ] || rm -f "$log"
 }
 
 # run-all.sh 내부에서 호출된 경우 (test-release T10.b) pre-flight 재실행 시 무한 재귀 — skip
@@ -119,9 +131,20 @@ else
   if [ -f "$_fresh_sh" ]; then
     _fresh=$(cd "$PLUGIN_ROOT" && bash "$_fresh_sh" --release 2>/dev/null) || _fresh=""
   fi
+  # 둘째 근거(20261112): 로컬 통과 기록이 없어도 **같은 커밋 트리가 원격 CI 의 필수 검사 run-all 을 통과**했으면 다시 돌리지 않는다 —
+  #   판정은 ci-suite-pass.sh 하나(push 이벤트 실행 · 트리 해시 일치 · 가장 최근 실행이 success). gh 없음·미인증·결과 없음·진행 중·실패는
+  #   전부 종전대로 로컬 실행이다(fail-closed). 끄기: SPECOPS_RELEASE_NO_CI=1 (이 근거만) · SPECOPS_FORCE_FULL=1 (두 근거 모두).
+  _ci=""; _ci_why=""
+  _ci_sh="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/ci-suite-pass.sh"
+  if [ -z "$_fresh" ] && [ -f "$_ci_sh" ]; then
+    _ci=$(cd "$PLUGIN_ROOT" && bash "$_ci_sh" 2>/dev/null) || { _ci_why="$_ci"; _ci=""; }
+  fi
   if [ -n "$_fresh" ]; then
     echo "-> pre-flight skip ($_fresh — 같은 커밋 트리가 이미 전체 스위트를 통과했다)"
+  elif [ -n "$_ci" ]; then
+    echo "-> pre-flight skip ($_ci — 같은 커밋 트리가 원격 CI 에서 전체 스위트를 통과했다)"
   else
+    [ -z "$_ci_why" ] || echo "-> CI 통과 근거 없음: $_ci_why — 로컬에서 실행한다"
     echo "-> pre-flight 검증 시작 (전체 테스트 aggregator)..."
     _run_check "scripts/tests/run-all.sh"
     echo "-> pre-flight PASS"
@@ -346,7 +369,7 @@ _partial_release() {  # <실패 단계>
 }
 
 echo "-> 원격 push..."
-# pre-flight 가 방금 동일한 run-all.sh 전체를 통과했다(또는 같은 커밋 트리의 통과 기록으로 생략했다). SPECOPS_RUN_ALL=1 은 pre-push
+# pre-flight 가 방금 동일한 run-all.sh 전체를 통과했다(또는 같은 커밋 트리의 로컬 통과 기록·원격 CI 통과로 생략했다). SPECOPS_RUN_ALL=1 은 pre-push
 # 재귀 가드(.githooks/pre-push 의 SPECOPS_RUN_ALL 분기)를 켜 같은 스위트의 중복 실행을 막는다.
 # ★ 반드시 명령 prefix 로 둘 것 — 스크립트 전역으로 export 하면 release.sh:65 가
 #   pre-flight 자체를 skip 해 게이트가 전면 상실된다 (T20.b 가 잠그는 유일 teeth —

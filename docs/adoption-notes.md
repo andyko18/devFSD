@@ -15,7 +15,7 @@
 | `bash` 3.2+ | 필수 | macOS 기본 bash(3.2)에서 동작하도록 작성돼 있다 |
 | `semgrep` · `gitleaks` | 선택 | 보안 단계가 내장 self-check(정규식 기반 비밀·위험 함수)만 돌고 결과에 `self-check only` 라고 표기한다 |
 
-검증한 환경은 macOS 와 Linux(ubuntu)다 — CI 가 두 곳에서 전체 스위트를 돌린다. Windows 는 네이티브 셸에서 검증하지 않았다(WSL 을 쓴다).
+검증한 환경은 macOS 와 Linux(ubuntu)다 — CI 가 두 곳에서 전체 스위트를 돌린다(리눅스는 PR 마다 · macOS 는 main 에 들어간 뒤). Windows 는 네이티브 셸에서 검증하지 않았다(WSL 을 쓴다).
 
 설치 직후 `/doctor` 를 한 번 돌려 `deps` 항목이 ✅ 인지 본다 — `.specops/` 가 아직 없는 저장소에서는 환경 항목(`deps`·`effort_env`)만 나온다. `/init-project` 뒤에 다시 돌리면 `governance` 를 포함한 전체 항목이 나온다.
 

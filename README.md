@@ -363,7 +363,7 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 
 - **대상은 행동 변경뿐이다** — `skills/`·`commands/`·`agents/`·`hooks/`·`templates/`·`scripts/`(테스트 제외)의 동작이 바뀐 것. 테스트·문서·주석·CHANGELOG 만 바뀐 PR 은 `[Unreleased]` 에 두고 릴리즈하지 않는다(판정 기준은 거버넌스 훅의 플러그인 런타임 예외와 같다 — `CLAUDE.md` `## 거버넌스 엔진`).
 - **발행 시점은 사용자가 정한다** — 주기 상한은 두지 않는다. 훅이 정상 커밋·PR 을 막거나 설치본이 깨지는 오류는 즉시 패치 릴리즈.
-- **발행은 `scripts/release.sh`(사용자 승인)로 한다.** 현재 브랜치에 같은 이름 upstream 이 없으면(main 을 다른 worktree 가 쥔 경우의 임시 브랜치·detached) worktree 모드로 `HEAD:main` 을 올린다 — origin/main 위 `CHANGELOG.md` 변경만 허용.
+- **발행은 `scripts/release.sh`(사용자 승인)로 한다.** 현재 브랜치에 같은 이름 upstream 이 없으면(main 을 다른 worktree 가 쥔 경우의 임시 브랜치·detached) worktree 모드로 `HEAD:main` 을 올린다 — origin/main 위 `CHANGELOG.md` 변경만 허용. pre-flight 의 전체 스위트는 같은 커밋 트리의 로컬 통과 기록이나 원격 CI(`run-all`·`run-all-macos`) 통과가 있으면 다시 돌리지 않는다(끄기: `SPECOPS_FORCE_FULL=1`).
 
 최신 자기 평가는 [docs/audit/](docs/audit/) 에 있다.
 

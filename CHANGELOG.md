@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **`/basic` 의 검증 1회가 관련 스위트만 돈다 (속도).** 새 `basic-path.sh related` 가 변경 파일이 닿는 스위트를 골라 `test_command` 로 제안하고(`RELATED: bash scripts/tests/run-related.sh <스위트…>`), 검증 러너가 그것만 포그라운드로 돌린다. 전체 스위트는 push 전 게이트(`pre-push` — 같은 트리의 통과 기록이 있으면 건너뛴다)와 PR 의 CI 가 맡는다. 고르는 규칙(새 `scripts/tests/run-related.sh --list`): 변경된 스위트 자신 + 그 파일 이름을 언급하는 스위트 + 그 파일을 source·호출하는 스크립트(한 단계)의 스위트 + 상시 스위트(구조 검증·문서 수치·전파 원장). **애매하면 전체다** — 어느 스위트도 언급하지 않는 코드 파일이 있거나 30개를 넘게 닿으면 `RELATED: none` 이고 종전대로 프로젝트의 테스트 명령 전체를 쓴다. 스위트 매핑이 없는 저장소(하류 프로젝트)는 항상 `none` 이라 동작이 그대로다. `seal` 은 관련 스위트 명령에 지금 변경이 닿는 스위트가 빠져 있으면 거부한다. **커밋·PR 훅과 검증 러너는 고치지 않았다** — R-1 은 원래 전체 스위트를 요구하지 않고 `tasks.md` 의 `test_command` 실행 결과(`VERIFY: PASS`)를 본다. 관련 스위트 러너는 전체 스위트 통과 마커도 `VERIFY` 토큰도 만들지 않는다. 실측(이 저장소): `basic-path.sh` 변경의 관련 스위트 18개 · `release.sh` 22개 · 전체 220개.
+  - 품질 위험: 이름 언급으로 찾으므로 두 단계 이상의 간접 의존은 놓칠 수 있고, 그때 실패는 커밋 뒤(push 전 게이트·CI)에 드러난다. 되돌리기: `seal` 에 전체 테스트 명령(`bash scripts/tests/run-all.sh`)을 넘긴다.
+- **`release.sh` pre-flight 가 같은 커밋 트리의 원격 CI 통과를 근거로 재사용한다 (속도).** 로컬 통과 기록(종전 근거)이 없어도 HEAD 와 트리가 같은 커밋의 push CI 에서 `run-all`(리눅스)과 `run-all-macos` 가 **둘 다** success 면 전체 스위트를 로컬에서 다시 돌리지 않는다(새 `scripts/_internal/ci-suite-pass.sh` — 실측 조회 1.4초 · 전체 스위트 약 5.4분). 근거는 `-> pre-flight skip (ci run-all+run-all-macos SUCCESS (commit=…, run=…) …)` 한 줄로 남는다. gh 없음·미인증·조회 실패·검사 결과 없음·진행 중·실패·pull_request 실행뿐(머지 결과를 돌린 실행이라 트리가 다를 수 있다)이면 사유를 한 줄 적고 종전대로 로컬에서 돈다. 끄기: `SPECOPS_RELEASE_NO_CI=1`(CI 근거만) · `SPECOPS_FORCE_FULL=1`(로컬 기록까지). `GH_TOKEN` 이 있으면 gh 가 그것을 쓴다. 맥 job 은 11~15분 걸려 머지 직후에는 "진행 중"으로 로컬 실행이 된다.
+- **macOS 전체 스위트(`run-all-macos`)는 PR 에서 돌지 않고 main 에 들어간 뒤에만 돈다 (CI).** `.github/workflows/test.yml` 의 job 에 `if: github.event_name == 'push'`. PR 머지의 필수 검사는 `run-all`·`shellcheck`·`security-scan` 3종이다(저장소 설정에서 `run-all-macos` 제외). **위험: 맥 전용 결함이 머지 뒤에 발견될 수 있다** — 릴리즈 pre-flight 의 CI 근거가 맥 job 통과까지 요구하므로 발행 전에는 걸린다. 되돌리기: `if:` 줄을 지우고 필수 검사에 `run-all-macos` 를 다시 넣는다.
+- **`release.sh` pre-flight·post-flight 실패 시 무엇이 실패했는지 보인다.** 종전에는 `pre-flight 검증 실패` 한 줄뿐이었다 — 이제 실패 줄·`FAILED: <스위트>`·요약 줄과 전체 출력 파일 경로를 낸다.
+
 ## [3.1.32] — 2026-11-12
 
 ### Added

@@ -653,6 +653,76 @@ else
 fi
 rm -rf "$TW21" "$TF21"
 
+# T22: pre-flight 생략 — 같은 커밋 트리의 원격 CI 통과 (20261112 · 판정은 ci-suite-pass.sh — 분기 전수는 test-ci-suite-pass.sh)
+#   로컬 통과 기록이 없어도 CI 의 run-all 이 SUCCESS 면 오버라이드(=false · 돌면 실패)를 부르지 않는다. 그 밖은 종전대로 돈다.
+TF22=$(mktemp -d) || exit 1
+_make_git_fixture "$TF22"
+git -C "$TF22" remote add origin https://github.com/acme/demo.git
+_sha22=$(git -C "$TF22" rev-parse HEAD)
+GB22=$(mktemp -d) || exit 1
+cat > "$GB22/gh" <<'GH'
+#!/usr/bin/env bash
+case "${GH22_MODE:-}:$2" in
+  *:repos/acme/demo/actions/runs\?head_sha=*) printf '{"workflow_runs":[{"id":7,"head_sha":"%s","event":"push","run_started_at":"2026-11-12T00:00:00Z"}]}\n' "$GH22_SHA" ;;
+  pass:*/runs/7/jobs*) echo '{"jobs":[{"name":"run-all","status":"completed","conclusion":"success","html_url":"https://github.com/acme/demo/actions/runs/7/job/1"},{"name":"run-all-macos","status":"completed","conclusion":"success","html_url":"u"}]}' ;;
+  fail:*/runs/7/jobs*) echo '{"jobs":[{"name":"run-all","status":"completed","conclusion":"failure","html_url":"u"}]}' ;;
+  busy:*/runs/7/jobs*) echo '{"jobs":[{"name":"run-all","status":"in_progress","conclusion":null,"html_url":"u"}]}' ;;
+  *) exit 1 ;;
+esac
+GH
+chmod +x "$GB22/gh"
+_r22() { ( cd "$TF22" && env -u SPECOPS_FORCE_FULL -u SPECOPS_RUN_ALL -u SPECOPS_RELEASE_NO_CI "$@" GH22_SHA="$_sha22" PATH="$GB22:$PATH" RELEASE_PLUGIN_ROOT="$TF22" RELEASE_PREFLIGHT_CMD=false bash "$RELEASE" 1.10.0 --dry-run 2>&1 ); }
+out=$(_r22 GH22_MODE=pass); rc=$?
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF -- "-> pre-flight skip (ci run-all+run-all-macos SUCCESS (commit=${_sha22:0:12}, run=https://github.com/acme/demo/actions/runs/7/job/1) — 같은 커밋 트리가 원격 CI 에서" \
+    && ! printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } \
+  && ok "T22.a CI 통과 → pre-flight skip · 근거 1줄(커밋·실행) · 오버라이드 미호출" || fail "T22.a (rc=$rc out=$(printf '%s' "$out" | head -4))"
+out=$(_r22 GH22_MODE=fail); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패' && printf '%s' "$out" | grep -qF -- '-> CI 통과 근거 없음: ci STALE (run-all 결론 failure'; } \
+  && ok "T22.b CI 실패 → 로컬 실행 · 사유 1줄" || fail "T22.b (rc=$rc out=$(printf '%s' "$out" | head -4))"
+out=$(_r22 GH22_MODE=busy); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패' && printf '%s' "$out" | grep -qF -- 'ci STALE (run-all 진행 중'; } \
+  && ok "T22.c CI 진행 중 → 로컬 실행" || fail "T22.c (rc=$rc out=$(printf '%s' "$out" | head -4))"
+D22=$(mktemp -d) || exit 1
+for _t in bash git jq sed awk grep cut head tail dirname date mktemp rm cat tr sort uname env wc sleep; do
+  _p=$(command -v "$_t" 2>/dev/null) && ln -s "$_p" "$D22/$_t" 2>/dev/null
+done
+out=$( cd "$TF22" && env -u SPECOPS_FORCE_FULL -u SPECOPS_RUN_ALL -u SPECOPS_RELEASE_NO_CI PATH="$D22" RELEASE_PLUGIN_ROOT="$TF22" RELEASE_PREFLIGHT_CMD=false bash "$RELEASE" 1.10.0 --dry-run 2>&1 ); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패' && printf '%s' "$out" | grep -qF -- 'ci STALE (gh 없음)'; } \
+  && ok "T22.d gh 없음 → 로컬 실행" || fail "T22.d (rc=$rc out=$(printf '%s' "$out" | head -4))"
+out=$(_r22 GH22_MODE=pass SPECOPS_RELEASE_NO_CI=1); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T22.e SPECOPS_RELEASE_NO_CI=1 → CI 가 통과여도 로컬 실행(탈출구)" || fail "T22.e (rc=$rc)"
+out=$(_r22 GH22_MODE=pass SPECOPS_FORCE_FULL=1); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패'; } && ok "T22.f SPECOPS_FORCE_FULL → CI 가 통과여도 로컬 실행" || fail "T22.f (rc=$rc)"
+# 로컬 통과 기록이 있으면 CI 를 묻지 않는다(gh 가 실패해도 skip)
+printf '.specops/\n' >> "$TF22/.git/info/exclude"; mkdir -p "$TF22/.specops"
+printf 'x\ntree:%s\n' "$(git -C "$TF22" rev-parse 'HEAD^{tree}')" > "$TF22/.specops/.full-suite-pass"
+out=$(_r22 GH22_MODE=none); rc=$?
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF -- '-> pre-flight skip (full-suite FRESH (tree=' && ! printf '%s' "$out" | grep -q 'CI 통과 근거 없음'; } \
+  && ok "T22.g 로컬 통과 기록이 먼저다 — CI 를 묻지 않는다" || fail "T22.g (rc=$rc out=$(printf '%s' "$out" | head -4))"
+rm -rf "$TF22" "$GB22" "$D22"
+grep -q '^  run-all:$' "$PLUGIN/.github/workflows/test.yml" && grep -q 'ci-suite-pass.sh' "$RELEASE" \
+  && ok "T22.h release.sh 가 CI 판정을 ci-suite-pass.sh 에 맡긴다(본문에 gh 조회를 두지 않는다)" || fail "T22.h"
+
+# T23: pre-flight 가 실패하면 어느 스위트가 실패했는지 보인다 (20261112 — 종전에는 "검증 실패" 한 줄뿐이었다)
+TF23=$(mktemp -d) || exit 1
+_make_git_fixture "$TF23"
+out=$( cd "$TF23" && env -u SPECOPS_FORCE_FULL -u SPECOPS_RUN_ALL SPECOPS_RELEASE_NO_CI=1 RELEASE_PLUGIN_ROOT="$TF23" \
+  RELEASE_PREFLIGHT_CMD='printf "PASS a\nFAIL T1.1.b 고아 프로세스\n==== run-all: suites PASS=217 FAIL=1 (total=218) ====\nFAILED: scripts/tests/test-watchdog-orphans.sh\nVERIFY: FAIL\n"; false' \
+  bash "$RELEASE" 1.10.0 --dry-run 2>&1 ); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'pre-flight 검증 실패 (scripts/tests/run-all.sh · exit=1)' \
+    && printf '%s' "$out" | grep -qF 'FAILED: scripts/tests/test-watchdog-orphans.sh' && printf '%s' "$out" | grep -qF 'FAIL T1.1.b 고아 프로세스' \
+    && printf '%s' "$out" | grep -qF 'suites PASS=217 FAIL=1' && ! printf '%s' "$out" | grep -q 'PASS a'; } \
+  && ok "T23.a 실패 시 실패 줄·FAILED: <스위트>·요약 줄을 보인다(통과 줄은 싣지 않는다)" || fail "T23.a (rc=$rc out=$(printf '%s' "$out" | head -8))"
+_log23=$(printf '%s\n' "$out" | sed -n 's/^  전체 출력: //p' | head -1)
+{ [ -n "$_log23" ] && [ -f "$_log23" ] && grep -q '^PASS a$' "$_log23"; } && ok "T23.b 전체 출력은 파일로 남기고 경로를 적는다" || fail "T23.b (log=$_log23)"
+[ -n "$_log23" ] && rm -f "$_log23"
+out=$( cd "$TF23" && env -u SPECOPS_FORCE_FULL -u SPECOPS_RUN_ALL SPECOPS_RELEASE_NO_CI=1 RELEASE_PLUGIN_ROOT="$TF23" \
+  RELEASE_PREFLIGHT_CMD='echo "알 수 없는 오류로 중단"; ( exit 7 )' bash "$RELEASE" 1.10.0 --dry-run 2>&1 ); rc=$?
+{ [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'exit=7' && printf '%s' "$out" | grep -qF '알 수 없는 오류로 중단'; } \
+  && ok "T23.c 실패 줄 형식이 없으면 끝부분을 보인다" || fail "T23.c (rc=$rc)"
+_l=$(printf '%s\n' "$out" | sed -n 's/^  전체 출력: //p' | head -1); [ -n "$_l" ] && rm -f "$_l"
+rm -rf "$TF23"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

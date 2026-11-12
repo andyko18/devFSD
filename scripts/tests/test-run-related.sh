@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# run-related.sh — 변경 파일이 닿는 스위트 고르기·실행 (20261112 speed)
+#   계약: 고를 수 없으면(언급하는 스위트 없음·상한 초과·경로 이상) rc 3 으로 **전체 스위트 쪽**에 넘기고,
+#   실행은 스위트 목록에 든 경로만 받으며, 전체 스위트의 통과 기록(마커)·커밋 훅의 실행 증거(VERIFY 토큰)를 만들지 않는다.
+set -u
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
+PASS=0; FAIL=0
+PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+source "$PLUGIN/scripts/tests/harness.sh"
+command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
+RR="$PLUGIN/scripts/tests/run-related.sh"
+TMP=$(mktemp -d) || exit 1; trap 'rm -rf "$TMP"' EXIT
+
+# 픽스처 저장소 — run-related.sh 사본을 둔다(스크립트는 자기 위치 기준으로 저장소를 잡는다)
+R="$TMP/repo"
+mkdir -p "$R/scripts/tests/dag" "$R/scripts/_internal" "$R/hooks" "$R/skills/a" "$R/skills/b" "$R/docs" "$R/.specops"
+cp "$RR" "$R/scripts/tests/run-related.sh"
+printf '#!/usr/bin/env bash\necho structure-ok\n' > "$R/scripts/_internal/validate-structure.sh"
+printf '#!/usr/bin/env bash\necho lib\n' > "$R/hooks/lib.sh"
+printf '#!/usr/bin/env bash\n. hooks/lib.sh\n' > "$R/hooks/entry.sh"
+printf '#!/usr/bin/env bash\necho count\n' > "$R/scripts/count.sh"
+printf '#!/usr/bin/env bash\necho orphan\n' > "$R/scripts/orphan.sh"
+printf 'a\n' > "$R/skills/a/SKILL.md"; printf 'b\n' > "$R/skills/b/SKILL.md"
+printf 'doc\n' > "$R/README.md"; printf 'doc\n' > "$R/docs/guide.md"; printf 'doc\n' > "$R/hooks/CLAUDE.md"; printf 'doc\n' > "$R/CLAUDE.md"
+printf '#!/usr/bin/env bash\n# scripts/count.sh 를 본다\necho "PASS=1 FAIL=0 RUN_ALL=${SPECOPS_RUN_ALL:-unset}"\n' > "$R/scripts/tests/test-count.sh"
+printf '#!/usr/bin/env bash\n# hooks/entry.sh 를 실행해 본다\necho "PASS=1 FAIL=0"\n' > "$R/scripts/tests/test-entry.sh"
+printf '#!/usr/bin/env bash\n# skills/a/SKILL.md 문구 잠금\necho "PASS=1 FAIL=0"\n' > "$R/scripts/tests/test-skill-a.sh"
+printf '#!/usr/bin/env bash\necho "FAIL X1 깨졌다"\necho "PASS=0 FAIL=1"\nexit 1\n' > "$R/scripts/tests/dag/test-broken.sh"
+printf '#!/usr/bin/env bash\necho doc-numbers\n' > "$R/scripts/tests/test-doc-numbers.sh"
+printf '#!/usr/bin/env bash\ntouch "%s/evil-ran"\n' "$TMP" > "$R/scripts/evil.sh"
+printf '#!/usr/bin/env bash\nfor f in "$ROOT"/skills/*/SKILL.md; do :; done\necho "PASS=1 FAIL=0"\n' > "$R/scripts/tests/test-skill-glob.sh"
+printf '#!/usr/bin/env bash\nn=$(find "$ROOT/skills" -name SKILL.md | wc -l)\necho "PASS=1 FAIL=0"\n' > "$R/scripts/tests/test-skill-find.sh"
+printf '#!/usr/bin/env bash\nfor s in a b; do f="skills/${s}/SKILL.md"; done\necho "PASS=1 FAIL=0"\n' > "$R/scripts/tests/test-skill-var.sh"
+( cd "$R" && git init -q -b main && printf '.specops/\n' > .gitignore && git add -A && git -c user.name=t -c user.email=t@e.com commit -qm init ) \
+  || { echo "FATAL: 픽스처 생성 실패" >&2; exit 1; }
+_rr() { ( cd "$R" && bash scripts/tests/run-related.sh "$@" 2>&1 ); }
+_list() { ( cd "$R" && bash scripts/tests/run-related.sh --list "$@" 2>/dev/null ) | paste -sd' ' -; }
+AL="scripts/_internal/validate-structure.sh scripts/tests/test-doc-numbers.sh"   # 픽스처에 있는 상시 스위트(가나다순 앞·뒤에 끼어든다)
+
+# ── L 고르기 ──
+out=$(_list scripts/tests/test-count.sh)
+[ "$out" = "scripts/_internal/validate-structure.sh scripts/tests/test-count.sh scripts/tests/test-doc-numbers.sh" ] \
+  && ok "L1 변경 파일이 스위트 자신 → 그 스위트 + 상시 스위트" || nope "L1" "$out"
+out=$(_list scripts/count.sh)
+[ "$out" = "scripts/_internal/validate-structure.sh scripts/tests/test-count.sh scripts/tests/test-doc-numbers.sh" ] \
+  && ok "L2 ★ 코드 파일 → 그 이름을 언급하는 스위트" || nope "L2" "$out"
+out=$(_list hooks/lib.sh)
+printf '%s' "$out" | grep -q 'scripts/tests/test-entry.sh' && ! printf '%s' "$out" | grep -q 'test-count.sh' \
+  && ok "L3 ★ 라이브러리 → 그것을 source 하는 진입 스크립트의 스위트(한 단계)" || nope "L3" "$out"
+out=$(_list skills/a/SKILL.md)
+printf '%s' "$out" | grep -q 'scripts/tests/test-skill-a.sh' && ok "L4 흔한 파일 이름은 상위폴더/이름으로 찾는다(a/SKILL.md)" || nope "L4" "$out"
+out=$(_list skills/b/SKILL.md)
+! printf '%s' "$out" | grep -q 'test-skill-a.sh' && ok "L5 ★ 같은 이름의 다른 파일(b/SKILL.md)은 a 의 스위트로 묻어가지 않는다" || nope "L5" "$out"
+for t in test-skill-glob.sh test-skill-find.sh test-skill-var.sh; do printf '%s' "$out" | grep -q "scripts/tests/$t" || { nope "L5b" "$t 가 빠졌다: $out"; t=""; break; }; done
+[ -n "$t" ] && ok "L5b ★ 폴더를 순회하는 스위트(glob · find · 변수 조합)는 파일 이름을 적지 않아도 고른다"
+printf 'x\n' > "$R/lonely.cfg"; mkdir -p "$R/misc"; printf 'x\n' > "$R/misc/lonely.py"
+out=$(_rr --list misc/lonely.py); rc=$?; rm -rf "$R/misc" "$R/lonely.cfg"
+[ "$rc" = 3 ] && ok "L5c 언급도 순회도 없는 폴더의 파일 → rc 3" || nope "L5c" "rc=$rc $out"
+out=$(_rr --list scripts/orphan.sh scripts/count.sh); rc=$?
+[ "$rc" = 3 ] && printf '%s' "$out" | grep -q '특정할 수 없다: scripts/orphan.sh' \
+  && ok "L6 ★ 언급하는 스위트가 없는 코드 파일이 하나라도 있으면 rc 3 (전체 스위트 쪽)" || nope "L6" "rc=$rc $out"
+out=$(_list README.md docs/guide.md hooks/CLAUDE.md CLAUDE.md .specops/x/spec.md)
+[ "$out" = "$AL" ] && ok "L7 문서·.specops 만 바뀌면 상시 스위트만" || nope "L7" "$out"
+out=$( cd "$R" && printf 'scripts/count.sh\n\nscripts/count.sh\n' | bash scripts/tests/run-related.sh --list 2>/dev/null | paste -sd' ' - )
+printf '%s' "$out" | grep -q 'test-count.sh' && ok "L8 인자가 없으면 stdin 에서 읽는다(빈 줄·중복 무시)" || nope "L8" "$out"
+_rr --list ../outside.sh >/dev/null; rc1=$?; _rr --list /etc/passwd >/dev/null; rc2=$?
+[ "$rc1" = 3 ] && [ "$rc2" = 3 ] && ok "L9 저장소 밖 경로(.. · 절대경로) → rc 3" || nope "L9" "rc=$rc1/$rc2"
+( cd "$R" && : | bash scripts/tests/run-related.sh --list >/dev/null 2>&1 ); [ $? = 3 ] && ok "L10 변경 파일 0개 → rc 3" || nope "L10"
+# 상한 — count.sh 를 언급하는 스위트를 상한보다 많이 만든다
+MAX=$(sed -n 's/^RELATED_MAX=\([0-9][0-9]*\).*/\1/p' "$RR")
+i=0; while [ "$i" -le "${MAX:-30}" ]; do printf '#!/usr/bin/env bash\n# scripts/count.sh\necho "PASS=1 FAIL=0"\n' > "$R/scripts/tests/test-many-$i.sh"; i=$((i + 1)); done
+out=$(_rr --list scripts/count.sh); rc=$?
+[ -n "$MAX" ] && [ "$rc" = 3 ] && printf '%s' "$out" | grep -q "상한 ${MAX}" && ok "L11 ★ 관련 스위트가 상한(${MAX})을 넘으면 rc 3 (전체 스위트 쪽)" || nope "L11" "rc=$rc $out"
+rm -f "$R"/scripts/tests/test-many-*.sh
+
+# ── X 실행 ──
+out=$(_rr scripts/tests/test-count.sh scripts/_internal/validate-structure.sh); rc=$?
+[ "$rc" = 0 ] && printf '%s' "$out" | grep -q 'run-related: suites PASS=2 FAIL=0 (total=2)' && ok "X1 고른 스위트만 실행 → rc 0 · 요약 줄" || nope "X1" "rc=$rc $out"
+! printf '%s' "$out" | grep -q 'VERIFY:' && ok "X2 ★ VERIFY 토큰을 내지 않는다(커밋 훅의 실행 증거가 아니다)" || nope "X2" "$out"
+[ ! -e "$R/.specops/.full-suite-pass" ] && ok "X3 ★ 전체 스위트 통과 마커를 쓰지 않는다(pre-push 는 이 실행을 통과로 치지 않는다)" || nope "X3"
+printf '%s' "$out" | grep -q '전체 스위트 아님' && ok "X4 요약 줄이 전체 스위트가 아님을 적는다" || nope "X4" "$out"
+out=$(_rr scripts/tests/test-count.sh scripts/tests/dag/test-broken.sh); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -qx 'FAILED: scripts/tests/dag/test-broken.sh' && printf '%s' "$out" | grep -q '^FAIL X1 깨졌다' \
+  && ok "X5 ★ 실패 스위트가 있으면 rc 1 · 실패 줄과 FAILED: <경로>" || nope "X5" "rc=$rc $out"
+out=$(_rr scripts/tests/test-count.sh scripts/evil.sh); rc=$?
+[ "$rc" = 2 ] && [ ! -e "$TMP/evil-ran" ] && printf '%s' "$out" | grep -q '스위트 목록에 없는 경로' \
+  && ok "X6 ★ 스위트 목록에 없는 경로는 실행하지 않는다 → rc 2" || nope "X6" "rc=$rc $out"
+out=$( cd "$R" && env -u SPECOPS_RUN_ALL bash scripts/tests/run-related.sh scripts/tests/test-count.sh 2>&1 )
+printf '%s' "$out" | grep -q 'RUN_ALL=1' \
+  && ok "X7 스위트에 재귀 가드(SPECOPS_RUN_ALL=1)를 물려준다 — 스위트 안의 release·pre-push 가 전체 스위트를 다시 부르지 않게" || nope "X7" "$out"
+_rr >/dev/null; [ $? = 2 ] && ok "X8 인자 없음 → rc 2" || nope "X8"
+
+# ── K 계약 잠금 ──
+# 스위트 목록이 run-all.sh 와 같아야 한다 — 한쪽에만 폴더가 늘면 그 폴더의 스위트는 관련으로 잡히지 않는다
+_dirs() { grep -oE '"\$PLUGIN"/scripts/tests/[A-Za-z0-9_/-]*test-\*\.sh' "$1" | sort -u; }
+a=$(_dirs "$PLUGIN/scripts/tests/run-all.sh"); b=$(_dirs "$RR")
+[ -n "$a" ] && [ "$a" = "$b" ] && ok "K1 ★ 스위트 폴더 목록 == run-all.sh 의 목록" || nope "K1" "run-all=[$a] related=[$b]"
+! grep -qE '^[^#]*\.full-suite-pass' "$RR" && ok "K2 마커 경로를 코드에서 다루지 않는다" || nope "K2"
+! grep -q 'run-related' "$PLUGIN/hooks/governance-lib.sh" && ! grep -q 'run-related' "$PLUGIN/hooks/rules.jsonl" \
+  && ok "K3 ★ 훅은 이 러너를 실행 증거로 알지 못한다(훅을 고치지 않았다)" || nope "K3"
+! grep -q 'run-related' "$PLUGIN/.githooks/pre-push" && ok "K4 pre-push 는 그대로 전체 스위트를 본다" || nope "K4"
+# 검증 러너의 허용 형식에 맞는다 — basic-path.sh related 가 내는 명령이 SKIP 되지 않는다
+WL=$(sed -n "s/^_WHITELIST_PAT='\(.*\)'\$/\1/p" "$PLUGIN/scripts/_internal/run-verification.sh")
+cmd="bash scripts/tests/run-related.sh scripts/_internal/validate-structure.sh scripts/tests/dag/test-parse-dag.sh"
+[ -n "$WL" ] && [[ "$cmd" =~ $WL ]] && [[ "$cmd" != *..* ]] && ok "K5 관련 스위트 명령이 검증 러너의 허용 형식을 통과한다" || nope "K5"
+# 실저장소에서: 상시 스위트가 실제로 있고, 넓게 닿는 파일은 전체 쪽으로 넘어간다
+out=$(bash "$RR" --list scripts/release.sh 2>/dev/null)
+for s in scripts/_internal/validate-structure.sh scripts/tests/test-doc-numbers.sh scripts/tests/test-propagation.sh scripts/tests/test-release.sh; do
+  printf '%s\n' "$out" | grep -Fxq "$s" || { nope "K6" "release.sh 의 관련 스위트에 $s 가 없다"; s=""; break; }
+done
+[ -n "$s" ] && ok "K6 실저장소: release.sh → test-release.sh + 상시 스위트 3종"
+bash "$RR" --list scripts/tests/harness.sh >/dev/null 2>&1; [ $? = 3 ] && ok "K7 실저장소: 모든 스위트가 쓰는 파일(harness.sh)은 전체 스위트 쪽(rc 3)" || nope "K7"
+
+finish

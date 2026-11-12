@@ -7,6 +7,7 @@
 # 종료 코드:
 #   --list  0 = 골랐다 · 3 = 고를 수 없다(사유는 stderr — 호출자는 전체 스위트를 쓴다) · 2 = 사용 오류
 #   실행    0 = 전부 통과 · 1 = 실패 있음 · 2 = 사용 오류(스위트 목록에 없는 경로 포함)
+#   실행은 run-all.sh 와 같은 병렬 풀이다 — SPECOPS_RUN_ALL_JOBS(기본 코어 수·상한 8 · 1 = 하나씩) · `# run-all: serial` 표시 스위트는 풀 뒤.
 #
 # 소비자: `/basic` 의 검증 1회(basic-path.sh related → seal 의 test_command). **전체 스위트의 대체가 아니다** —
 #   전체는 push 전 게이트(.githooks/pre-push)와 PR 의 CI 가 맡는다. 그래서 이 러너는:
@@ -28,7 +29,12 @@
 set -uo pipefail
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
 
-RELATED_MAX=30   # 이 수를 넘게 닿으면 전체 스위트로 돌린다(근거 얇은 기본값 — 여기 한 곳에서 고친다)
+# 이 수를 넘게 닿으면 전체 스위트로 돌린다(여기 한 곳에서 고친다).
+#   20261112 실측(관련 48개 — 러너 5 + 스위트 2 변경): 하나씩 591초 · 병렬 풀 172초 · 전체 스위트(222개 병렬) 358초(같은 세션 · 첫 실측 416초).
+#   병렬이면 48개도 전체보다 빠르지만 상한은 올리지 않았다 — 관련 스위트로 검증하면 전체 통과 기록이 없어 push 전 게이트가
+#   전체를 한 번 더 돈다(172 + 358초). 전체로 검증하면 게이트가 건너뛴다(358초 + push 0.8초 — 희생용 복제본 실측). 넓게 닿는 변경은 전체 한 번이 싸다.
+#   소요는 개수가 아니라 무거운 스위트 몇 개가 정한다(상위 7개가 591초 중 394초) — 스위트별 소요 자료가 생기면 기준을 소요로 바꾼다.
+RELATED_MAX=30
 PLUGIN=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 ALWAYS="scripts/_internal/validate-structure.sh scripts/tests/test-doc-numbers.sh scripts/tests/test-propagation.sh"
 
@@ -127,23 +133,102 @@ else
 fi
 
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/specops-run-related.XXXXXX") || { echo "run-related: 작업 디렉터리 생성 실패" >&2; exit 1; }
-trap 'rm -rf "$WORK"' EXIT
 cd "$PLUGIN" || exit 1
-PASS=0; FAIL=0; FAILED=()
-# 하나씩 돈다 — 관련 스위트는 수가 적고, 시간 임계 스위트(`# run-all: serial`)를 가려 따로 돌릴 필요가 없다.
-for s in $(printf '%s\n' "$@" | sort -u); do
-  bounded_run "$SUITE_TIMEOUT" bash "$s" > "$WORK/out" 2>&1 < /dev/null; rc=$?
-  if bounded_timed_out "$rc"; then
-    printf '%s\n' "FAIL TIMEOUT — ${SUITE_TIMEOUT}s 상한 초과. 재현: bash $s" >> "$WORK/out"
+
+# 병렬 풀 (20261112 실측: 관련 48개를 하나씩 돌리면 591초 — 전체 스위트 병렬 416초보다 길었다) — run-all.sh 와 같은 규칙이다:
+#   병렬 수 = SPECOPS_RUN_ALL_JOBS(정수≥1) > CPU 코어 수(상한 8) > 1 · 선두 20줄에 `# run-all: serial — <사유>` 가 있는 스위트는 풀이 끝난 뒤 하나씩.
+_rr_jobs() {
+  local n="${SPECOPS_RUN_ALL_JOBS:-}"
+  case "$n" in ''|*[!0-9]*|0*) ;; *) printf '%s' "$n"; return 0 ;; esac
+  n=$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null)
+  case "$n" in ''|*[!0-9]*|0*) n=1 ;; esac
+  [ "$n" -gt 8 ] && n=8
+  printf '%s' "$n"
+}
+JOBS=$(_rr_jobs)
+# 중단하면 풀을 그룹째 끝낸다(작업자는 `set -m` 으로 띄워 자기 프로세스 그룹이다 — run-all.sh 와 같다).
+_rr_bg=""
+_rr_stop() {
+  trap - INT TERM
+  [ -n "$_rr_bg" ] && { kill -TERM -- "-$_rr_bg" 2>/dev/null || kill -TERM "$_rr_bg" 2>/dev/null; }
+  rm -rf "$WORK"
+  exit "$1"
+}
+trap '_rr_stop 130' INT
+trap '_rr_stop 143' TERM
+trap 'rm -rf "$WORK"' EXIT
+
+# 작업자 — 스위트 1개를 돌리고 out.<i>·rc.<i> 를 남긴다. 함수를 export 하지 않고 소스 문자열로 넘긴다(run-all.sh 의 작업자 주석 참조).
+read -r -d '' _RR_WORKER <<'WORKER'
+w=$1; plugin=$2; SUITE_TIMEOUT=$3; i=$4
+suite=$(sed -n "${i}p" "$w/list")
+if [ -f "$plugin/scripts/_internal/run-bounded.sh" ]; then
+  . "$plugin/scripts/_internal/run-bounded.sh"
+else
+  bounded_run() { shift; "$@"; }
+  bounded_timed_out() { return 1; }
+fi
+_w_stop() {
+  for j in $(jobs -p); do kill -TERM -- "-$j" 2>/dev/null || kill -TERM "$j" 2>/dev/null; done
+  exit 143
+}
+trap _w_stop TERM INT
+cd "$plugin" || exit 0
+bounded_run "$SUITE_TIMEOUT" bash "$suite" > "$w/out.$i" 2>&1 < /dev/null
+rc=$?
+if bounded_timed_out "$rc"; then
+  printf '%s\n' "FAIL TIMEOUT — ${SUITE_TIMEOUT}s 상한 초과. 재현: bash $suite" >> "$w/out.$i"
+fi
+echo "$rc" > "$w/rc.$i"
+exit 0
+WORKER
+
+printf '%s\n' "$@" | sort -u > "$WORK/list"
+: > "$WORK/par"; : > "$WORK/ser"
+i=0
+while IFS= read -r s; do
+  i=$((i + 1))
+  if [ "$JOBS" -gt 1 ] && awk 'NR > 20 { exit } /^# run-all: serial — ./ { f = 1; exit } END { exit !f }' "$PLUGIN/$s" 2>/dev/null; then
+    echo "$i" >> "$WORK/ser"
+  else
+    echo "$i" >> "$WORK/par"
   fi
-  printf -- '--- %s\n%s\n' "$s" "$(grep -v '^$' "$WORK/out" | tail -1)"
+done < "$WORK/list"
+if [ -s "$WORK/par" ]; then
+  set -m
+  xargs -n 1 -P "$JOBS" bash -c "$_RR_WORKER" _ "$WORK" "$PLUGIN" "$SUITE_TIMEOUT" < "$WORK/par" &
+  _rr_bg=$!
+  set +m
+  wait "$_rr_bg" || kill -TERM -- "-$_rr_bg" 2>/dev/null || true
+  _rr_bg=""
+fi
+while read -r i <&3; do
+  set -m
+  bash -c "$_RR_WORKER" _ "$WORK" "$PLUGIN" "$SUITE_TIMEOUT" "$i" &
+  _rr_bg=$!
+  set +m
+  wait "$_rr_bg" || true
+  _rr_bg=""
+done 3< "$WORK/ser"
+
+# 집계는 목록 순서로 — 끝난 순서와 무관하게 출력이 같다. 결과를 못 남긴 스위트는 실패다(통째로 빠진 통과 방지).
+PASS=0; FAIL=0; FAILED=()
+i=0
+while IFS= read -r s; do
+  i=$((i + 1))
+  rc=$(cat "$WORK/rc.$i" 2>/dev/null || true)
+  if [ -z "$rc" ]; then
+    rc=1
+    printf '%s\n' "FAIL WORKER — 결과 없음 (작업자 비정상 종료·중단). 재현: bash $s" >> "$WORK/out.$i"
+  fi
+  printf -- '--- %s\n%s\n' "$s" "$(grep -v '^$' "$WORK/out.$i" | tail -1)"
   if [ "$rc" -eq 0 ]; then
     PASS=$((PASS + 1))
   else
     FAIL=$((FAIL + 1)); FAILED+=("$s")
-    grep '^FAIL' "$WORK/out" | head -5
+    grep '^FAIL' "$WORK/out.$i" | head -5
   fi
-done
+done < "$WORK/list"
 
 echo ""
 echo "==== run-related: suites PASS=$PASS FAIL=$FAIL (total=$((PASS + FAIL))) — 관련 스위트만 돌렸다(전체 스위트 아님) ===="

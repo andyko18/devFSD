@@ -5,6 +5,7 @@ import {
   currentStageKey,
   elapsed,
   fidOf,
+  isBasicLane,
   isLifecycleDone,
   isNewer,
   latestStamp,
@@ -1279,6 +1280,55 @@ test('devFSD: the current stage is the newest record, or the next open stage whe
   expect(currentStageKey(b, '20261106-x')).toBe('implement')
   const c = PROG_T2(['- 2026-11-06 10:09 /lifecycle DONE (PR #1)', '- 2026-11-06 10:00 /analyze 완료 (x)'])
   expect(currentStageKey(c, '20261106-x')).toBeNull()
+})
+
+// --- 기본 경로(/basic) 단계 목록 ---------------------------------------------------------
+
+const BASIC_LINES = [
+  '- 2026-11-12 15:08 /lifecycle DONE (/basic — 요약)',
+  '- 2026-11-12 15:02 /verify PASS (evidence.md, AC 4/4 (/basic))',
+  '- 2026-11-12 14:58 /review 완료 (봉인 (/basic))',
+  '- 2026-11-12 14:50 /review 진행 (스펙·코드 리뷰 + 보안 스캔 (/basic))',
+  '- 2026-11-12 14:50 /implement 완료 (주 세션 직접 구현 (/basic))',
+  '- 2026-11-12 14:41 /approve 완료 (spec 1장 승인 (/basic))',
+  '- 2026-11-12 14:22 /basic 시작 (요청)',
+]
+const basicAt = (n: number) => PROG_T2(BASIC_LINES.slice(BASIC_LINES.length - n)) // 아래에서 n 줄 = 시간순 앞 n 개
+const bar = (p: string) => stagesOf(p, '20261106-x').map(s => `${s.label}${s.mark}`).join(' ')
+
+test('devFSD: a /basic FID shows its own five stages, each step of the path moving the current stage', () => {
+  const steps: [number, string, string | null][] = [
+    [1, '명세● 구현○ 리뷰○ 검증○ PR○', 'specify'],
+    [2, '명세✓ 구현○ 리뷰○ 검증○ PR○', 'implement'],
+    [4, '명세✓ 구현✓ 리뷰● 검증○ PR○', 'review'],
+    [5, '명세✓ 구현✓ 리뷰✓ 검증○ PR○', 'verify'],
+    [6, '명세✓ 구현✓ 리뷰✓ 검증✓ PR○', 'pr'],
+    [7, '명세✓ 구현✓ 리뷰✓ 검증✓ PR✓', null],
+  ]
+  for (const [n, want, current] of steps) {
+    expect(isBasicLane(basicAt(n), '20261106-x')).toBe(true)
+    expect(bar(basicAt(n))).toBe(want)
+    expect(currentStageKey(basicAt(n), '20261106-x')).toBe(current)
+  }
+})
+
+test('devFSD: a /basic FID whose middle records are missing counts stages before the last recorded one as passed', () => {
+  // v3.1.34 이전 기록(구현·리뷰 줄 없음) · 리뷰 시작 기록을 건너뛴 실행
+  const old = PROG_T2(['- 2026-11-12 15:02 /verify PASS (x)', '- 2026-11-12 14:41 /approve 완료 (x)', '- 2026-11-12 14:22 /basic 시작 (x)'])
+  expect(bar(old)).toBe('명세✓ 구현✓ 리뷰✓ 검증✓ PR○')
+  expect(currentStageKey(old, '20261106-x')).toBe('pr')
+  const failed = PROG_T2(['- 2026-11-12 15:02 /verify FAIL (x)', '- 2026-11-12 14:58 /review 완료 (x)', '- 2026-11-12 14:22 /basic 시작 (x)'])
+  expect(bar(failed)).toBe('명세● 구현✓ 리뷰✓ 검증✗ PR○') // 기록이 있는 단계는 기록대로 — 추정은 기록 없는 단계만
+  expect(currentStageKey(failed, '20261106-x')).toBe('verify')
+})
+
+test('devFSD: the full path keeps its stage list — /basic records in another FID do not switch it', () => {
+  const full = PROG_T2(['- 2026-11-06 10:02 /tasks 완료 (x)', '- 2026-11-06 10:01 /plan 완료 (x)', '- 2026-11-06 10:00 /specify 완료 (x)'])
+  const both = `${full}\n## 20261112-other · 기본\n\n- 2026-11-12 14:22 /basic 시작 (x)\n`
+  expect(isBasicLane(both, '20261106-x')).toBe(false)
+  expect(isBasicLane(both, '20261112-other')).toBe(true)
+  expect(bar(both)).toBe('명세✓ 명확화○ 설계✓ 분해✓ 구현○ 검증○ 보안○ 통합○ 성능○ 데모○ PR○') // 기록 없는 단계는 풀 경로에서 ○ 그대로
+  expect(stagesOf(both, '20261112-other').map(s => s.key)).toEqual(['specify', 'implement', 'review', 'verify', 'pr'])
 })
 
 test('devFSD: a stale or partial verify marks the verify stage !, a failed one ✗, and an unrecorded verify stays open', () => {

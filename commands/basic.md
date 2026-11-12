@@ -47,7 +47,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
    `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh approve <FID>`
    spec 절을 확인하고, spec 본문으로 갈래를 다시 판정하고, 수용 기준 절을 `acceptance-criteria.md` 로 옮긴다(검증 러너·스펙 리뷰어가 읽는 계약 파일). 종료 코드 3 은 1번과 같다. 승인 뒤에는 PR 까지 묻지 않는다(비가역 작업·리뷰어 `NEEDS_DISCUSSION`·고치지 못한 Critical 은 멈춘다).
 5. **직접 구현** — 주 세션이 구현한다(서브에이전트에게 구현을 맡기지 않는다). 수용 기준마다 **실패하는 테스트를 먼저** 쓰고 실패를 확인한 뒤 고친다(`devfsd:tdd-ko`). 구현 중에는 **관련 테스트만** 돌린다. 커밋은 7번 뒤에 한다.
-6. **리뷰 1회 (동시)** — 한 메시지에서 함께 보낸다:
+6. **리뷰 1회 (동시)** — 먼저 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh review <FID>` 로 진행 기록(구현 완료 · 리뷰 진행)을 남긴다(관제판 단계 표시용 — 판정은 없다). 그다음 한 메시지에서 함께 보낸다:
    - `devfsd:spec-reviewer-ko` — FID · tid `T1` · `spec.md`·`acceptance-criteria.md` 경로 · 리뷰 대상 `git diff <base>...HEAD` + 작업 트리 변경.
    - `devfsd:code-reviewer-ko` — 같은 대상 · `병렬 dispatch: yes (B 판정 대기)`.
    - 보안 스캔 — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh <변경 파일…>` 을 백그라운드(Bash `run_in_background`)로.
@@ -94,7 +94,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
 
 ## 참조
 
-- `scripts/basic-path.sh` — lane · start · approve · related · seal · design-scope · done
+- `scripts/basic-path.sh` — lane · start · approve · review · related · seal · design-scope · done
 - `scripts/tests/run-related.sh` — 변경 파일이 닿는 스위트 고르기(`--list`)·실행 (스위트 매핑이 있는 저장소)
 - `templates/spec-basic.md` — spec 1장 골격
 - `scripts/_internal/risk-profile.sh` — 영문 위험 신호 판정(`rp::detect_strict_signals`)

@@ -89,6 +89,25 @@ out=$( cd "$R" && env -u SPECOPS_RUN_ALL bash scripts/tests/run-related.sh scrip
 printf '%s' "$out" | grep -q 'RUN_ALL=1' \
   && ok "X7 스위트에 재귀 가드(SPECOPS_RUN_ALL=1)를 물려준다 — 스위트 안의 release·pre-push 가 전체 스위트를 다시 부르지 않게" || nope "X7" "$out"
 _rr >/dev/null; [ $? = 2 ] && ok "X8 인자 없음 → rc 2" || nope "X8"
+# 병렬 풀 (20261112 — 관련 48개 직렬 591초 > 전체 병렬 416초 실측) — 서로의 시작 표지를 기다리는 두 스위트는 동시에 돌 때만 통과한다
+for n in a b; do o=b; [ "$n" = b ] && o=a
+  printf '#!/usr/bin/env bash\ntouch "%s/pair-%s"\ni=0; while [ ! -e "%s/pair-%s" ] && [ "$i" -lt 100 ]; do sleep 0.1; i=$((i + 1)); done\n[ -e "%s/pair-%s" ] || { echo "FAIL 짝이 시작하지 않았다"; exit 1; }\necho "PASS=1 FAIL=0"\n' \
+    "$TMP" "$n" "$TMP" "$o" "$TMP" "$o" > "$R/scripts/tests/test-pair-$n.sh"
+done
+out=$( cd "$R" && SPECOPS_RUN_ALL_JOBS=2 bash scripts/tests/run-related.sh scripts/tests/test-pair-b.sh scripts/tests/test-pair-a.sh 2>&1 ); rc=$?
+[ "$rc" = 0 ] && printf '%s' "$out" | grep -q 'suites PASS=2 FAIL=0' && ok "X9 ★ 스위트를 동시에 돌린다(SPECOPS_RUN_ALL_JOBS — run-all 과 같은 변수)" || nope "X9" "rc=$rc $out"
+[ "$(printf '%s\n' "$out" | grep '^--- ' | paste -sd' ' -)" = "--- scripts/tests/test-pair-a.sh --- scripts/tests/test-pair-b.sh" ] \
+  && ok "X10 출력은 끝난 순서가 아니라 경로 순서다" || nope "X10" "$out"
+rm -f "$TMP"/pair-*
+out=$( cd "$R" && SPECOPS_RUN_ALL_JOBS=1 bash scripts/tests/run-related.sh scripts/tests/test-pair-a.sh scripts/tests/test-pair-b.sh 2>&1 ); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -qx 'FAILED: scripts/tests/test-pair-a.sh' && ok "X11 SPECOPS_RUN_ALL_JOBS=1 은 하나씩 돈다(되돌림 스위치)" || nope "X11" "rc=$rc $out"
+# 직렬 표시 스위트는 풀이 끝난 뒤에 돈다 — 풀의 스위트가 남긴 끝 표지를 본다
+rm -f "$TMP"/pair-* "$R"/scripts/tests/test-pair-*.sh
+printf '#!/usr/bin/env bash\nsleep 1\ntouch "%s/pool-done"\necho "PASS=1 FAIL=0"\n' "$TMP" > "$R/scripts/tests/test-zz-pool.sh"
+printf '#!/usr/bin/env bash\n# run-all: serial — 시간 임계\n[ -e "%s/pool-done" ] || { echo "FAIL 풀이 끝나기 전에 돌았다"; exit 1; }\necho "PASS=1 FAIL=0"\n' "$TMP" > "$R/scripts/tests/test-aa-serial.sh"
+out=$( cd "$R" && SPECOPS_RUN_ALL_JOBS=2 bash scripts/tests/run-related.sh scripts/tests/test-aa-serial.sh scripts/tests/test-zz-pool.sh 2>&1 ); rc=$?
+[ "$rc" = 0 ] && ok "X12 ★ 직렬 표시(# run-all: serial) 스위트는 풀이 끝난 뒤 돈다" || nope "X12" "rc=$rc $out"
+rm -f "$R"/scripts/tests/test-zz-pool.sh "$R"/scripts/tests/test-aa-serial.sh
 
 # ── K 계약 잠금 ──
 # 스위트 목록이 run-all.sh 와 같아야 한다 — 한쪽에만 폴더가 늘면 그 폴더의 스위트는 관련으로 잡히지 않는다

@@ -312,6 +312,19 @@ bash scripts/_internal/check-task-receipt.sh <FID> <task-id>    # 0=면제 · 1=
 
 `.specops/<FID>/receipts/<task>.json`에 `tree_hash`·`outputs`·`test_command_hash`를 저장합니다. R-1은 receipt가 유효하고 staged ⊆ outputs이며 커밋 메시지에 `T#`가 있으면 FID 전체 verify 없이 커밋을 허용합니다. R-2(PR)는 receipt로 열리지 않습니다. receipt 부재 FID는 기존 implement/verify 면제 경로를 유지합니다.
 
+## basic-path.sh — `/basic` 경로 (spec 1장 · 주 세션 구현 · 1-태스크 FID)
+
+```bash
+bash scripts/basic-path.sh lane "<요청 한 줄>" [<FID>]      # 갈래 판정만 — LANE: basic | full <신호> (rc 0 | 3)
+bash scripts/basic-path.sh start <FID> "<요청 한 줄>"       # 판정 → FID 폴더·진행 기록·spec 골격 (3=풀 경로 대상)
+bash scripts/basic-path.sh approve <FID>                    # 승인 뒤: spec 절 확인 · 재판정 · acceptance-criteria.md 도출
+bash scripts/basic-path.sh seal <FID> "<test_command>"      # 리뷰 뒤: 변경 파일로 재판정 · tasks.md · 리뷰 감사 행 (4=리뷰 보고서 없음)
+bash scripts/basic-path.sh design-scope <화면 수> [new|flow] # 화면 설계 확인 범위 — none | update | approve
+bash scripts/basic-path.sh done <FID> "<한 줄 요약>"        # 종결 기록
+```
+
+풀 신호는 `risk-profile.sh` 의 `rp::detect_strict_signals`(영문 낱말·경로)에 한글 낱말 5종을 더해 본다. 이 경로의 FID 는 spec + AC + tasks 를 가진 정식 구조라 커밋·PR 은 기존 R-1·R-2 가 그대로 판정한다(`run-verification.sh` 의 `VERIFY: PASS` 필요).
+
 ## quick-fix.sh / quick-scope.sh — `/quick-fix` 경로 (명세 없는 1-태스크 FID)
 
 ```bash

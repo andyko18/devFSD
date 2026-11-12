@@ -41,7 +41,7 @@ used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
 
 > **경계**: `/start <인자>` 슬래시는 인자 내용을 2차 판단하지 않고 무조건 specifying-ko 직행 — 동작 정의 SoT 는 `commands/start.md`(본 skill 은 자연어 신호 감지만).
 
-> **lite 추론 금지**: "가볍게", "토큰 아끼고", "짧게 해줘" 등 자연어로 `/start-lite`·`/maintain-lite`·`/quick-fix`를 **추론하지 않는다**. 셋 다 슬래시 전용(`commands/`의 각 파일이 SoT). 자연어 신규/유지보수는 기존대로 `/start`·`/maintain` 경로(또는 풀 chain)만.
+> **lite 추론 금지**: "가볍게", "토큰 아끼고", "짧게 해줘" 등 자연어로 `/start-lite`·`/maintain-lite`·`/quick-fix`를 **추론하지 않는다**(`/basic` 도 같다). 넷 다 슬래시 전용(`commands/`의 각 파일이 SoT). 자연어 신규/유지보수는 기존대로 `/start`·`/maintain` 경로(또는 풀 chain)만.
 
 이는 협상 사항이 아니다. 합리화로 우회 금지.
 </EXTREMELY-IMPORTANT>

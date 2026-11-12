@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **시간초과로 실행기를 정리할 때 자손 프로세스가 남던 결함.** llm-eval 러너 4종(`run-evals.sh`·`run-pressure-evals.sh`·`run-plan-ab.sh`·`run-chain-stage.sh`)과 `scripts/critic-ask.sh` 의 정리가 `pkill -P "$pid"` → `kill "$pid"` 두 단계라, 직계 자식이 죽은 직후 본체가 띄운 새 자식을 놓쳤다. 실행기를 자기 프로세스 그룹의 리더로 띄우고(`set -m`) 그룹째 끝낸다(`kill -TERM -- "-$pid"` — `run-bounded.sh`·`check-ci-status.sh` 와 같은 방식, 종전 두 단계는 이중화로 유지). 실측(20261112): 자식을 차례로 둘 띄우는 가짜 실행기로 고치기 전 12회 중 8회 잔존 → 고친 뒤 0. `test-watchdog-orphans` T1.1.b 가 부하 때 `잔존 1/0` 으로 떨어지던 원인이다.
+- **`test-git-hooks` GH-ci.1 이 origin 없는 사본에서 항상 떨어지던 문제.** CI 경고 단언(.4 .1 .2 .1b)이 실저장소에서 돌아 origin 유무에 기댔다 — 사본에서는 `check-ci-status.sh` 가 gh 를 부르기 전에 끝나 .1 은 실패하고 나머지 셋은 헛통과했다. origin 이 있는 임시 저장소에서 돌리고, 가짜 gh 가 실제로 호출됐는지를 함께 단언한다. "부하 때 흔들림" 으로 추정해 온 두 실패 모두 부하가 원인이 아니었다.
+
 ## [3.1.34] — 2026-11-12
 
 ### Added

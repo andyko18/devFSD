@@ -3,7 +3,7 @@ name: release-ko
 description: bash scripts/release.sh <semver> 1회로 CHANGELOG·README·footer·manifest 동기화, git 태그, 원격 push·GitHub Release 발행까지 완료되는 릴리즈 자동화
 layer: 2
 reference_upstream: specops-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills/release/ 패턴 bash 번안)
-specops_version: 1.78.2
+specops_version: 3.1.33
 used_by: /release
 ---
 
@@ -15,6 +15,7 @@ used_by: /release
 
 1. **사전 검증** — semver + 워킹트리 클린 + 태그 중복 + 버전 단조성(현재 이하 거부)
 2. **pre-flight** — `run-all.sh`(validate-structure + governance + DAG) 테스트 PASS 확인
+   - 같은 커밋 트리의 로컬 통과 기록이나 원격 CI `run-all`·`run-all-macos` 통과가 있으면 건너뛴다(근거 1줄 출력 · 판정 불가는 로컬 실행). 끄기: `SPECOPS_RELEASE_NO_CI=1`(CI 근거만) · `SPECOPS_FORCE_FULL=1`. 실패 시 `FAILED: <스위트>` 를 보인다.
 3. **CHANGELOG** — `## [Unreleased]` → `## [X.Y.Z] — YYYY-MM-DD` 변환 + compare 링크 갱신 (멱등)
 4. **README** — `(vOLD)` → `(vNEW)` 배지 + footer 최신 스탬프 갱신
 5. **footer 스탬프** — `commands/*.md` footer/frontmatter 버전 불일치 수정

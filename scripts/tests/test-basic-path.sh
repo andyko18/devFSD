@@ -137,6 +137,52 @@ out=$(_bp "$d" seal "$FID" "bash scripts/tests/test-count.sh"); [ "$(grep -c 'BC
 _bp "$d" seal "$FID" 'bash "x".sh' >/dev/null; [ $? = 1 ] && ok "Z9 test_command 의 따옴표 거부" || no "Z9"
 out=$(_bp "$d" "done" "$FID" "빈 줄 제외 옵션"); grep -q '/lifecycle DONE' "$d/.specops/session-progress.md" && ok "Z10 done → 종결 기록" || no "Z10" "$out"
 
+# ── R 관련 스위트로 검증 (20261112 speed) ──
+#   매핑(scripts/tests/run-related.sh)이 없는 저장소는 종전대로다. 있는 저장소는 변경 파일이 닿는 스위트만 검증 러너가 돌린다.
+out=$(_bp "$d" related); rc=$?
+[ "$rc" = 0 ] && printf '%s' "$out" | grep -q '^RELATED: none — ' && ok "R1 ★ 매핑 없는 저장소(하류) → RELATED: none (프로젝트 테스트 명령 전체 — 종전 동작)" || no "R1" "rc=$rc $out"
+FID_R=20261112-bp-related
+r=$(_repo rel)
+: > "$r/scripts/tests/run-all.sh"; cp "$PLUGIN/scripts/tests/run-related.sh" "$r/scripts/tests/run-related.sh"
+printf '#!/usr/bin/env bash\ngrep -c . "$1"\n' > "$r/scripts/count.sh"
+printf '#!/usr/bin/env bash\necho other\n' > "$r/scripts/other.sh"
+printf '#!/usr/bin/env bash\nf=$(mktemp); printf "a\\n\\nb\\n" > "$f"; [ "$(bash scripts/count.sh "$f")" = 2 ]; rc=$?; rm -f "$f"; echo "PASS=1 FAIL=$rc"; exit $rc\n' > "$r/scripts/tests/test-count.sh"
+printf '#!/usr/bin/env bash\n# scripts/other.sh\necho "PASS=1 FAIL=0"\n' > "$r/scripts/tests/test-other.sh"
+( cd "$r" && git add scripts && git -c user.name=t -c user.email=t@e.com commit -qm base && git branch -f main HEAD ) >/dev/null   # 기준 브랜치에 이미 있는 파일 — 이번 변경이 아니다
+printf '#!/usr/bin/env bash\ngrep -c . "$1"  # 빈 줄 제외\n' > "$r/scripts/count.sh"
+out=$(_bp "$r" related)
+REL="bash scripts/tests/run-related.sh scripts/tests/test-count.sh"
+[ "$out" = "RELATED: $REL" ] && ok "R2 ★ 매핑 있는 저장소 → 변경 파일(count.sh)이 닿는 스위트만 담은 명령" || no "R2" "$out"
+FID_KEEP=$FID; FID=$FID_R
+_bp "$r" start "$FID" "빈 줄 제외 옵션 추가" >/dev/null; _fill_spec "$r"; _bp "$r" approve "$FID" >/dev/null
+mkdir -p "$r/.specops/$FID/reviews"
+printf '# B\n**판정**: PASS\n' > "$r/.specops/$FID/reviews/T1-B-report.md"
+printf '# C\n**Phase B 상태**: PENDING(병렬 dispatch)\n**판정**: READY_TO_MERGE\n' > "$r/.specops/$FID/reviews/T1-C-report.md"
+out=$(_bp "$r" seal "$FID" "$REL"); rc=$?
+[ "$rc" = 0 ] && grep -qF "test_command: \"$REL\"" "$r/.specops/$FID/tasks.md" && ok "R3 관련 스위트 명령으로 seal → test_command 에 그대로" || no "R3" "rc=$rc $out"
+vout=$( cd "$r" && bash "$PLUGIN/scripts/_internal/run-verification.sh" "$FID" 2>&1 ); vrc=$?
+[ "$vrc" = 0 ] && printf '%s\n' "$vout" | grep -qx 'VERIFY: PASS' && grep -q 'run-related: suites PASS=1 FAIL=0 (total=1)' "$r/.specops/$FID/evidence.md" \
+  && ok "R4 ★ 고치지 않은 검증 러너가 관련 스위트 1개만 돌리고 VERIFY: PASS (evidence 에 실행 출력)" || no "R4" "rc=$vrc $(printf '%s' "$vout" | tail -5)"
+[ ! -e "$r/.specops/.full-suite-pass" ] && ok "R5 ★ 전체 스위트 통과 기록은 생기지 않는다 — push 전 게이트는 전체를 돌린다" || no "R5"
+# related 뒤에 다른 파일을 더 고쳤다 → 옛 명령으로는 봉인되지 않는다
+printf '#!/usr/bin/env bash\necho other2\n' > "$r/scripts/other.sh"
+out=$(_bp "$r" seal "$FID" "$REL"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '관련 스위트가 빠졌다: scripts/tests/test-other.sh' && ok "R6 ★ 지금 변경이 닿는 스위트가 빠진 명령은 seal 거부(rc 1)" || no "R6" "rc=$rc $out"
+out=$(_bp "$r" seal "$FID" "$REL scripts/tests/test-other.sh"); rc=$?
+[ "$rc" = 0 ] && ok "R7 빠진 스위트를 더하면 seal 통과" || no "R7" "rc=$rc $out"
+# 어느 스위트도 언급하지 않는 코드 파일 → 관련을 특정할 수 없다: none · 관련 명령으로는 봉인 불가 · 전체 명령으로는 가능
+printf '#!/usr/bin/env bash\necho lonely\n' > "$r/scripts/lonely.sh"
+out=$(_bp "$r" related)
+printf '%s' "$out" | grep -q '^RELATED: none — .*특정할 수 없다: scripts/lonely.sh' && ok "R8 ★ 관련 테스트를 특정할 수 없는 변경 → RELATED: none (전체 명령)" || no "R8" "$out"
+out=$(_bp "$r" seal "$FID" "$REL scripts/tests/test-other.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '고를 수 없는 변경' && ok "R9 ★ 특정할 수 없는 변경을 관련 명령으로 seal → 거부(rc 1)" || no "R9" "rc=$rc $out"
+out=$(_bp "$r" seal "$FID" "bash ./scripts/tests/run-related.sh scripts/tests/test-count.sh"); rc1=$?
+out2=$(_bp "$r" seal "$FID" "cd . && bash scripts/tests/run-related.sh scripts/tests/test-count.sh"); rc2=$?
+[ "$rc1" = 1 ] && [ "$rc2" = 1 ] && printf '%s' "$out" | grep -q '형태만 받는다' && ok "R9b ★ 관련 러너를 다른 형태(./ · cd 접두)로 불러 검사를 비껴가는 명령은 거부" || no "R9b" "rc=$rc1/$rc2 $out"
+out=$(_bp "$r" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 0 ] && ok "R10 관련 명령이 아닌 test_command 는 종전대로 받는다(판정 없음)" || no "R10" "rc=$rc $out"
+FID=$FID_KEEP
+
 # ── D 문서 잠금 ──
 C="$PLUGIN/commands/basic.md"
 has() { local f="$1" p; shift; for p in "$@"; do grep -qF -- "$p" "$f" || return 1; done; }
@@ -152,6 +198,8 @@ has "$C" '인증·권한 변경 · DB 스키마 변경 · 데이터 삭제·이�
 has "$C" '갈래를 바꾸지 않고 **설계 확인 범위만**' 'DESIGN: none' 'DESIGN: update' 'DESIGN: approve' \
   && ok "D6 화면 변경량은 설계 확인 범위만 정한다(3단계)" || no "D6"
 has "$C" '**자연어로 이 경로를 추론**' '**아직 재지 않았다**' '미실행 게이트' && ok "D7 자연어 추론 금지 · 미측정 고지 · 미실행 게이트 표기" || no "D7"
+has "$C" 'basic-path.sh related' 'RELATED: none' '**프로젝트의 테스트 명령 전체**' '**전체 스위트는 여기서 돌리지 않는다**' 'push 전 게이트' \
+  && ok "D9 검증 명령은 related 의 답 · 매핑 없으면 전체 명령 · 전체 스위트는 push 전 게이트와 CI" || no "D9"
 grep -qF '(`/basic` 도 같다)' "$PLUGIN/skills/using-specops-ko/SKILL.md" && grep -qF '넷 다 슬래시 전용' "$PLUGIN/skills/using-specops-ko/SKILL.md" \
   && ok "D8 메타 skill: /basic 도 자연어로 추론하지 않는다" || no "D8"
 

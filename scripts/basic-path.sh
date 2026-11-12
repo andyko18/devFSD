@@ -5,6 +5,7 @@
 #   basic-path.sh lane "<요청 한 줄>" [<FID>]   갈래 판정만 한다(쓰지 않는다) — `LANE: basic|full <신호>` 1줄
 #   basic-path.sh start <FID> "<요청 한 줄>"    갈래 판정 → FID 폴더·진행 기록·spec 골격(기본 브랜치 위면 브랜치도)
 #   basic-path.sh approve <FID>                 사용자 승인 뒤: spec 절 확인 → 갈래 재판정 → acceptance-criteria.md 도출
+#   basic-path.sh related                       검증에 쓸 test_command 제안 — `RELATED: <명령>` 또는 `RELATED: none — <사유>`(쓰지 않는다)
 #   basic-path.sh seal <FID> "<test_command>"   리뷰 뒤: 변경 파일로 갈래 재판정 → 1-태스크 문서 · 리뷰 감사 행
 #   basic-path.sh design-scope <화면 수> [new|flow]   화면 설계 확인 범위 — `DESIGN: none|update|approve`
 #   basic-path.sh done <FID> "<한 줄 요약>"     종결 기록
@@ -74,7 +75,29 @@ _changed_files() {
   { rp::collect_files; git ls-files -o --exclude-standard 2>/dev/null; } | sed '/^$/d' | grep -v '^\.specops/' | sort -u
 }
 
+# 관련 스위트 — 이 저장소가 스위트 매핑(scripts/tests/run-related.sh)을 가질 때만 변경 파일이 닿는 스위트를 고른다.
+#   stdout: 스위트 경로(한 줄에 하나) · rc 0 = 골랐다 · 3 = 매핑이 없거나 고를 수 없다(사유 1줄을 stdout 에 — 호출자는 프로젝트의 테스트 명령 전체를 쓴다)
+BP_RELATED="scripts/tests/run-related.sh"
+_related_suites() {
+  local files out
+  [ -f "$BP_RELATED" ] && [ -f scripts/tests/run-all.sh ] || { echo "이 저장소에는 관련 스위트 매핑($BP_RELATED)이 없다"; return 3; }
+  files=$(_changed_files) || { echo "변경 파일을 알 수 없다"; return 3; }
+  [ -n "$files" ] || { echo "변경된 파일이 없다"; return 3; }
+  out=$(printf '%s\n' "$files" | bash "$BP_RELATED" --list 2>&1) || { printf '%s\n' "$out" | tail -1; return 3; }
+  [ -n "$out" ] || { echo "고른 스위트가 없다"; return 3; }
+  printf '%s\n' "$out"
+}
+
 case "$ACTION" in
+  related)
+    # 검증 1회에 쓸 명령을 제안한다(쓰지 않는다). 전체 스위트는 push 전 게이트와 PR 의 CI 가 맡는다 — 여기서 고르는 것은 그 앞의 빠른 확인이다.
+    if out=$(_related_suites); then
+      echo "RELATED: bash $BP_RELATED $(printf '%s\n' "$out" | paste -sd' ' -)"
+    else
+      echo "RELATED: none — $out (프로젝트의 테스트 명령 전체를 test_command 로 쓴다)"
+    fi
+    ;;
+
   lane)
     [ -n "${2:-}" ] || _die "usage: $0 lane \"<요청 한 줄>\" [<FID>]"
     [ -z "${3:-}" ] || _fid_ok "$3"
@@ -150,6 +173,16 @@ case "$ACTION" in
     case "$files" in *'"'*|*'\'*) _die "따옴표·역슬래시가 든 파일 이름은 다룰 수 없다" ;; esac
     _lane "" "$FID" "$files"; rc=$?
     [ "$rc" = 0 ] || { _full_msg; exit 3; }
+    # 관련 스위트 명령으로 봉인하면 **지금 변경 파일**이 닿는 스위트를 빠짐없이 담아야 한다 — related 뒤에 코드를 더 고쳤거나
+    #   스위트를 손으로 뺀 명령은 받지 않는다(고를 수 없는 변경이면 전체 테스트 명령으로 봉인한다).
+    case "$ARG" in
+      "bash $BP_RELATED "*)
+        need=$(_related_suites) || _die "관련 스위트를 고를 수 없는 변경이다($need) — 프로젝트의 테스트 명령 전체로 봉인한다"
+        for s in $need; do
+          case " ${ARG#"bash $BP_RELATED "} " in *" $s "*) ;; *) _die "test_command 에 관련 스위트가 빠졌다: $s — basic-path.sh related 를 다시 실행한다" ;; esac
+        done ;;
+      *run-related.sh*) _die "관련 스위트 명령은 'bash $BP_RELATED <스위트…>' 형태만 받는다(basic-path.sh related 의 답 그대로)" ;;
+    esac
     [ -f "$D/reviews/T1-B-report.md" ] && [ -f "$D/reviews/T1-C-report.md" ] \
       || { echo "basic-path: 리뷰 보고서가 없다 — spec-reviewer-ko·code-reviewer-ko 를 tid=T1 로 호출한 뒤 다시 실행한다" >&2; exit 4; }
     acs=$(grep -oE '^#{2,3} AC-[A-Za-z0-9-]+' "$D/acceptance-criteria.md" | sed -E 's/^#+ //' | sort -u | paste -sd, - | sed 's/,/, /g')
@@ -187,5 +220,5 @@ case "$ACTION" in
     echo "BASIC: DONE $FID"
     ;;
 
-  *) _die "usage: $0 {lane \"<요청>\" [<FID>] | start <FID> \"<요청>\" | approve <FID> | seal <FID> \"<test_command>\" | design-scope <화면 수> [new|flow] | done <FID> \"<요약>\"}" ;;
+  *) _die "usage: $0 {related | lane \"<요청>\" [<FID>] | start <FID> \"<요청>\" | approve <FID> | seal <FID> \"<test_command>\" | design-scope <화면 수> [new|flow] | done <FID> \"<요약>\"}" ;;
 esac

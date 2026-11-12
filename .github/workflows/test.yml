@@ -27,7 +27,11 @@ jobs:
   # macOS/BSD 경로 검증 (release.sh _sed_i Darwin 분기·bash 3.2 호환).
   # 차단 승격 (20260716 — 테스트영역 감사 P3): 관찰 기간 동안 macOS 러너 green + 로컬(darwin) 이
   # 주 개발 환경이라 실패는 실결함 신호. timing 게이트(bench)는 플랫폼 무관 로직이 아니라 ubuntu 전담.
+  # PR 에서는 돌리지 않는다 (20261112) — main 에 들어간 뒤(push)에만 돈다. 필수 검사는 run-all·shellcheck·security-scan 3종이다.
+  #   맥 전용 결함은 머지 뒤에 드러날 수 있다 — release.sh pre-flight 의 CI 근거(ci-suite-pass.sh)가 이 job 의 통과까지 요구해
+  #   릴리즈 전에는 걸린다. 되돌리기: 아래 if: 를 지우고 main 필수 검사에 run-all-macos 를 다시 넣는다.
   run-all-macos:
+    if: github.event_name == 'push'
     runs-on: macos-latest
     # 실측 소요의 2배 이상(llm-smoke.yml 규약) — 20261021 실측 11·13.5·15분, 15분 한도에서 202/202 통과 직후 취소됐다
     timeout-minutes: 30

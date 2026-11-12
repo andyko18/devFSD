@@ -200,18 +200,31 @@ else no "R17" "rc=$rc out=[$out]"; fi
 
 # R18 — 실 산출물 오탐 0 (AC-R-3): .specops/*/plan.md·tasks.md 동적 순회.
 # 고정 수치 비교 금지 — 산출물 수는 FID 가 늘 때마다 변한다. 0건이면 graceful skip.
+# 판정 함수(_artifact_incomplete)만 스크립트에서 떼어 이 셸에서 직접 부른다 — 파일마다 스크립트를 통째로 돌리면
+#   frontier 계산(git · verification-state 조회)이 함께 돌아 실측 105초(295파일 · 스위트 111초 중)였다.
+#   그 계산은 이 케이스가 보려는 것(완결성 판정의 오탐)과 무관하다. 경고 문구까지 가는 경로는 R10~R16 이 잠근다.
 real_root="$PLUGIN/.specops"
-fp=0; scanned=0
-if [ -d "$real_root" ]; then
+fp=0; scanned=0; r18_ready=0
+_fn=$(sed -n '/^_artifact_incomplete() {/,/^}/p' "$SCRIPT")
+eval "$_fn"
+printf '# 제목\n' > "$TMP/r18-probe.md"
+if ! command -v _artifact_incomplete >/dev/null 2>&1; then
+  no "R18" "판정 함수를 스크립트에서 떼어내지 못함 (_artifact_incomplete 정의 형태가 바뀌었다)"
+elif [ "$(_artifact_incomplete "$TMP/r18-probe.md")" != "heading-end" ]; then
+  no "R18" "떼어낸 판정 함수가 불완전 문서를 잡지 못함 (대조 실패)"
+else
+  r18_ready=1
+fi
+if [ "$r18_ready" -eq 1 ] && [ -d "$real_root" ]; then
   for f in "$real_root"/*/plan.md "$real_root"/*/tasks.md; do
     [ -f "$f" ] || continue
     scanned=$((scanned+1))
-    real_fid=$(basename "$(dirname "$f")"); base=$(basename "$f")
-    o=$(SPECOPS_ROOT="$real_root" bash "$SCRIPT" "$real_fid" 2>&1)
-    printf '%s' "$o" | grep -qF "$base 불완전 가능" && { fp=$((fp+1)); echo "  FP: $f"; }
+    sig=$(_artifact_incomplete "$f") && { fp=$((fp+1)); echo "  FP: $f ($sig)"; }
   done
 fi
-if [ "$scanned" -eq 0 ]; then
+if [ "$r18_ready" -eq 0 ]; then
+  :
+elif [ "$scanned" -eq 0 ]; then
   ok "R18 실 산출물 오탐 스캔 SKIP (산출물 0건)"
 elif [ "$fp" -eq 0 ]; then
   ok "R18 실 산출물 오탐 0 (스캔 $scanned 건)"

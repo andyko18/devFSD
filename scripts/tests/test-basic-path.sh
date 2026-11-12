@@ -71,6 +71,18 @@ for q in "로그인 권한 검사를 바꾼다" "주문 테이블 컬럼 추가"
   i=$((i+1)); out=$(_bp "$d" lane "$q"); rc=$?
   [ "$rc" = 3 ] && printf '%s' "$out" | grep -q '^LANE: full ' && ok "L2.$i ★ 풀 신호 → full (rc 3): $q" || no "L2.$i" "rc=$rc $out [$q]"
 done
+# `토큰` 오판 (20261112 실측 — spec 의 "VERIFY 토큰" 이 인증 신호로 잡혀 승인 단계에서 풀 경로가 됐다). 인증과 무관한 쓰임만 빼고, 맨 `토큰` 은 종전대로 풀이다(애매하면 무거운 쪽).
+i=0
+for q in "러너가 마지막 줄에 VERIFY 토큰을 낸다" "검증 러너의 \`VERIFY:\` 토큰과 종료 코드는 그대로다" "토큰 비용을 줄이려고 재읽기를 없앤다" "캐시 읽기 12M 토큰 · 출력 토큰 37K" \
+         "LLM eval 은 토큰 비용이 든다" "실행-근거 토큰(VERIFY: PASS)만 인정한다"; do
+  i=$((i+1)); out=$(_bp "$d" lane "$q"); rc=$?
+  [ "$rc" = 0 ] && [ "$out" = "LANE: basic" ] && ok "L2b.$i ★ 인증과 무관한 토큰(판정 줄·비용·사용량) → basic: $q" || no "L2b.$i" "rc=$rc $out [$q]"
+done
+i=0
+for q in "토큰 처리 로직을 바꾼다" "액세스 토큰 만료 시 갱신한다" "API 토큰을 헤더에 싣는다" "VERIFY 토큰은 그대로 두고 로그인 토큰 검증을 바꾼다" "토큰 비용 화면에 세션 토큰 재발급 버튼 추가"; do
+  i=$((i+1)); out=$(_bp "$d" lane "$q"); rc=$?
+  [ "$rc" = 3 ] && printf '%s' "$out" | grep -q '^LANE: full .*auth' && ok "L2c.$i ★ 인증 토큰·맨 토큰은 여전히 full(auth): $q" || no "L2c.$i" "rc=$rc $out [$q]"
+done
 out=$(_bp "$d" design-scope 0); printf '%s' "$out" | grep -q '^DESIGN: none' && ok "L3a 화면 0개 → none" || no "L3a" "$out"
 out=$(_bp "$d" design-scope 2); printf '%s' "$out" | grep -q '^DESIGN: update' && ok "L3b 화면 2개 일부 수정 → update" || no "L3b" "$out"
 out=$(_bp "$d" design-scope 3); printf '%s' "$out" | grep -q '^DESIGN: approve' && ok "L3c ★ 화면 3개 → approve(스펙·목업 먼저)" || no "L3c" "$out"

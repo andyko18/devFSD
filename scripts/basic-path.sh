@@ -35,8 +35,16 @@ _fid_ok() { printf '%s' "$1" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || _die "FID 형
 
 # 한글 위험 낱말 — rp::detect_strict_signals 가 보지 않는 것만.
 _ko_signals() {  # <말뭉치>
-  local c="$1" s=""
-  printf '%s\n' "$c" | grep -qE '인증|인가|권한|로그인|비밀번호|토큰' && s="$s auth"
+  local c="$1" s="" t
+  # `토큰` 은 인증 말고도 쓴다 — 판정 줄(VERIFY 토큰)·LLM 사용량(토큰 비용·출력 토큰·12M 토큰). 그 쓰임만 지우고 본다
+  #   (20261112 실측: spec 의 "VERIFY 토큰" 으로 승인 단계에서 풀 판정이 났다). 지우고도 남는 `토큰` 은 종전대로 auth 다 —
+  #   맨 `토큰`·"세션 토큰" 은 풀이다(애매하면 무거운 쪽). 괄호식에 한글을 넣지 않는다(C 로케일에서 바이트로 쪼개진다).
+  t=$(printf '%s\n' "$c" | sed -E \
+    -e 's/VERIFY[^[:space:]]{0,3} ?토큰//g' \
+    -e 's/(실행-근거|출력|입력|캐시|판정|PASS|FAIL|LLM|모델|프롬프트|컨텍스트) ?토큰//g' \
+    -e 's/토큰 ?(비용|사용량|소비|소진|절감|경제|예산|한도)//g' \
+    -e 's/[0-9][0-9.,]*([KMkm]|만|천)? ?토큰//g')
+  { printf '%s\n' "$c" | grep -qE '인증|인가|권한|로그인|비밀번호' || printf '%s\n' "$t" | grep -q '토큰'; } && s="$s auth"
   printf '%s\n' "$c" | grep -qE '스키마|마이그레이션|컬럼|테이블 ?(추가|변경|삭제|생성)|인덱스 ?(추가|삭제)' && s="$s db_schema"
   printf '%s\n' "$c" | grep -qiE '데이터 ?(삭제|이관|이전|정리)|일괄 ?삭제|백필|backfill|truncate|purge' && s="$s data_move"
   printf '%s\n' "$c" | grep -qiE '응답 ?(형태|형식|구조|필드|스키마)|하위 ?호환|breaking|API ?(변경|수정|삭제)' && s="$s api_shape"

@@ -13,6 +13,7 @@
 #   전체는 push 전 게이트(.githooks/pre-push)와 PR 의 CI 가 맡는다. 그래서 이 러너는:
 #   - 전체 스위트 통과 마커(.specops/.full-suite-pass)를 쓰지 않는다 → pre-push 는 이 실행을 통과 기록으로 치지 않는다.
 #   - `VERIFY: …` 토큰을 내지 않는다 → 커밋 훅(R-1)의 실행 증거가 되지 않는다(증거는 run-verification.sh 가 낸다).
+#   - 스위트별 소요는 `.specops/suite-times-related.tsv` 에 남긴다(전체 스위트의 기록 suite-times.tsv 와 다른 파일).
 #
 # 고르는 규칙 (--list) — **애매하면 전체다**(rc 3):
 #   1. 변경 파일이 스위트 자신이면 그 스위트.
@@ -174,8 +175,10 @@ _w_stop() {
 }
 trap _w_stop TERM INT
 cd "$plugin" || exit 0
+t0=$SECONDS
 bounded_run "$SUITE_TIMEOUT" bash "$suite" > "$w/out.$i" 2>&1 < /dev/null
 rc=$?
+echo "$((SECONDS - t0))" > "$w/sec.$i"
 if bounded_timed_out "$rc"; then
   printf '%s\n' "FAIL TIMEOUT — ${SUITE_TIMEOUT}s 상한 초과. 재현: bash $suite" >> "$w/out.$i"
 fi
@@ -228,7 +231,18 @@ while IFS= read -r s; do
     FAIL=$((FAIL + 1)); FAILED+=("$s")
     grep '^FAIL' "$WORK/out.$i" | head -5
   fi
+  sec=$(cat "$WORK/sec.$i" 2>/dev/null || true)
+  case "$sec" in ''|*[!0-9]*) sec=0 ;; esac
+  printf '%s\t%s\t%s\n' "$sec" "$rc" "$s" >> "$WORK/times"
 done < "$WORK/list"
+
+# 스위트별 소요 기록 (20261112-related-suite-narrowing) — run-all.sh 와 같은 형식(머리 주석 + `<초>\t<rc>\t<경로>` 초 내림차순)이다.
+#   전체 스위트의 기록(suite-times.tsv)을 덮지 않게 다른 파일에 쓴다. `.specops/` 가 없으면 만들지 않는다 · 판정에는 쓰지 않는다.
+TIMES="$PLUGIN/${SPECOPS_ROOT:-.specops}/suite-times-related.tsv"
+if [ -s "$WORK/times" ] && [ -d "$(dirname "$TIMES")" ]; then
+  { printf '# run-related %s jobs=%s suites=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$JOBS" "$((PASS + FAIL))"
+    LC_ALL=C sort -t "$(printf '\t')" -k1,1nr -k3,3 "$WORK/times"; } 2>/dev/null > "$TIMES" || true
+fi
 
 echo ""
 echo "==== run-related: suites PASS=$PASS FAIL=$FAIL (total=$((PASS + FAIL))) — 관련 스위트만 돌렸다(전체 스위트 아님) ===="

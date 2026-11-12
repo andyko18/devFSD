@@ -108,6 +108,22 @@ printf '#!/usr/bin/env bash\n# run-all: serial — 시간 임계\n[ -e "%s/pool-
 out=$( cd "$R" && SPECOPS_RUN_ALL_JOBS=2 bash scripts/tests/run-related.sh scripts/tests/test-aa-serial.sh scripts/tests/test-zz-pool.sh 2>&1 ); rc=$?
 [ "$rc" = 0 ] && ok "X12 ★ 직렬 표시(# run-all: serial) 스위트는 풀이 끝난 뒤 돈다" || nope "X12" "rc=$rc $out"
 rm -f "$R"/scripts/tests/test-zz-pool.sh "$R"/scripts/tests/test-aa-serial.sh
+# 스위트별 소요 기록 (20261112-related-suite-narrowing) — 전체 스위트의 기록(suite-times.tsv)과 다른 파일에 쓴다
+printf 'sentinel\n' > "$R/.specops/suite-times.tsv"
+printf '#!/usr/bin/env bash\nsleep 4\necho "PASS=1 FAIL=0"\n' > "$R/scripts/tests/test-slow.sh"
+out=$( cd "$R" && SPECOPS_RUN_ALL_JOBS=2 bash scripts/tests/run-related.sh scripts/tests/test-count.sh scripts/tests/test-slow.sh scripts/tests/dag/test-broken.sh 2>&1 ); rc=$?
+TF="$R/.specops/suite-times-related.tsv"; TAB=$(printf '\t'); rows=$(sed 1d "$TF" 2>/dev/null)
+[ "$rc" = 1 ] && sed -n 1p "$TF" 2>/dev/null | grep -Eq '^# run-related [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8} jobs=2 suites=3$' \
+  && [ "$(printf '%s\n' "$rows" | grep -Ec "^[0-9]+${TAB}[0-9]+${TAB}scripts/[^${TAB}]+\$")" = 3 ] && [ "$(printf '%s\n' "$rows" | wc -l | tr -d ' ')" = 3 ] \
+  && [ "$(printf '%s\n' "$rows" | sed -n 1p | cut -f3)" = "scripts/tests/test-slow.sh" ] && [ "$(printf '%s\n' "$rows" | sed -n 1p | cut -f1)" -ge 2 ] \
+  && [ "$(printf '%s\n' "$rows" | awk -F'\t' '$2 != 0 { print $3 }')" = "scripts/tests/dag/test-broken.sh" ] \
+  && ok "X13 ★ 실행한 스위트의 소요를 suite-times-related.tsv 에 남긴다(초 내림차순 · 실패 스위트 포함)" || nope "X13" "rc=$rc file=[$(cat "$TF" 2>&1)]"
+[ "$(cat "$R/.specops/suite-times.tsv")" = "sentinel" ] && ok "X14 ★ 전체 스위트의 기록(suite-times.tsv)은 건드리지 않는다" || nope "X14" "$(cat "$R/.specops/suite-times.tsv")"
+mv "$R/.specops" "$TMP/specops-bak"
+out=$(_rr scripts/tests/test-count.sh scripts/_internal/validate-structure.sh); rc=$?
+[ "$rc" = 0 ] && [ ! -e "$R/.specops" ] && printf '%s' "$out" | grep -q 'run-related: suites PASS=2 FAIL=0 (total=2)' \
+  && ok "X15 ★ .specops/ 가 없으면 폴더·기록을 만들지 않는다(판정·출력은 그대로)" || nope "X15" "rc=$rc $out"
+mv "$TMP/specops-bak" "$R/.specops"; rm -f "$R/scripts/tests/test-slow.sh" "$R/.specops"/suite-times*.tsv
 
 # ── K 계약 잠금 ──
 # 스위트 목록이 run-all.sh 와 같아야 한다 — 한쪽에만 폴더가 늘면 그 폴더의 스위트는 관련으로 잡히지 않는다

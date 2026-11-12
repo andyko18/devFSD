@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **테스트 러너가 스위트별 소요를 기록한다.** `run-all.sh` 는 `.specops/suite-times.tsv`, `run-related.sh` 는 `.specops/suite-times-related.tsv` 에 머리 주석 1줄 + 줄당 `<초>\t<rc>\t<스위트 경로>` 를 초 내림차순으로 남긴다(통과·실패 무관 · `.specops/` 가 없으면 만들지 않는다). `run-all.sh` 는 느린 상위 5개를 stderr 한 줄(`▶ run-all: 느린 스위트 상위 5 — …`)로도 보인다 — 기록 폴더가 없는 CI 로그에도 남는다. 판정·stdout·종료 코드·통과 마커는 그대로다. 왜: 전체 스위트(약 6분)가 기본 경로 기계 시간의 절반 이상인데 어느 스위트가 그 시간을 쓰는지 남는 자료가 없었다(손으로 잰 `suite-order.txt` 뿐). 초는 1초 단위이고 병렬 실행 중의 값이라 부하에 흔들린다(머리 주석의 `jobs` 참고).
+
 ## [4.0.0] — 2026-11-12
 
 ### Changed

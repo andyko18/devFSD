@@ -53,6 +53,8 @@ _suite "$S" e 'echo "PASS=1 FAIL=0"; exit 0'
 o1=$(SPECOPS_RUN_ALL_JOBS=5 bash "$S/scripts/tests/run-all.sh" --quiet 2>&1); rc1=$?
 o2=$(SPECOPS_RUN_ALL_JOBS=5 bash "$S/scripts/tests/run-all.sh" --quiet 2>&1); rc2=$?
 o3=$(SPECOPS_RUN_ALL_JOBS=5 bash "$S/scripts/tests/run-all.sh" --quiet 2>&1); rc3=$?
+# 느린 스위트 줄(stderr)은 잰 초가 들어가 실행마다 다르다 — 결정성 비교(T1.e)에서 그 줄만 뺀다. 줄 자체는 T10.d 가 본다.
+o1=$(printf '%s\n' "$o1" | grep -v '^▶ run-all: 느린 스위트'); o2=$(printf '%s\n' "$o2" | grep -v '^▶ run-all: 느린 스위트'); o3=$(printf '%s\n' "$o3" | grep -v '^▶ run-all: 느린 스위트')
 printf '%s\n' "$o1" | grep -qx '==== run-all: suites PASS=4 FAIL=2 (total=6) ====' \
   && ok "T1.a 요약 수치 (PASS=4 FAIL=2 total=6)" || nope "T1.a 요약" "$(printf '%s' "$o1" | grep '====')"
 printf '%s\n' "$o1" | grep -q 'SKIP된 케이스 3건' \
@@ -376,6 +378,39 @@ if [ -f "$_ord" ]; then
 fi
 { [ -f "$_ord" ] && [ -z "$_t9_bad" ] && [ "$_t9_n" -ge 15 ] && [ "$_t9_n" -le 25 ]; } \
   && ok "T9.f suite-order.txt 무결성 — ${_t9_n}개(15~25)·없는 경로 0·중복 0·직렬 표시 스위트 0" || nope "T9.f" "n=$_t9_n bad=[$_t9_bad]"
+
+# ── T10: 스위트별 소요 기록 — .specops/suite-times.tsv (20261112-related-suite-narrowing) ──
+#   줄당 `<초>\t<rc>\t<경로>` 초 내림차순 · 머리 주석 1줄 · 느린 상위 5 는 stderr 한 줄 · `.specops/` 가 없으면 만들지 않는다.
+_t10_mk() {   # $1=sandbox — slow(4초) · q1~q5(즉시) · bad(실패). validate-structure 까지 8개
+  _suite "$1" slow 'sleep 4; echo "PASS=1 FAIL=0"'   # 단언은 2초 이상 — 부하로 다른 스위트가 늦어져 동률이 되지 않게 여유를 둔다
+  for n in 1 2 3 4 5; do _suite "$1" "q$n" 'echo "PASS=1 FAIL=0"'; done
+  _suite "$1" bad 'echo "FAIL bad"; echo "PASS=0 FAIL=1"; exit 1'
+}
+S=$(_sb); mkdir -p "$S/.specops"; _t10_mk "$S"
+SPECOPS_RUN_ALL_JOBS=4 bash "$S/scripts/tests/run-all.sh" --quiet >"$ROOT/t10.out" 2>"$ROOT/t10.err"; _rc10=$?
+_tf="$S/.specops/suite-times.tsv"; _tab=$(printf '\t')
+{ [ "$_rc10" -eq 1 ] && [ -f "$_tf" ] && sed -n 1p "$_tf" | grep -Eq '^# run-all [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9:]{8} jobs=4 suites=8$'; } \
+  && ok "T10.a 기록 파일 생성 · 머리 주석(러너·시각·jobs·suites)" || nope "T10.a" "rc=$_rc10 head=[$(sed -n 1p "$_tf" 2>/dev/null)]"
+_rows=$(sed 1d "$_tf" 2>/dev/null)
+{ [ "$(printf '%s\n' "$_rows" | grep -Ec "^[0-9]+${_tab}[0-9]+${_tab}scripts/[^${_tab}]+\$")" -eq 8 ] \
+  && [ "$(printf '%s\n' "$_rows" | wc -l | tr -d ' ')" -eq 8 ] \
+  && [ "$(printf '%s\n' "$_rows" | sed -n 1p | cut -f3)" = "scripts/tests/test-slow.sh" ] \
+  && [ "$(printf '%s\n' "$_rows" | sed -n 1p | cut -f1)" -ge 2 ] \
+  && [ "$(printf '%s\n' "$_rows" | cut -f1 | paste -sd' ' -)" = "$(printf '%s\n' "$_rows" | cut -f1 | sort -nr | paste -sd' ' -)" ]; } \
+  && ok "T10.b ★ 스위트 수만큼 줄(초·rc·경로) · 초 내림차순 · 2초 스위트가 첫 줄" || nope "T10.b" "rows=[$_rows]"
+{ [ "$(printf '%s\n' "$_rows" | awk -F'\t' '$3 == "scripts/tests/test-bad.sh" { print ($2 != 0) }')" = 1 ] \
+  && [ "$(printf '%s\n' "$_rows" | awk -F'\t' '$2 != 0' | wc -l | tr -d ' ')" -eq 1 ]; } \
+  && ok "T10.c 실패 스위트도 기록된다(rc≠0 은 그 줄 하나)" || nope "T10.c" "rows=[$_rows]"
+_sl=$(grep '^▶ run-all: 느린 스위트' "$ROOT/t10.err")
+{ [ "$(printf '%s\n' "$_sl" | grep -c .)" -eq 1 ] && printf '%s' "$_sl" | grep -Eq '— [0-9]+s test-slow\.sh · ' \
+  && [ "$(printf '%s' "$_sl" | grep -oE '[0-9]+s [A-Za-z0-9._-]+' | wc -l | tr -d ' ')" -eq 5 ] \
+  && ! grep -q '느린 스위트' "$ROOT/t10.out" && tail -1 "$ROOT/t10.out" | grep -qx 'VERIFY: FAIL'; } \
+  && ok "T10.d 느린 상위 5 를 stderr 한 줄로(가장 느린 것 먼저) · stdout 과 마지막 줄은 그대로" || nope "T10.d" "err=[$_sl] out-tail=[$(tail -1 "$ROOT/t10.out")]"
+# `.specops/` 가 없는 트리 — 폴더도 파일도 만들지 않는다(관할을 열지 않는다). stdout·rc 는 폴더가 있을 때와 같다
+S2=$(_sb); _t10_mk "$S2"
+SPECOPS_RUN_ALL_JOBS=4 bash "$S2/scripts/tests/run-all.sh" --quiet >"$ROOT/t10e.out" 2>/dev/null; _rc10e=$?
+{ [ ! -e "$S2/.specops" ] && [ "$_rc10e" -eq "$_rc10" ] && [ "$(sed "s#$S2#SB#g" "$ROOT/t10e.out")" = "$(sed "s#$S#SB#g" "$ROOT/t10.out")" ]; } \
+  && ok "T10.e ★ .specops/ 가 없으면 폴더·기록을 만들지 않는다 · stdout·rc 동일" || nope "T10.e" "rc=$_rc10e exists=$([ -e "$S2/.specops" ] && echo y || echo n)"
 
 echo ""
 finish

@@ -139,8 +139,10 @@ _w_stop() {
 }
 trap _w_stop TERM INT
 cd "$plugin" || exit 0
+t0=$SECONDS
 bounded_run "$SUITE_TIMEOUT" bash "$suite" > "$w/out.$i" 2>&1 < /dev/null
 rc=$?
+echo "$((SECONDS - t0))" > "$w/sec.$i"
 last=$(grep -v '^$' "$w/out.$i" | tail -1)
 # 시간초과는 조용한 rc 가 아니라 **명시 실패**다 — 상한이 걸렸다는 사실 자체가 진단 정보다.
 if bounded_timed_out "$rc"; then
@@ -239,8 +241,27 @@ for suite in "${SUITES[@]}"; do
     FAIL=$((FAIL+1)); FAILED_SUITES+=("$suite")
     grep '^FAIL' "$out_f" | head -5
   fi
+  _sec=$(cat "$RA_WORK/sec.$i" 2>/dev/null || true)
+  case "$_sec" in ''|*[!0-9]*) _sec=0 ;; esac   # 결과를 못 남긴 스위트는 0초로 적는다(rc 가 실패를 말한다)
+  printf '%s\t%s\t%s\n' "$_sec" "$rc" "$suite" >> "$RA_WORK/times"
   i=$((i + 1))
 done
+
+# ── 스위트별 소요 기록 (20261112-related-suite-narrowing) ──
+# 왜: 전체 스위트가 어디에 시간을 쓰는지 남는 자료가 없었다(손으로 잰 suite-order.txt 뿐). 통과·실패와 무관하게 남긴다.
+#   형식: 머리 주석 1줄 + 줄당 `<초>\t<rc>\t<경로>` 초 내림차순(같으면 경로 순). 초는 SECONDS(1초 단위)·병렬 실행 중의 값이라
+#   부하에 흔들린다 — 조건을 머리 주석의 jobs 로 남긴다. 판정에는 쓰지 않는다(쓰기 실패도 조용히 넘긴다 — 마커와 같다).
+#   `.specops/` 가 없으면 만들지 않는다(아래 마커와 같은 이유 — 관할을 열지 않는다). 느린 상위 5 는 stderr 한 줄.
+_TIMES="$PLUGIN/${SPECOPS_ROOT:-.specops}/suite-times.tsv"
+if [ -s "$RA_WORK/times" ]; then
+  LC_ALL=C sort -t "$(printf '\t')" -k1,1nr -k3,3 "$RA_WORK/times" > "$RA_WORK/times.sorted"
+  printf '▶ run-all: 느린 스위트 상위 5 — %s\n' \
+    "$(head -5 "$RA_WORK/times.sorted" | awk -F'\t' '{ n = split($3, p, "/"); printf "%s%ss %s", (NR > 1 ? " · " : ""), $1, p[n] }')" >&2
+  if [ -d "$(dirname "$_TIMES")" ]; then
+    { printf '# run-all %s jobs=%s suites=%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$JOBS" "${#SUITES[@]}"
+      cat "$RA_WORK/times.sorted"; } 2>/dev/null > "$_TIMES" || true
+  fi
+fi
 
 echo ""
 echo "==== run-all: suites PASS=$PASS FAIL=$FAIL (total=${#SUITES[@]}) ===="

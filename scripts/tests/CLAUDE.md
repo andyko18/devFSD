@@ -14,6 +14,9 @@ bash scripts/tests/run-all.sh
 # 병렬 수 지정·직렬 강제: SPECOPS_RUN_ALL_JOBS=1 bash scripts/tests/run-all.sh
 #   CPU 경합에 약한 시간 임계 스위트는 파일 선두 20줄에 `# run-all: serial — <사유>` 를 달면 병렬 풀 종료 뒤 하나씩 돈다.
 
+# 스위트별 소요 — 전체 스위트가 끝나면 .specops/suite-times.tsv 에 `<초>\t<rc>\t<경로>` 가 느린 순으로 남는다(run-related 는 suite-times-related.tsv)
+head -11 .specops/suite-times.tsv
+
 # 숨은 실 트리 쓰기 탐지 (수동 — 스위트 격리를 바꿀 때. 확정=실 트리 쓰기 · 검토=상대경로라 사람이 판정)
 bash scripts/tests/find-tree-writes.sh -j 6
 

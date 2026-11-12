@@ -344,6 +344,8 @@ bash scripts/basic-path.sh done <FID> "<한 줄 요약>"        # 종결 기록
 
 `related` 는 스위트 매핑(`scripts/tests/run-related.sh`)이 있는 저장소에서만 변경 파일이 닿는 스위트를 골라 `bash scripts/tests/run-related.sh <스위트…>` 를 낸다 — 검증 러너가 그것만 돌리고, 전체 스위트는 push 전 게이트와 PR 의 CI 가 맡는다. 매핑이 없거나(하류 프로젝트) 고를 수 없으면(`none`) 종전대로 프로젝트의 테스트 명령 전체다. `seal` 은 관련 스위트 명령에 지금 변경이 닿는 스위트가 빠져 있으면 거부한다.
 
+스위트별 소요는 러너가 남긴다 — `run-all.sh` 는 `.specops/suite-times.tsv`, `run-related.sh` 는 `.specops/suite-times-related.tsv` (머리 주석 1줄 + 줄당 `<초>\t<rc>\t<경로>` 초 내림차순 · `.specops/` 가 없으면 만들지 않는다 · 판정에는 쓰지 않는다).
+
 ```bash
 bash scripts/tests/run-related.sh --list [<변경 파일>…]   # 관련 스위트 고르기 (3=고를 수 없다 → 전체 스위트)
 bash scripts/tests/run-related.sh <스위트 경로>…          # 그 스위트만 실행 — 통과 마커·VERIFY 토큰을 만들지 않는다

@@ -136,12 +136,11 @@ flowchart TD
     REQUI --> CLA["clarifying-ko (명확화)<br/>clarifications.md"]
     CLA --> APP["승인 묶음 (1회)<br/>intent · 설계 · spec · 화면 · IF · 답"]:::gate
     APP --> PLAN["planning-ko (계획)<br/>plan.md"]
-    PLAN --> EXP["DB·구조·API·보안 → 테스트 전문가<br/>(해당할 때만) → plan-reviewer-ko"]
+    PLAN --> EXP["DB·구조·API·보안·테스트 전문가(해당할 때만)<br/>∥ plan-reviewer-ko 1회차 (2회차는 Critical 일 때만)"]
     EXP --> DEC["decomposing-ko (분해)<br/>tasks.md + YAML DAG"]
     DEC --> IMP["implementing-ko (구현)<br/>태스크별 fresh dispatch · DAG 병렬<br/>Phase B spec-reviewer-ko · Phase C code-reviewer-ko"]
     IMP --> VER["verifying-evidence-ko (검증)<br/>evidence.md"]
-    VER --> REV["requesting-code-review-ko → receiving-code-review-ko"]
-    REV --> SEC["security-review-ko → integration-test-ko → performance-test-ko<br/>해당 표면 없으면 graceful skip"]
+    VER --> SEC["게이트 사전 판정 → security-review-ko → integration-test-ko → performance-test-ko<br/>해당 표면 없으면 skill 을 부르지 않고 SKIP 기록"]
     SEC --> PR["PR 생성? y/n → finishing-a-development-branch-ko"]:::gate
     classDef gate fill:#ddf4ff,stroke:#0969da,color:#0b3d91
 ```

@@ -54,8 +54,8 @@ has "$P" '`PLAN-REVIEW-RESULT`·cap 계산·외부 critic 입력에 넣지 않�
 has "$P" '\| comprehension \| comprehension-reviewer-ko \| 반영 \| experts/comprehension\.md' '\| comprehension \| comprehension-reviewer-ko \| 산출 없음 \|' \
   && ! grep -qE '\| comprehension \| comprehension-reviewer-ko \| (DONE|IMPL) ' "$P" \
   && ok "P.e 기록 행 형식(결과 칸 DONE·IMPL 금지)" || nope "P.e" "기록 행 형식"
-has "$P" '"작성자는 안다"·"맥락상 명확하다" 는 기각 사유가 될 수 없다' '이월\(spec·AC 는 읽기 전용' '1회차 동시 dispatch」 3번 규칙대로 plan-reviewer 2회차를 부른다' \
-  && ok "P.f 반영 규칙(기각 사유 금지 · 이월 · 2회차)" || nope "P.f" "반영 규칙 문구 누락"
+has "$P" '"작성자는 안다"·"맥락상 명확하다" 는 기각 사유가 될 수 없다' '이월\(spec·AC 는 읽기 전용' '이 반영만으로는 plan-reviewer 2회차를 부르지 않는다' '1회차 Critical 이 있을 때만' \
+  && ok "P.f 반영 규칙(기각 사유 금지 · 이월 · 이 반영만으로는 2회차 없음)" || nope "P.f" "반영 규칙 문구 누락"
 has "$P" '모델 불가·산출 없음.*sonnet 을 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다\(부모가 대신 검토하지 않는다\)' \
   && ok "P.g 모델 불가 — 같은 에이전트 override 재dispatch(부모 대행 금지)" || nope "P.g" "모델 불가 문구 누락"
 has "$P" '1회차에는 위 「이해 검사」 의 에이전트를 같은 메시지에 더한다 — 테스트 전문가 패스 발동 여부와 무관' \

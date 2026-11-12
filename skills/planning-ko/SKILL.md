@@ -220,7 +220,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .s
 3. 반영 — 모두 돌아오면 DB → 구조 → API → 보안 순서로 반영한다(각 절 반영 규칙 그대로). 두 전문가가 같은 plan 자리를 다르게 고치라고 하면 하나로 합쳐 쓰고 두 파일의 `## 반영` 에 같은 1줄(`반영(… — <다른 전문가> 지적과 합침)`)을 남긴다. 합칠 수 없게 맞서면 각 절 규칙대로 한쪽을 `기각(근거)` 으로 적는다.
 4. 실패 — 한 패스가 모델 불가·산출 없음이면 그 패스만 각 절 규칙대로 다시 부른다. 나머지 반영은 그 결과를 기다리지 않고 진행하고, 다시 부른 패스는 돌아온 뒤 맨 뒤에 반영한다(이 패스만 반영 순서와 "서로의 반영 전" 입력의 예외 — 다른 반영이 끝난 plan.md 를 받는다).
 4-1. 재판단 — 반영으로 plan.md 가 바뀌었으면 `check-security-design.sh` 를 다시 1회 실행하고, 발동하지 않았던 절은 바뀐 plan 으로 발동 기준을 다시 본다. 새로 발동한 패스는 반영이 끝난 plan.md 로 부르고 맨 뒤에 반영한다(4 의 예외와 같은 방식 — SKIP 행은 두고 반영 행을 더한다).
-5. 다음 — 반영을 모두 마친 뒤 사전검사·경계 대조 재실행 1회 → 테스트 전문가 패스와 plan-reviewer 1회차를 한 메시지에서 동시에 dispatch 한다(아래 「1회차 동시 dispatch」 — 테스트 패스가 발동하지 않으면 plan-reviewer 만 종전대로).
+5. 다음 — 이 절의 패스가 돌아오기를 기다리지 않는다. 발동한 패스와 테스트 전문가 패스·plan-reviewer 1회차를 **같은 메시지**에서 함께 dispatch 하고(아래 「1회차 동시 dispatch」), 3 의 반영과 사전검사·경계 대조 재실행 1회는 모두 돌아온 뒤 한 번에 한다.
 
 ### DB 전문가 패스 (DB 를 건드릴 때만 — 20261020)
 
@@ -260,7 +260,7 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 
 ### 테스트 전문가 패스 (테스트 파일을 만들거나 고칠 때 — 20261022)
 
-보안 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조나 태스크가 **테스트 파일**(`test_*.py`·`*_test.py`·`*.test.*`·`*.spec.*`·`tests/`·`test/`·`__tests__/`·`scripts/tests/` 같은 테스트 경로)을 만들거나 고치면 발동한다. 문서·설정만 바꾸는 plan 은 발동하지 않는다 — grep 으로 문서를 확인하는 RED 스텝만 있고 테스트 파일을 고치지 않는 plan 도 마찬가지다. 판단이 서지 않으면 부른다(Argus 에서 테스트 검증력 결함 79건이 plan-reviewer 를 통과했다 — 틀린 구현도 통과하는 단언·규칙을 안 태우는 픽스처·공허한 가드). 앞의 전문가 패스가 바꾼 plan 의 테스트를 보도록 전문가 패스 가운데 마지막에 둔다. `§batch` 는 이 패스 미적용(후속 FID — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
+보안 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조나 태스크가 **테스트 파일**(`test_*.py`·`*_test.py`·`*.test.*`·`*.spec.*`·`tests/`·`test/`·`__tests__/`·`scripts/tests/` 같은 테스트 경로)을 만들거나 고치면 발동한다. 문서·설정만 바꾸는 plan 은 발동하지 않는다 — grep 으로 문서를 확인하는 RED 스텝만 있고 테스트 파일을 고치지 않는 plan 도 마찬가지다. 판단이 서지 않으면 부른다(Argus 에서 테스트 검증력 결함 79건이 plan-reviewer 를 통과했다 — 틀린 구현도 통과하는 단언·규칙을 안 태우는 픽스처·공허한 가드). 반영 순서는 전문가 패스 가운데 마지막이다(실행은 다른 패스·plan-reviewer 1회차와 동시다 — 「1회차 동시 dispatch」). `§batch` 는 이 패스 미적용(후속 FID — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
 
 - **dispatch**: `Agent` 도구, `subagent_type: "devfsd:test-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `plan.md` · `.specops/memory/test-strategy.md`(있으면).
 - **반영**: `.specops/<FID>/experts/test.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. 수용 기준별 설계표의 "떨어뜨리는 잘못된 구현" 칸은 plan 의 해당 테스트 스텝에 옮긴다(구현자의 되돌려-관찰 대상이 된다). 앞의 전문가 패스와 이 패스 중 하나라도 plan.md 를 바꿨으면 '사전검사'·'경계 대조 입력' 의 두 스크립트는 마지막 전문가 패스 뒤에 한 번만 다시 실행하고 plan-reviewer 를 부른다.
@@ -269,12 +269,16 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 
 ### 1회차 동시 dispatch (테스트 전문가 ∥ plan-reviewer — 20261109)
 
-비-batch 에서 **테스트 전문가 패스가 발동할 때만** 적용한다(발동하지 않으면 plan-reviewer 를 종전대로 부른다). 종전엔 테스트 전문가 → 반영 → 리뷰 1회차 → 반영 → 2회차가 모두 직렬이라, plan 79분 가운데 리뷰 1회차와 그 반영이 통째로 대기였다(실측 20261105-specops-root-unify: 작성+테스트 전문가 약 34분 · 1회차+반영 약 19분 · 2회차+반영 약 23분, 리뷰어 자체는 중앙값 7분).
+비-batch 에서 plan-reviewer 1회차를 부를 때 **항상** 적용한다(20261112 — 종전엔 테스트 전문가 패스가 발동할 때만이었고, DB·구조·API·보안 패스는 그 앞에서 따로 한 번 돌았다). 종전엔 테스트 전문가 → 반영 → 리뷰 1회차 → 반영 → 2회차가 모두 직렬이라, plan 79분 가운데 리뷰 1회차와 그 반영이 통째로 대기였다(실측 20261105-specops-root-unify: 작성+테스트 전문가 약 34분 · 1회차+반영 약 19분 · 2회차+반영 약 23분, 리뷰어 자체는 중앙값 7분).
 
-1. 사전검사·경계 대조를 통과한 plan.md 로 테스트 전문가와 plan-reviewer 1회차를 **한 메시지의 `Agent` 호출 2개**(아래 「이해 검사」를 더하면 3개)로 함께 보낸다 — 입력은 각 절 dispatch 줄 그대로, **둘 다 같은 plan.md** 다. dispatch-log 에 `| <N> | <ISO-8601> | test-review-parallel | - | 동시 dispatch | test-designer-ko · plan-reviewer-ko(1회차) |` 1행.
-2. 둘 다 돌아오면 **둘의 지적을 한 번에 plan.md 에 반영**한다(테스트 전문가 절의 반영 규칙 + 리뷰 지적 수정). 같은 자리를 다르게 고치라면 하나로 합쳐 쓰고, 맞서면 리뷰어 Critical 을 우선하고 다른 쪽을 `기각(근거)` 으로 적는다. 반영 뒤 사전검사·경계 대조를 1회 다시 돌린다.
-3. 2회차 — 1회차가 FAIL 이면 종전대로 재dispatch 한다. **1회차가 PASS 여도** 반영으로 plan.md 가 바뀌었으면 **2회차를 반드시 부른다** — 종전엔 테스트 반영이 리뷰 앞이었으므로, **최종 plan 은 모든 반영 뒤 한 번은 리뷰를 받는다**는 성질을 지킨다. 1회차 PASS 이고 반영이 0건이면 그대로 PASS 다.
-4. cap 계산은 그대로다 — 1회차·2회차가 종전의 초기 시도·재dispatch 이고, 2회차 FAIL 이면 아래 「cap 초과」 처리.
+1. 사전검사·경계 대조를 통과한 plan.md 로, 발동한 전문가 패스(DB·구조·API·보안·테스트)와 plan-reviewer 1회차를 **한 메시지의 `Agent` 호출 2개**(아래 「이해 검사」를 더하면 3개) 이상으로 함께 보낸다(전문가가 하나도 발동하지 않으면 plan-reviewer 와 이해 검사만) — 입력은 각 절 dispatch 줄 그대로, **둘 다 같은 plan.md** 다(서로의 반영 전). dispatch-log 에 `| <N> | <ISO-8601> | test-review-parallel | - | 동시 dispatch | test-designer-ko · plan-reviewer-ko(1회차) |` 1행(함께 보낸 에이전트를 비고 칸에 적는다).
+2. 모두 돌아오면 **둘의 지적을 한 번에 plan.md 에 반영**한다(DB → 구조 → API → 보안 → 테스트 전문가 절의 반영 규칙 + 리뷰 지적 수정). 같은 자리를 다르게 고치라면 하나로 합쳐 쓰고, 맞서면 리뷰어 Critical 을 우선하고 다른 쪽을 `기각(근거)` 으로 적는다. 반영 뒤 사전검사·경계 대조를 1회 다시 돌린다.
+3. 2회차 — **1회차에 Critical 이 있을 때만** 부른다. 판정은 눈으로 세지 않는다: 1회차 반환 전문을 `.specops/<FID>/plan-review.md` 에 저장하고 `grep -qE '^Critical:[[:space:]]*0([^0-9]|$)' .specops/<FID>/plan-review.md` 가 맞으면 Critical=0 이다(`Critical:` 줄이 없거나 형식이 다르면 Critical 이 있는 것으로 본다). Critical=0 이면 — 판정 줄이 `FAIL`(Important 만)이어도, 전문가·이해 검사 반영으로 plan.md 가 바뀌었어도 — Important 를 모두 반영하고 **2회차 없이 진행**한다. 반영할 수 없는 Important(spec·AC 를 바꿔야 하거나 사용자가 골라야 한다)가 하나라도 있으면 진행하지 않고 사용자에게 묻는다. Critical≥1 이면 고친 뒤 2회차를 부른다.
+4. cap — 2회차가 다시 Critical 을 내면 아래 「cap 초과」 처리다. 2회차가 Important 만 남기면 반영하고 진행한다(3회차 없음).
+
+근거(과거 161 FID 실측): plan 리뷰는 FID 당 평균 1.9회였다 — Important 1건으로도 FAIL 이었고 전문가 반영이 2회차를 의무화했다. 1회차 Critical 합 72건 · 2회차 Critical 합 14건. 되돌리려면 이 절 3 을 "반영으로 plan.md 가 바뀌었으면 2회차를 부른다" 로 되돌린다.
+
+**전문가·리뷰어 실행 예산 (20261112)**: 이 절에서 보내는 dispatch 프롬프트(전문가 패스·plan-reviewer·이해 검사)마다 실행 상한을 **숫자로** 적는다 — 「실측(명령 실행)은 판정을 바꾸는 주장에만, **긴 명령(테스트 스위트·빌드·서버 기동) 실행은 2회 이내**, 전체 스위트(`run-all.sh` 류)는 실행하지 않는다. 파일 읽기·`grep`·`bash -n` 은 세지 않는다. 상한 때문에 확인하지 못한 주장은 `[검증 불가]` 로 적는다(추측 Critical 금지 규칙 그대로)」. `implementing-ko` 「리뷰어 실행 예산」의 lite·standard 상한을 plan 단계로 넓힌 것이다. 위험 프로파일은 decomposing 에서 계산되므로 plan 단계에서는 **보안 전문가 패스가 발동한 FID**(`check-security-design.sh` 의 `[승인 대상]`)를 strict 로 보고 상한을 적지 않는다. 부모는 에이전트 계약(`agents/*.md`) 밖의 점검을 프롬프트에 **추가하지 않는다**. 수치는 Phase B 상한(2회)을 옮긴 기본값이다 — plan 단계 실측으로 고친다.
 
 **하위 단계 기록** (어디서 시간이 쓰이는지 다음 FID 부터 재기 위해 — `stage-timing.sh` 가 그대로 집계한다): plan 단계 안에서 아래 3줄을 남긴다. 결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다(재개 판독기가 구현 증거로 읽는다).
 - 자체 검토 직후: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /plan-draft 완료 "plan.md 초안 + 자체 검토"`
@@ -288,7 +292,7 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 - **입력**: 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `plan.md`. 코드·memory·intent 는 주지 않는다.
 - **제외**: `§batch`(plan-reviewer DEFER)·`§lite`·`§유형: trivial`·promote(`promote-fid`)·foundation 은 부르지 않고 기록 행도 남기지 않는다. 2회차에는 부르지 않는다.
 - **판정 불변**: 지적은 모두 Minor 경고다. `PLAN-REVIEW-RESULT`·cap 계산·외부 critic 입력에 넣지 않는다.
-- **저장·반영**: 돌아온 보고 전문을 부모가 `.specops/<FID>/experts/comprehension.md` 로 저장하고, plan-reviewer 지적과 한 번에 반영한다. 지적마다 같은 파일 끝 `## 반영` 에 `반영(plan §/Task N)` · `이월(spec·AC 는 읽기 전용 — 사용자 확인 필요)` · `기각(근거)` 중 1줄을 적는다. `[이해 불가]`·`[오독 위험]` 은 문서를 고쳐 반영하고, "작성자는 안다"·"맥락상 명확하다" 는 기각 사유가 될 수 없다. 반영으로 plan.md 가 바뀌었으면 위 「1회차 동시 dispatch」 3번 규칙대로 plan-reviewer 2회차를 부른다.
+- **저장·반영**: 돌아온 보고 전문을 부모가 `.specops/<FID>/experts/comprehension.md` 로 저장하고, plan-reviewer 지적과 한 번에 반영한다. 지적마다 같은 파일 끝 `## 반영` 에 `반영(plan §/Task N)` · `이월(spec·AC 는 읽기 전용 — 사용자 확인 필요)` · `기각(근거)` 중 1줄을 적는다. `[이해 불가]`·`[오독 위험]` 은 문서를 고쳐 반영하고, "작성자는 안다"·"맥락상 명확하다" 는 기각 사유가 될 수 없다. 이 반영만으로는 plan-reviewer 2회차를 부르지 않는다(2회차는 위 「1회차 동시 dispatch」 3번 — 1회차 Critical 이 있을 때만).
 - **모델 불가·산출 없음**: sonnet 을 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). 보고가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | comprehension | comprehension-reviewer-ko | 산출 없음 | - |` 를 남기고 진행한다.
 - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 dispatch-log 전체에서 `DONE`·`IMPL` 을 구현 증거로 읽으므로, 비고 칸에도 `COMPREHENSION-RESULT` 줄을 옮겨 적지 않는다): dispatch-log 에 `| <N> | <ISO-8601> | comprehension | comprehension-reviewer-ko | 반영 | experts/comprehension.md (지적 N · 반영 N · 이월 N · 기각 N) |`. 단계 칸이 `comprehension` 이라 `review-cost.sh` 의 plan-reviewer 라운드 집계(단계 칸에 `plan-reviewer` 를 포함한 행만)에 섞이지 않는다.
 
@@ -301,13 +305,14 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 
 **판정 처리 (cap=2):**
 
-`PLAN-REVIEW-RESULT: FAIL` — Critical/Important 이슈 발견 시 **HARD GATE 발동**: decomposing-ko 진입 차단 + plan.md 수정 요청.
+`PLAN-REVIEW-RESULT: FAIL` 이고 **Critical≥1** 이면 **HARD GATE 발동**: decomposing-ko 진입 차단 + plan.md 수정 → 2회차. Critical=0(Important 만)인 FAIL 은 반영 후 진행한다(위 「1회차 동시 dispatch」 3번의 기계 판정).
 
 | 결과 | 처리 |
 |---|---|
 | `PLAN-REVIEW-RESULT: PASS` | `## 실행 전환` 진행 (decomposing-ko 허용) |
-| `PLAN-REVIEW-RESULT: FAIL` (초기 시도) | **decomposing-ko 진입 차단** — 이슈 목록 기반 plan.md 수정 → 재dispatch (1회 허용) |
-| `PLAN-REVIEW-RESULT: FAIL` (재dispatch 후 재검토) | 아래 「cap 초과 — 단일 대화형」(`§auto` 면 [§auto 모드]) |
+| `PLAN-REVIEW-RESULT: FAIL` · Critical=0 (1회차·2회차 공통) | Important 를 모두 반영하고 진행 — 재dispatch 없음. 반영 불가 Important 가 있으면 사용자에게 묻는다 |
+| `PLAN-REVIEW-RESULT: FAIL` · Critical≥1 (1회차) | **decomposing-ko 진입 차단** — 이슈 목록 기반 plan.md 수정 → 재dispatch (1회 허용) |
+| `PLAN-REVIEW-RESULT: FAIL` · Critical≥1 (2회차) | 아래 「cap 초과 — 단일 대화형」(`§auto` 면 [§auto 모드]) |
 
 **cap 초과 — 단일 대화형** (`§auto`·`§batch` 아님): 반환 전문을 `.specops/<FID>/plan-review.md` 에 저장하고 [§auto 모드] 와 같은 grep 으로 Critical=0 을 판정한다(눈으로 세지 않는다).
 - Critical=0 이고 남은 Important 를 **모두** plan.md 에 반영할 수 있으면 반영 후 3회차 리뷰 없이 진행 — 기록: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <FID> skip "plan-reviewer 3회차 생략 — Important <N>건 반영" "<요지>"`(PR 직전 보고에 보인다) · dispatch-log 판정 칸 `FAIL→진행(Critical 0 · Important <N> 반영)` · 비고 칸 `Critical: 0건 · Important: <N>건 반영`. 외부 critic 은 반영 **후** 1회.

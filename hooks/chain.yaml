@@ -9,7 +9,7 @@ edges:
   - {from: planning-ko, to: decomposing-ko}
   - {from: decomposing-ko, to: implementing-ko}
   - {from: implementing-ko, to: verifying-evidence-ko}
-  - {from: verifying-evidence-ko, to: requesting-code-review-ko}
+  - {from: verifying-evidence-ko, to: security-review-ko}
   - {from: requesting-code-review-ko, to: receiving-code-review-ko}
   - {from: receiving-code-review-ko, to: security-review-ko}
   - {from: security-review-ko, to: integration-test-ko}

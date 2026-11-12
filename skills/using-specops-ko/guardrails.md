@@ -68,7 +68,7 @@ HARD GATE: "spec 검토. 다음 skill(clarifying-ko) 진행? [y/n]"
     ↓ y
 devfsd:clarifying-ko (skill 본문이 다음 chain 명시)
     ↓
-... → planning-ko → decomposing-ko → implementing-ko (subagent dispatch) → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
+... → planning-ko → decomposing-ko → implementing-ko (subagent dispatch) → verifying-evidence-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
     ↓
 "PR 생성? [y/n]"
 ```

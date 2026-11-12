@@ -25,7 +25,7 @@ specops-ko Lifecycle 에서 **per-feature `/start` 사이클 이전에** 실행 
 1. `devfsd:specifying-ko` 스킬 호출 — args 첫 줄에 `<!-- entry: foundation -->` HTML 주석을 prepend 하고 나머지 args 이어붙임
 2. specifying-ko 가 foundation 분기 감지 → Step 5.5 **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`, 기능 화면 금지) → **Step 5.6 인터페이스 design-first** — 이번 공통부가 **API 엔드포인트(제공)·DB 스키마(테이블·필드)·클라이언트 영속 데이터(localStorage·IndexedDB) 중 하나를 신설·변경할 때만** 적용한다(`specifying-ko` Step 5.6 적용 조건 — 순수 UI·CLI 로직만이면 skip). 공통부는 DB 스키마·공통 API 의 **본진**이라 design-first 가 가장 중요하다 → 공통부 컴포넌트 spec 작성 (§유형=`foundation`)
    - **설계 통합 뷰 갱신**: 셸 화면(Step 5.5)·공통 인터페이스(Step 5.6) 설계 직후 specifying-ko 가 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh` 를 1회 실행한다 — 출력된 경로를 사용자에게 알리고 spec 검토 질문에 함께 싣는다(셸·공통 API 가 통합 뷰에 보인다). rc≠0(python3 없음·설계 문서 없음)이면 `통합 뷰 생성 못 함 — <사유>` 1줄만 알리고 진행한다(막지 않는다).
-3. 이후 chain: clarifying-ko(기술스택 BLOCKING 게이트 — 원장에 없으면) → planning-ko(foundation-manifest.md 산출) → decomposing-ko → implementing-ko → verifying-evidence-ko → requesting-code-review-ko → receiving-code-review-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
+3. 이후 chain: clarifying-ko(기술스택 BLOCKING 게이트 — 원장에 없으면) → planning-ko(foundation-manifest.md 산출) → decomposing-ko → implementing-ko → verifying-evidence-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
 4. **완료 기록** — verify 가 PASS 하면 이번 FID 가 만든 공통부 FR 을 요구사항 표에 남긴다(공통부 FR 은 `/start-all` queue 에서 SKIP 이라 FID 칸이 없다 — 여기 적지 않으면 어느 FID 가 그 FR 을 만들었는지 표에서 찾을 수 없다):
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/fr-set-fid.sh <FID> <FR-ID> [<FR-ID>...]

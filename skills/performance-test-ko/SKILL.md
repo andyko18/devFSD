@@ -23,7 +23,9 @@ used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구
 
 ## 적용성 판정 게이트
 
-진입 즉시 `spec.md`의 §NFR 섹션을 읽어 **성능 임계값 신호**를 검출한다.
+**사전 판정이 이미 있으면** — `.specops/<FID>/evidence.md` 에 `## /performance-test` 절이 `**결과**: SKIP` 과 `gate-preflight.sh 사전 판정` 근거로 이미 있으면(verifying-evidence-ko 의 `gate-preflight.sh` 가 남긴다) 판정을 다시 하지 않고 곧바로 `## PR 생성 게이트` 로 간다 — evidence·session-progress 를 다시 쓰지 않는다.
+
+그 밖에는 진입 즉시 `spec.md`의 §NFR 섹션을 읽어 **성능 임계값 신호**를 검출한다.
 
 **성능 임계값 신호 (하나라도 존재 시 → 성능 테스트 단계 진행)**:
 - 응답시간 요구: "p95 < Xms", "평균 응답 < Xms", "최대 응답 < Xms"

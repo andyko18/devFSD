@@ -33,7 +33,7 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 
 ## 필수 전제
 
-본 skill 은 `specifying-ko` 완료 후 **반드시 한 번 호출**된다. spec §열린질문 카운트가 0 이더라도 호출해 BLOCKING 탐지·DESIRABLE 발굴을 수행한다. 생략 금지 — negotiable 아님.
+본 skill 은 `specifying-ko` 완료 후 **반드시 한 번 호출**된다. spec §열린질문 카운트가 0 이더라도 호출해 BLOCKING 탐지·DESIRABLE 발굴을 수행한다. 생략 금지 — negotiable 아님. 다만 열린 질문이 없으면(아래 `## 경량 모드 (lite)`) **사용자에게 묻는 단계는 건너뛴다** — 발굴한 것은 가정으로 적고 승인 묶음에서 한 번에 확인받는다.
 
 **근거**: dogfood FID `20260422-csv-lines` 실측 — specifying 이 Q1~Q4 수집 후에도 clarifying 가 추가 DESIRABLE 3 건 (exit code · 에러 포맷 · 빈 파일 동작) 을 발굴해 AC-6/AC-7 신규 append. specifying 단독으로는 AC 계약 완결 불가 (FRICTION-LOG F-11).
 
@@ -70,9 +70,10 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 **[§auto 이외 분기]**: Step 2 모호성 탐지 결과가 `spec §열린질문=0 AND AC Given/When/Then 완결`이면 **BLOCKING=0 판정** → 경량 분기:
 
 1. BLOCKING 질문 생략 (0건이므로 정당).
-2. **DESIRABLE 발굴 1회 수행** (F-11 보존 — specifying 단독 AC 완결 불가 근거) — 아래 범주표로 훑어 부분·빠짐 범주에서 찾는다:
-   - DESIRABLE 발굴 ≥1건 → 최대 3건 묶음 질문 1회 (사용자 응답).
-   - DESIRABLE 0건 → 즉시 통과 (묶음 불필요).
+2. **DESIRABLE 발굴 1회 수행** (F-11 보존 — specifying 단독 AC 완결 불가 근거) — 아래 범주표로 훑어 부분·빠짐 범주에서 찾는다. **찾은 것은 묻지 않는다 (20261112)**:
+   - DESIRABLE 발굴 ≥1건 → 추천안으로 정해 `status: ASSUMED` + `**가정 근거**` 로 적고(필요하면 AC append) 질문 묶음을 만들지 않는다. `§일괄` 이면 승인 묶음 7번(`ASSUMED` 로 정한 것)에 그대로 보이고, 그 밖의 모드는 clarifications.md 경로와 함께 ASSUMED 목록을 1회 보여 준 뒤 진행한다(답을 기다리지 않는다 — 사용자가 고치라고 하면 고친다).
+   - DESIRABLE 0건 → 즉시 통과.
+   - 근거(11월 실측): clarify 질문 30개 가운데 사용자가 답을 바꾼 것은 4개였고 나머지는 추천안이 그대로 채택됐다. 되돌리려면 이 항목을 "최대 3건 묶음 질문 1회" 로 되돌린다.
 3. clarifications.md 상단에 `**mode**: lite` 명시 (투명성 — 경량 분기 적용 기록).
 4. 이후 Step 6~10 정상 수행 (clarifications.md 작성·AC append·timestamp·session-progress·전환).
 

@@ -142,7 +142,7 @@ grep -qE "end-loaded" "$REQ" && grep -qE "review-skip" "$REQ" \
 # ── T4 최초 B/C 쌍 병렬 (20261006-review-bc-parallel) ──
 _sec=$(awk '/^### 최초 B\/C 쌍 병렬/ { f=1; next } f && /^## |^### / { exit } f { print }' "$F")
 _has() { printf '%s' "$_sec" | grep -qF -- "$1"; }
-_has '한 메시지에서 동시 dispatch' && _has '재라운드·per-task 는 직렬 B→C' \
+_has '한 메시지에서 동시 dispatch' && _has 'per-task 는 직렬 B→C' && _has 'end-loaded 는 재리뷰가 없다' \
   && { PASS=$((PASS+1)); echo "PASS T4.a 최초 쌍 동시 dispatch + 재라운드·per-task 직렬"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T4.a 동시 dispatch/직렬 유지 문구 부재"; }
 _has '실 트리 변조 금지' && _has '임시 복사본' \
@@ -167,13 +167,77 @@ if [ -z "$_sec" ] || printf '%s' "$_sec_neg" | grep -qF -- '한 메시지에서 
 else PASS=$((PASS+1)); echo "PASS T4.f 음성 대조 — 변이하면 T4.a 문구가 사라진다"; fi
 
 _DOC="$PLUGIN/docs/lifecycle-start-end-loaded.md"
-grep -qF 'BC-PAR-CHECK:<tid>' "$_DOC" && grep -qF '재라운드는 직렬' "$_DOC" \
+grep -qF 'BC-PAR-CHECK:<tid>' "$_DOC" && grep -qF '재리뷰 없이 verify' "$_DOC" \
   && { PASS=$((PASS+1)); echo "PASS T4.g lifecycle 문서 정합 (병렬 쌍·사후 대조·재라운드 직렬)"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T4.g lifecycle 문서에 병렬 쌍 문구 부재"; }
 
-_has 'tid 단위다' && _has 'C cap 을 소모하지 않으며' && _has '옛 `-B-feedback.md`' \
+_has 'tid 단위다' && _has '재리뷰는 하지 않는다' && _has '옛 `-B-feedback.md`' \
   && { PASS=$((PASS+1)); echo "PASS T4.i B FAIL tid 단위 채택·cap 비소모·stale feedback 안내"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T4.i B FAIL tid 단위 채택·cap 비소모·stale feedback 안내 부재"; }
+
+# ── T5 수정 라운드 — end-loaded 는 재리뷰 없이 verify (20261112 speed) ──
+_fx=$(awk '/^### 수정 라운드/ { f=1; next } f && /^## |^### / { exit } f { print }' "$F")
+_fxh() { printf '%s' "$_fx" | grep -qF -- "$1"; }
+_fxh '**수정 라운드 1회**' && _fxh '고친 뒤 B·C 를 다시 부르지 않는다' && _fxh '**재리뷰 없이** `verifying-evidence-ko` 로 간다' \
+  && { PASS=$((PASS+1)); echo "PASS T5.a 수정 라운드 1회 · 재리뷰 없이 verify"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T5.a 수정 라운드/재리뷰 없음 문구 부재"; }
+_fxh '**Critical 미해결**' && _fxh '「cap 초과 처리」' && _fxh 'verify 로 넘기지 않는다' \
+  && { PASS=$((PASS+1)); echo "PASS T5.b Critical 미해결 정지 유지 (cap 초과 처리 → HARD GATE)"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T5.b Critical 미해결 정지 문구 부재"; }
+_fxh '| REVIEW-FIX:<tid> | implementer-ko | FIXED |' && _fxh '`NEEDS_DISCUSSION` 은 종전대로 사용자 판단 대기' && _fxh '`review_mode: per-task`' \
+  && { PASS=$((PASS+1)); echo "PASS T5.c 수정 기록 행 · NEEDS_DISCUSSION 유지 · 되돌리는 방법(per-task)"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T5.c 기록 행/NEEDS_DISCUSSION/되돌림 부재"; }
+# 기록 행의 결과 칸에 DONE·IMPL 을 쓰지 않는다 (재개 판독기가 구현 증거로 읽는다)
+printf '%s\n' "$_fx" | grep -oE '`\| [^`]*REVIEW-FIX[^`]*`' | grep -qE 'DONE|IMPL' \
+  && { FAIL=$((FAIL+1)); echo "FAIL T5.d REVIEW-FIX 행에 DONE·IMPL"; } \
+  || { PASS=$((PASS+1)); echo "PASS T5.d REVIEW-FIX 행에 DONE·IMPL 없음"; }
+# 금지 목록이 재리뷰를 다시 의무화하지 않는다 (종전 문구 잔존 = 두 지시가 맞선다)
+! grep -qF -- '- 재리뷰 생략 금지' "$F" && ! grep -qF '재라운드는 직렬 B→C' "$F" \
+  && { PASS=$((PASS+1)); echo "PASS T5.e 종전 재리뷰 의무 문구 잔존 없음"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T5.e 종전 재리뷰 의무 문구가 남아 있다"; }
+
+# ── T6 태스크 묶기 · 동시 dispatch 기본 (20261112 speed) ──
+_mg=$(awk '/^### 작은 변경은 묶는다/ { f=1; next } f && /^## |^### / { exit } f { print }' "$DEC")
+_mgh() { printf '%s' "$_mg" | grep -qF -- "$1"; }
+_mgh '**작은 변경은 태스크 3개 이하**' && _mgh '구현 파일(테스트·문서 제외)이 5개 이하' && _mgh '**같은 파일을 고치는 태스크 둘은 하나로 합친다**' \
+  && { PASS=$((PASS+1)); echo "PASS T6.a 작은 변경 태스크 3개 이하 · 같은 파일은 합친다"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T6.a 태스크 묶기 규칙 부재"; }
+_mgh '크기가 아니라 독립성' && _mgh '**`depends_on` 은 실제 산출 의존이 있을 때만 적는다**' && _mgh '한 메시지에서 동시에 dispatch' \
+  && { PASS=$((PASS+1)); echo "PASS T6.b 분할 기준=독립성 · depends_on 은 실제 의존만"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T6.b 분할 기준/depends_on 규칙 부재"; }
+# 분할을 압박하던 종전 문구가 남아 있으면 묶기 규칙과 맞선다
+! grep -qF '각 태스크 = 2~5분 작업 단위' "$DEC" && ! grep -qF '태스크가 5분을 초과한다면' "$DEC" && ! grep -qF '1 태스크 = 2~5분' "$DEC" \
+  && ! grep -qF '단일 태스크 > 3 파일 수정' "$PLUGIN/agents/plan-reviewer-ko.md" && ! grep -qF '태스크 크기 5분 초과 추정' "$PLUGIN/agents/plan-reviewer-ko.md" \
+  && { PASS=$((PASS+1)); echo "PASS T6.c 분할 압박 문구(2~5분 태스크·3파일 초과 Critical) 제거"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T6.c 분할 압박 문구가 남아 있다"; }
+grep -qF '태스크를 잘게 쪼개라고 지적하지 않는다' "$PLUGIN/agents/plan-reviewer-ko.md" \
+  && grep -qF '파일 수·예상 소요만으로 Critical·Important 를 주지 않는다' "$PLUGIN/agents/plan-reviewer-ko.md" \
+  && { PASS=$((PASS+1)); echo "PASS T6.d plan-reviewer 가 분할을 요구하지 않는다"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T6.d plan-reviewer 분할 비요구 문구 부재"; }
+grep -qF '**동시 dispatch 가 기본이다 (20261112)**' "$F" && grep -qF '**반드시 한 메시지의 `Agent` 호출 여러 개로 함께** 보낸다' "$F" \
+  && grep -qF '| SERIAL:<tid> | - | 직렬 |' "$F" \
+  && { PASS=$((PASS+1)); echo "PASS T6.e implementing 동시 dispatch 기본 · 직렬 사유 기록"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T6.e 동시 dispatch 기본 문구 부재"; }
+# plan-reviewer: Critical 줄 형식 고정(부모의 기계 판정 입력) — Important 만이면 2회차 없음
+grep -qF '`Critical: <N>건` 줄은 **형식 그대로** 쓴다' "$PLUGIN/agents/plan-reviewer-ko.md" \
+  && grep -qF 'Critical≥1 일 때만 2회차를 부른다' "$PLUGIN/agents/plan-reviewer-ko.md" \
+  && { PASS=$((PASS+1)); echo "PASS T6.f plan-reviewer Critical 줄 형식 고정 · 2회차는 Critical 일 때만"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T6.f plan-reviewer 판정 줄 규칙 부재"; }
+
+# ── T7 plan 단계 전문가·리뷰어 실행 예산 (20261112 speed) ──
+_PLN="$PLUGIN/skills/planning-ko/SKILL.md"
+_bud=$(grep -F '**전문가·리뷰어 실행 예산 (20261112)**' "$_PLN")
+_budh() { printf '%s' "$_bud" | grep -qF -- "$1"; }
+_budh '실행 상한을 **숫자로** 적는다' && _budh '실행은 2회 이내' && _budh '전체 스위트(`run-all.sh` 류)는 실행하지 않는다' && _budh '`[검증 불가]`' \
+  && { PASS=$((PASS+1)); echo "PASS T7.a plan 단계 dispatch 실행 상한(긴 명령 2회·전체 스위트 금지·검증 불가 표기)"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T7.a plan 단계 실행 예산 부재"; }
+_budh '**보안 전문가 패스가 발동한 FID**' && _budh 'strict 로 보고 상한을 적지 않는다' && _budh '**추가하지 않는다**' \
+  && { PASS=$((PASS+1)); echo "PASS T7.b 고위험(보안 패스 발동)은 상한 제외 · 계약 밖 점검 추가 금지"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T7.b strict 제외/계약 밖 금지 문구 부재"; }
+# 구현 단계의 기존 상한(lite·standard — strict 제외)이 그대로 있어야 한다 — 넓힌 것이지 바꾼 것이 아니다
+grep -qF '핵심 실행 2회 이내' "$F" && grep -qF '`strict` 는 종전 그대로 제한 없음' "$F" \
+  && { PASS=$((PASS+1)); echo "PASS T7.c 구현 단계 리뷰어 예산 불변"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T7.c 구현 단계 리뷰어 예산 변경됨"; }
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

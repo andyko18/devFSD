@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.35] — 2026-11-12
+
 ### Added
 
 - **`/basic` 진행이 관제판에 보인다.** 관제판 단계 막대가 풀 경로 12단계만 알아 `/basic` 은 검증 전까지 잡히는 단계가 없었다(첫 실측 FID 는 `/approve`·`/verify` 2줄뿐). 진행 기록에 `/basic` 줄이 있는 FID 는 5단계(명세 → 구현 → 리뷰 → 검증 → PR)로 보여 준다(`hooks/progress-pane.tsx` 의 `BASIC_STAGES`). 풀 경로 표시는 그대로다. 기록은 `basic-path.sh` 가 남긴다 — 새 `review <FID>`(리뷰 dispatch 직전 · `/implement 완료`+`/review 진행` · 판정 없음)와 `seal`(`/review 완료`). 중간 기록이 빠진 FID(이전 버전 기록 · `review` 호출 누락)는 뒤 단계에 기록이 있으면 앞 단계를 지난 것으로 표시한다(스크립트가 순서를 강제하므로). 확인하지 못한 것: 실제 세션의 관제판 화면(엔진 테스트 255건과 스위트로만 확인).
@@ -3769,7 +3771,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.34...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.35...HEAD
+[3.1.35]: https://github.com/andyko18/devFSD/compare/v3.1.34...v3.1.35
 [3.1.34]: https://github.com/andyko18/devFSD/compare/v3.1.33...v3.1.34
 [3.1.33]: https://github.com/andyko18/devFSD/compare/v3.1.32...v3.1.33
 [3.1.32]: https://github.com/andyko18/devFSD/compare/v3.1.31...v3.1.32

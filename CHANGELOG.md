@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.30] — 2026-11-12
+
 ### Changed
 
 - **첫 마일스톤(M1) 범위의 화면·인터페이스 설계를 `/init-project` 에서 끝낸다.** 종전에는 init 이 화면·`api-spec.md`·`data-model.md` 를 초안으로 한 번 쓰고 `/start-all` Phase 2.5 가 같은 것을 다시 설계·리뷰·승인했다(설계 2회·승인 2회). 이제 init Phase 11 이 M1 FR 범위(공통부 제외)의 화면 8섹션·Interactions↔api-spec 정합·테이블 설계를 채우고 화면 전문가 1회 → 설계 리뷰(`design-reviewer-ko`) 1회를 거친다. 리뷰를 통과한 것에만 설계 완료 표지를 단다 — 화면은 화면 목록 목적 칸 `init 설계 완료 (미확정 N)`, 인터페이스는 문서 머리 `<!-- specops:init-designed: M1 -->`. `/start-all` Phase 2.5 는 표지가 붙은 것을 건너뛰고 새로 생기거나 달라진 화면·인터페이스 행만 설계·리뷰한다(표지 판독: `check-screens-overview.sh designed`). 표지가 없는 프로젝트(구 부트스트랩 · init 리뷰 미통과)는 종전대로 전부 한다. 공통 화면 3종(`app-shell`·`layout`·`login`)은 그대로 `/start-foundation` 몫이고, M2 이후 범위는 종전처럼 초안(`init 보강`)으로 둔다. 근거 없는 값은 `가정:` 으로 정해 승인 다이제스트에 싣는다(근거 4원 규칙은 그대로). 화면이 없는 종류·API 없는 종류는 해당 축을 건너뛴다. `/start-all` 실행 기록이 없어 Phase 2.5 가 실제로 얼마나 줄어드는지는 재지 못했다.
@@ -3701,7 +3703,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.29...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.30...HEAD
+[3.1.30]: https://github.com/andyko18/devFSD/compare/v3.1.29...v3.1.30
 [3.1.29]: https://github.com/andyko18/devFSD/compare/v3.1.28...v3.1.29
 [3.1.28]: https://github.com/andyko18/devFSD/compare/v3.1.27...v3.1.28
 [3.1.27]: https://github.com/andyko18/devFSD/compare/v3.1.26...v3.1.27

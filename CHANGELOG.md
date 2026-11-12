@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.36] — 2026-11-12
+
 ### Changed
 
 - **풀 경로 구현 뒤 리뷰어(스펙·코드)의 실행 상한이 `strict` 에도 적용된다 (속도).** 종전에는 위험도 `lite`·`standard` 에만 상한(B 2회·C 3회·전체 스위트 재실행 금지)이 있고 `strict` 는 "제한 없음" 이었다 — 풀 경로가 위험한 작업을 맡을수록 FID 대부분이 `strict` 라 상한이 사실상 없었다. `strict` 는 대상 테스트 실행 B 4회·C 6회 이내(되돌려-관찰 포함)이고, 전체 스위트(`run-all.sh` 류) 실행은 위험도와 무관하게 하지 않는다. 상한에 닿아 확인하지 못한 항목은 리뷰어가 `[검증 불가]` 로 보고한다. B·C 각 1회와 독립 되돌려-관찰 증거 요구는 그대로다.
@@ -3776,7 +3778,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.35...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.36...HEAD
+[3.1.36]: https://github.com/andyko18/devFSD/compare/v3.1.35...v3.1.36
 [3.1.35]: https://github.com/andyko18/devFSD/compare/v3.1.34...v3.1.35
 [3.1.34]: https://github.com/andyko18/devFSD/compare/v3.1.33...v3.1.34
 [3.1.33]: https://github.com/andyko18/devFSD/compare/v3.1.32...v3.1.33

@@ -265,8 +265,8 @@ if has skills/implementing-ko/SKILL.md '전체 스위트 병행' 'run-all\.sh --
 else
   nope "implementing-ko 전체 스위트 병행 계약 소실" "병행 실행 절차 또는 안전 규칙 부재"
 fi
-if has skills/implementing-ko/SKILL.md '리뷰어 실행 예산' '핵심 실행 2회' '되돌려-관찰 3회' '전체 소비자 스위트 재실행은 하지 않는다' 'strict. 는 종전 그대로' '대상 스위트가 느린 경우' '실행 상한을 숫자로' '계약 밖 점검' 'RED 1회·GREEN 1회·되돌려-관찰 1회' 'B·C 각 1회 필수'; then
-  ok "implementing-ko 리뷰어 실행 예산 존재 (B 2회·C 3회·전체 재실행 금지·strict 불변·느린 대상 스위트 규칙·구현자 실행 상한)"
+if has skills/implementing-ko/SKILL.md '리뷰어 실행 예산' '핵심 실행 2회' '되돌려-관찰 3회' '전체 소비자 스위트 재실행은 하지 않는다' 'B 4회 이내·C 6회 이내' '위험도와 무관하게' '대상 스위트가 느린 경우' '실행 상한을 숫자로' '계약 밖 점검' 'RED 1회·GREEN 1회·되돌려-관찰 1회' 'B·C 각 1회 필수'; then
+  ok "implementing-ko 리뷰어 실행 예산 존재 (B 2회·C 3회·strict B 4회·C 6회·전체 스위트 금지(위험도 무관)·느린 대상 스위트 규칙·구현자 실행 상한)"
 else
   nope "implementing-ko 리뷰어 실행 예산 소실" "리뷰어 재실행이 다시 무제한이 된다 (느린 대상 스위트 규칙·구현자 실행 상한 포함)"
 fi

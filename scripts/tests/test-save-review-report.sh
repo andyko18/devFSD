@@ -493,6 +493,21 @@ _reset; before=$(_files)
 _run_pt devfsd:spec-reviewer-ko "$(printf '<<<REVIEW fid=%s tid=T1 phase=B verdict=PASS>>>\n# 닫힘 없음\n' "$FID")"
 { [ "$RC" = 1 ] && [ -z "$OUT" ] && printf '%s' "$ERR" | head -1 | grep -qF "짝 불일치" && [ "$(_files)" = "$before" ]; } \
   && ok "T9.g 블록 형식 오류 → 종전 _bail(exit 1 · 비차단) · 저장 없음" || nope "T9.g" "RC=$RC ERR=$ERR"
+# T9.j·k 닫힘 줄 뒤 JSON 닫는 글자 — 실물(20261112-related-suite-narrowing): 코드 리뷰어의 반환 메시지가
+#   `<<<END>>>"}` 로 끝나(도구 인자를 닫는 글자가 메시지 안으로 흘러듦) 짝 불일치로 저장을 포기했다.
+#   마지막 닫힘 줄에 한해 `"`·`}` 꼬리만 허용한다 — 다른 글자가 붙으면 종전대로 형식 오류다.
+_reset
+_run_pt devfsd:code-reviewer-ko "$(printf '<<<REVIEW fid=%s tid=T1 phase=C verdict=READY_TO_MERGE>>>\n# 꼬리 본문\n<<<END>>>"}' "$FID")"
+{ [ "$RC" = 0 ] && [ -z "$ERR" ] && [ "$(cat "$R/T1-C-report.md" 2>/dev/null)" = "# 꼬리 본문" ]; } \
+  && ok "T9.j 닫힘 줄 뒤 JSON 닫는 글자(\"}) → 저장 · 본문에 꼬리 없음" || nope "T9.j" "RC=$RC ERR=$ERR body=$(cat "$R/T1-C-report.md" 2>/dev/null)"
+_reset; before=$(_files)
+_run_pt devfsd:code-reviewer-ko "$(printf '<<<REVIEW fid=%s tid=T1 phase=C verdict=READY_TO_MERGE>>>\n# 본문\n<<<END>>> 끝' "$FID")"
+{ [ "$RC" = 1 ] && printf '%s' "$ERR" | head -1 | grep -qF "짝 불일치" && [ "$(_files)" = "$before" ]; } \
+  && ok "T9.k 닫힘 줄 뒤 다른 글자 → 종전 형식 오류 · 저장 없음" || nope "T9.k" "RC=$RC ERR=$ERR"
+_reset; before=$(_files)
+_run_pt devfsd:code-reviewer-ko "$(printf '<<<REVIEW fid=%s tid=T1 phase=C verdict=READY_TO_MERGE>>>\n# 1\n<<<END>>>"}\n<<<REVIEW fid=%s tid=T2 phase=C verdict=READY_TO_MERGE>>>\n# 2\n<<<END>>>' "$FID" "$FID")"
+{ [ "$RC" = 1 ] && [ "$(_files)" = "$before" ]; } \
+  && ok "T9.l 꼬리 허용은 메시지의 마지막 줄뿐 — 중간 닫힘 줄의 꼬리는 형식 오류" || nope "T9.l" "RC=$RC ERR=$ERR"
 _reset
 _big=$(awk 'BEGIN{for(i=0;i<3000;i++) printf "본문 줄 %d — 큰 반환 메시지 채우기 문장입니다.\n", i}')
 _run_pt devfsd:spec-reviewer-ko "$(_block T1 B PASS "$_big")"

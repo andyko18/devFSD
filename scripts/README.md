@@ -342,7 +342,7 @@ bash scripts/basic-path.sh done <FID> "<한 줄 요약>"        # 종결 기록
 
 진행 기록은 `start`(`/basic 시작`) → `approve`(`/approve 완료`) → `review`(`/implement 완료` · `/review 진행`) → `seal`(`/review 완료`) → 검증(`/verify PASS`) → `done`(`/lifecycle DONE`) 순으로 남고, 관제판은 `/basic` 줄이 있는 FID 에서 이 줄들로 5단계(명세 → 구현 → 리뷰 → 검증 → PR)를 보여 준다(`hooks/progress-pane.tsx` 의 `BASIC_STAGES`).
 
-`related` 는 스위트 매핑(`scripts/tests/run-related.sh`)이 있는 저장소에서만 변경 파일이 닿는 스위트를 골라 `bash scripts/tests/run-related.sh <스위트…>` 를 낸다 — 검증 러너가 그것만 돌리고, 전체 스위트는 push 전 게이트와 PR 의 CI 가 맡는다. 매핑이 없거나(하류 프로젝트) 고를 수 없으면(`none`) 종전대로 프로젝트의 테스트 명령 전체다. `seal` 은 관련 스위트 명령에 지금 변경이 닿는 스위트가 빠져 있으면 거부한다.
+`related` 는 스위트 매핑(`scripts/tests/run-related.sh`)이 있는 저장소에서만 변경 파일이 닿는 스위트를 골라 `bash scripts/tests/run-related.sh <스위트…>` 를 낸다 — 검증 러너가 그것만 돌리고, 전체 스위트는 PR 의 CI 가 맡는다(작업 브랜치의 push 전 게이트는 같은 관련 스위트로 판정한다 — `scripts/_internal/prepush-related.sh`). 매핑이 없거나(하류 프로젝트) 고를 수 없으면(`none`) 종전대로 프로젝트의 테스트 명령 전체다. `seal` 은 관련 스위트 명령에 지금 변경이 닿는 스위트가 빠져 있으면 거부한다.
 
 스위트별 소요는 러너가 남긴다 — `run-all.sh` 는 `.specops/suite-times.tsv`, `run-related.sh` 는 `.specops/suite-times-related.tsv` (머리 주석 1줄 + 줄당 `<초>\t<rc>\t<경로>` 초 내림차순 · `.specops/` 가 없으면 만들지 않는다 · 판정에는 쓰지 않는다).
 
@@ -385,13 +385,15 @@ bash scripts/_internal/install-git-hooks.sh --uninstall
 | 훅 | 게이트 | 소요 |
 |---|---|---|
 | `pre-commit` | `validate-structure` + `check-propagation` | ~5s |
-| `pre-push` | `check-ci-status`(경고, ~1s) + `run-all.sh` 전체 스위트 | ~7분 (병렬 · 동일 트리면 skip) |
+| `pre-push` | `check-ci-status`(경고, ~1s) + 작업 브랜치는 관련 스위트(`prepush-related.sh`) · 기본 브랜치·태그는 `run-all.sh` 전체 스위트 | 관련: 변경에 따라 수 초~약 3분 · 전체: ~7분 (병렬 · 동일 트리면 skip) |
 
 훅 본문은 `.githooks/` 로 버전관리되지만 `core.hooksPath` 는 `.git/config` 로컬 설정이라 **clone 마다 1회 설치**가 필요합니다. Claude Code PreToolUse 훅(R-1)은 Cursor 등 다른 도구의 커밋에 발화하지 않으므로, 도구 무관하게 걸리는 층은 git hook 뿐입니다 — 계기는 `44cd095` 가 `run-all` 없이 나가 `main` 이 하루 red 였던 사고입니다. 커밋마다 5분 넘게 걸면 `--no-verify` 관성이 생겨 게이트가 무력화되므로 비용을 2단으로 나눴습니다. 탈출구(주권): `git commit --no-verify` · `git push --no-verify`. 게이트 스크립트가 없는 repo 에서는 자동 면제됩니다(월권 금지).
 
 `check-ci-status.sh` 는 `git push` 직전 origin main 의 **최근 완료 CI 결론**을 조회해 red 면 경고합니다 — ~7분 스위트를 돌기 전에 알리는 것이 목적이라 면제 4종 뒤·`run-all` 앞에 옵니다. **차단하지 않습니다**(항상 `exit 0`). `gh`·`jq` 는 **선택 의존**이라 미설치·미인증·오프라인·타임아웃에서는 조용히 넘어갑니다. 타임아웃 상한은 `SPECOPS_CI_CHECK_TIMEOUT`(기본 5초, 실측 왕복 ~1.0초)로 조정합니다. 계기: 2026-08-07 `main` 이 3커밋 연속 Linux CI red 였는데 로컬 게이트가 전부 macOS 라 아무도 몰랐습니다.
 
 `full-suite-fresh.sh` 는 직전 전체 스위트 통과 마커(`.specops/.full-suite-pass`)가 현재 비문서 트리와 같은지 판정하는 헬퍼입니다(rc 0 = FRESH · 1 = STALE, stdout 1줄). `pre-push` 가 이 판정으로 스위트 실행을 건너뛰고 `verifying-evidence-ko` 가 같은 판정으로 수동 전체 스위트 재실행을 생략합니다 — 판정은 이 한 곳에만 둡니다. 마커 부재·불일치·`SPECOPS_FORCE_FULL` 등 판정이 애매하면 전부 STALE(재실행)입니다.
+
+`prepush-related.sh` 는 작업 브랜치 push 를 전체 스위트 대신 관련 스위트로 판정하는 헬퍼입니다(rc 0 = 통과 · 1 = 관련 스위트 실패 · 3 = 이 경로로 판정하지 않음 → `pre-push` 가 전체 스위트). 기본 브랜치·태그 push, 커밋하지 않은 추적 변경, HEAD 가 아닌 커밋, 관련 스위트를 고를 수 없는 변경(`run-related.sh --list` rc≠0), `SPECOPS_FORCE_FULL` 은 전부 rc 3 입니다. 같은 트리에서 같은 스위트가 이미 통과한 기록(`.specops/.related-suite-pass` — `run-related.sh` 가 전부 통과했을 때만 씀)이 있으면 다시 돌지 않습니다. 전체 스위트는 PR 의 CI 가 맡습니다 — CI 는 리눅스라 관련 스위트 밖의 맥 전용 결함은 머지 뒤 `run-all-macos` 에서 발견됩니다.
 
 ## check-propagation.sh — 계약 경계 전파 스캔 (Wave C)
 

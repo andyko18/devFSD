@@ -124,6 +124,23 @@ out=$(_rr scripts/tests/test-count.sh scripts/_internal/validate-structure.sh); 
 [ "$rc" = 0 ] && [ ! -e "$R/.specops" ] && printf '%s' "$out" | grep -q 'run-related: suites PASS=2 FAIL=0 (total=2)' \
   && ok "X15 ★ .specops/ 가 없으면 폴더·기록을 만들지 않는다(판정·출력은 그대로)" || nope "X15" "rc=$rc $out"
 mv "$TMP/specops-bak" "$R/.specops"; rm -f "$R/scripts/tests/test-slow.sh" "$R/.specops"/suite-times*.tsv
+# 통과 기록 (20261113) — 전부 통과하면 실행 전 비문서 지문 + 돌린 스위트를 남긴다(소비자: prepush-related.sh). 실패·지문 불가면 없다.
+cp "$PLUGIN/scripts/_internal/verification-state.sh" "$PLUGIN/scripts/_internal/file-class.sh" "$R/scripts/_internal/"
+printf '.specops/\n' > "$R/.gitignore"
+( cd "$R" && git init -q && git add -A && git -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q -m f ) >/dev/null 2>&1
+MK="$R/.specops/.related-suite-pass"; rm -f "$MK"
+fp=$( cd "$R" && bash -c '. scripts/_internal/verification-state.sh; vs::nondoc_fingerprint' 2>/dev/null )
+out=$(_rr scripts/tests/test-count.sh scripts/_internal/validate-structure.sh); rc=$?
+{ [ "$rc" = 0 ] && [ -n "$fp" ] && [ "$fp" != NO_GIT ] && [ "$(sed -n 1p "$MK" 2>/dev/null)" = "$fp" ] \
+  && [ "$(sed 1d "$MK" 2>/dev/null | paste -sd' ' -)" = "scripts/_internal/validate-structure.sh scripts/tests/test-count.sh" ] \
+  && [ ! -e "$R/.specops/.full-suite-pass" ] && ! printf '%s' "$out" | grep -q '^VERIFY:'; } \
+  && ok "X16 ★ 전부 통과 → 통과 기록(지문 + 돌린 스위트) · 전체 스위트 기록·VERIFY 토큰은 여전히 없다" || nope "X16" "rc=$rc fp=$fp mk=[$(cat "$MK" 2>&1)]"
+out=$(_rr scripts/tests/test-count.sh scripts/tests/dag/test-broken.sh); rc=$?
+{ [ "$rc" = 1 ] && [ ! -e "$MK" ]; } && ok "X17 ★ 실패하면 낡은 통과 기록을 지운다" || nope "X17" "rc=$rc mk=[$(cat "$MK" 2>&1)]"
+rm -rf "$R/.git"
+out=$(_rr scripts/tests/test-count.sh); rc=$?
+{ [ "$rc" = 0 ] && [ ! -e "$MK" ]; } && ok "X18 지문을 낼 수 없으면(git 저장소 아님) 기록하지 않는다" || nope "X18" "rc=$rc mk=[$(cat "$MK" 2>&1)]"
+rm -f "$R/.gitignore" "$R/scripts/_internal/verification-state.sh" "$R/scripts/_internal/file-class.sh" "$MK" "$R/.specops"/suite-times-related.tsv
 
 # ── K 계약 잠금 ──
 # 스위트 목록이 run-all.sh 와 같아야 한다 — 한쪽에만 폴더가 늘면 그 폴더의 스위트는 관련으로 잡히지 않는다

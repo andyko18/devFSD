@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **작업 브랜치 push 는 전체 스위트 대신 관련 스위트로 판정한다.** `pre-push` 가 기본 브랜치·태그 push 에서만 전체 스위트(약 6분)를 돌고, 그 밖의 브랜치는 `scripts/_internal/prepush-related.sh` 가 기본 브랜치와의 차이에서 관련 스위트를 골라 그것만 돌린다. `run-related.sh` 는 전부 통과하면 통과 기록(`.specops/.related-suite-pass`)을 남기고, 같은 트리·같은 스위트면 push 때 다시 돌지 않는다. 관련 스위트 상한은 30 → 80(실측: 관련 68개 157초 · 전체 337초). 전체 스위트는 PR 의 CI(머지 필수)가 본다. 고를 수 없는 변경·커밋하지 않은 추적 변경·HEAD 가 아닌 커밋 push 는 종전대로 전체다. 대가: CI 는 리눅스라 관련 스위트 밖의 맥 전용 결함은 머지 뒤 `run-all-macos` 에서 발견된다(발행 전에는 `release.sh` pre-flight 의 로컬 전체 스위트가 잡는다). 전체로 강제: `SPECOPS_FORCE_FULL=1 git push`.
+
 ## [4.0.2] — 2026-11-13
 
 ### Fixed

@@ -7,6 +7,8 @@
 #
 # pre-commit 은 5초짜리 정합만 본다(로컬 반복 비용). 원격에 나가기 직전 한 번,
 # run-all.sh(=릴리즈 pre-flight 와 동일 게이트) 전체를 돌린다.
+# 단 작업 브랜치 push 는 변경이 닿는 관련 스위트로 판정한다(20261113 — scripts/_internal/prepush-related.sh). 전체는 PR 의 CI 가 본다.
+#   기본 브랜치·태그 push 와 관련 스위트를 고를 수 없는 변경은 종전대로 전체다. 전체로 강제: SPECOPS_FORCE_FULL=1 git push
 #
 # 탈출구(주권, 5원칙 4): git push --no-verify
 set -uo pipefail
@@ -30,9 +32,11 @@ RUN_ALL="scripts/tests/run-all.sh"
 
 # 삭제-only push 면제 — 보낼 커밋이 없다
 # stdin: <local ref> <local sha> <remote ref> <remote sha>
-has_update=0
+has_update=0; _refs=""
 while read -r _lref lsha _rref _rsha; do
   [ -n "${lsha:-}" ] || continue
+  _refs="$_refs$_lref $lsha ${_rref:-} ${_rsha:-}
+"
   case "$lsha" in
     *[!0]*) has_update=1 ;;   # all-zero = 삭제
   esac
@@ -57,6 +61,15 @@ if [ -f "$FSP_FRESH" ] && bash "$FSP_FRESH" >/dev/null 2>&1; then
   강제 실행: SPECOPS_FORCE_FULL=1 git push
 EOF
   exit 0
+fi
+
+# 작업 브랜치는 관련 스위트로 판정한다 (20261113) — 전체 스위트는 PR 의 CI(run-all · 머지 필수)가 본다.
+#   판정은 전부 prepush-related.sh 에 있다(훅 본문 인라인 금지). 0 = 통과 · 1 = 관련 스위트 실패(차단) ·
+#   그 밖(3 = 이 경로로 판정하지 않음 · 헬퍼 부재·이상 종료)은 아래 전체 스위트다 — 기본 브랜치·태그 push 는 늘 전체다.
+PP_REL="scripts/_internal/prepush-related.sh"
+if [ -f "$PP_REL" ]; then
+  printf '%s' "$_refs" | bash "$PP_REL"; _pp_rc=$?
+  case "$_pp_rc" in 0) exit 0 ;; 1) exit 1 ;; esac
 fi
 
 echo "▶ pre-push: run-all.sh 전체 스위트 실행 중 (222 스위트 병렬 — ~7분, 머신이 바쁘면 그 이상)…" >&2  # doc-lock: suite-count

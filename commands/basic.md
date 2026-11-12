@@ -61,7 +61,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
      - `RELATED: none — <사유>` → 종전대로 **프로젝트의 테스트 명령 전체**(테스트 스크립트 · `pytest` · `npm test` 등 검증 러너가 받는 형태). 매핑이 없는 저장소, 관련 스위트를 특정할 수 없는 변경, 너무 넓게 닿는 변경이 여기다. `none — …` 줄 자체는 명령이 아니다 — seal 은 검증 러너가 받지 않는 형식의 문자열을 거부한다(rc 1).
    - `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh seal <FID> "<test_command>"` — 변경 파일로 갈래를 다시 판정하고, 1-태스크 문서(`tasks.md`)와 리뷰 감사 행(`dispatch-log.md`)을 만든다. 관련 스위트 명령에 지금 변경이 닿는 스위트가 빠져 있으면 받지 않는다(`related` 를 다시 실행). 종료 코드 **3** = 풀 신호 → 「풀 경로로 올리기」 · **4** = 리뷰 보고서 없음(6번으로).
    - `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/run-verification.sh <FID>` 를 **포그라운드**로 실행한다(Bash `timeout` 명시). `VERIFY: PASS` 가 나와야 한다.
-   - **전체 스위트는 여기서 돌리지 않는다** — 관련 스위트로 검증했으면 전체는 push 전 게이트(`pre-push` — 같은 트리의 통과 기록이 있으면 건너뛴다)와 PR 의 CI 가 맡는다. push 전 게이트도 CI 도 없는 저장소는 `related` 가 `none` 을 내므로 위에서 이미 전체를 돌렸다.
+   - **전체 스위트는 여기서 돌리지 않는다** — 관련 스위트로 검증했으면 전체는 PR 의 CI 가 맡는다(작업 브랜치의 push 전 게이트 `pre-push` 는 같은 관련 스위트로 판정하고, 같은 트리의 통과 기록이 있으면 건너뛴다 — 기본 브랜치·태그 push 는 전체다). push 전 게이트도 CI 도 없는 저장소는 `related` 가 `none` 을 내므로 위에서 이미 전체를 돌렸다.
    - 통과하면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /verify PASS "evidence.md, AC N/N (/basic)"`. 보안 스캔 결과를 `evidence.md` 에 `## /security-review — <시각>` 절(결과·근거)로 남긴다.
    - 실패하면 고치고 다시 seal → 검증이다. 세 번 실패하면 `devfsd:systematic-debugging-ko`.
 8. **커밋 · PR** — `git add <파일…>` 과 `git commit` 을 따로 실행한다. 커밋·PR 은 `/start` 와 같은 훅(R-1·R-2)이 본다 — 7번의 검증 실행 출력과 진행 기록이 있어야 열린다. 막히면 우회하지 않고 사유를 고친다. PR 을 만들지 묻고(y/n), 만들면 본문에 요약 · 테스트 계획 · 리뷰어가 찾았지만 넘긴 것 · **돌리지 않은 게이트**(아래)를 싣는다.
@@ -86,7 +86,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
 - **통합·성능 게이트** — 돌리지 않는다. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/gate-preflight.sh <FID>` 가 `GATE integration APPLY` 나 `GATE performance APPLY` 를 내면 PR 본문에 "미실행 게이트" 로 적는다(성능 임계값이 수용 기준이면 풀 경로가 맞다).
 - **plan 리뷰 · 전문가 패스(DB·구조·API·보안·테스트 설계)** — 없다. 그 검토가 필요한 작업이 풀 신호의 대상이다.
 - **재리뷰** — 리뷰는 한 번이다. 고친 것은 관련 테스트와 검증 러너가 본다.
-- **검증 단계의 전체 스위트** — 관련 스위트 명령(`RELATED: <명령>`)으로 검증한 작업은 커밋 시점에 전체 스위트가 돌지 않은 상태다. 전체는 push 전 게이트와 PR 의 CI 가 돌린다 — 거기서 떨어지면 고치고 다시 seal → 검증이다.
+- **검증 단계의 전체 스위트** — 관련 스위트 명령(`RELATED: <명령>`)으로 검증한 작업은 커밋 시점에 전체 스위트가 돌지 않은 상태다. 전체는 PR 의 CI 가 돌린다(작업 브랜치의 push 전 게이트는 관련 스위트만 본다) — 거기서 떨어지면 고치고 다시 seal → 검증이다.
 
 ## 갈래별 차이
 

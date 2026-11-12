@@ -189,6 +189,17 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 - `docs/ARCHITECTURE.md` §7
 - `hooks/README.md` — v0.2 evaluator 메타 훅 + post-implement·pre-commit
 
+## split-session.sh — 구현 구간을 새 대화 맥락(자식 세션)에서 실행
+
+풀 경로(`/start`·`/maintain`)에서 `decomposing-ko` 가 부른다. 절차는 `skills/decomposing-ko/session-split.md`.
+
+- `decide <FID>` — `SPLIT: yes|no (<사유>)` · rc 0/1. `no` 가 되는 경우: `§batch` · `§lite` · trivial · `plan.md` 없음 · spec 의 `**§분리**: off`(`--no-split`) · `session_split.enabled: false` · `SPECOPS_NO_SPLIT=1` · 이미 자식 세션 안 · `claude`·`jq` 없음 · 권한 모드 미충족.
+- `run <FID> [--resume "<전달문>"]` — `claude -p` 자식 세션을 띄워 끝날 때까지 기다린다(주 세션은 백그라운드로 부른다). 자식은 `devfsd:implementing-ko` 부터 성능 게이트 판정까지 하고 PR 게이트 앞에서 멈춘다. 마지막 줄 `SPLIT-RESULT: DONE|HELD|FAILED|TIMEOUT fid=… session=… turns=… cost_usd=… minutes=…` · rc 0/10/1/124. 기록은 `.specops/<FID>/split/`(`child.jsonl` · `result.json` · `session-id` · 보류 시 `held.md`).
+- `status <FID>` — 결과 또는 실행 중 표시 + 진행 기록 끝 5줄 + 자식의 최근 도구 호출.
+- `warn-size [<transcript>]` — 현재 대화의 맥락 크기(마지막 응답의 usage — 읽지 못하면 파일 크기 근사)가 기준을 넘으면 `CONTEXT-LARGE:` 1줄. 차단하지 않는다(항상 rc 0).
+
+설정은 `.specops/config.yaml` 의 `session_split:` 블록(환경변수 우선): `enabled` · `permission_mode`(`inherit` 기본 — 권한 옵션을 넘기지 않고 사용자 settings 를 따른다 · `auto` · `acceptEdits` · `bypassPermissions` 는 거절) · `model` · `timeout_min`(기본 180) · `max_budget_usd` · `warn_context_tokens`(기본 150000 — 새 세션 첫 호출이 48~52K 였던 실측 기준 · 0 이면 끔).
+
 ## batch-state.sh · record-batch-gate.sh — `/start-all` 끝단 판정
 
 ```bash

@@ -300,6 +300,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 - **`jq` 가 없으면 훅이 전면 fail-open** — 에러 없이 R-1~R-5 차단·감사가 꺼진다. 설치 직후 `/doctor` 의 `deps` 항목으로 확인한다.
 - **기본 설치(`user` 범위)는 모든 repo 의 세션 시작에 메타 스킬을 주입한다** — 일부 repo 에서만 쓰려면 `claude plugin install devfsd@devfsd --scope project`(또는 `local`)로 설치한다.
 - **산출물은 기본적으로 로컬이다** — `intent.md` 만 커밋되고 spec·plan·evidence·리뷰는 저장소에 올라가지 않아 PR 리뷰어가 볼 수 없다.
+- **풀 경로는 구현 구간을 새 세션에서 돌린다** — `/start`·`/maintain` 은 태스크 분해 뒤 구현~성능 게이트를 대화 맥락이 빈 자식 세션(`claude -p`)에 맡기고 결과만 받아 PR 게이트로 간다(사용자 동작 없음 · 진행은 `bash scripts/split-session.sh status <FID>`). 자식은 사용자의 권한 설정을 그대로 따르고 권한 건너뛰기 옵션은 쓰지 않는다 — 기본 권한 모드가 auto 가 아니면 나누지 않고 종전대로 한 세션에서 한다. 끄기: `--no-split` · `.specops/config.yaml` 의 `session_split.enabled: false`. `/basic`·`-lite`·`/quick-fix`·`/start-all` 은 나누지 않는다.
 - **한 건에 걸리는 시간** — FID 1건(spec → verify) 중앙값 약 2시간, p90 약 7.6시간 — **속도 개선(v2.32~2.36: 승인 1회·리뷰 병렬·전문가 동시 실행) 전** 측정이다. 개선 뒤 수치는 아직 재지 않았다.
 
 ---

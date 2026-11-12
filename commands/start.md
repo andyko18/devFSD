@@ -20,6 +20,10 @@ specops-ko 한국어 자율 Lifecycle의 **단일 진입 슬래시**. 자연어 
 
 0. **기본 동작과 `--step`** — 인자가 `--step` 으로 시작하면 그 낱말(과 뒤 공백)을 떼고 `<!-- step: true -->` 줄을 args 맨 앞에 넣는다(지금까지의 단계별 확인). 없으면 넣지 않는다 — 기본은 `§일괄`: 질문은 최대 2회 묶음, intent·설계·스펙·AC·화면·IF·답변을 한 번에 승인받고 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 등은 그대로 멈춘다 — `skills/specifying-ko/once-approval.md`).
 
+0-1. **`--no-split`** — 인자에 `--no-split` 이 있으면 그 낱말을 떼고 `<!-- split: false -->` 줄을 args 의 주석 줄들(`<!-- entry: … -->`·`<!-- step: true -->`) 뒤에 넣는다. 풀 경로는 기본으로 구현 구간(구현~성능 게이트)을 대화 맥락이 빈 자식 세션에서 돌리고 결과만 받아 PR 게이트로 간다(사용자 동작 없음 — `skills/decomposing-ko/session-split.md`). `--no-split` 은 그 분리를 끄고 종전처럼 이 세션에서 구현한다.
+
+0-2. **대화 크기 고지 (차단 아님)** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/split-session.sh warn-size` 를 1회 실행한다. `CONTEXT-LARGE:` 줄이 나오면 그 줄을 사용자에게 그대로 보이고 **멈추지 않고** 진행한다(출력이 없으면 아무 말도 하지 않는다). 기준은 `.specops/config.yaml` 의 `session_split.warn_context_tokens`(기본 150000 · 0 이면 끔).
+
 1. **메타 skill 활성 확인** — `skills/using-specops-ko/SKILL.md`가 세션 시작 시 이미 활성돼 있어야 함. 아니면 수동으로 `Skill` 도구 호출
 2. **즉시 `devfsd:specifying-ko` 스킬 호출** — 전달된 `<기능 설명>`을 초기 맥락으로 제공
 3. **이후 chain** — 각 engine skill 본문의 `## 다음 skill` 섹션이 자동 강제 (specifying-ko → clarifying-ko → planning-ko → decomposing-ko → implementing-ko → verifying-evidence-ko → security-review-ko → integration-test-ko → performance-test-ko → PR). 본 command는 **specifying-ko 진입만** 책임.

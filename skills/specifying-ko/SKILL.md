@@ -226,6 +226,7 @@ used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /
    - **AC 개수 상한 (should — 하드 게이트가 아니다)** — 코드 변경이 **50줄 미만이면 AC 6건**을 넘기지 않는 것을 권고한다. 넘어간다면 **계약이 아니라 설명을 쓰고 있는지** 의심하라. AC 가 늘면 plan·tasks·리뷰 대상이 함께 늘어 **비용이 곱으로 번진다** (실측 20260808: 코드 **18줄** 변경에 AC **12건** → plan 558줄·tasks 468줄·plan-reviewer 2회 dispatch). `check-ac-format.sh` 는 개수를 **검사하지 않는다** — 계약이 진짜로 필요하면 6건을 넘겨도 된다. 이 상한은 **되묻는 장치**지 금지가 아니다. (반대 방향 주의: 상한을 지키려고 **must AC 를 빠뜨리면** `emit-context` 의 역방향 커버리지가 막는다 — 줄일 것은 AC 개수가 아니라 **설명으로 쓴 AC** 다.)
    - **Intent 추적**: spec §1 에 `**Intent**: .specops/<FID>/intent.md` 를 적고, §1 목적·성공 판정을 intent 의 문제·기대 결과에서 도출한다
    - **§일괄 라벨**: Step 1 의 §일괄 판정이 참이면 spec §1 의 `**§유형**` 줄 다음에 `**§일괄**: true` 를 적는다(`--step`·무인·batch·foundation 은 적지 않는다).
+   - **§분리 라벨**: args 앞쪽 주석 줄에 `<!-- split: false -->` 가 있으면(`/start`·`/maintain` 의 `--no-split`) `**§유형**` 줄 아래에 `**§분리**: off` 를 적는다 — `decomposing-ko` 의 세션 분리 판정기(`split-session.sh decide`)가 읽어 구현을 이 세션에서 하게 한다. 없으면 적지 않는다(풀 경로 기본은 분리).
    - **열린 질문 처리**: intent 의 IQ 를 spec §8 에 `IQ-n → 답변(§섹션)` 또는 `IQ-n → 이월(Qn)` 로 적는다(IQ 가 없었으면 "해당 없음")
    - UI 기능이면 §참조에 `screens/{name}.md` 목록 자동 포함
    - API/스키마 기능이면 §참조에 `.specops/memory/api-spec.md`·`data-model.md` 자동 포함 (Step 5.6 갱신분)

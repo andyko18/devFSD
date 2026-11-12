@@ -85,6 +85,8 @@ const STAGES: readonly StageDef[] = [
 // devFSD: `/basic` 경로의 단계 — 기록 이름은 scripts/basic-path.sh 가 남긴다(start `/basic` · approve `/approve` ·
 //   review `/implement`+`/review` · seal `/review` · done `/lifecycle`), `/verify` 는 commands/basic.md 7번이 남긴다.
 const BASIC_CMD = '/basic'
+// 기본 경로에서 풀 경로로 올린 FID — scripts/basic-path.sh promote 가 `/full 승격` 줄을 남긴다. 그 뒤로는 풀 경로 단계로 표시한다.
+const PROMOTED_CMD = '/full'
 const BASIC_STAGES: readonly StageDef[] = [
   { key: 'specify', cmds: ['/approve', BASIC_CMD], label: '명세' },
   { key: 'implement', cmds: ['/implement'], label: '구현' },
@@ -157,11 +159,11 @@ function markOf(word: string): StageMark['mark'] {
 
 /** 기본 경로(`/basic`) FID 인가 — 그 FID 섹션에 `/basic` 기록 줄이 있다. */
 export function isBasicLane(progress: string, fid: string): boolean {
-  return recordsOf(progress, fid).some(r => r.cmd === BASIC_CMD)
+  return stageDefsOf(recordsOf(progress, fid)) === BASIC_STAGES
 }
 
 function stageDefsOf(recs: readonly { cmd: string }[]): readonly StageDef[] {
-  return recs.some(r => r.cmd === BASIC_CMD) ? BASIC_STAGES : STAGES
+  return recs.some(r => r.cmd === BASIC_CMD) && !recs.some(r => r.cmd === PROMOTED_CMD) ? BASIC_STAGES : STAGES
 }
 
 export function stagesOf(progress: string, fid: string): StageMark[] {

@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **⚠ BREAKING — `/start`·`/maintain` 과 자연어 진입이 갈래를 자동으로 고른다 (속도·토큰).** 진입할 때 위험 신호(인증·권한 변경 · DB 스키마 변경 · 데이터 삭제·이관 · 기존 API 응답 형태 변경 · 되돌릴 수 없는 외부 작업)를 `scripts/basic-path.sh route` 가 판정한다 — `/basic` 이 쓰던 판정 그대로다. **신호가 없으면 기본 경로**(지금의 `/basic` 절차: spec 1장 승인 → 주 세션 직접 구현 → 스펙·코드 리뷰 + 보안 스캔 동시 1회 → 검증 1회 → PR), **있으면 풀 경로**(종전 그대로)이고, 어느 쪽인지와 이유를 1줄로 알린다. 종전에는 `/start`·`/maintain`·자연어 진입이 항상 풀 경로였다.
+  - 풀 경로를 고르는 것: 위험 신호 · `--full`(새 옵션 — 무조건 풀, `--step`·`--no-split` 과 함께 쓸 수 있다) · `--step`(단계별 확인은 풀 경로의 기능) · `.specops/` 가 없는 저장소 · 판정 불가. 애매하면 풀이다.
+  - 유지보수가 기본 경로로 가면 분석 단계(`analyzing-ko`)를 돌리지 않는다. 대신 spec 1장이 `§유형: 유지보수` · 「현재 동작과 영향」 절 · `AC-R-1`(기존 동작 유지)을 받고, 승인(`approve`)이 셋을 검사한다(회귀 AC 는 풀 경로와 같은 검사기 `check-regression-ac.sh`).
+  - 자연어 진입도 같은 판정을 탄다. 메타 skill 의 "lite 추론 금지" 는 "갈래 추론 금지" 로 바꿨다 — 모델이 고르는 것이 아니라 스크립트가 고른다. `/quick-fix`·`--full`·`--step` 은 슬래시 전용이다.
+  - 바꾸지 않은 것: `/start-all`·`/start-all-auto`·`/start-foundation`(`§batch`·`§auto`·foundation)은 종전 풀 경로다. 풀 경로의 세션 분리 동작도 그대로다. `/basic` 명령은 남는다(기본 경로 직접 지정).
+  - 근거(20261112 실측 · 기계 시간): 기본 경로 42분(원인 조사 15분 포함)·12분 · 리뷰 Critical 0 · CI 통과 / 풀 경로 149~157분 / lite 53분. 표본은 기본 경로 2건이다. **자동 분기·승격이 실제 세션에서 도는지는 아직 재지 않았다**(스크립트와 문서 잠금 테스트로만 확인).
+  - 되돌리기: 한 건은 `--full`, 전부는 이 변경을 되돌린다(설정 스위치는 두지 않았다).
+- **기본 경로에서 위험 신호가 나오면 멈추지 않고 풀 경로로 올린다.** 종전에는 종료 코드 3 으로 멈추고 `/start`·`/maintain` 을 안내만 했다. `basic-path.sh promote <FID> "<사유>"` 가 spec 1장·리뷰 보고서·1-태스크 문서를 `.specops/<FID>/basic-draft/` 로 보존하고 진행 기록(`/full 승격`)을 남긴 뒤, 같은 FID·같은 브랜치로 `specifying-ko`(유지보수면 `analyzing-ko` 먼저)를 잇게 한다 — spec 을 풀 형식으로 다시 쓰고 승인 묶음 1회 → clarify → plan 부터다. 코드를 이미 썼으면(구현 중 계약 문서가 필요해졌거나 봉인에서 걸림) 그 코드를 작업 트리에 둔 채 plan 이 "이미 작성된 코드" 절로 싣고 plan 리뷰와 구현 뒤 스펙·코드 리뷰가 본다(세션 분리는 끈다). 절차는 `skills/specifying-ko/basic-promote.md`, skill 본문에는 포인터 1줄씩만 더했다. 관제판은 승격 기록이 있는 FID 를 풀 경로 단계로 표시한다. **코드가 있는 상태의 승격을 실제 세션에서 끝까지 주행한 실측은 없다.**
+- **⚠ BREAKING — `/start-lite`·`/maintain-lite` 는 `/start`·`/maintain` 의 별칭이 됐다. 다음 메이저에서 제거한다.** 실행하면 그 고지 1줄이 나오고 `/start`·`/maintain` 과 같은 갈래 판정으로 간다. 종전의 lite 절차(clarify·plan 만 생략 · 구현자 dispatch 유지)는 이 명령으로 더 이상 돌지 않는다. quick 범위 초과 안내와 커밋 차단 안내의 `/maintain-lite` 도 `/maintain` 으로 바꿨다.
+  - 이번에 지우지 않은 것(다음 메이저의 제거 목록): 진입 약속어 `<!-- entry: lite -->`·`<!-- entry: maintain-lite -->` · `specifying-ko` 의 `[lite 분기]`·`[maintain-lite 분기]`·`§lite 단축 경로` · `analyzing-ko` 의 `[lite-mini 분기]` · `decomposing-ko` 의 `§lite` 단일 태스크·`LITE-STRICT-GUARD` · `implementing-ko` 의 `§lite 불변` · `once-approval.md` 의 lite 문단 · `split-session.sh` 의 `§lite` 제외 판정 · 전문가 dispatch 의 `§lite` 제외 문구 · 이를 잠그는 테스트(`test-start-lite-doc` · `test-once-approval` · `test-split-session` · `test-gate-presence` 의 해당 줄)와 `commands/start-lite.md`·`commands/maintain-lite.md`. `§유형: trivial` 단축 경로는 lite 와 절차를 공유하므로 함께 설계해야 한다.
+
+### Fixed
+
+- **`basic-path.sh seal` 이 실행할 수 없는 문자열을 test_command 로 받던 결함.** `related` 의 `none — …` 안내문을 그대로 넘겨도 봉인됐고, 검증 러너에서야 `VERIFY: PARTIAL — whitelist 미통과` 로 걸렸다(20261112 실측). seal 이 검증 러너의 허용 형식(`run-verification.sh` 의 `_WHITELIST_PAT` — 사본 없이 그 줄을 읽는다)에 맞지 않는 명령을 거부한다(rc 1).
+
 ## [3.1.36] — 2026-11-12
 
 ### Changed

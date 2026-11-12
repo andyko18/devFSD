@@ -21,13 +21,12 @@ clone 후 1회: `bash scripts/_internal/install-git-hooks.sh` (pre-commit≈5s �
 본 플러그인은 **자기 자신을 dogfood** 한다. 신규 skill·command·hook 추가는 다음 슬래시로 진입한다:
 
 ```bash
-/start "<기능 설명>"                 # 신규 기능 (풀 chain)
-/start-lite "<기능>"                 # 경량 신규 (clarify·plan skip)
+/start "<기능 설명>"                 # 신규 기능 (위험 신호 없으면 기본 경로, 있으면 풀 chain — 무조건 풀: --full)
 /start-foundation "<공통부>"         # 공통부 1회
 /start-all                           # FR batch (requirements 필요)
 /start-all-auto                      # 무인 batch
-/maintain "<수정 대상>"              # 유지보수 (analyzing 선행)
-/maintain-lite "<대상>"              # 경량 유지보수
+/maintain "<수정 대상>"              # 유지보수 (갈래는 위와 같다 — 풀 경로는 analyzing 선행)
+/quick-fix "<고칠 것>"               # 몇 줄짜리 수정
 ```
 
 자율 chain: specify → clarify → plan → decompose → implement → verify → request-review → receive-review → security → integration-test → performance-test → PR.

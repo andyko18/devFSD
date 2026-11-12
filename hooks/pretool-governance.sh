@@ -529,8 +529,9 @@ $_receipt_hint
 
 코드를 바꾸는 커밋은 검증을 거친 작업 단위로 들어가야 합니다. 크기에 맞는 경로로 시작하세요:
    · 몇 줄짜리 수정 → /quick-fix <고칠 것>  (테스트 실행 + 코드 리뷰 1회, 문서 없음)
-   · 유지보수·버그 수정 → /maintain-lite <대상>  (또는 /maintain)
-   · 신규 기능 → /start <기능>  (또는 /start-lite)
+   · 유지보수·버그 수정 → /maintain <대상>
+   · 신규 기능 → /start <기능>
+   (둘 다 위험 신호가 없으면 가벼운 기본 경로를 자동으로 고릅니다)
    문서만 바꾸는 커밋(*.md 등)은 검증 없이 통과합니다.${_nolc_plugin}
 우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>${_compound_hint}"
   fi

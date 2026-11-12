@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# /start-lite · /maintain-lite 계약 — 마커·불변식·승격·NL 금지
+# /start-lite · /maintain-lite 계약 — 명령은 /start·/maintain 의 별칭(다음 메이저에서 제거)이고,
+#   내부 lite 분기(약속어·skill 분기)는 아직 남아 있다(이번에 지우지 않았다 — 지울 목록은 CHANGELOG [Unreleased]).
 set -u
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
@@ -20,12 +21,16 @@ for f in "$SL" "$ML" "$SP" "$AN" "$IMP" "$DEC" "$US"; do
 done
 ok "T0 명령·스킬 파일 존재"
 
-# 마커
-grep -q 'entry: lite' "$SL" \
-  && ok "T1 start-lite 마커 entry: lite" || nope "T1" "entry: lite 없음"
-
-grep -q 'entry: maintain-lite' "$ML" \
-  && ok "T2 maintain-lite 마커" || nope "T2" "entry: maintain-lite 없음"
+# 별칭 (20261112) — 고지 1줄 · 갈래 판정은 /start·/maintain 과 같은 스크립트 · 종전 lite 절차로 들어가지 않는다
+for pair in "start-lite:start:$SL" "maintain-lite:maintain:$ML"; do
+  n=${pair%%:*}; rest=${pair#*:}; k=${rest%%:*}; f=${rest#*:}
+  grep -qF "\`/$n\` 는 다음 메이저에서 제거됩니다 — \`/$k\` 가 자동으로 고릅니다." "$f" \
+    && ok "T1.$n ★ 실행 시 제거 예고 1줄 고지" || nope "T1.$n" "고지 문구 없음"
+  grep -qF "basic-path.sh route $k " "$f" && grep -qF 'PROCEDURE:' "$f" && grep -qF 'ENTRY:' "$f" \
+    && ok "T2.$n ★ /$k 와 같은 갈래 판정(route $k) — 기본은 PROCEDURE, 풀은 ENTRY 파일" || nope "T2.$n" "route 배선 없음"
+  ! grep -qE '^[0-9]+\. .*(prepend|devfsd:(specifying|analyzing)-ko. 호출)' "$f" \
+    && ok "T2b.$n 종전 lite 절차(약속어 prepend → skill 직접 호출) 단계가 없다" || nope "T2b.$n" "lite 절차 잔존"
+done
 
 grep -q 'entry: maintain-lite' "$SP" && grep -q 'entry: lite' "$SP" \
   && ok "T3 specifying 분기 마커" || nope "T3" "specifying lite 마커 부재"
@@ -37,44 +42,34 @@ m_line=$(grep -n 'entry: maintain -->' "$SP" | head -1 | cut -d: -f1)
   && ok "T4 maintain-lite 선매칭" || nope "T4" "ml=$ml_line m=$m_line"
 
 # clarify/plan skip
-grep -qE 'clarifying·planning \*\*호출 금지\*\*|clarifying-ko·planning-ko' "$SL" \
-  && grep -qE 'clarifying·planning \*\*호출 금지\*\*|호출 금지' "$ML" \
-  && grep -qE 'clarifying-ko·planning-ko \*\*호출 금지\*\*|호출하지 않음' "$SP" \
+grep -qE 'clarifying-ko·planning-ko \*\*호출 금지\*\*|호출하지 않음' "$SP" \
   && ok "T5 clarify/plan skip" || nope "T5" "clarify/plan skip 산문 부재"
 
 # 화면 5.5 / IF 5.6 유지
-grep -q '화면·IF 생략' "$SL" \
-  && grep -qE '제외 금지|동일 유지' "$SP" \
+grep -qE '제외 금지|동일 유지' "$SP" \
   && grep -qE 'Step 5\.5|5\.5·5\.6' "$SP" \
   && ok "T6 화면/IF 유지 불변식" || nope "T6" "5.5/5.6 유지 문구 부재"
 
 # Phase B/C 필수
-grep -qE 'Phase B/C' "$SL" \
-  && grep -q '§lite 불변' "$IMP" \
+grep -q '§lite 불변' "$IMP" \
   && grep -qE '생략 금지|필수' "$IMP" \
   && ok "T7 Phase B/C 필수" || nope "T7" "B/C 불변식 부재"
 
 # analyzing-mini
 grep -q 'lite-mini' "$AN" && grep -q 'HARD GATE' "$AN" \
-  && grep -qE 'analyzing-mini|lite-mini' "$ML" \
   && ok "T8 maintain-lite analyzing-mini" || nope "T8" "lite-mini 부재"
 
 # strict 승격
-grep -qE '/start' "$SL" && grep -qE 'strict' "$SL" \
-  && grep -qE '/maintain' "$ML" && grep -qE 'strict' "$ML" \
-  && grep -qE 'strict 승격' "$SP" \
+grep -qE 'strict 승격' "$SP" \
   && ok "T9 strict 승격" || nope "T9" "strict 승격 문구 부재"
 
 # decomposing 단일 태스크 / §lite
 grep -qE '§lite|trivial / §lite' "$DEC" \
-  && grep -q '1 task' "$SL" \
   && ok "T10 decompose §lite 단일 태스크" || nope "T10" "decompose lite 분기 부재"
 
 # NL 추론 금지
-grep -q '자연어로 lite 추론 금지' "$SL" \
-  && grep -q '자연어로 lite 추론 금지' "$ML" \
-  && grep -qE 'lite 추론 금지' "$US" \
-  && ok "T11 NL lite 추론 금지" || nope "T11" "NL 금지 산문 부재"
+grep -qF '갈래 추론 금지' "$US" && grep -qF '**스크립트 판정**' "$US" \
+  && ok "T11 메타 skill — 갈래는 자연어로 추론하지 않고 스크립트 판정이 고른다" || nope "T11" "NL 금지 산문 부재"
 
 # §lite 라벨
 grep -q '§lite' "$SP" && grep -q 'trivial' "$SP" \

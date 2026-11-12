@@ -1,74 +1,40 @@
 ---
 name: start-lite
 disable-model-invocation: true
-description: "[단일·경량] clarify·plan ceremony 생략 Lifecycle 진입 — 화면/IF·Phase B/C·verify 유지. devfsd:specifying-ko 호출"
+description: "[단일·별칭] `/start` 의 별칭 — 다음 메이저에서 제거. `/start` 가 위험 신호가 없으면 기본 경로를 자동으로 고른다"
 triggers:
   - "/start-lite"
 mode: ask
-specops_version: 2.12.0
+specops_version: 3.1.36
 specops_layer: Lifecycle
-reference_upstream: specops-ko 독자 추가 (commands/start.md § lite variant)
+reference_upstream: specops-ko 독자 추가 (commands/start.md 의 별칭)
 ---
 
 # /start-lite [<기능 설명>]
 
 ## 목적
 
-`/start` 대비 **토큰 절감 진입**. clarify·plan ceremony만 생략하고, **화면(Step 5.5)·인터페이스(Step 5.6)·implement Phase B/C·verify/TDD/receipt**는 `/start`와 동일하게 유지한다.
-
-슬래시 진입 = 축약 승인(별도 "축약할까요?" 질문 없음).
+**`/start` 의 별칭이다 — 다음 메이저에서 제거한다.** 가벼운 경로를 사용자가 고를 필요가 없어졌다: `/start` 가 위험 신호를 스크립트로 판정해 신호가 없으면 기본 경로(spec 1장 → 주 세션 직접 구현 → 리뷰 1회 → 검증 1회 → PR)를, 있으면 풀 경로를 고른다. 종전의 lite 절차(clarify·plan 만 생략하고 구현자 dispatch 는 유지 — 20261112 실측 53분)는 이 명령으로 더 이상 돌지 않는다.
 
 ## Process
 
-0. **기본 동작과 `--step`** — 인자가 `--step` 으로 시작하면 그 낱말(과 뒤 공백)을 떼고 `<!-- step: true -->` 줄을 args 의 약속어 줄(`<!-- entry: … -->`) 바로 다음 줄에(아래 2 에서 약속어를 붙인 뒤) 넣는다(지금까지의 단계별 확인). 없으면 넣지 않는다 — 기본은 `§일괄`: 질문은 최대 2회 묶음, intent·설계·스펙·AC·화면·IF·답변을 한 번에 승인받고 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 등은 그대로 멈춘다 — `skills/specifying-ko/once-approval.md`).
+1. **고지 1줄** — "`/start-lite` 는 다음 메이저에서 제거됩니다 — `/start` 가 자동으로 고릅니다." 를 먼저 보인다.
+2. **갈래 고르기** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh route start "<인자 원문>"` 을 1회 실행하고(따옴표·백틱·`$` 는 빼고 넘긴다) `NOTICE:` 줄을 그대로 보인다.
+   - `ROUTE: basic` → `PROCEDURE:` 줄의 파일(`commands/basic.md`)을 Read 해 그 Process 를 `REQUEST:` 줄의 요청으로 1번부터 따른다.
+   - `ROUTE: full` → `ENTRY:` 줄의 파일(`commands/start.md`)을 Read 해 그 Process 를 0 부터 따른다(0-0 갈래 고르기는 방금 했다).
 
-1. **메타 skill 활성 확인** — `skills/using-specops-ko/SKILL.md`가 세션 시작 시 이미 활성
-2. **args 첫 줄에 `<!-- entry: lite -->` prepend**:
-   ```
-   <!-- entry: lite -->
-   <원본 기능 설명>
-   ```
-3. **즉시 `devfsd:specifying-ko` 호출** — prepend된 args 전달
-4. **이후 chain (lite)**: specifying(화면/IF 포함) → decomposing(1 task) → implementing(A + end-loaded B/C) → verifying → requesting(end-loaded skip) → receiving → security → integration → performance → PR. clarifying·planning **호출 금지**.
-
-## `/start` 대비
-
-| 단계 | `/start` | `/start-lite` |
-|---|---|---|
-| clarifying / planning | ✅ | **skip** |
-| 화면 5.5 / IF 5.6 | 조건부 ✅ | **동일 유지** |
-| decompose | N tasks | **1 task** |
-| Phase B/C | end-loaded ✅ | **필수 유지** |
-| verify · TDD · receipt | ✅ | ✅ |
-| request/receive | 수행 또는 end-loaded skip | end-loaded skip |
-
-**strict 승격** (두 지점): ① 진입 직후 요청에 auth·migration·결제/PII·파괴적 스키마 등 strict 신호가 보이면 거부 후 `/start` 안내. ② 놓쳤어도 분해 단계의 `LITE-STRICT-GUARD`(`risk-profile.sh` rc=3)가 기계로 잡는다 — 그때는 제자리에서 clarify → plan 을 수행해 승격한다. 설계 문서를 **인용만** 한 것(spec §참조)과 테스트가 자기 임시 디렉터리를 치우는 코드는 strict 신호가 아니다.
-
-## 사용 예
-
-```
-/start-lite CSV 줄 수 세기 CLI
-
-→ <!-- entry: lite --> prepend
-→ specifying-ko (§lite + §유형 trivial, 화면/IF 해당 시 동일)
-→ clarify/plan SKIP → decomposing 1 task → implement B/C → verify → …
-```
+`/start <같은 인자>` 와 결과가 같다. 옵션(`--full`·`--step`·`--no-split`)도 `/start` 와 같게 받는다.
 
 ## 안티패턴
 
-- **자연어로 lite 추론 금지** — "가볍게 해줘" 등으로 `/start-lite`를 추론하지 않는다. 슬래시만. 원칙 4 주권.
-- **인자 없이 진입** — 기능 설명을 modally 되묻기
-- **인자 내용 2차 판단** — 슬래시 진입 후 specifying 호출 보류 금지
-- **화면·IF 생략** — lite라도 UI/API·스키마 해당 시 Step 5.5/5.6 제외 금지
-- **Phase B/C·verify 생략** — ceremony 축약이지 teeth 축약이 아님
-- **고위험에 lite 고집** — strict 신호 시 `/start`로 승격
+- **종전 lite 절차로 진행** — `<!-- entry: lite -->` 약속어를 붙여 `specifying-ko` 를 부르지 않는다. 이 명령은 그 분기로 들어가지 않는다.
+- **자연어로 이 명령을 추론** — 자연어 진입은 메타 skill 이 `/start` 와 같은 갈래 판정을 거친다. 별칭을 고를 일이 없다.
 
 ## 참조
 
-- `commands/start.md` — 풀 신규 진입
-- `commands/maintain-lite.md` — 경량 유지보수 자매
-- `skills/specifying-ko/SKILL.md` — `[lite 분기]`
+- `commands/start.md` — 본 명령 · `commands/maintain-lite.md` — 자매 별칭
+- `commands/basic.md` · `scripts/basic-path.sh` — 기본 경로와 갈래 판정(`route`)
 
 ---
 
-*specops-ko v2.12.0 · 2026-08-04 · 경량 신규 Lifecycle 진입 (clarify·plan skip, 화면/IF·B/C 유지)*
+*specops-ko v3.1.36 · 2026-11-12 · `/start` 의 별칭 (다음 메이저에서 제거)*

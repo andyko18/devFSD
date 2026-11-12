@@ -51,7 +51,7 @@ case "$ACTION" in
     case "$qrc" in
       0) ;;
       4) echo "quick-fix: 리뷰 조건 미충족 — code-reviewer-ko 를 'quick 경로: yes' 로 호출해 통과 판정을 받은 뒤 다시 실행한다" >&2; exit 4 ;;
-      *) echo "quick-fix: quick 범위 초과 — /maintain-lite <설명> 으로 진행한다(고친 내용은 작업 트리에 남는다)" >&2; exit 3 ;;
+      *) echo "quick-fix: quick 범위 초과 — /maintain <설명> 으로 진행한다(고친 내용은 작업 트리에 남는다)" >&2; exit 3 ;;
     esac
 
     # 1-태스크 문서 — outputs 는 스테이징된 파일 그대로다(영수증 검사가 staged ⊆ outputs 를 본다).

@@ -1785,7 +1785,7 @@ _receipt_hint_extra() {
       why=$(bash "$_QUICK_SCOPE_SH" "$hfid" "${infer:-T1}" --explain 2>/dev/null | head -1)
       case "$cause:$why" in
         quick-over:"판정 불가"*)
-          # 판정기가 판정하지 못했다(막는 쪽) — 범위를 넘었다고 말하지 않고 /maintain-lite 로 보내지 않는다
+          # 판정기가 판정하지 못했다(막는 쪽) — 범위를 넘었다고 말하지 않고 /maintain 으로 보내지 않는다
           printf '%s' "
 ▶ quick 판정 불가 — ${why#판정 불가 — }.
    범위를 넘은 것이 아니라 판정 자체를 하지 못했습니다 — 판정할 수 없으면 막습니다.
@@ -1795,7 +1795,7 @@ _receipt_hint_extra() {
 ▶ quick 범위 초과 — ${why:-사유 조회 실패}.
    이 FID 는 명세 없이 태스크 문서만 있는 quick 경로입니다. quick 은 작고(구현 파일 수·변경 줄 수 상한 — 테스트·문서 제외)
    고위험 신호(인증·마이그레이션·스키마·공개 API·화면/인터페이스 문서)가 없는 수정만 받습니다.
-   이 수정은 /maintain-lite <설명> 으로 진행하세요 — 고친 내용은 작업 트리에 그대로 남습니다." ;;
+   이 수정은 /maintain <설명> 으로 진행하세요 — 고친 내용은 작업 트리에 그대로 남습니다." ;;
         *)
           printf '%s' "
 ▶ quick 리뷰 미충족 — ${why:-사유 조회 실패}.

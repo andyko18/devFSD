@@ -326,12 +326,14 @@ bash scripts/_internal/check-task-receipt.sh <FID> <task-id>    # 0=면제 · 1=
 ## basic-path.sh — `/basic` 경로 (spec 1장 · 주 세션 구현 · 1-태스크 FID)
 
 ```bash
+bash scripts/basic-path.sh route <start|maintain> "<인자>" # /start·/maintain·자연어 진입의 갈래 고르기 — ROUTE: basic | full — <이유> (+ NOTICE·PROCEDURE·ENTRY·OPTIONS·REQUEST)
 bash scripts/basic-path.sh lane "<요청 한 줄>" [<FID>]      # 갈래 판정만 — LANE: basic | full <신호> (rc 0 | 3)
-bash scripts/basic-path.sh start <FID> "<요청 한 줄>"       # 판정 → FID 폴더·진행 기록·spec 골격 (3=풀 경로 대상)
+bash scripts/basic-path.sh start <FID> "<요청 한 줄>" [maintain]  # 판정 → FID 폴더·진행 기록·spec 골격 (3=풀 경로 대상 · maintain=유지보수 골격: 현재 동작 절 + AC-R-1)
 bash scripts/basic-path.sh approve <FID>                    # 승인 뒤: spec 절 확인 · 재판정 · acceptance-criteria.md 도출
 bash scripts/basic-path.sh review <FID>                     # 구현 뒤·리뷰 직전: 진행 기록만(구현 완료 · 리뷰 진행 — 관제판 단계 표시)
 bash scripts/basic-path.sh related                          # 검증에 쓸 test_command 제안 — RELATED: <명령> | RELATED: none — <사유>
-bash scripts/basic-path.sh seal <FID> "<test_command>"      # 리뷰 뒤: 변경 파일로 재판정 · tasks.md · 리뷰 감사 행 (4=리뷰 보고서 없음)
+bash scripts/basic-path.sh seal <FID> "<test_command>"      # 리뷰 뒤: 변경 파일로 재판정 · tasks.md · 리뷰 감사 행 (4=리뷰 보고서 없음 · 검증 러너가 받지 않는 명령은 거부)
+bash scripts/basic-path.sh promote <FID> "<사유>"           # 풀 경로로 올린다 — 산출물을 basic-draft/ 로 보존 · /full 승격 기록 · NEXT·ARGS·PROCEDURE 안내
 bash scripts/basic-path.sh design-scope <화면 수> [new|flow] # 화면 설계 확인 범위 — none | update | approve
 bash scripts/basic-path.sh done <FID> "<한 줄 요약>"        # 종결 기록
 ```

@@ -309,9 +309,11 @@ EOF_TC
 #     · bash 스크립트 일반(`bash tests/unit.sh` 류): whitelist 는 허용하나 앵커는 불인정.
 #       T15 가 "tests/ 밖 run-all.sh 불인정"을 잠그고 있어 파일명 일반화는 위장 표면을 연다.
 #       **미해결 결함으로 인지하고 별도 FID 로 미룬다** — T70 fixture 가 `#!skip` 으로 명시 제외한다.
+# rtk 접두(20261113): 러너 앞의 `rtk` · `rtk proxy` 를 읽는다 — 출력 원문을 보려고 `rtk proxy bash …/tests/run-all.sh` 로
+#   돌린 통과가 실행 증거로 안 쳐졌다. R-1·R-2 트리거는 이미 rtk 접두를 읽는다. 그 밖의 rtk 하위 명령(`rtk gain …`)은 불인정(T64s).
 # 한계: `npx <bin>`·`(pnpm|yarn) exec <bin>` 은 임의 바이너리를 받는다(`npx cowsay VERIFY` 도 인정).
 #   whitelist 와 동치라는 요구의 귀결이며, 되돌리려면 whitelist 도 함께 좁혀야 한다.
-_RUNNER_ANCHOR_PAT='(^|[;&|(\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*((poetry|uv|pdm|rye)[[:space:]]+run[[:space:]]+)?(bash[[:space:]]+\S*(run-verification\.sh|tests/run-all\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+((--dir|--filter|-C|workspace)[[:space:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:space:]]+)*(run[[:space:]]+)?test(:[A-Za-z0-9._-]+)?|go[[:space:]]+test|cargo[[:space:]]+test|npx[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(pnpm|yarn)[[:space:]]+exec[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*)'
+_RUNNER_ANCHOR_PAT='(^|[;&|(\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(rtk[[:space:]]+(proxy[[:space:]]+)?)?((poetry|uv|pdm|rye)[[:space:]]+run[[:space:]]+)?(bash[[:space:]]+\S*(run-verification\.sh|tests/run-all\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+((--dir|--filter|-C|workspace)[[:space:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:space:]]+)*(run[[:space:]]+)?test(:[A-Za-z0-9._-]+)?|go[[:space:]]+test|cargo[[:space:]]+test|npx[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(pnpm|yarn)[[:space:]]+exec[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*)'
 
 _verify_exec_evidence() {
   local transcript="$1" fiddir="${2:-}"

@@ -16,7 +16,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 `plan.md`의 카테고리·순서를 **함께 변하는 파일 묶음 단위의 TDD 태스크**로 분해한다(스텝 하나가 2~5분 — 태스크는 그보다 크다). 모든 `must` AC가 **최소 1 태스크**에 매핑되도록 보장.
 
 <HARD-GATE>
-**플레이스홀더("TBD", "TODO", "similar to N", 코드 없는 스텝)**가 남은 채로 `devfsd:implementing-ko` 호출 금지. 커버리지 누락 AC가 있는 채로도 호출 금지.
+**플레이스홀더("TBD", "TODO", "similar to N", 테스트 코드 없는 테스트 스텝, 시그니처·핵심 로직 없는 구현 스텝)**가 남은 채로 `devfsd:implementing-ko` 호출 금지. 커버리지 누락 AC가 있는 채로도 호출 금지.
 
 **bash 테스트 파일 규약**: 생성되는 `test-*.sh` 에 shebang (`#!/usr/bin/env bash`) 또는 실행권한 (exec-bit, `chmod +x`) 이 누락된 채로 `devfsd:implementing-ko` 호출 금지. 단, 파일 첫 두 줄 내에 `# library-only` 주석 마커가 존재하면 library-only 전용 (sourced only) 으로 간주하여 exec-bit 검증 skip. shebang 은 library-only 포함 모든 bash 테스트 파일에 필수. 상세: `templates/test-conventions-bash.md`.
 
@@ -63,7 +63,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 4. **TDD 5스텝 작성** — `devfsd:tdd-ko` 준수:
    - Step 1 RED: 실패 테스트 (실제 코드)
    - Step 2 검증: FAIL 확인
-   - Step 3 GREEN: 최소 구현 (실제 코드)
+   - Step 3 GREEN: 최소 구현 — plan 의 구현 명세(파일·시그니처·위험 로직·고정 값)를 그대로 옮긴다. 본문 전체를 새로 써 넣지 않는다(본문은 구현자가 쓴다 — `planning-ko` 「구현 스텝에는 본문을 쓰지 않는다」). plan 이 본문을 적은 예외(DDL·설정·짧은 조각)는 그대로 옮긴다
    - Step 4 검증: PASS 확인
    - Step 5 COMMIT: `git add` + 한국어 커밋 메시지
 5. **문지기 체크 (원칙 2)** — 파괴적 작업 태스크는 **별도 분리** + `⚠️ 사용자 승인 필요` 표기 + 확인 스텝 삽입
@@ -130,7 +130,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/plan-to-tasks.sh <FID> > "${TMPDIR:-/tm
 **각 태스크 = 함께 변하는 파일 묶음 하나** (구현 파일 + 그 테스트 + 따라 바뀌는 문서·개수 기준선). 스텝 하나는 2~5분이지만 태스크는 그런 스텝 여러 개다.
 
 - 5 스텝 (RED 작성·FAIL 검증·GREEN 구현·PASS 검증·COMMIT) — 한 태스크 안에 이 사이클을 여러 번 둘 수 있다
-- 각 스텝에 **실제 코드·명령·예상 출력** 포함
+- 테스트 스텝에 **실제 테스트 코드**, 검증 스텝에 **명령·예상 출력**, 구현 스텝에 **시그니처·위험 로직·고정 값** 포함(시그니처+핵심 로직은 플레이스홀더가 아니다)
 - 스텝 간 의존 없음 (스텝 N+1이 스텝 N 산출 없이도 읽고 이해 가능)
 
 ### 작은 변경은 묶는다 (20261112)
@@ -246,10 +246,10 @@ def test_specific_behavior():
 
 - [ ] **Step 3: GREEN — 최소 구현**
 
-```python
-def function(input):
-    return expected
-```
+- 파일: `src/path/file.py`
+- 시그니처: `def function(input: str) -> int`
+- 핵심 로직: 빈 문자열은 0 · 앞뒤 공백은 떼고 센다
+- 고정 값: 오류 문구 `"input must be str"`
 
 - [ ] **Step 4: PASS 검증**
 
@@ -332,10 +332,10 @@ tasks:
 
 - **과분할** — 같은 파일 묶음을 여러 태스크로 쪼개거나 산출 의존이 없는데 `depends_on` 을 걸어 직렬로 만듦 (「작은 변경은 묶는다」)
 - **TDD 5스텝 생략** — 특히 RED 검증 스텝 누락
-- **플레이스홀더 포함** — TBD·TODO·구현 생략 금지
+- **플레이스홀더 포함** — TBD·TODO 금지. 구현 스텝에 시그니처·위험 로직이 없으면 플레이스홀더다(본문 코드가 없는 것은 플레이스홀더가 아니다)
 - **미매핑 must AC 방치** — 커버리지 100% 전 chain 진행 금지
 - **파괴적 작업을 일반 태스크에 섞음** — 반드시 격리
-- **Task N 참조만으로 코드 생략** — 엔지니어가 순서와 무관하게 읽을 수 있으니 코드 반복
+- **Task N 참조만으로 내용 생략** — 엔지니어가 순서와 무관하게 읽을 수 있으니 테스트 코드·시그니처를 그 태스크에 다시 적는다
 
 ## 참조
 
@@ -368,12 +368,21 @@ fi
 ```
 
 - **§batch (batch 분기)** → `BATCH-PHASE1-DONE: <FID>` 출력 후 **halt** (implementing-ko 미호출). `/start-all` 오케스트레이터가 queue.md를 PLAN_DONE으로 갱신하고 다음 FR을 처리한다.
-- **§auto (auto 분기)** → implementing-ko 직행. §auto 라벨이 propagate되어 각 단계에서 가역 게이트 자동 통과가 계속됨.
-- **단일 분기** → 기존 동작. **호출 직전 한 줄 선언**(R-3 투명성 — 20260718 test2 회고: implementing-ko 만 선언 없이 자동 호출돼 R-3 warn 12건 누적. 자동 체인이라도 전환을 1줄 명시):
+- **§auto (auto 분기)** → implementing-ko 직행(아래 「세션 분리」 판정을 먼저 한다). §auto 라벨이 propagate되어 각 단계에서 가역 게이트 자동 통과가 계속됨.
+- **단일 분기** → 아래 「세션 분리」 판정을 먼저 한다. `SPLIT: no` 면 기존 동작이다. **호출 직전 한 줄 선언**(R-3 투명성 — 20260718 test2 회고: implementing-ko 만 선언 없이 자동 호출돼 R-3 warn 12건 누적. 자동 체인이라도 전환을 1줄 명시):
 
 ```
 구현 단계로 진행 — devfsd:implementing-ko 를 호출합니다.
 Skill: devfsd:implementing-ko
 ```
+
+**세션 분리 (풀 경로 기본 — 20261112)**: §auto·단일 분기는 implementing-ko 를 부르기 전에 판정기를 1회 실행한다.
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/split-session.sh decide <FID>
+```
+
+- `SPLIT: yes` → 같은 디렉터리 `session-split.md` 를 Read 하고 그 절차를 따른다 — 구현~성능 게이트를 대화 맥락이 빈 자식 세션이 맡고(그 세션이 `devfsd:implementing-ko` 를 호출한다), 이 세션은 결과를 받아 PR 생성 게이트로 간다. 이 세션에서 implementing-ko 를 직접 호출하지 않는다.
+- `SPLIT: no (<사유>)` → 사유를 1줄 알리고 위 선언대로 이 세션에서 `devfsd:implementing-ko` 를 호출한다(lite·trivial·`--no-split`·설정으로 끔·권한 모드 미충족 등 — 판정기가 정한다. 사유를 보고 스스로 뒤집지 않는다).
 
 implementing-ko가 각 태스크마다 fresh 서브에이전트를 dispatch한다. 본 decomposing-ko는 **batch halt 또는 implementing-ko 이외의 다음 스킬을 호출하지 않는다**.

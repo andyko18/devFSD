@@ -62,6 +62,8 @@ wave loop 전에 아래 태스크를 모은다:
 
 멈출 때는 한 번에 묻는다 — 같은 시점에 걸린 결정을 모아 질문 1회로 낸다.
 
+**분리된 자식 세션이면**(`[ "${SPECOPS_SPLIT_CHILD:-}" = 1 ]` — `decomposing-ko` 의 `session-split.md`) 사용자 채널이 없다. 위 표의 상황에서 묻는 대신 `.specops/<FID>/split/held.md` 에 ① 무엇이 막혔는지 ② 선택지 ③ 답을 받으면 어디서 이어 가는지를 적고, 마지막 메시지를 `SPLIT-CHILD-HELD: <FID>` 줄로 끝낸다 — 주 세션이 사용자에게 묻고 답을 들고 이 세션을 재개한다. 스스로 고르지 않는다.
+
 ## 4. 끝 — 한 번에 보고한다
 
 PR 게이트 직전에 `dev-decision.sh show <FID>` 출력을 **줄이지 않고** 보여 준 뒤 PR 생성 여부를 묻는다. `backlog` 줄은 PR 본문에도 넣는다(`show <FID> --backlog`) — 리뷰어가 찾았지만 이번에 고치지 않은 것이 PR 을 보는 사람에게도 보여야 한다.

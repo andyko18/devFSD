@@ -4,6 +4,24 @@
 
 ## [Unreleased]
 
+### Added
+
+- **풀 경로(`/start`·`/maintain`)가 구현 구간을 새 대화 맥락에서 돌린다 — 사용자 동작 없음 (토큰).** `decomposing-ko` 가 tasks 를 쓴 뒤 `scripts/split-session.sh decide <FID>` 로 판정하고, `yes` 면 구현~성능 게이트를 헤드리스 자식 세션(`claude -p`)에 맡긴다. 주 세션은 백그라운드 실행의 종료 알림으로 깨어나 검증 러너를 직접 1회 돌린 뒤(R-2 실행 증거는 세션별) PR 생성 게이트(데모·PR 질문)로 간다. 자식이 사용자에게 물어야 하면 `split/held.md` 에 적고 멈추고, 주 세션이 묻고 `--resume` 으로 같은 자식을 이어 간다. 절차: `skills/decomposing-ko/session-split.md`.
+  - 나누지 않는 것: `/basic` · `-lite` · `/quick-fix` · trivial · `§batch`(`/start-all`·`/start-all-auto`). 끄기: `/start --no-split …`(spec `**§분리**: off`) · `.specops/config.yaml` `session_split.enabled: false` · `SPECOPS_NO_SPLIT=1`.
+  - 권한: `--dangerously-skip-permissions`·`bypassPermissions` 를 쓰지 않는다(설정에 적어도 거절). 기본은 권한 옵션을 넘기지 않아 자식이 사용자 settings 를 그대로 따른다 — 기본 권한 모드가 auto 가 아니면 `SPLIT: no` 로 종전처럼 한 세션에서 구현한다(`session_split.permission_mode: auto|acceptEdits` 로 명시 가능).
+  - 실측(20261112, 희생용 저장소 · 1-태스크 FID): 자식 세션이 플러그인·SessionStart/PreToolUse 훅·Skill·플러그인 서브에이전트 dispatch 를 모두 수행했고 구현 → B/C 리뷰 → `VERIFY: PASS` → 보안·통합·성능 게이트까지 끝낸 뒤 PR 게이트 앞에서 멈췄다 — 주 루프 호출 50회 · 맥락 63K→163K 토큰 · $1.59 · 4분. `--resume` 재개와 주 세션 쪽 재검증(`VERIFY: PASS`)도 확인.
+  - 추정(미실측): 나누지 않았다면 그 50회 호출이 설계 단계 대화를 매번 함께 읽는다 — 설계 종료 시점 대화가 213K 였던 실측 사례에 대입하면 호출당 약 150K, 합 약 7.5M 캐시 읽기 토큰이 더 든다. 실제 FID 는 구현 호출이 더 많아 차이가 더 크다.
+  - 확인하지 못한 것: 실제 주 세션(모델)이 이 절차를 처음부터 끝까지 도는 것 · 주 세션에서 R-2 가 실제로 열리는 것 · 자식의 보류(`HELD`)가 실제 질문에서 나오는 것 · 60분 넘는 자식 · 터미널 CLI/`-p` 주 세션(이번 실측은 데스크톱 앱).
+  - 서브에이전트 1개에 구현 구간을 통째로 맡기는 방식은 채택하지 않았다: 서브에이전트의 도구 호출은 훅에 주 세션 transcript 경로로 들어와(실측) R-1/R-2 실행 증거 판정이 서브에이전트가 돌린 검증을 보지 못한다 — 거버넌스 훅을 고쳐야 한다.
+  - 되돌리기: `session_split.enabled: false`(설정) 또는 `skills/decomposing-ko/SKILL.md` 의 「세션 분리」 절을 지운다.
+- **`/start`·`/maintain` 진입 시 대화가 이미 크면 1줄 고지(차단 아님).** `split-session.sh warn-size` 가 현재 세션 마지막 응답의 usage(입력+캐시)를 읽어 기준(`session_split.warn_context_tokens`, 기본 150000 · 0 이면 끔)을 넘으면 `CONTEXT-LARGE:` 를 낸다. 기준 근거: 이 플러그인을 켠 새 세션의 첫 호출이 48~52K 토큰(실측 5개 세션)이라 150K 는 이미 약 100K 가 쌓인 상태다. transcript 파일 크기는 압축 뒤에도 계속 커져 맥락 크기와 어긋나서(16.9MB 인데 216K · 6.8MB 인데 784K) usage 를 읽지 못할 때의 근사로만 쓴다.
+
+### Changed
+
+- **plan 의 구현 스텝에 본문 전체를 쓰지 않는다 (속도·토큰).** 테스트 코드는 종전대로 실행 가능한 완성본, 구현 스텝은 **파일 경로 · 시그니처 · 위험 로직(경계 조건·순서·오류 경로) · 고정 값(테스트가 단언하는 문자열·상수 원문)** 만 쓴다. 내용 자체가 계약인 것(DDL·설정·정규식·목업 CSS 토큰·10줄 이하 조각)은 본문을 그대로 쓴다. "시그니처+핵심 로직은 플레이스홀더가 아니다" 를 `planning-ko`·`decomposing-ko`·`plan-reviewer-ko` 에 명시했고, `implementer-ko` 는 명세로 본문을 직접 쓴다(시그니처·고정 값은 바꾸지 않고, 명세대로 안 되면 `BLOCKED`). `templates/tasks.md` Step 3 예시도 명세 형식이다.
+  - 실측: 위 희생용 FID 의 plan 이 이 형식이었고 구현자가 명세만으로 테스트 5건을 통과시켰다(1건 — 표본 1). 태스크 골격 생성기(`plan-to-tasks.sh`)와 사전검사(`dangling-lock` — 고정 값을 빼면 잡는다)는 수정 없이 이 형식을 받는다.
+  - 미실측: plan 단계 소요·토큰 감소량, 큰 태스크에서 구현자의 재작업 빈도. 품질 위험: 명세가 얇으면 구현자가 틀린 본문을 쓴다 — 테스트(완성본)와 B/C 리뷰·verify 가 잡는다. 되돌리기: `planning-ko` 의 「구현 스텝에는 본문을 쓰지 않는다」 절을 지우고 Step 3 예시를 코드 블록으로 되돌린다.
+
 ## [3.1.33] — 2026-11-12
 
 ### Changed

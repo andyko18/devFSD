@@ -23,6 +23,8 @@ used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구
 
 ## 적용성 판정 게이트
 
+**분리 복귀 (주 세션 — 20261112)**: `.specops/<FID>/split/result.json` 의 `status` 가 `DONE` 이면 구현~성능 게이트는 분리된 자식 세션이 이미 끝냈다(`skills/decomposing-ko/session-split.md` 4). 판정을 다시 하지 않고 곧바로 `## PR 생성 게이트` 로 간다 — evidence·session-progress 를 다시 쓰지 않는다. 단 이 세션에서 검증 러너(`run-verification.sh <FID>`)가 `VERIFY: PASS` 를 낸 뒤여야 한다(R-2 의 실행 증거는 세션별이다).
+
 **사전 판정이 이미 있으면** — `.specops/<FID>/evidence.md` 에 `## /performance-test` 절이 `**결과**: SKIP` 과 `gate-preflight.sh 사전 판정` 근거로 이미 있으면(verifying-evidence-ko 의 `gate-preflight.sh` 가 남긴다) 판정을 다시 하지 않고 곧바로 `## PR 생성 게이트` 로 간다 — evidence·session-progress 를 다시 쓰지 않는다.
 
 그 밖에는 진입 즉시 `spec.md`의 §NFR 섹션을 읽어 **성능 임계값 신호**를 검출한다.
@@ -175,6 +177,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /performan
 ## PR 생성 게이트
 
 PASS 또는 SKIP + session-progress append 완료 후 PR 생성 게이트를 진행한다.
+
+**분리된 자식 세션이면 여기서 멈춘다 (20261112)**: `[ "${SPECOPS_SPLIT_CHILD:-}" = 1 ]` 이면(Bash 로 확인 — `scripts/split-session.sh run` 이 띄운 세션) 아래 게이트(데모·PR 질문·PR 생성)를 **진행하지 않는다**. 마지막 메시지를 요약 5줄 이내와 `SPLIT-CHILD-DONE: <FID>` 줄로 끝낸다 — 데모와 PR 생성 여부는 사용자가 있는 주 세션이 진행한다.
 
 **3-way 분기 확인**:
 

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.31] — 2026-11-12
+
 ### Changed
 
 - **풀 경로(`/start`·`/maintain`)에서 거의 걸리지 않던 반복 단계를 줄였다 (속도).** 실측(20261112): 풀 경로 기계 시간 약 150분 — plan 36~43분 · 구현 62~82분.
@@ -3715,7 +3717,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.30...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.31...HEAD
+[3.1.31]: https://github.com/andyko18/devFSD/compare/v3.1.30...v3.1.31
 [3.1.30]: https://github.com/andyko18/devFSD/compare/v3.1.29...v3.1.30
 [3.1.29]: https://github.com/andyko18/devFSD/compare/v3.1.28...v3.1.29
 [3.1.28]: https://github.com/andyko18/devFSD/compare/v3.1.27...v3.1.28

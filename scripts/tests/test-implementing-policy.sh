@@ -234,10 +234,24 @@ _budh '실행 상한을 **숫자로** 적는다' && _budh '실행은 2회 이내
 _budh '**보안 전문가 패스가 발동한 FID**' && _budh 'strict 로 보고 상한을 적지 않는다' && _budh '**추가하지 않는다**' \
   && { PASS=$((PASS+1)); echo "PASS T7.b 고위험(보안 패스 발동)은 상한 제외 · 계약 밖 점검 추가 금지"; } \
   || { FAIL=$((FAIL+1)); echo "FAIL T7.b strict 제외/계약 밖 금지 문구 부재"; }
-# 구현 단계의 기존 상한(lite·standard — strict 제외)이 그대로 있어야 한다 — 넓힌 것이지 바꾼 것이 아니다
-grep -qF '핵심 실행 2회 이내' "$F" && grep -qF '`strict` 는 종전 그대로 제한 없음' "$F" \
-  && { PASS=$((PASS+1)); echo "PASS T7.c 구현 단계 리뷰어 예산 불변"; } \
-  || { FAIL=$((FAIL+1)); echo "FAIL T7.c 구현 단계 리뷰어 예산 변경됨"; }
+# 구현 단계 리뷰어 예산 (20261112-reviewer-run-cap) — lite·standard 상한은 그대로, strict 에도 상한, 전체 스위트는 위험도 무관 금지
+_ibud=$(awk '/^### 리뷰어 실행 예산/ { f = 1; next } f && /^## / { exit } f' "$F")
+_ibh() { printf '%s' "$_ibud" | grep -qF -- "$1"; }
+_ibh '핵심 실행 2회 이내' && _ibh '되돌려-관찰 3회 이내' \
+  && { PASS=$((PASS+1)); echo "PASS T7.c 구현 단계 리뷰어 예산 — lite·standard 상한(B 2회·C 3회) 불변"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T7.c lite·standard 상한 문구 변경됨"; }
+_ibh '`strict` 는 대상 테스트 실행 B 4회 이내·C 6회 이내' && ! _ibh '제한 없음' \
+  && { PASS=$((PASS+1)); echo "PASS T7.d strict 에도 실행 상한(B 4회·C 6회) · 무제한 문구 없음"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T7.d strict 실행 상한 부재 또는 '제한 없음' 잔존 — 고위험 FID 의 리뷰어 재실행이 무제한이 된다"; }
+_ibh '전체 스위트(`run-all.sh` 류) 실행은 위험도와 무관하게 하지 않는다' && _ibh '`strict` 를 포함해 dispatch 프롬프트에' \
+  && { PASS=$((PASS+1)); echo "PASS T7.e 전체 스위트 실행 금지가 위험도 무관 · strict dispatch 에도 상한을 숫자로"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T7.e 전체 스위트 금지(위험도 무관) 또는 strict dispatch 상한 표기 부재"; }
+_ibh '`[검증 불가]`' && _ibh '조용히 통과시키지 않는다' \
+  && { PASS=$((PASS+1)); echo "PASS T7.f 상한에 닿아 확인 못 한 항목은 [검증 불가] 로 보고"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T7.f 상한 도달 항목의 [검증 불가] 보고 지시 부재"; }
+_ibh 'B·C 각 1회 필수와 독립 되돌려-관찰 증거는 줄이지 않는다' \
+  && { PASS=$((PASS+1)); echo "PASS T7.g 품질 하한(B·C 각 1회 · 되돌려-관찰 증거) 불변"; } \
+  || { FAIL=$((FAIL+1)); echo "FAIL T7.g 품질 하한 문구 소실"; }
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

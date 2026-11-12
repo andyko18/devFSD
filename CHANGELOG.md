@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [3.1.32] — 2026-11-12
+
 ### Added
 
 - **`/basic` — 풀 경로와 `/quick-fix` 사이의 기본 경로 (별도 명령).** spec 1장(목표·범위·수용 기준) → 승인 1회 → 주 세션이 직접 구현(테스트 먼저 · 관련 테스트만) → 스펙 리뷰 ∥ 코드 리뷰 ∥ 보안 스캔 동시 1회(재리뷰 없음) → 검증 1회 → PR. plan 문서·태스크 분해·구현자 dispatch·인계 문서가 없다. 새 `scripts/basic-path.sh` 가 갈래를 세 번(시작·승인·봉인) 판정한다 — 인증·권한 · DB 스키마 · 데이터 삭제·이관 · API 응답 형태 · 되돌릴 수 없는 외부 작업 신호가 보이면 종료 코드 3 으로 멈추고 `/start`·`/maintain` 을 안내한다(기존 위험 판정기의 영문 신호 + 한글 낱말 5종). 화면 변경량은 갈래가 아니라 설계 확인 범위만 정한다(없음 / 화면 스펙 갱신 / 3개 이상·새 화면·흐름 변경은 스펙·목업 먼저 승인). 커밋·PR 훅은 고치지 않았다 — 이 경로의 FID 는 spec + AC + tasks 를 가진 정식 구조라 기존 검증 러너의 `VERIFY: PASS` 로 열린다. `/start`·`/maintain`·자연어의 기본값은 그대로다. **이 경로의 실제 소요·품질은 아직 재지 않았다.**
@@ -3721,7 +3723,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.31...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v3.1.32...HEAD
+[3.1.32]: https://github.com/andyko18/devFSD/compare/v3.1.31...v3.1.32
 [3.1.31]: https://github.com/andyko18/devFSD/compare/v3.1.30...v3.1.31
 [3.1.30]: https://github.com/andyko18/devFSD/compare/v3.1.29...v3.1.30
 [3.1.29]: https://github.com/andyko18/devFSD/compare/v3.1.28...v3.1.29

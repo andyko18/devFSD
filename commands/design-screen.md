@@ -26,7 +26,7 @@ reference_upstream: specops-ko 독자 추가
 | **`/design-screen [name]`** | 독립 슬래시 | lifecycle 밖에서 **화면 1개** 신규/수정 |
 | **`/design-screens`** | 독립 슬래시 | lifecycle 밖에서 **여러 화면 일괄** (목록 자동판단 + 승인게이트 + 순차루프) |
 
-> `/init-project` Phase 11 이 화면 `.md`+`.html` **본설계**를 채운다(UI KIND). 이후 Step 5.5·Phase 2.5-A 는 채워진 화면을 `--check` 로 **재사용**하고, 그 화면에 남은 `<미확정 — 근거 필요>` 만 FR 확정분으로 메운다.
+> `/init-project` Phase 11 이 화면 `.md`+`.html` **본설계**를 채운다(UI KIND) — M1 범위는 설계 리뷰까지 끝내고 화면 목록 목적 칸에 `init 설계 완료` 표지를 단다. 이후 Step 5.5·Phase 2.5-A 는 채워진 화면을 `--check` 로 **재사용**하고, 그 화면에 남은 `<미확정 — 근거 필요>` 만 FR 확정분으로 메운다(Phase 2.5 는 표지가 붙은 화면을 다시 설계·리뷰하지 않는다).
 > 즉 `/start` 로 UI 기능 개발 중이면 Step 5.5 가 자동 처리하므로 `/design-screen` 을 따로 부를 필요 없다. 독립 화면 작업 시에만 단수/복수 슬래시 사용.
 
 ## Process
@@ -83,6 +83,14 @@ git add .specops/memory/screens-overview.md 2>/dev/null || true
 git commit -m "feat(screens): {name} 화면 설계 추가"
 ```
 
+### Step 6: 설계 통합 뷰 갱신
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh
+```
+
+출력 1줄의 경로(`.specops/design-overview.html`)를 사용자에게 알린다 — 방금 설계한 화면이 화면 현황에 미리보기로 보인다. rc≠0(python3 없음·설계 문서 없음)이면 `통합 뷰 생성 못 함 — <사유>` 1줄만 알리고 진행한다(막지 않는다). `/design-screens` 가 부른 루프 안에서는 화면마다 실행하지 않는다(루프가 끝에 1회 한다).
+
 ## 사용 예
 
 ```
@@ -96,6 +104,7 @@ git commit -m "feat(screens): {name} 화면 설계 추가"
 → HTML artifact 생성 (레이아웃 + 컴포넌트)
 → 승인 → 파일 저장
 → git commit
+→ 설계 통합 뷰 다시 생성 → 경로 안내
 
 /design-screen login  (기존 존재)
 → bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh login

@@ -71,13 +71,13 @@ reference_upstream: specops-ko 독자 추가
 - 구성 요소의 계층은 **이름으로 추정**한다(예: `API`·`Server` → 애플리케이션, `DB`·`Cache`·`Queue` → 데이터·미들웨어, `외부`·`SMS`·`결제` → 외부 연계). 추정이 틀리면 구성 요소 이름을 역할이 드러나게 고친다.
 - 자동 배치라 노드가 많으면 선이 겹칠 수 있다. 그림 아래 "원문(mermaid)" 을 펼치면 원본을 볼 수 있다.
 - 채우지 않은 골격(`<프로세스명>` 등)은 프로세스로 세지 않는다. 미확정 목록은 `<미확정 …>`·`<TODO …>`·`가정:` 표기만 모은다(일반 placeholder 판정은 `scan-enrich-placeholders.sh` 소관).
-- 낡음은 자동으로 알리지 않는다 — `--check` 로 확인한다.
+- 낡음은 자동으로 알리지 않는다 — `--check` 로 확인한다. 다만 설계가 끝나는 지점은 스스로 다시 만든다(아래 참조의 호출 지점) — 그 밖에서 `.md` 를 손으로 고쳤으면 이 명령을 다시 실행한다.
 
 ## 참조
 
 - `scripts/design-overview.sh` — 진입 스크립트
 - `scripts/_internal/design-overview/` — 입력 추출(`sources.py`)·변환기(`md.py`)·그림(`diagrams.py` 공통·`flows.py` 구성도/스윔레인·`er.py` ERD)·뼈대(`page.py`)·조립(`build.py`)
-- `commands/init-project.md` — 부트스트랩 종결 뒤 자동 생성
+- 자동 생성 지점(20261112 — 설계가 끝날 때마다 1회 · 실패는 1줄 알림만): `commands/init-project.md`(승인 게이트 직전 · 종결 커밋 뒤) · `skills/specifying-ko` Step 5.5·5.6 직후(`/start`·`/maintain`·`/start-foundation`) · `commands/start-all.md` Phase 2.5-E 승인 직전 · `commands/design-screen(s).md`·`design-interface(s).md` 끝
 
 ---
 

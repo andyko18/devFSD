@@ -25,7 +25,7 @@ reference_upstream: specops-ko 독자 추가
 | **`/design-interface [name]`** | 독립 슬래시 | lifecycle 밖에서 **인터페이스 1개** 신규/수정 |
 | **`/design-interfaces`** | 독립 슬래시 | lifecycle 밖에서 **여러 인터페이스 일괄** (목록 자동판단+승인게이트+순차루프) |
 
-> `/init-project` Phase 11 이 `api-spec.md`·`data-model.md` 를 PRD 기반 **실설계**로 채운다. 위 경로는 그 위에 FR 확정분을 갱신하고 남은 미확정을 메운다.
+> `/init-project` Phase 11 이 `api-spec.md`·`data-model.md` 를 PRD 기반 **실설계**로 채운다 — M1 범위는 설계 리뷰까지 끝내고 문서 머리에 `<!-- specops:init-designed: M1 -->` 표지를 단다(지우지 않는다). 위 경로는 그 위에 FR 확정분을 갱신하고 남은 미확정을 메운다.
 
 ## Process
 
@@ -59,6 +59,14 @@ git add .specops/memory/api-spec.md .specops/memory/api-spec-consumer.md .specop
 git commit -m "design(if): <name> 인터페이스 설계 반영"
 ```
 > 복수 `/design-interfaces` 진행 중이면 각 인터페이스마다 커밋하거나 루프 종료 후 1회 일괄 커밋(오케스트레이터 재량).
+
+### Step 5: 설계 통합 뷰 갱신
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh
+```
+
+출력 1줄의 경로(`.specops/design-overview.html`)를 사용자에게 알린다 — 바뀐 엔드포인트·테이블이 API 목록·ERD 에 보인다. rc≠0(python3 없음·설계 문서 없음)이면 `통합 뷰 생성 못 함 — <사유>` 1줄만 알리고 진행한다(막지 않는다). `/design-interfaces` 루프 안에서는 인터페이스마다 실행하지 않는다(루프가 끝에 1회 한다).
 
 ## 안티패턴
 - **채택 섹션 덮어쓰기** — §0 미선택 섹션 건드리기 금지 (batch 다수 기능 순차 기록 오염 방지)

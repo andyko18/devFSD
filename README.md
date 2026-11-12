@@ -4,7 +4,7 @@
 
 # devFSD
 
-**개발 자율주행(devFSD) — Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v3.1.29)
+**개발 자율주행(devFSD) — Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v3.1.30)
 
 > 감독형 자율주행이다 — 설계 승인과 PR 병합은 사람이 한다. (이전 이름 specops-ko)
 
@@ -309,7 +309,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 |---|---|
 | `/status` | 진행 중 FID 의 단계·아티팩트 현황 (내장 `/status` 와 겹치면 `/devfsd:status`) |
 | `/doctor` | 설치·환경 건강 진단 10항목 (read-only) (내장 `/doctor` 와 겹치면 `/devfsd:doctor`) |
-| `/design-overview` | 설계 문서를 읽기 전용 HTML 한 장으로 — 구성도·프로세스 흐름·ERD 그림, 추적표, 미확정/가정 목록 (`--check` 로 낡음 확인) |
+| `/design-overview` | 설계 문서를 읽기 전용 HTML 한 장으로 — 구성도·프로세스 흐름·ERD 그림, 추적표, 미확정/가정 목록 (`--check` 로 낡음 확인 · 설계가 끝나는 지점마다 자동으로 다시 만든다) |
 | `/gbrain` · `/log` | 세션 인사이트 조회 · 즉석 기록 |
 | `/promote` | 자유작업 mini-FID 를 lifecycle 로 승격 |
 | `/security-scan` | 온디맨드 SAST + DAST (`--self-config` 로 자기 번들 적대감사) |
@@ -388,4 +388,4 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 
 ---
 
-*초기화: 2026-04-21 · v1.0.0 릴리즈: 2026-04-26 · **최신: v3.1.29 (2026-11-12)** · Claude Code 전용*
+*초기화: 2026-04-21 · v1.0.0 릴리즈: 2026-04-26 · **최신: v3.1.30 (2026-11-12)** · Claude Code 전용*

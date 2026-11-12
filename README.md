@@ -96,6 +96,7 @@ claude plugin install devfsd@devfsd
 | `/start-lite` | 신규 기능 경량 — clarify·plan 생략, 화면/IF·리뷰·verify 유지 |
 | `/start-all` · `/start-all-auto` | `requirements.md` FR 표 전체 일괄 구현 (`-auto` 는 무인 — 가역 게이트 자동 통과, batch PR만 확인) |
 | `/maintain` · `/maintain-lite` | 기존 코드 수정 — 영향 분석 선행 + 회귀 AC 강제 |
+| `/basic` | 위험 신호 없는 보통 작업 — spec 1장 승인 → 주 세션 직접 구현 → 스펙·코드 리뷰 + 보안 스캔 동시 1회 → 검증 1회 → PR. 인증·스키마·데이터 삭제/이관·API 응답 형태·비가역 외부 작업 신호가 보이면 `/start`·`/maintain` 으로 올린다(스크립트 판정). 실제 소요·품질은 아직 재지 않았다 |
 | `/quick-fix` | 몇 줄짜리 수정 — 명세·분해 문서 없이 테스트 실행 + 코드 리뷰 1회. 크기 상한과 고위험 신호를 커밋 때 훅이 판정하고, 넘으면 `/maintain-lite` 로 간다 |
 | `/brainstorming` | (선택) 구현 전 아이디어 탐색 |
 | `/design-screen(s)` · `/design-interface(s)` | lifecycle 밖 화면·인터페이스 단발 설계 |
@@ -329,14 +330,14 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 ```
 devFSD/
 ├── .claude-plugin/     plugin.json · marketplace.json
-├── commands/           슬래시 진입로 25건
+├── commands/           슬래시 진입로 26건
 ├── hooks/              SessionStart · PreToolUse · PostToolUse · Stop · Notification
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
 ├── skills/             flat: skills/<name>/SKILL.md × 31
 │                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 Harness(원칙)
 ├── agents/             ← 16건  implementer · req-designer · ui-designer · db-designer · arch-designer · api-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
 │                              design-reviewer · comprehension-reviewer · red-team · blue-team · auditor
-├── templates/          ← 40건 (lifecycle 20 + /init-project 산출 14 + 기타 6)
+├── templates/          ← 41건 (lifecycle 21 + /init-project 산출 14 + 기타 6)
 ├── scripts/            doctor · release · gbrain · security-scan · dag/ · tests/ · _internal/
 ├── docs/               설계 노트 · 갭 분석 · upstream drift log · audit/(자기 평가·제안 스냅샷) · adoption-notes(도입 전 알아둘 것 상세) · assets/(히어로 SVG)
 └── CLAUDE.md · DESIGN.md · CONTRIBUTING.md · CHANGELOG.md

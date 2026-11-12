@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.2] — 2026-11-13
+
 ### Fixed
 
 - **리뷰 보고서 저장 훅이 닫힘 줄 뒤에 붙은 JSON 닫는 글자 때문에 저장을 포기하던 것.** 리뷰어의 반환 메시지가 `<<<END>>>"}` 로 끝나면(반환 도구 인자를 닫는 글자가 메시지 안으로 흘러든 경우) `hooks/save-review-report.sh` 가 "열림·닫힘 짝 불일치"로 건너뛰어, 봉인이 요구하는 `reviews/<tid>-C-report.md` 를 주 세션이 직접 옮겨 적어야 했다. 메시지의 마지막 줄이 닫힘 마커와 `"`·`}` 뿐일 때만 그 꼬리를 떼고 저장한다 — 중간 줄의 꼬리나 다른 글자는 종전대로 형식 오류다.
@@ -3813,7 +3815,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.2...HEAD
+[4.0.2]: https://github.com/andyko18/devFSD/compare/v4.0.1...v4.0.2
 [4.0.1]: https://github.com/andyko18/devFSD/compare/v4.0.0...v4.0.1
 [4.0.0]: https://github.com/andyko18/devFSD/compare/v3.1.36...v4.0.0
 [3.1.36]: https://github.com/andyko18/devFSD/compare/v3.1.35...v3.1.36

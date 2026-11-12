@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-devFSD(개발 자율주행)는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 슬래시 1회(`/start`, `/start-lite`, `/maintain`, `/maintain-lite` · 무인 일괄 `/start-all-auto`) 또는 자연어 진입 후 메타 스킬이 spec → (clarify → plan) → TDD implement → verify → review → security → integration-test → performance-test → PR 전 단계를 자동 chain한다. `/start-lite`·`/maintain-lite`는 clarify·plan ceremony만 생략하고 화면/IF·Phase B/C·verify는 유지한다(NL로 lite 추론 금지). 몇 줄짜리 수정은 `/quick-fix` 가 chain 밖에서 받는다 — 문서 없이 테스트 실행 + 코드 리뷰 1회이고, 범위 상한은 커밋 때 훅이 판정한다(아래 거버넌스 엔진의 quick 경로). Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
+devFSD(개발 자율주행)는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 진입은 `/start` · `/maintain` · `/quick-fix` 와 자연어다(무인 일괄 `/start-all-auto`). `/start`·`/maintain`·자연어 진입은 **갈래를 스크립트가 고른다**(`scripts/basic-path.sh route`): 위험 신호가 없으면 **기본 경로**(`commands/basic.md` — spec 1장 → 주 세션 구현 → 리뷰 1회 → 검증 1회 → PR), 있거나 `--full`·`--step` 이면 **풀 경로**(spec → clarify → plan → TDD implement → verify → review → security → integration-test → performance-test → PR 자동 chain). 기본 경로 중 신호가 나오면 `basic-path.sh promote` 로 같은 FID 를 풀 경로에 올린다. `/basic` 은 기본 경로 직접 지정, `/start-lite`·`/maintain-lite` 는 별칭(다음 메이저에서 제거 · 내부 `lite` 분기는 남아 있다). 몇 줄짜리 수정은 `/quick-fix` 가 chain 밖에서 받는다 — 문서 없이 테스트 실행 + 코드 리뷰 1회이고, 범위 상한은 커밋 때 훅이 판정한다(아래 거버넌스 엔진의 quick 경로). Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
 
 ## 테스트 명령
 
@@ -84,9 +84,9 @@ Generator ↔ Evaluator 를 분리한다(구현 Phase B `spec-reviewer-ko` → P
 진입 분기 약속어 — args 첫 줄에 HTML 주석을 prepend하여 분기를 구분한다.
 매칭 순서(specifying-ko): maintain-lite → maintain → lite → foundation → batch → (신규 기본).
 
-- `<!-- entry: maintain-lite -->` — 경량 유지보수. `analyzing-ko` `[lite-mini 분기]` → `specifying-ko` `[maintain-lite 분기]`. `maintain`보다 **먼저** 매칭.
+- `<!-- entry: maintain-lite -->` — 경량 유지보수(명령은 더 붙이지 않는다 — 제거 예정). `analyzing-ko` `[lite-mini 분기]` → `specifying-ko` `[maintain-lite 분기]`. `maintain`보다 **먼저** 매칭.
 - `<!-- entry: maintain -->` — 유지보수 진입. `specifying-ko`의 `[유지보수 분기]`가 감지.
-- `<!-- entry: lite -->` — 경량 신규. `specifying-ko` `[lite 분기]` — clarify/plan skip, §lite+trivial, 화면/IF·B/C 유지.
+- `<!-- entry: lite -->` — 경량 신규(위와 같다). `specifying-ko` `[lite 분기]` — clarify/plan skip, §lite+trivial, 화면/IF·B/C 유지.
 - `<!-- entry: foundation -->` — 공통부 먼저 개발 진입. `specifying-ko`의 `[foundation 분기]`가 감지. Step 5.5 **셸 전용**(allowlist `app-shell`·`layout`·`login` + `<!-- foundation-shell -->`, 기능 화면 금지), Step 5.6 적용, §유형=`foundation` 자동 라벨.
 - `<!-- entry: batch -->` — `/start-all` FR 루프. Step 0 git-branch skip, Step 5.5·5.6 skip(Phase 2.5로 이관). 셋째 줄 `<!-- auto: true -->`면 `§auto` 동시 기재.
 

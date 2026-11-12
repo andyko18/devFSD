@@ -44,6 +44,8 @@ used_by: using-specops-ko, /start, /start-lite, /start-foundation, /start-all, /
    기존 `.specops/<FID>/` 디렉토리가 있으면 (유지보수 분기 재진입) 스킵.
    [유지보수 분기]는 analyzing-ko Step 0이 브랜치 생성을 담당하므로 본 스텝 적용 제외.
 
+   **[승격 진입]**: args 주석 줄에 `<!-- promoted-from-basic: <FID> -->` 가 있으면(기본 경로에서 올라온 FID) 본 스텝을 생략하고 같은 디렉터리 `basic-promote.md` 를 Read 해 따른다.
+
    **[batch 분기]**: args 첫 줄이 `<!-- entry: batch -->` 이면 → `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/git-branch-create.sh` **호출 금지** (브랜치는 `/start-all` 오케스트레이터가 이미 생성). 둘째 줄 `<!-- batch-id: <id> -->` 에서 batch-id를 추출해 Step 6에서 `**§batch**: <id>` 라벨 기재에 사용.
 
 1. **프로젝트 맥락 탐색** — 파일·문서·최근 커밋 확인

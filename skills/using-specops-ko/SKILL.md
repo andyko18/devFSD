@@ -16,7 +16,7 @@ used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
 <EXTREMELY-IMPORTANT>
 1% 가능성이라도 specops-ko Lifecycle skill이 적용될 수 있다면 **반드시** 호출한다.
 
-특히 사용자 입력이 다음 신호를 포함하면 즉시 `devfsd:specifying-ko` 호출:
+특히 사용자 입력이 다음 신호를 포함하면 즉시 아래 「진입 분기」로 진입:
 
 **[신규 신호]** — `maintenance flag = false`:
 - "X 기능을 만들고 싶어"
@@ -39,9 +39,7 @@ used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
 >
 > **배제 시 1줄 고지**: "(코딩 작업이 아니라 판단해 lifecycle 을 진입하지 않았습니다. 필요하면 `/start <설명>` 으로 강제 진입할 수 있습니다.)" — `/start` 슬래시는 무조건 직행하므로(`commands/start.md` SoT), 판정이 틀렸을 때 사용자가 즉시 뒤집을 수 있다.
 
-> **경계**: `/start <인자>` 슬래시는 인자 내용을 2차 판단하지 않고 무조건 specifying-ko 직행 — 동작 정의 SoT 는 `commands/start.md`(본 skill 은 자연어 신호 감지만).
-
-> **lite 추론 금지**: "가볍게", "토큰 아끼고", "짧게 해줘" 등 자연어로 `/start-lite`·`/maintain-lite`·`/quick-fix`를 **추론하지 않는다**(`/basic` 도 같다). 넷 다 슬래시 전용(`commands/`의 각 파일이 SoT). 자연어 신규/유지보수는 기존대로 `/start`·`/maintain` 경로(또는 풀 chain)만.
+> **갈래 추론 금지**: "가볍게"·"짧게" 같은 말로 갈래를 **추론하지 않는다** — 기본/풀은 아래 **스크립트 판정**, `/quick-fix`·`--full`·`--step` 은 슬래시 전용.
 
 이는 협상 사항이 아니다. 합리화로 우회 금지.
 </EXTREMELY-IMPORTANT>
@@ -49,6 +47,8 @@ used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
 ## 진입 분기
 
 우선순위: 사용자 명시 지시·CLAUDE.md > specops-ko skill > 기본 시스템 프롬프트. 신호 감지 후 신규/유지보수를 1회 분류한다(모호하면 "신규 / 유지보수 어느 쪽?" 1문항).
+
+**갈래 판정 1회** — `bash <보조 문서 디렉터리>/../../scripts/basic-path.sh route <start|maintain> "<요청 한 줄>"`(따옴표·백틱·`$` 제외) → `NOTICE:` 줄을 보인다. `ROUTE: basic` 이면 `PROCEDURE:` 줄의 파일을 Read 해 따르고(유지보수는 1번에 `maintain`), `full` 이면 아래 표.
 
 | flag | 진입 | args |
 |---|---|---|

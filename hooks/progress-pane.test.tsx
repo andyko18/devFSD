@@ -1322,6 +1322,14 @@ test('devFSD: a /basic FID whose middle records are missing counts stages before
   expect(currentStageKey(failed, '20261106-x')).toBe('verify')
 })
 
+test('devFSD: a /basic FID promoted to the full path switches to the full stage list', () => {
+  // scripts/basic-path.sh promote 가 `/full 승격` 줄을 남긴다 — 그 뒤 기록은 풀 경로 단계로 읽는다
+  const promoted = PROG_T2(['- 2026-11-12 15:10 /plan 완료 (x)', '- 2026-11-12 14:50 /full 승격 (위험 신호 — 기본 경로에서 올림)', '- 2026-11-12 14:41 /approve 완료 (x)', '- 2026-11-12 14:22 /basic 시작 (x)'])
+  expect(isBasicLane(promoted, '20261106-x')).toBe(false)
+  expect(stagesOf(promoted, '20261106-x').map(s => s.key)).toContain('plan')
+  expect(currentStageKey(promoted, '20261106-x')).not.toBe('specify')
+})
+
 test('devFSD: the full path keeps its stage list — /basic records in another FID do not switch it', () => {
   const full = PROG_T2(['- 2026-11-06 10:02 /tasks 완료 (x)', '- 2026-11-06 10:01 /plan 완료 (x)', '- 2026-11-06 10:00 /specify 완료 (x)'])
   const both = `${full}\n## 20261112-other · 기본\n\n- 2026-11-12 14:22 /basic 시작 (x)\n`

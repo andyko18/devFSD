@@ -57,6 +57,8 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
 - **사용자 메시지**: promote-fid 분기는 `"FID: <FID> — mini-FID 승격 분석을 시작합니다."` 로 출력(아래 Step 0 기본 메시지 대신 — 승격 진입 명시, 투명성).
 - promote-fid 신호가 **없으면** 아래 기존 FID 생성 절차를 그대로 수행한다(무손상).
 
+**[승격 진입]**: args 주석 줄에 `<!-- promoted-from-basic: <FID> -->` 가 있으면(기본 경로에서 올라온 FID) 새 FID 를 만들지 않고 `skills/specifying-ko/basic-promote.md` 를 Read 해 따른다(`basic-path.sh promote` 의 `PROCEDURE:` 줄이 절대경로를 준다).
+
 args에서 `<!-- entry: maintain -->` 또는 `<!-- entry: maintain-lite -->` 첫 줄을 제거한 나머지 텍스트가 대상 설명이다. `<!-- step: true -->` 줄도 함께 뺀다(`--step` 표지 — 대상 설명·슬러그에 넣지 않는다). (`maintain-lite`면 위 **[lite-mini 분기]**로 — 본 풀 체크리스트를 돌리지 않는다.) 파일명·심볼명·핵심 명사를 우선 추출해 kebab-slug를 구성하고, `YYYYMMDD-<slug>` 형식으로 FID를 생성한다.
 
 **FID 생성 절차:**

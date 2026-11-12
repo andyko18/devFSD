@@ -1,70 +1,40 @@
 ---
 name: maintain-lite
 disable-model-invocation: true
-description: "[유지보수·경량] analyzing-mini + clarify·plan 생략 — 화면/IF·Phase B/C·verify·AC-R-1 유지"
+description: "[유지보수·별칭] `/maintain` 의 별칭 — 다음 메이저에서 제거. `/maintain` 가 위험 신호가 없으면 기본 경로를 자동으로 고른다"
 triggers:
   - "/maintain-lite"
 mode: ask
-specops_version: 2.12.0
+specops_version: 3.1.36
 specops_layer: Lifecycle
-reference_upstream: specops-ko 독자 추가 (commands/maintain.md § lite variant)
+reference_upstream: specops-ko 독자 추가 (commands/maintain.md 의 별칭)
 ---
 
 # /maintain-lite [<대상 또는 변경 설명>]
 
 ## 목적
 
-`/maintain` 대비 **토큰 절감 유지보수 진입**. analyzing은 **mini**(대상 파일·호출자·회귀 요약), clarify·plan은 생략. **화면/IF(해당 시)·Phase B/C·verify·AC-R-1**은 유지.
+**`/maintain` 의 별칭이다 — 다음 메이저에서 제거한다.** 가벼운 경로를 사용자가 고를 필요가 없어졌다: `/maintain` 가 위험 신호를 스크립트로 판정해 신호가 없으면 기본 경로(spec 1장 → 주 세션 직접 구현 → 리뷰 1회 → 검증 1회 → PR)를, 있으면 풀 경로를 고른다. 종전의 lite 절차(clarify·plan 만 생략하고 구현자 dispatch 는 유지 — 20261112 실측 53분)는 이 명령으로 더 이상 돌지 않는다.
 
 ## Process
 
-0. **기본 동작과 `--step`** — 인자가 `--step` 으로 시작하면 그 낱말(과 뒤 공백)을 떼고 `<!-- step: true -->` 줄을 args 의 약속어 줄(`<!-- entry: … -->`) 바로 다음 줄에(아래 2 에서 약속어를 붙인 뒤) 넣는다(지금까지의 단계별 확인). 없으면 넣지 않는다 — 기본은 `§일괄`: 질문은 최대 2회 묶음, intent·설계·스펙·AC·화면·IF·답변을 한 번에 승인받고 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 등은 그대로 멈춘다 — `skills/specifying-ko/once-approval.md`).
+1. **고지 1줄** — "`/maintain-lite` 는 다음 메이저에서 제거됩니다 — `/maintain` 가 자동으로 고릅니다." 를 먼저 보인다.
+2. **갈래 고르기** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh route maintain "<인자 원문>"` 을 1회 실행하고(따옴표·백틱·`$` 는 빼고 넘긴다) `NOTICE:` 줄을 그대로 보인다.
+   - `ROUTE: basic` → `PROCEDURE:` 줄의 파일(`commands/basic.md`)을 Read 해 그 Process 를 `REQUEST:` 줄의 요청으로 1번부터 따른다 — 1번 start 끝에 `maintain` 을 붙인다.
+   - `ROUTE: full` → `ENTRY:` 줄의 파일(`commands/maintain.md`)을 Read 해 그 Process 를 0 부터 따른다(0-0 갈래 고르기는 방금 했다).
 
-1. **메타 skill 활성 확인**
-2. **analyzing-ko 호출** — args 첫 줄에 `<!-- entry: maintain-lite -->` prepend 후 원본 인자. analyzing-ko **[lite-mini 분기]**가 짧은 current-state + impact 요약 산출 + ★ HARD GATE
-3. **사용자 검토 통과 후 specifying-ko** — 동일 args(약속어 유지). `[maintain-lite 분기]`: `§유형=유지보수` + `§lite=true` + AC-R-1 · 화면/IF 해당 시 동일
-4. **이후 chain (lite)**: decomposing(1 task) → implementing(A + end-loaded B/C) → verifying → request/receive(end-loaded skip) → security → integration → performance → PR. clarifying·planning **호출 금지**.
-
-## `/maintain` 대비
-
-| 단계 | `/maintain` | `/maintain-lite` |
-|---|---|---|
-| analyzing | full ★ | **mini** ★ |
-| clarifying / planning | ✅ | **skip** |
-| 화면 5.5 / IF 5.6 | 조건부 ✅ | **동일 유지** |
-| decompose | N | **1 task** |
-| Phase B/C | ✅ | **필수 유지** |
-| AC-R-1 (회귀) | ✅ | ✅ |
-
-**strict 승격** (두 지점): ① 진입 직후 요청에 auth·migration·결제/PII·파괴적 스키마 등 strict 신호가 보이면 거부 후 `/maintain` 안내. ② 놓쳤어도 분해 단계의 `LITE-STRICT-GUARD`(`risk-profile.sh` rc=3)가 기계로 잡는다 — 그때는 제자리에서 clarify → plan 을 수행해 승격한다(분석은 mini 로 남는다 — 풀 영향 분석이 필요하면 `/maintain` 재진입). 설계 문서를 **인용만** 한 것(spec §참조)과 테스트가 자기 임시 디렉터리를 치우는 코드는 strict 신호가 아니다.
-
-## 사용 예
-
-```
-/maintain-lite 주문 목록 정렬이 최신순이 아닌 버그
-
-→ <!-- entry: maintain-lite -->
-→ analyzing-ko mini ★ HARD GATE
-→ specifying-ko (유지보수 + §lite, AC-R-1)
-→ clarify/plan SKIP → 1 task → implement B/C → verify → …
-```
+`/maintain <같은 인자>` 와 결과가 같다. 옵션(`--full`·`--step`·`--no-split`)도 `/maintain` 와 같게 받는다.
 
 ## 안티패턴
 
-- **자연어로 lite 추론 금지** — "가볍게 고쳐줘"로 maintain-lite 추론 금지. 슬래시만.
-- **신규 기능을 `/maintain-lite`로 진입** — 재분류 요청 (`/start-lite` 또는 `/start`)
-- **analyzing 완전 skip** — mini라도 baseline·회귀 요약은 필수 (AC-R-1 근거)
-- **화면·IF·Phase B/C·verify 생략** — lite 불변식 위반
-- **인자 없이 진입** — modally 되묻기
-- **인자 내용 2차 판단** — analyzing 호출 보류 금지
+- **종전 lite 절차로 진행** — `<!-- entry: maintain-lite -->` 약속어를 붙여 `analyzing-ko` 를 부르지 않는다. 이 명령은 그 분기로 들어가지 않는다.
+- **자연어로 이 명령을 추론** — 자연어 진입은 메타 skill 이 `/maintain` 와 같은 갈래 판정을 거친다. 별칭을 고를 일이 없다.
 
 ## 참조
 
-- `commands/maintain.md` — 풀 유지보수 진입
-- `commands/start-lite.md` — 경량 신규 자매
-- `skills/analyzing-ko/SKILL.md` — `[lite-mini 분기]`
-- `skills/specifying-ko/SKILL.md` — `[maintain-lite 분기]`
+- `commands/maintain.md` — 본 명령 · `commands/start-lite.md` — 자매 별칭
+- `commands/basic.md` · `scripts/basic-path.sh` — 기본 경로와 갈래 판정(`route`)
 
 ---
 
-*specops-ko v2.12.0 · 2026-08-04 · 경량 유지보수 Lifecycle 진입 (analyze-mini, clarify·plan skip)*
+*specops-ko v3.1.36 · 2026-11-12 · `/maintain` 의 별칭 (다음 메이저에서 제거)*

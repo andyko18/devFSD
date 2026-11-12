@@ -32,7 +32,7 @@
 
 > **경계**: `/start <인자>` 슬래시의 동작 정의는 `commands/start.md` 가 Source of Truth. 본 메타 skill 은 **자연어 입력** 의 신호 감지만 책임한다. `/start` 에 붙은 인자 내용이 "기능 설명으로 보이지 않는다"는 이유로 specifying-ko 호출을 보류하는 2차 판단은 `commands/start.md` 안티패턴 "인자 내용 2차 판단" 에 의해 금지 — 슬래시 진입은 무조건 specifying-ko 로 직행.
 
-> **lite 추론 금지**: "가볍게", "토큰 아끼고", "짧게 해줘" 등 자연어로 `/start-lite`·`/maintain-lite`·`/quick-fix`를 **추론하지 않는다**. 셋 다 슬래시 전용(`commands/`의 각 파일이 SoT). 자연어 신규/유지보수는 기존대로 `/start`·`/maintain` 경로(또는 풀 chain)만.
+> **갈래 추론 금지**: "가볍게", "토큰 아끼고", "짧게 해줘" 등 자연어로 갈래(기본 경로 · 풀 경로 · `/quick-fix`)를 **추론하지 않는다**. 기본/풀은 `scripts/basic-path.sh route` 의 판정이 고르고, `/quick-fix`·`--full`·`--step` 은 슬래시 전용이다(`commands/`의 각 파일이 SoT).
 
 이는 협상 사항이 아니다. 합리화로 우회 금지.
 </EXTREMELY-IMPORTANT>

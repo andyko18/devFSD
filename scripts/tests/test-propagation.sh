@@ -149,7 +149,7 @@ _p11_check(){  # $1=record id  $2=술어 토큰 정규식
 _p11_check design-critical-cap     '정지|자동통과 금지'
 _p11_check lite-clarify-plan-skip  '호출 금지|호출하지 않'
 _p11_check lite-screen-if-keep     '제외 금지'
-_p11_check lite-bc-mandatory       '유지'
+_p11_check lite-bc-mandatory       '생략 금지'   # 20261112: 명령(별칭) 쪽 '유지' 앵커를 빼고 implementing-ko 의 계약 문장으로 옮겼다
 _p11_check end-loaded-skip         '1회'
 _p11_check declared-testcmd-anchor '필수|게이트'
 if [ "$_p11_fail" -eq 0 ]; then

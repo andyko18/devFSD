@@ -164,13 +164,13 @@ _h_over() {  # <라벨> <기대 사유 조각> <outputs> <준비를 마친 샌�
   local s="$4" v; _review "$s" PASS; _hand_receipt "$s" "$3"
   [ -f "$s/.specops/$F/receipts/T1.json" ] || { nope "$1" "픽스처 — 영수증이 만들어지지 않았다"; return; }
   v=$(_hook "$s" "$MSG")
-  printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -qF "quick 범위 초과 — $2" && printf '%s' "$v" | grep -q '/maintain-lite' \
+  printf '%s' "$v" | grep -q '^DENY' && printf '%s' "$v" | grep -qF "quick 범위 초과 — $2" && printf '%s' "$v" | grep -q '/maintain' \
     && ! printf '%s' "$v" | grep -q '기록된 receipt 가 유효하지 않습니다' \
     && ok "$1" || nope "$1" "$(printf '%s' "$v" | tail -6)"
 }
 s=$(_mk); _SBS="$_SBS $s"; _open_fid "$s"
 ( cd "$s" && printf "echo v2\n" > src/a.sh && _n 3 > src/b.sh && _n 3 > src/c.sh && git add src ) >/dev/null 2>&1
-_h_over "H1.a ★ 구현 파일 3개 → 차단 · 사유에 기준과 /maintain-lite ('영수증 무효' 라고 말하지 않는다)" '구현 파일 3개 (상한 2개)' 'src/a.sh, src/b.sh, src/c.sh' "$s"
+_h_over "H1.a ★ 구현 파일 3개 → 차단 · 사유에 기준과 /maintain ('영수증 무효' 라고 말하지 않는다)" '구현 파일 3개 (상한 2개)' 'src/a.sh, src/b.sh, src/c.sh' "$s"
 s=$(_mk); _SBS="$_SBS $s"; _open_fid "$s"
 ( cd "$s" && { echo "echo v2"; _n 29; } > src/a.sh && git add src/a.sh ) >/dev/null 2>&1
 _h_over "H1.b 변경 31줄 → 차단" '변경 31줄 (상한 20줄' 'src/a.sh' "$s"
@@ -212,11 +212,11 @@ c4=$(. "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; _receipt_cause 4 "$MSG
 c1=$(. "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; _receipt_cause 1 "$MSG" T1 "$F")
 [ "$c3" = "quick-over" ] && [ "$c4" = "quick-noreview" ] && [ "$c1" = "open-invalid" ] \
   && ok "H4.a 종료 코드 3 → quick-over · 4 → quick-noreview · 1 → open-invalid(종전)" || nope "H4.a" "c3=$c3 c4=$c4 c1=$c1"
-# 판정 불가(스테이징된 변경 없음)는 "범위 초과" 가 아니다 — 문안이 원인을 그대로 말하고 /maintain-lite 로 보내지 않는다
+# 판정 불가(스테이징된 변경 없음)는 "범위 초과" 가 아니다 — 문안이 원인을 그대로 말하고 /maintain 로 보내지 않는다
 sb=$(_mk); _SBS="$_SBS $sb"; mkdir -p "$sb/.specops/$F"
 h=$(cd "$sb" && . "$PLUGIN/hooks/governance-lib.sh" >/dev/null 2>&1; _receipt_hint_extra quick-over "$MSG" "$F")
-printf '%s' "$h" | grep -q 'quick 판정 불가 — 스테이징된 변경이 없다' && ! printf '%s' "$h" | grep -qE '범위 초과|/maintain-lite' \
-  && ok "H4.b 판정 불가는 범위 초과로 말하지 않는다(원인 그대로 · /maintain-lite 안내 없음)" || nope "H4.b" "$(printf '%s' "$h" | head -3)"
+printf '%s' "$h" | grep -q 'quick 판정 불가 — 스테이징된 변경이 없다' && ! printf '%s' "$h" | grep -qE '범위 초과|/maintain ' \
+  && ok "H4.b 판정 불가는 범위 초과로 말하지 않는다(원인 그대로 · /maintain 안내 없음)" || nope "H4.b" "$(printf '%s' "$h" | head -3)"
 
 # ── S1 start 의 가드 ────────────────────────────────────────────────────────
 QF="$PLUGIN/scripts/quick-fix.sh"
@@ -268,8 +268,8 @@ sb=$(_mk); _SBS="$_SBS $sb"; ( cd "$sb" && bash "$QF" start "$F" "큰 수정" ) 
 ( cd "$sb" && printf 'echo v2\n' > src/a.sh && _n 3 > src/b.sh && _n 3 > src/c.sh && git add src ); _review "$sb" PASS
 out=$(cd "$sb" && bash "$QF" seal "$F" "bash tests/t.sh" 2>&1); rc=$?
 [ "$rc" = 3 ] && [ ! -f "$sb/.specops/$F/tasks.md" ] && [ ! -d "$sb/.specops/$F/receipts" ] \
-  && printf '%s' "$out" | grep -q '/maintain-lite' \
-  && ok "S3.a seal — 범위 초과면 rc 3, 아무것도 쓰지 않고 /maintain-lite 를 안내" || nope "S3.a" "rc=$rc out=$out"
+  && printf '%s' "$out" | grep -q '/maintain' \
+  && ok "S3.a seal — 범위 초과면 rc 3, 아무것도 쓰지 않고 /maintain 를 안내" || nope "S3.a" "rc=$rc out=$out"
 sb=$(_mk); _SBS="$_SBS $sb"; ( cd "$sb" && bash "$QF" start "$F" "리뷰 없이" ) >/dev/null 2>&1
 ( cd "$sb" && printf 'echo v2\n' > src/a.sh && git add src/a.sh )
 out=$(cd "$sb" && bash "$QF" seal "$F" "bash tests/t.sh" 2>&1); rc=$?
@@ -288,7 +288,7 @@ grep -qF 'quick 경로: yes' "$CR" && grep -qF '`quick 경로: yes` 표시가 �
   && ok "D2.a code-reviewer-ko — quick 표시를 받는 컨텍스트로 받고 SKIP 하지 않는다" || nope "D2.a" "계약에 quick 입력이 없다"
 grep -qF '경로도 병렬 표시도 없으면 SKIP 반환' "$CR" \
   && ok "D2.b 종전 자격 게이트(경로·병렬 표시 둘 다 없으면 SKIP)는 그대로다" || nope "D2.b" "SKIP 문구가 사라졌다"
-grep -qF '`/maintain-lite`·`/quick-fix`를 **추론하지 않는다**' "$META" \
+grep -qF '`/quick-fix`·`--full`·`--step` 은 슬래시 전용' "$META" && grep -qF '갈래를 **추론하지 않는다**' "$META" \
   && ok "D3.a 메타 스킬 — 자연어로 /quick-fix 를 추론하지 않는다(lite 와 같은 줄)" || nope "D3.a" "메타 스킬에 문구 없음"
 
 # ── D1 진입 커맨드 — 슬래시 전용 · 절차 · 상한 표 (AC-5) ────────────────────
@@ -296,8 +296,8 @@ CMD="$PLUGIN/commands/quick-fix.md"
 [ -f "$CMD" ] && grep -q '^disable-model-invocation: true$' "$CMD" \
   && ok "D1.a /quick-fix 커맨드는 모델 호출 금지(슬래시 전용)" || nope "D1.a" "커맨드 부재 또는 표지 없음"
 grep -qF 'quick-fix.sh start' "$CMD" 2>/dev/null && grep -qF 'quick-fix.sh seal' "$CMD" && grep -qF 'quick-fix.sh done' "$CMD" \
-  && grep -qF 'Task: T1' "$CMD" && grep -qF 'quick 경로: yes' "$CMD" && grep -qF '/maintain-lite' "$CMD" \
-  && ok "D1.b 커맨드 본문 — start·seal·done · Task: T1 · 리뷰어 quick 표시 · 초과 시 /maintain-lite" || nope "D1.b" "본문에 빠진 절차가 있다"
+  && grep -qF 'Task: T1' "$CMD" && grep -qF 'quick 경로: yes' "$CMD" && grep -qF '/maintain' "$CMD" \
+  && ok "D1.b 커맨드 본문 — start·seal·done · Task: T1 · 리뷰어 quick 표시 · 초과 시 /maintain" || nope "D1.b" "본문에 빠진 절차가 있다"
 # 상한 수치는 판정기의 상수가 유일한 정의다 — 커맨드 문서의 표가 그 값과 같아야 한다(상수를 바꾸고 문서를 안 고치면 여기서 걸린다)
 _mf=$(sed -n 's/^QUICK_MAX_IMPL_FILES=//p' "$QS"); _ml=$(sed -n 's/^QUICK_MAX_LINES=//p' "$QS")
 [ -n "$_mf" ] && [ -n "$_ml" ] && grep -qF "| ${_mf}개 |" "$CMD" 2>/dev/null && grep -qF "| ${_ml}줄 |" "$CMD" \

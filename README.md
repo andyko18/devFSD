@@ -91,28 +91,30 @@ claude plugin install devfsd@devfsd
 | 슬래시 | 용도 |
 |---|---|
 | `/init-project` | 프로젝트 초기화 — 표준 산출물 14종(풀스택 기준 · 종류·선택별 7~14종) 부트스트랩 (1회) |
+| **`/start`** | 신규 기능 1건. 위험 신호(인증·권한 · DB 스키마 · 데이터 삭제·이관 · API 응답 형태 · 되돌릴 수 없는 외부 작업)를 스크립트가 판정해 **없으면 기본 경로**(spec 1장 승인 → 주 세션 직접 구현 → 스펙·코드 리뷰 + 보안 스캔 동시 1회 → 검증 1회 → PR), **있으면 풀 경로**(설계 문서·plan 리뷰·전문가 검토·게이트 3종)를 고르고 어느 쪽인지 1줄로 알린다. `--full` 은 무조건 풀 |
+| **`/maintain`** | 기존 코드 수정. 같은 판정 — 기본 경로는 spec 1장에 현재 동작과 "기존 동작 유지" 수용 기준(`AC-R-1`)을 받고, 풀 경로는 영향 분석을 먼저 한다 |
+| **`/quick-fix`** | 몇 줄짜리 수정 — 명세·분해 문서 없이 테스트 실행 + 코드 리뷰 1회. 크기 상한과 고위험 신호를 커밋 때 훅이 판정하고, 넘으면 `/maintain` 으로 간다 |
 | `/start-foundation` | 공통부(라우팅·인증·레이아웃·공통 스키마) 먼저 개발 (1회) |
-| `/start` | 신규 기능 1건 — 표준 경로 (대화형) |
-| `/start-lite` | 신규 기능 경량 — clarify·plan 생략, 화면/IF·리뷰·verify 유지 |
-| `/start-all` · `/start-all-auto` | `requirements.md` FR 표 전체 일괄 구현 (`-auto` 는 무인 — 가역 게이트 자동 통과, batch PR만 확인) |
-| `/maintain` · `/maintain-lite` | 기존 코드 수정 — 영향 분석 선행 + 회귀 AC 강제 |
-| `/basic` | 위험 신호 없는 보통 작업 — spec 1장 승인 → 주 세션 직접 구현 → 스펙·코드 리뷰 + 보안 스캔 동시 1회 → 검증 1회 → PR. 인증·스키마·데이터 삭제/이관·API 응답 형태·비가역 외부 작업 신호가 보이면 `/start`·`/maintain` 으로 올린다(스크립트 판정). 실제 소요·품질은 아직 재지 않았다 |
-| `/quick-fix` | 몇 줄짜리 수정 — 명세·분해 문서 없이 테스트 실행 + 코드 리뷰 1회. 크기 상한과 고위험 신호를 커밋 때 훅이 판정하고, 넘으면 `/maintain-lite` 로 간다 |
+| `/start-all` · `/start-all-auto` | `requirements.md` FR 표 전체 일괄 구현 (`-auto` 는 무인 — 가역 게이트 자동 통과, batch PR만 확인). 갈래 자동 고르기는 적용하지 않는다(종전 풀 경로) |
+| `/basic` | 기본 경로를 직접 지정(`/start`·`/maintain` 이 자동으로 고르는 그 경로). 진행 중 위험 신호가 나오면 만든 spec·코드를 들고 풀 경로로 올라간다 |
+| `/start-lite` · `/maintain-lite` | `/start`·`/maintain` 의 별칭 — **다음 메이저에서 제거**(실행하면 그 고지가 나온다) |
 | `/brainstorming` | (선택) 구현 전 아이디어 탐색 |
 | `/design-screen(s)` · `/design-interface(s)` | lifecycle 밖 화면·인터페이스 단발 설계 |
 
-**기본 동작**: `/start`·`/maintain`·`/start-lite`·`/maintain-lite` 와 자연어 진입은 질문을 최대 2회 묶음으로 받고 intent·설계·스펙·화면·IF·답변을 **한 번에 승인**받은 뒤 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 은 그대로 멈춘다). 지금까지처럼 단계마다 확인하려면 `--step` 을 붙인다 — 예: `/start --step CSV 줄 수 세기 CLI`. `/start-all` 도 같다 — 질문은 체인 전·Phase 1 끝 묶음 2회, 승인은 설계 승인(2.5-E) 1회(`/start-all --step` 은 지금처럼).
+**갈래 자동 고르기**: `/start`·`/maintain` 과 자연어 진입("X 만들어줘"·"Y 고쳐줘")은 같은 스크립트 판정(`scripts/basic-path.sh route`)을 거친다 — 모델이 "가벼워 보인다"로 고르지 않는다. 애매하면 풀이고, `--step` 을 붙여도 풀이다. 실측(20261112 · 기계 시간): 기본 경로 42분(원인 조사 15분 포함)·12분, 풀 경로 149~157분 — 표본은 기본 2건이고 자동 분기·승격의 실제 주행은 아직 재지 않았다.
+
+**풀 경로의 기본 동작**: `/start`·`/maintain` 과 자연어 진입은 질문을 최대 2회 묶음으로 받고 intent·설계·스펙·화면·IF·답변을 **한 번에 승인**받은 뒤 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 은 그대로 멈춘다). 지금까지처럼 단계마다 확인하려면 `--step` 을 붙인다 — 예: `/start --step CSV 줄 수 세기 CLI`. `/start-all` 도 같다 — 질문은 체인 전·Phase 1 끝 묶음 2회, 승인은 설계 승인(2.5-E) 1회(`/start-all --step` 은 지금처럼).
 
 **어느 걸 고를까**
 
 ```
 새 프로젝트?  → /init-project → (필요 시) /start-foundation → /start-all 또는 기능마다 /start
 기존 코드를 고치나?
-  ├─ 아니오 (새 산출물) → /start        (경량: /start-lite)
-  └─ 예   (수정·제거)   → /maintain     (경량: /maintain-lite · 몇 줄짜리: /quick-fix)
+  ├─ 아니오 (새 산출물) → /start        (가벼운지 무거운지는 자동 — 무조건 풀: --full)
+  └─ 예   (수정·제거)   → /maintain     (위와 같다 · 몇 줄짜리: /quick-fix)
 ```
 
-> `-lite`·`-auto` 는 슬래시로만 진입한다. 자연어 "가볍게 해줘"·"알아서 다 해줘"를 lite·무인으로 추론하지 않는다.
+> `/quick-fix`·`--full`·`--step`·`-auto` 는 슬래시로만 진입한다. 자연어 "가볍게 해줘"·"알아서 다 해줘"로 갈래·무인을 추론하지 않는다 — 기본/풀은 스크립트 판정이다.
 > 무인(`/start-all-auto`)은 사람의 확인만 줄인다 — 분석 산출물·회귀 AC·리뷰·verify 는 그대로고, 되돌릴 수 없는 작업·치명 결함·보안 Critical/High 에서는 멈춘다. 자동으로 지나간 것은 PR 직전의 가정 다이제스트에 전부 나온다.
 
 **공통부 · 일괄 진입 주의**

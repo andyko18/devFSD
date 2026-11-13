@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.10] — 2026-11-14
+
 ### Changed
 
 - **코드 리뷰어의 `[기존]` 라벨을 받는 쪽이 안다.** 4.0.7 에서 라벨만 넣고 받는 쪽을 잇지 않았다. `[기존]` Important 는 부모가 이번 범위에서 고치지 않고 넘긴다(`skills/implementing-ko/dev-autonomy.md` §2 · `/basic` 은 PR 본문 "넘긴 것"). `[기존]` Critical 은 라벨이 붙어도 종전대로 🔴 절에 올리고 수정 대상이다(「넘길 수 없는 것」 — 릴리즈 준비 판정이 🔴 절을 읽는다). 라벨은 참고이고 부모의 위치 판정이 우선한다.
@@ -3908,7 +3910,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.9...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.10...HEAD
+[4.0.10]: https://github.com/andyko18/devFSD/compare/v4.0.9...v4.0.10
 [4.0.9]: https://github.com/andyko18/devFSD/compare/v4.0.8...v4.0.9
 [4.0.8]: https://github.com/andyko18/devFSD/compare/v4.0.7...v4.0.8
 [4.0.7]: https://github.com/andyko18/devFSD/compare/v4.0.6...v4.0.7

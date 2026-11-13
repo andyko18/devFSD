@@ -46,7 +46,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 전체 아키텍처: `.specops/memory/architecture.md`
 - 프론트 아키텍처: `.specops/memory/frontend-architecture.md` (UI/풀스택/모바일)
 - 백엔드 아키텍처: `.specops/memory/backend-architecture.md` (BE/풀스택만)
-- IF 설계서: `.specops/memory/api-spec.md` (BE/풀스택만)
+- IF 설계서: `.specops/memory/api-spec.md` (API 가 있을 때)
 - 소비 IF: `.specops/memory/api-spec-consumer.md` (UI·모바일: Phase 8g에서 y 선택 시)
 - 테이블 설계서: `.specops/memory/data-model.md` (DB 사용 시)
 - 화면 목록: `.specops/memory/screens-overview.md` (UI/풀스택/모바일)

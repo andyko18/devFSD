@@ -290,7 +290,7 @@ EOF
   if [ -n "$kind" ]; then
     _pf_writes .specops/memory/data-model.md "$policy" \
       && _pf_need db "DB 사용 여부 (서버 DB·클라이언트 영속 포함)" 'y|Y|n|N|skip' "y · n"
-    case "$kind" in 2|4)
+    case "$kind" in 2|4|6)   # 기타(6)도 API 를 가질 수 있다 — 8f 와 같은 조건이어야 한다(T33.a 가 잠근다)
       _pf_writes .specops/memory/api-spec.md "$policy" \
         && _pf_need api "API 정의 방식 (1 Markdown · 2 OpenAPI · 3 GraphQL · 4 RPC · 5 만들지 않음)" '[1-5]' "1~5" ;;
     esac
@@ -354,7 +354,8 @@ screens=
 
 # DB 사용 여부 y/n (서버 DB·localStorage/IndexedDB 포함)
 db=
-# API 정의 방식 — 1 Markdown · 2 OpenAPI · 3 GraphQL · 4 RPC · 5 만들지 않음 — 종류 2·4
+# API 정의 방식 — 1 Markdown · 2 OpenAPI · 3 GraphQL · 4 RPC · 5 만들지 않음 — 종류 2·4·6
+#   (종류 1·5 는 프론트만이다 — 백엔드를 함께 만들면 종류 4 로 고른다. 기타(6)는 API 가 없으면 5)
 api=
 # 외부 API 소비 계약 문서 작성 여부 y/n — 종류 1·5
 api.consumer=

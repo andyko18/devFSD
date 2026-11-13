@@ -13,13 +13,18 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 
 ## 목적
 
-프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 14종 산출물**(풀스택 기준 — 종류·선택별 7~14종)을 자동 부트스트랩한다. `/start-design`은 본 슬래시로 통합됐다. (구 `/start-project` 에서 rename.)
+프로젝트 **최초 1회** 실행. PRD/CLAUDE/DESIGN/architecture 등 **한국 SI 표준 14종 산출물**(풀스택 기준 — 종류·선택별 7~14종)을 자동 부트스트랩한다.
 
-**축소 계약 (v1.50)**: Intake 1 → Skeleton → Light enrich(게이트 1) → **Commit 1**. bash 단계는 화면 파일을 만들지 않는다(이름 목록만) — 화면 본문은 Phase 11 이 만든다(UI 종류): **첫 마일스톤(M1) 범위는 화면·인터페이스를 설계 완료까지**(§M1 설계 완료 규약 — 설계 리뷰 1회 포함) 하고, 그 밖은 초안(미확정 마커 허용)으로 둔다. `/start-all` Phase 2.5 는 설계 완료 표지가 붙은 것을 다시 설계하지 않고 새로 생기거나 달라진 것만 다룬다.
+**흐름**: Intake 1 → Skeleton → Light enrich(게이트 1) → **Commit 1**. bash 단계는 화면 파일을 만들지 않는다(이름 목록만) — 화면 본문은 Phase 11 이 만든다(UI 종류): **첫 마일스톤(M1) 범위는 화면·인터페이스를 설계 완료까지**(§M1 설계 완료 규약 — 설계 리뷰 1회 포함) 하고, 그 밖은 초안(미확정 마커 허용)으로 둔다. `/start-all` Phase 2.5 는 설계 완료 표지가 붙은 것을 다시 설계하지 않고 새로 생기거나 달라진 것만 다룬다.
 
 ## Process
 
 **단계 표시** (소요 측정 — 각 단계가 끝날 때 한 줄): `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-project.sh --mark <이름>`. 이름은 `phase0`(명령 시작 직후) · `answers`(답변 파일을 다 쓴 뒤) · `interview`(Phase 11.5 끝) · `enrich`(보강 끝) · `review`(전문가·설계 리뷰 끝) · `approved`(승인 `y` 직후). bash 단계의 시작·끝은 스크립트가 스스로 남긴다. 종결 커밋이 구간별 소요를 출력한다 — 그 줄을 사용자에게 그대로 전한다. `.specops/` 가 아직 없으면 아무것도 남지 않는다(정상).
+
+**질문은 두 번으로 묶는다** (20261113 — 실기록에서 소요의 대부분이 질문 왕복이었다):
+- **① 입력 확정 — 한 메시지**: 근거 문서를 쓸지 · 그 문서에서 읽은 PRD 6필드 초안 · 답변 파일 키(종류·헌법·디자인 방향·화면 이름·DB·API) 가운데 근거 문서로 정해지지 않는 것. 아래 0-b2·0-c 의 "사용할까요?" 와 6필드 확인, 1번의 키 질문을 **따로따로 묻지 않는다** — 근거 문서를 먼저 읽어 초안과 키 값을 만들고, "이 문서를 근거로 이렇게 읽었다" 를 출처와 함께 한 번에 보인 뒤 고칠 것만 받는다. 이 확인 전에는 아무것도 쓰지 않는다(자동 소비 금지는 그대로다 — 사용자가 문서 사용을 거절하면 그 문서에서 온 값을 버리고 다시 묻는다).
+- **② Phase 11.5 인터뷰 — 한 메시지**: 결정급 최대 5문항(헌법 원칙 포함).
+- 그 밖에 묻는 곳은 승인 게이트뿐이다. 근거 문서가 없으면 ①은 수동 입력 한 번이다.
 
 0. **PRD 6필드 초안 합성** (bash 호출 전 — LLM 레이어). 근거 문서 탐색은 4단 우선순위:
    - **0-a. 명시 경로** — args 에 파일 경로가 포함되면(`/init-project 쇼핑몰 docs/기획서.md`) 그 문서가 최우선 근거.
@@ -55,7 +60,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - **답을 stdin 으로 순서대로 넣지 않는다.** stdin 모드는 터미널에서 사람이 직접 답할 때 쓴다. 질문 수가 종류·기존 파일·메모 유무로 달라져 한 줄만 밀려도 전부 어긋난다 — 그래서 터미널이 아닌데 입력이 모자라거나 선택지가 아닌 값이 들어오면 스크립트가 rc=2 로 멈춘다.
    - `.specops/.init-answers` 는 `.specops/.gitignore` 의 `.init-*` 규칙으로 무시된다. 종결 뒤 지운다.
    - `--resume`: 기존 파일 보존·누락 파일만 생성 (부분 부트스트랩 재개 시 사용). 화면 목록 표와 `.specops/.gitignore` 도 보존 대상이다 — 표에는 새 이름만 덧붙고, `.gitignore` 는 빠진 규칙만 파일 위쪽에 보충한다(사용자 규칙이 뒤에 있어 우선한다 · 구 규칙 `…-*/` 은 `…-*/*` + `intent.md` 예외로 이관).
-2. **10 Phase 진행**:
+2. **bash 10 Phase 진행** (그 뒤는 Phase 11.5 인터뷰 → Phase 11 보강 순서다 — 번호와 실행 순서가 다르다):
    - Phase 1: 사전검사 (git/.specops/memory 검사 + 14종 파일별 표(존재 여부 — 활성은 Phase 2 KIND 가 정한다) + 충돌 정책). 브레인스토밍 메모 있으면 **BM_REF=y 자동**(Phase 0 확인 후 재질문 없음).
    - Phase 2: 종류 분류 (Web/UI · BE/API · CLI/lib · 풀스택 · 모바일 · 기타). 고른 종류는 Phase 10 이 `project-context.md` 머리에 `<!-- specops:project-kind: N -->` 로 적는다 — foundation 필수 판정과 다음 `--resume` 이 추정 대신 이 값을 쓴다(`--resume` 이고 종류가 기록돼 있으면 `kind` 를 비워 두거나 생략할 수 있다 — 기록이 없는 기존 프로젝트는 답해야 한다).
    - Phase 3: 헌법 5원칙 입력 ('skip' 가능)
@@ -80,20 +85,30 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 
 **문서별 보강 깊이 (Light enrich) — 최소 깊이 기준**:
 
+**보강 순서 (고정)** — 앞 단계의 산출이 뒤 단계의 입력이다:
+1. `requirements.md` — M1 FR 분해와 `[공통]` 표기
+2. **M1 범위표** `.specops/.init-design/m1-scope.md` — M1 FR(`[공통]` 제외)마다 화면·엔드포인트·테이블을 근거(PRD·근거 문서의 문장)와 함께 적는다. 근거가 없는 것은 넣지 않는다
+3. `process-design.md` — 범위표의 화면·API·테이블을 프로세스로 잇는다
+4. M1 화면(스펙 + 목업 + 촬영) → 5. 인터페이스(`api-spec`·`data-model`)
+6. 나머지 깊게 대상(`PRD`·구조 3종·`test-strategy`·`DESIGN`)과 M2 이후 화면 초안
+7. 리뷰 전 자가 점검 → 8. 화면 전문가 → 설계 리뷰 (§M1 설계 완료 규약)
+
+범위표를 먼저 확정하는 이유: 종전엔 범위를 같은 단계에서 쓰는 `process-design.md` 로 정해 순환이었다. 화면·인터페이스를 설계하다 범위가 늘면 **범위표를 먼저 고친다** — 범위표에 없는 엔드포인트·테이블은 설계에 넣지 않는다. 전문가·리뷰어 프롬프트에 범위표 경로를 함께 준다. `.init-*` 규칙으로 무시되는 로컬 파일이다.
+
 **깊게** (원칙: bash 생성분 · 해당 KIND만 — 예외: `screens/<name>.md` 는 bash 비생성분이라 보강이 아니라 **새로 만든다**. `process-design.md` 는 bash 가 골격을 만들며 KIND 조건이 붙지 않는다):
 - `PRD.md` — **§1~2 는 Phase 4 확정분이라 건드리지 않는다**(사용자 응답 덮어쓰기 금지). 보강 대상은 `<TODO>` 가 남는 **§목적·성공 판정 · NFR · 리스크 · 기술 스택**뿐. e2e V21 이 `PRD.md` 를 스캔 대상으로 **지정**하므로 담당이 비면 게이트가 검사만 하고 채우는 주체가 없다(20260806 실측: 부트스트랩 직후 원시 `<TODO>` 10곳 잔존).
 - `requirements.md` — M1 FR 세부 분해(must) + M2/M3 시점 명시(should)
 - `api-spec.md` · `data-model.md` — PRD에서 도출된 실 엔드포인트·엔티티. M1 범위는 §M1 설계 완료 규약까지 간다. **`<!-- specops:example:start -->`…`:end -->` 예시 블록은 마커째 삭제**한다(전자상거래 샘플 — ERD·엔티티 표·인덱스 표·오류 형식 예·방식별 스키마 예. 남기면 유령 스키마가 설계 계약이 되고 **종결 커밋이 멈춘다**).
 - `frontend-architecture.md` · `backend-architecture.md` — 스택 표 실값
+- `architecture.md` — 이 프로젝트의 실제 구성요소·통신·배포·구성도. §1~§3 표·§5 구성도·§6 매핑의 예시 블록(Cache·MQ·CDN 등)은 실제 구성으로 바꾸고 마커째 지운다 — 쓰지 않는 구성요소를 남기지 않는다(20261113 깊게 승격 — specifying 이 읽는다)
+- `test-strategy.md` — 테스트 도구·실행 명령·mock 정책. 스택이 정해졌으면 그 스택의 실제 도구와 명령으로 채우고 `CLAUDE.md` 의 `<TEST_COMMAND>` 도 같은 명령으로 채운다. 커버리지 임계값처럼 사용자가 정하지 않은 값은 미확정 마커다(지어내지 않는다). §4·§4.5·§6.5 는 플러그인 계약이라 고치지 않는다(20261113 깊게 승격 — planning·tdd·테스트 전문가·코드 리뷰어가 읽는다)
 - `screens/<name>.md` + `screens/<name>.html` — **UI KIND일 때만**. 입력은 `screens-overview.md` fence 안 화면 이름 목록. 상세는 아래 §화면 보강 규약 · M1 범위 화면은 §M1 설계 완료 규약
 - `process-design.md` — 업무 프로세스 설계. `templates/process-design.md` 기반으로 `.specops/memory/process-design.md` 를 **채운다** — 골격은 bash Phase 8i 가 만든다(정본 14종 편입, 20261008). 골격이 없으면(`--enrich` 로 들어온 구 프로젝트) 같은 템플릿으로 새로 만든다. **KIND 무관 항상 산출**(CLI 도 `사용자 → 명령 → 처리 → 출력` 흐름을 갖는다). 프로세스마다 트리거·행위자·화면·API·테이블·결과·예외
   - **하류 이관** (`--enrich` · `--resume` 실행 시): 구 이름 `.specops/memory/intent.md` 가 프로세스 형식(본문에 `트리거`)으로 있고 `process-design.md` 가 없으면 `git mv .specops/memory/intent.md .specops/memory/process-design.md` 를 제안한다 [y/n]. 사용자가 거절하면 그대로 둔다 — **자동 개명·덮어쓰지 않는다**. `§auto` 는 제안만 기록하고 변경하지 않는다
 - `DESIGN.md` — **UI KIND일 때만**. 머리의 `디자인 방향` 선택을 `decisions.md` 결정 표에 행으로 upsert 한다(주제 `디자인 방향` · 출처 `init Phase6`) — 그 행의 이유·검토한 대안 칸도 채운다(근거가 없으면 비운다)
 
 **얕게/스킵** (골격·placeholder 유지 허용):
-- `constitution.md` · `test-strategy.md` · `architecture.md` · `CLAUDE.md` · `README.md`
-- **예외 — `architecture.md` 의 예시 블록**: §1~§3 표·§5 구성도·§6 매핑은 예시(Cache·MQ·CDN 등)다. 이 프로젝트의 실제 구성으로 바꾸고 마커째 지운다 — 쓰지 않는 구성요소를 남기지 않는다. 근거가 없는 칸은 미확정 마커다. 예시 블록이 남으면 종결 커밋이 멈춘다.
-- `test-strategy.md` 의 커버리지 임계값·`CLAUDE.md` 의 테스트 명령(`<TEST_COMMAND>`)은 미리 적혀 있지 않다 — 사용자가 정했거나 근거 문서에 있으면 채우고, 없으면 자리표시자로 둔다(지어내지 않는다).
+- `constitution.md` · `CLAUDE.md` · `README.md` (`test-strategy.md`·`architecture.md` 는 위 깊게 대상이다 — 자리표시자가 남으면 종결 커밋이 멈춘다)
 - `screens-overview.md` — 골격 유지. **예외: 화면을 보강한 행의 목적 칸만** 갱신(아래 §화면 보강 규약). 표의 나머지(이름·제목·링크)는 Phase 7 bash 소유라 건드리지 않는다
 - **헌법이 skip 으로 남았으면**(`constitution.md` 의 원칙 이름이 자리표시자 · `CLAUDE.md` 의 원칙 줄이 미확정 마커) 승인 게이트 요약에 "헌법 원칙 미작성" 을 한 줄로 알린다 — 사용자가 원칙 5개를 주면 `constitution.md` 와 `CLAUDE.md` 원칙 줄을 함께 채운다. 종결 커밋도 같은 경고를 낸다(막지 않는다). 원칙을 지어내지 않는다
 
@@ -119,11 +134,15 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 
 > 왜: 종전에는 init 이 화면·IF 를 초안으로 한 번 쓰고 `/start-all` Phase 2.5 가 같은 것을 다시 설계·리뷰·승인했다(설계 2회·승인 2회). 게다가 init 끝의 설계 통합 뷰에는 뒤에서 할 설계가 보이지 않았다. M1 범위만 init 에서 설계 완료로 올리고, 사용자는 init 의 승인 1회에서 통합 뷰로 확인한다.
 
-- **범위 판정**: `requirements.md` 의 M1 FR 가운데 `[공통]`(foundation 범위)이 아닌 것이 대상이다. 그 FR 이 쓰는 화면·엔드포인트·테이블은 `process-design.md` 의 프로세스 행(화면·API·테이블 칸)과 PRD M1 서술로 정한다. 어느 마일스톤에 속하는지 근거가 없는 화면은 M1 로 올리지 않는다(초안으로 둔다) — 추정으로 M1 에 넣으면 그 판단을 `가정:` 으로 다이제스트에 싣는다. M2 이후 범위는 위 §화면 보강 규약의 초안 그대로다(`init 보강`).
+- **범위 판정**: `requirements.md` 의 M1 FR 가운데 `[공통]`(foundation 범위)이 아닌 것이 대상이다. 그 FR 이 쓰는 화면·엔드포인트·테이블은 M1 범위표(`.specops/.init-design/m1-scope.md` — 위 「보강 순서」 2번)가 정한다. 어느 마일스톤에 속하는지 근거가 없는 화면은 M1 로 올리지 않는다(초안으로 둔다) — 추정으로 M1 에 넣으면 그 판단을 `가정:` 으로 다이제스트에 싣는다. M2 이후 범위는 위 §화면 보강 규약의 초안 그대로다(`init 보강`).
 - **셸 3종은 여기서도 만들지 않는다** — `app-shell`·`layout`·`login` 과 `[공통]` FR 의 공통 API·공통 테이블은 `/start-foundation` 몫이다.
 - **화면 (UI KIND)**: M1 화면은 필수 8섹션을 실값으로 채운다. 근거 4원으로 정해지지 않는 값은 `가정:` 을 붙여 정하고 다이제스트에 싣는다 — `<미확정 — 근거 필요>` 는 가정조차 세울 수 없는 것(외부 계약·사용자만 아는 수치)에만 남긴다. 목업은 `templates/frontend-design-guide.md` 를 그대로 따르고(디자인 계획을 `.md` 의 `## 디자인 계획` 절에 쓴다 · 업무 화면 보충은 `templates/screen-design-guide.md`), 화면마다 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/screen-shot.sh screens/<name>.html .specops/.init-design/shots/<name>` 로 1280·390 두 장을 찍어 Read 로 보고 1~2회 다듬는다. `SCREEN-SHOT: SKIP`(rc 3)이면 다듬기 없이 진행하고 승인 요약에 "촬영 못 함 — <name>" 을 적는다(본 것처럼 적지 않는다). 입력 접근성(label for↔id)은 `/design-screen` 과 같은 요건이다.
-- **인터페이스 (api-spec·data-model 이 있는 KIND)**: M1 화면의 `## Interactions` 를 우선해 엔드포인트·테이블을 도출한다(화면이 없으면 M1 FR 에서). `api-spec.md` 채택 정의방식 섹션에 메서드·경로·요청/응답·인증·오류를, `data-model.md` 에 엔티티 표·ERD·인덱스를 채운다. **정합**: 서버를 부르는 Interaction 마다 대응 엔드포인트 행이, 화면의 데이터 소스·필드마다 대응 엔티티·컬럼이 있어야 한다. 가정 규칙은 화면과 같다.
-- **화면 전문가 1회 → 설계 리뷰 1회** (M1 화면 또는 M1 인터페이스를 하나라도 만들었을 때):
+- **인터페이스 (api-spec·data-model 이 있는 KIND)**: M1 화면의 `## Interactions` 를 우선해 엔드포인트·테이블을 도출한다(화면이 없으면 M1 FR 에서). `api-spec.md` 채택 정의방식 섹션에 메서드·경로·요청/응답·인증·오류를, `data-model.md` 에 엔티티 표·ERD·인덱스를 채운다. **정합**: 서버를 부르는 Interaction 마다 대응 엔드포인트 행이, 화면의 데이터 소스·필드마다 대응 엔티티·컬럼이 있어야 한다. **추적 칸을 채운다** — 화면 스펙의 `**관련 FR**` 줄과 엔드포인트·엔티티 표의 FR 칸(공통부면 `공통`). 어느 FR 도 요구하지 않는 엔드포인트·테이블은 넣지 않는다(설계 리뷰가 고아 계약으로 지적한다). 가정 규칙은 화면과 같다.
+- **리뷰 전 자가 점검** (전문가·리뷰어를 부르기 전 — 20261113): 실주행에서 설계 리뷰 1회차가 FAIL 해 재리뷰 1회(약 5분 + 반영)가 더 들었다. 리뷰어가 볼 것을 먼저 본다. 고친 화면은 다시 찍는다.
+  1. **계측**: 화면마다 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screen-quality.sh screens/<name>.md screens/<name>.html` — 리뷰어가 Important 로 올리는 품질 6종(상태 설계·접근성·디자인 토큰·문구·원형 규칙·안티패턴)이 이 출력이다. 적중을 고친다(계측기는 항상 rc 0 이다 — 출력의 적중 줄을 읽는다).
+  2. **DESIGN 대조**: `DESIGN.md` §6.1 에서 그 화면 원형의 필수 요소를, §7 에서 상태 표현(로딩·빈·오류 — 오류 요약 배너 같은 공통 표현 포함)을 읽고 화면 스펙의 Layout·States 와 목업에 빠진 것이 없는지 화면마다 확인한다. 계측기는 이 대조를 하지 않는다(실주행 1회차 FAIL 의 원인이 §7 오류 요약 배너 누락이었다).
+  3. **추적·정합**: `**관련 FR**` 줄과 FR 칸이 채워졌는가 · Interaction 마다 엔드포인트가, 데이터 소스마다 엔티티가 있는가 · 범위표에 없는 엔드포인트·테이블이 없는가.
+- **화면 전문가 1회 → 설계 리뷰 1회** (M1 화면 또는 M1 인터페이스를 하나라도 만들었을 때 · 두 프롬프트 모두에 M1 범위표 경로를 준다):
   1. M1 화면이 있으면 `Agent` 도구 `subagent_type: "devfsd:ui-designer-ko"` 1회 — 입력은 경로만(M1 `screens/<name>.md`·`.html` · 촬영 폴더 `.specops/.init-design/shots/` · `requirements.md` · `DESIGN.md`), 산출은 `.specops/.init-design/experts/ui.md`(산출 경로의 `<FID>` 자리에 `.init-design` 을 쓰고 spec·AC 대신 `requirements.md` 의 M1 FR 을 본다고 프롬프트에 적는다). 지적은 반영하거나 기각해 그 파일 끝 `## 반영` 에 1줄씩 적고, `## 확인 필요` 질문은 승인 게이트에서 함께 묻는다.
   2. `Agent` 도구 `subagent_type: "devfsd:design-reviewer-ko"` 1회 — 컨텍스트는 `init` 모드(BATCH_ID·FID 없음) · M1 FR 목록(`requirements.md`) · M1 화면 목록 · 촬영 폴더 · `api-spec.md` · `data-model.md`. 프롬프트에 "보고서 첫 줄에 `DESIGN-REVIEW-MODE: init`" 을 적는다 — 저장 훅이 그 줄을 보고 보고서 전문을 `.specops/.init-design/design-review.md` 로 옮긴다(부모가 옮겨 적지 않는다 · 리뷰 뒤 그 파일이 없으면 훅이 꺼진 환경이므로 그때만 부모가 리뷰어 출력을 그대로 저장하고 승인 요약에 "리뷰 보고서 수동 저장" 을 적는다). `FAIL` 이면 이슈를 고치고 **1회만** 다시 dispatch 한다. 지정 모델을 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 부른다(부모가 대신 리뷰하지 않는다).
   - `.specops/.init-design/` 은 `.specops/.gitignore` 의 `.init-*` 규칙으로 무시된다(커밋 대상이 아니다).
@@ -159,8 +178,7 @@ should (수치·상세 — 근거 없으면 마커 + 사유):
    - **미확정 마커 건수** — 보강한 문서에 남은 `<미확정 — 근거 필요>` 의 총 건수와 많은 순 문서 3개(문서마다 `grep -o '미확정 — 근거 필요' <문서> | wc -l`). 마커는 종결 커밋을 막지 않으므로 여기서 보이지 않으면 사용자는 얼마나 비어 있는지 모른다. 사용자가 값을 주면 채우고 다시 게이트를 받는다
    - `y` = 전체 승인, 번호 = 해당 가정만 수정 후 재제시 (루프 cap 없음 — 사용자 주권)
    - **수정 요청을 반영한 뒤에는 다시 게이트를 받는다** — 반영 직후 곧바로 종결 커밋하지 않는다(실기록: 수정 요청 뒤 재승인 없이 커밋). `y` 를 받은 내용과 커밋하는 내용이 같아야 한다
-2. (구 그룹①②③ 3게이트 폐지)
-3. DESIGN.md 보강 후 `screens/*.html` 이 **이미 존재**하면(구 부트스트랩·수동 생성): `bash` 로 각 html 에 `scripts/_internal/init-project/lib.sh` 의 `_inject_design_palette` 재실행 — DESIGN.md 확정 색을 화면 미리보기에 반영 (**스캐폴딩 원본·사용자 미편집 상태에서만** — 편집본 덮어쓰기 금지)
+2. DESIGN.md 보강 후 `screens/*.html` 이 **이미 존재**하면(구 부트스트랩·수동 생성): `bash` 로 각 html 에 `scripts/_internal/init-project/lib.sh` 의 `_inject_design_palette` 재실행 — DESIGN.md 확정 색을 화면 미리보기에 반영 (**스캐폴딩 원본·사용자 미편집 상태에서만** — 편집본 덮어쓰기 금지)
 
 **가정 다이제스트 + 결정 원장** (대화형·무인 공통):
 - 승인(또는 자동수락)된 `가정:` 전건을 **PRD.md 말미 `## §보강 가정 다이제스트`** 에 기록 (PRD 단일 출처 — requirements 등 중복 금지). 재실행(--enrich 포함) 시 기존 섹션 **전건 갱신**(replace) — 중복 섹션 append 금지.

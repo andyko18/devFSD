@@ -220,6 +220,15 @@ for _pair in 'T13.c|screens/<name>\.md|화면이' 'T13.d|process-design\.md|프�
     printf 'FAIL %-6s %s\n' "$_id" "$_what '깊게' 불릿 항목으로 명시"; FAIL=$((FAIL+1))
   fi
 done
+# ── T20 (20261113) — 추적 칸과 역방향 대조 ──
+#   종전엔 화면·엔드포인트·테이블이 어느 FR 의 것인지 적을 칸이 없어 M1 범위 판정과 정합 대조가 모델의 기억에 달렸고,
+#   리뷰어는 화면 → 계약 한 방향만 봐서 어떤 화면·FR 도 쓰지 않는 엔드포인트·테이블(예시 잔재 포함)이 통과했다.
+t T20.a "화면 스펙에 관련 FR 줄"          '^\*\*관련 FR\*\*:'                                   "$PLUGIN/templates/screen.md"
+t T20.b "엔드포인트 표에 FR 칸"            '^\| Method \| Path \|.*\| FR \|'                    "$PLUGIN/templates/api-spec.md"
+t T20.c "엔티티 표에 FR 칸"                '^\| 테이블 \| 역할 \|.*\| FR \|'                    "$PLUGIN/templates/data-model.md"
+t T20.d "리뷰어 역방향(고아 계약) 관점"    '^\| 고아 계약 \|'                                      "$PLUGIN/agents/design-reviewer-ko.md"
+t T20.e "고아 판정에서 공통부 구간 제외"   '고아 계약.*foundation-baseline|foundation-baseline.*고아' "$PLUGIN/agents/design-reviewer-ko.md"
+t T20.f "본문이 추적 칸을 채우라고 지시"   '관련 FR.*FR 칸|FR 칸.*관련 FR'                          "$CMD"
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

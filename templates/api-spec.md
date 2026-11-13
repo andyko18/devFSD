@@ -68,14 +68,16 @@
 > memory 동기화 점검이 **유령 엔드포인트를 실 계약으로 읽는다**. 잔존 시 `scan-enrich-placeholders.sh` 가 미채움 판정.
 
 <!-- specops:example:start -->
-| Method | Path | Auth | Request | Response | Status | 비고 |
-|---|---|---|---|---|---|---|
-| GET | `/v1/users` | Bearer (admin) | `?cursor=&limit=` | `Page<User>` | 200 · 401 · 403 | 사용자 목록 (목록 정책 적용) |
-| GET | `/v1/users/:id` | Bearer | — | `User` | 200 · 401 · 404 | 단일 사용자 조회 |
-| POST | `/v1/users` | Bearer (admin) | `CreateUserDto` | `User` | 201 · 401 · 403 · 409 · 422 | 사용자 생성 (`Location` 헤더) |
-| PATCH | `/v1/users/:id` | Bearer (self/admin) | `UpdateUserDto` | `User` | 200 · 401 · 403 · 404 · 422 | 사용자 수정 |
-| DELETE | `/v1/users/:id` | Bearer (admin) | — | `204 No Content` | 204 · 401 · 403 · 404 | 사용자 삭제 |
+| Method | Path | Auth | Request | Response | Status | 비고 | FR |
+|---|---|---|---|---|---|---|---|
+| GET | `/v1/users` | Bearer (admin) | `?cursor=&limit=` | `Page<User>` | 200 · 401 · 403 | 사용자 목록 (목록 정책 적용) | FR-4 |
+| GET | `/v1/users/:id` | Bearer | — | `User` | 200 · 401 · 404 | 단일 사용자 조회 | FR-4 |
+| POST | `/v1/users` | Bearer (admin) | `CreateUserDto` | `User` | 201 · 401 · 403 · 409 · 422 | 사용자 생성 (`Location` 헤더) | FR-5 |
+| PATCH | `/v1/users/:id` | Bearer (self/admin) | `UpdateUserDto` | `User` | 200 · 401 · 403 · 404 · 422 | 사용자 수정 | FR-5 |
+| DELETE | `/v1/users/:id` | Bearer (admin) | — | `204 No Content` | 204 · 401 · 403 · 404 | 사용자 삭제 | FR-6 |
 <!-- specops:example:end -->
+
+> **FR 열**: 이 엔드포인트를 요구하는 요구사항 ID(`requirements.md` — 여럿이면 쉼표). 공통부(foundation)면 `공통`. 어느 FR 도 요구하지 않는 엔드포인트는 설계에 넣지 않는다 — 설계 리뷰가 고아 계약으로 지적한다.
 
 > **Auth 열** (`check-security-design.sh` 가 읽는다 — 경고 전용): 공개면 `없음(공개)`, 아니면 인증 방식과 필요한 역할·scope(예: `Bearer · admin`). 빈칸·`—` 는 검증 때 경고한다. 토큰·비밀번호·API 키를 경로·쿼리 파라미터로 받지 않는다.
 

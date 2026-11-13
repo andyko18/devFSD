@@ -1545,6 +1545,27 @@ out=$(printf 'merge\n' | bash "$SCRIPT" demo 2>&1); rc=$?
   && ok "T37.h 충돌 정책 merge → 선택지 아님(rc2) · 프롬프트에서 제거" || nope "T37.h" "rc=$rc out=$(printf '%s' "$out" | tail -2 | tr '\n' '|')"
 teardown_fixture
 
+# ── T38 (20261113) — 기타(종류 6)도 API 설계서를 만들 수 있다 ──
+#   종전엔 API 방식 질문이 백엔드·풀스택(2·4)에만 있어, 기타로 분류한 프로젝트(데이터 파이프라인·봇·서버리스 등)가
+#   API 를 가져도 api-spec.md 를 만들 경로가 없었다 — 설계할 문서가 없으니 인터페이스 설계가 통째로 빠졌다.
+_t38() {  # <api 값>
+  setup_fixture
+  printf 'kind=6\nprinciples=skip\nprd.oneline=가\nprd.persona=나\nprd.values=가, 나, 다\nprd.m1=1\nprd.m2=2\nprd.m3=3\ndb=n\n' > ans.txt
+  [ -z "$1" ] || printf '%s\n' "$1" >> ans.txt
+  OUT=$(bash "$SCRIPT" --answers ans.txt demo 2>&1 </dev/null); RC=$?
+}
+_t38 ''
+{ [ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q '빠짐: api '; } && ok "T38.a 기타(6) — api 키가 빠지면 알려 준다(rc2)" || nope "T38.a" "rc=$RC out=$(printf '%s' "$OUT" | grep 빠짐 | tr '\n' '|')"
+teardown_fixture
+_t38 'api=1'
+{ [ "$RC" -eq 0 ] && [ -f .specops/memory/api-spec.md ] && grep -q 'api-spec.md' CLAUDE.md && [ ! -f .specops/memory/backend-architecture.md ]; } \
+  && ok "T38.b 기타(6) api=1 → api-spec.md 생성 · CLAUDE.md 인덱스에 오름 · 백엔드 구조 문서는 만들지 않음" || nope "T38.b" "rc=$RC"
+teardown_fixture
+_t38 'api=5'
+{ [ "$RC" -eq 0 ] && [ ! -f .specops/memory/api-spec.md ]; } && ok "T38.c 기타(6) api=5 → 만들지 않음" || nope "T38.c" "rc=$RC"
+teardown_fixture
+grep -q '종류 2·4·6' <(bash "$SCRIPT" --answers-template) && ok "T38.d 답변 파일 안내가 api 키의 대상 종류(2·4·6)를 말한다" || nope "T38.d" "안내 미갱신"
+
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 exit $FAIL

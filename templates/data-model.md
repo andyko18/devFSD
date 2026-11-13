@@ -76,14 +76,16 @@ erDiagram
 > `users`/`orders`/`products` **유령 스키마가 계약으로 남는다**. 잔존 시 `scan-enrich-placeholders.sh` 가 미채움 판정.
 
 <!-- specops:example:start -->
-| 테이블 | 역할 | 주요 컬럼 | 관계 |
-|---|---|---|---|
-| `users` | 사용자 계정 | `id`, `email`, `password_hash`, `created_at` | 1:N orders, 1:N addresses |
-| `orders` | 주문 | `id`, `user_id`, `status`, `total_amount` | N:1 user, 1:N order_items |
-| `order_items` | 주문 항목 | `id`, `order_id`, `product_id`, `quantity`, `unit_price` | N:1 order, N:1 product |
-| `products` | 상품 카탈로그 | `id`, `name`, `price`, `stock` | 1:N order_items |
-| `addresses` | 사용자 배송지 | `id`, `user_id`, `line1`, `city`, `postal_code` | N:1 user |
+| 테이블 | 역할 | 주요 컬럼 | 관계 | FR |
+|---|---|---|---|---|
+| `users` | 사용자 계정 | `id`, `email`, `password_hash`, `created_at` | 1:N orders, 1:N addresses | 공통 |
+| `orders` | 주문 | `id`, `user_id`, `status`, `total_amount` | N:1 user, 1:N order_items | FR-4 |
+| `order_items` | 주문 항목 | `id`, `order_id`, `product_id`, `quantity`, `unit_price` | N:1 order, N:1 product | FR-4 |
+| `products` | 상품 카탈로그 | `id`, `name`, `price`, `stock` | 1:N order_items | FR-5 |
+| `addresses` | 사용자 배송지 | `id`, `user_id`, `line1`, `city`, `postal_code` | N:1 user | FR-6 |
 <!-- specops:example:end -->
+
+> **FR 열**: 이 테이블을 요구하는 요구사항 ID(여럿이면 쉼표). 공통부(foundation)면 `공통`. 어느 FR 도 요구하지 않는 테이블은 설계에 넣지 않는다.
 
 ## §4. 인덱스 정책
 

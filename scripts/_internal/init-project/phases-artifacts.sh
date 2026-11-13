@@ -89,7 +89,9 @@ _phase_8e_data_model() {
 }
 
 _phase_8f_api_spec() {
-  case "$PROJECT_KIND" in 2|4) ;; *) return ;; esac
+  # 기타(6)도 묻는다(20261113) — 종전엔 백엔드·풀스택만이라 기타로 분류한 프로젝트(파이프라인·봇·서버리스 등)는
+  #   API 가 있어도 설계서를 만들 경로가 없었다. Web/UI·모바일(1·5)은 프론트만이라 소비 계약(8g)을 묻는다.
+  case "$PROJECT_KIND" in 2|4|6) ;; *) return ;; esac
   # _should_skip 선검사 (다른 phase 와 정합) — resume·재실행 시 기존 파일 보존 + 불필요 프롬프트 회피
   local target=".specops/memory/api-spec.md"
   _should_skip "$target" && { echo "→ api-spec.md 보존 (skip 정책)"; return; }

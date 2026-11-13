@@ -404,8 +404,8 @@ subj=$(git log -1 --format=%s 2>/dev/null)
   && ok "F25b SPECOPS_INIT_ALLOW_UNFILLED=1 → 커밋 · 제목에 미채움 건수" || nope "F25b" "rc=$rc subj=[$subj]"
 # F26 — 얕게 두는 문서의 자리표시자는 막지 않고, 예시 블록은 어느 문서든 막는다
 R="$TMP/f26"; _mkstaged "$R"
-printf -- '- 단위: <Jest / Vitest>\n' > .specops/memory/test-strategy.md; git add -A
-printf '.specops/memory/test-strategy.md\n' > .specops/.init-written
+printf -- '### 원칙 1: 단순함\n**규칙**: <한 문장>\n' > .specops/memory/constitution.md; git add -A   # 헌법은 사용자가 정하는 문서다 — 얕게 둔다
+printf '.specops/memory/constitution.md\n' > .specops/.init-written
 out=$(bash "$FIN" 2>&1); rc=$?
 _a=$rc
 R="$TMP/f26b"; _mkstaged "$R"
@@ -425,6 +425,19 @@ printf 'PRD.md\n' > .specops/.init-written
 out=$(bash "$FIN" 2>&1); rc=$?
 [ "$rc" -eq 0 ] && git show --name-only --format= HEAD | grep -qx 'PRD.md' \
   && ok "F27 HEAD 에 있는 문서의 자리표시자 → 막지 않음(종전대로 알리기만)" || nope "F27" "rc=$rc out=$(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+# F33 (20261113) — 테스트 전략·전체 구조는 깊게 보강하는 문서다(하류가 읽는다 — planning·tdd·테스트 전문가·코드 리뷰어 · specifying)
+#   실주행: 얕게 두던 test-strategy 에 자리표시자 21건이 그대로 커밋됐다. 모르는 값은 미확정 마커로 적으면 통과한다.
+for _doc in test-strategy architecture; do
+  R="$TMP/f33-$_doc"; _mkstaged "$R"
+  printf -- '- 도구: <Jest / Vitest>\n' > ".specops/memory/$_doc.md"; git add -A
+  printf '.specops/memory/%s.md\n' "$_doc" > .specops/.init-written
+  out=$(bash "$FIN" 2>&1); rc=$?
+  _a="$rc:$(printf '%s' "$out" | grep -c "$_doc.md: 자리표시자 1건")"
+  printf -- '- 도구: <미확정 — 근거 필요>\n' > ".specops/memory/$_doc.md"; git add -A
+  out=$(bash "$FIN" 2>&1); rc=$?
+  [ "$_a" = "1:1" ] && [ "$rc" -eq 0 ] && ok "F33($_doc) 자리표시자 → rc1 · 미확정 마커로 적으면 통과" || nope "F33($_doc)" "raw=$_a marker_rc=$rc"
+done
 
 # ── F28 — 설계 완료 표지는 리뷰 보고서로 검증한다 (20261113) ──
 #   표지(`init 설계 완료` · `<!-- specops:init-designed: M1 -->`)는 /start-all Phase 2.5 의 설계·리뷰를 건너뛰게 한다.

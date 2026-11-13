@@ -86,24 +86,30 @@ ck "T9.d spec·plan·design 리뷰어에 ## 보고 문체 절(원문/요약 구�
 _ev2=$(section "$AG" '## 증거 규칙')
 ck "T9.e code-reviewer: 필수(Critical·Important) 지적은 정확성·명시 요구 영향 갭으로 한정, 나머지는 Suggestion" "$(yn "$_ev2" '필수 지적은 정확성·명시 요구에 영향을 주는 갭만')$(yn "$_ev2" '취향·스타일·과잉 설계 지적은 Suggestion')" "yy"
 
-# T10 `[기존]` 라벨 — 붙이는 쪽(code-reviewer)과 받는 쪽(dev-autonomy §2 · /basic)이 같은 말을 쓴다 (20261113: 라벨을 받는 쪽이 몰라 판정에 효과가 없었다)
-_cr=$(cat "$AG"); _da=$(cat "$PLUGIN/skills/implementing-ko/dev-autonomy.md"); _bs=$(cat "$PLUGIN/commands/basic.md")
-_lbl=$(printf '%s\n' "$_cr" | grep -F '**기존 결함과 회귀를 나눈다**')
+# T10~T13 (20261113): 파일을 변수로 캡처하지 않고 직접 grep 한다 — macOS CI 의 간헐 절단에 면역(test-convention/test-suite-patterns.sh).
+#   fy <파일> <낱말> = 파일에 낱말이 있다 → y/n · fly <파일> <줄 낱말> <낱말> = 줄 낱말이 든 줄에 낱말도 있다 → y/n
+fy() { if grep -qF -- "$2" "$1"; then printf y; else printf n; fi; }
+fly() { if grep -F -- "$2" "$1" | grep -qF -- "$3"; then printf y; else printf n; fi; }
+DA="$PLUGIN/skills/implementing-ko/dev-autonomy.md"; BS="$PLUGIN/commands/basic.md"
+RQ="$PLUGIN/skills/requesting-code-review-ko/SKILL.md"; RC="$PLUGIN/skills/receiving-code-review-ko/SKILL.md"
+LB='**기존 결함과 회귀를 나눈다**'
+
+# T10 `[기존]` 라벨 — 붙이는 쪽(code-reviewer)과 받는 쪽(dev-autonomy §2 · /basic)이 같은 말을 쓴다 (라벨을 받는 쪽이 몰라 판정에 효과가 없었다)
 #   라벨은 Important 만 넘기게 한다. Critical 은 라벨이 붙어도 종전대로 🔴 절·수정 대상이다(릴리즈 준비 판정이 🔴 절을 읽는다 — 별도 절로 빼면 기계 게이트가 풀린다).
 ck "T10.a code-reviewer: 라벨은 등급·판정·보고 위치를 바꾸지 않는다 · [기존] Important 는 넘김(dev-autonomy §2) · [기존] Critical 은 🔴 절·수정 대상 · 위치 판정 우선" \
-  "$(yn "$_lbl" '라벨은 등급도 판정도 보고 위치도 바꾸지 않는다')$(yn "$_lbl" 'dev-autonomy.md` §2')$(yn "$_lbl" '`[기존]` Critical 은 종전대로 `## 🔴 Critical` 절에 올리고 수정 대상이다')$(yn "$_lbl" '위치 판정')" "yyyy"
+  "$(fly "$AG" "$LB" '라벨은 등급도 판정도 보고 위치도 바꾸지 않는다')$(fly "$AG" "$LB" 'dev-autonomy.md` §2')$(fly "$AG" "$LB" '`[기존]` Critical 은 종전대로 `## 🔴 Critical` 절에 올리고 수정 대상이다')$(fly "$AG" "$LB" '위치 판정')" "yyyy"
 ck "T10.b code-reviewer 출력 형식에 Suggestion 절이 있고, Critical 을 🔴 밖으로 빼는 '기존 결함' 절은 없다" \
-  "$(yn "$_cr" '## 🟢 Suggestion (선택')$(yn "$_cr" '## 기존 결함')" "yn"
+  "$(fy "$AG" '## 🟢 Suggestion (선택')$(fy "$AG" '## 기존 결함')" "yn"
 ck "T10.c 받는 쪽: dev-autonomy §2 가 [기존] 라벨을 안다(Important 넘김 · Critical 은 라벨이 붙어도 넘길 수 없음 · 위치 판정 우선) · /basic 도 같다" \
-  "$(yn "$_da" '(코드 리뷰어의 `[기존]` 라벨)')$(yn "$_da" '리뷰어의 Critical(`[기존]` 라벨이 붙어도 같다)')$(yn "$_da" '위치 판정과 어긋나면 위치 판정을 따른다')$(yn "$_bs" '(리뷰어의 `[기존]` 라벨)')$(yn "$_bs" 'Critical(`[기존]` 라벨이 붙어도 같다)')" "yyyyy"
+  "$(fy "$DA" '(코드 리뷰어의 `[기존]` 라벨)')$(fy "$DA" '리뷰어의 Critical(`[기존]` 라벨이 붙어도 같다)')$(fy "$DA" '위치 판정과 어긋나면 위치 판정을 따른다')$(fy "$BS" '(리뷰어의 `[기존]` 라벨)')$(fy "$BS" 'Critical(`[기존]` 라벨이 붙어도 같다)')" "yyyyy"
 # T11 리뷰어는 skill 을 부르지 못한다(tools 에 Skill 없음) — 다음 단계는 부모가 부르는 verifying-evidence-ko 다. 고정 단계에서 빠진 requesting-code-review-ko 를 가리키지 않는다
 ck "T11 code-reviewer 의 다음 단계가 verifying-evidence-ko(부모 호출) · requesting-code-review-ko 를 가리키지 않는다" \
-  "$(yn "$_cr" '다음: `devfsd:verifying-evidence-ko` (부모가 호출')$(yn "$_cr" 'requesting-code-review-ko')" "yn"
+  "$(fy "$AG" '다음: `devfsd:verifying-evidence-ko` (부모가 호출')$(fy "$AG" 'requesting-code-review-ko')" "yn"
 # T12 증거 없는 지적의 강등 등급은 한 낱말(Suggestion)이다 — 안티패턴 절이 Minor 로 달리 부르지 않는다
-ck "T12 안티패턴 절: 증거 없는 지적은 Suggestion 으로 강등" "$(yn "$_cr" '`[검증 불가]` + Suggestion 으로 강등(')$(yn "$_cr" '`[검증 불가]` + Minor 로 강등')" "yn"
+ck "T12 안티패턴 절: 증거 없는 지적은 Suggestion 으로 강등" "$(fy "$AG" '`[검증 불가]` + Suggestion 으로 강등(')$(fy "$AG" '`[검증 불가]` + Minor 로 강등')" "yn"
 # T13 Important 처리 규칙 — requesting·receiving 이 dev-autonomy §2 와 같은 기준(이번 FID 가 만든 것만 수정)을 쓴다
 ck "T13 requesting·receiving-code-review-ko: Important 는 이번 FID 가 만든 결함만 수정 대상" \
-  "$(yn "$(cat "$PLUGIN/skills/requesting-code-review-ko/SKILL.md")" '이번 FID 가 만든 결함이면 다음 단계 **전에** 수정, 이전부터 있던 것이면 넘긴다')$(yn "$(cat "$PLUGIN/skills/receiving-code-review-ko/SKILL.md")" '**이번 FID 가 만든 Important 이슈 수정 필요**')" "yy"
+  "$(fy "$RQ" '이번 FID 가 만든 결함이면 다음 단계 **전에** 수정, 이전부터 있던 것이면 넘긴다')$(fy "$RC" '**이번 FID 가 만든 Important 이슈 수정 필요**')" "yy"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

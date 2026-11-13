@@ -113,6 +113,31 @@ _upsert_active_fid() {
   return 0
 }
 
+# ── /freework 는 활성 FID 를 바꾸지 않는다 (20261114-freework-active-fid) ──
+# 사고: 자유작업 기록(`/freework 완료`)이 섹션을 만들거나 줄을 붙일 때마다 그 FID 가 활성이 됐다 — 머지된 옛 FID 에 붙이면 이후 커밋이
+#   그 FID 의 검증 기록을 요구했다(R-1 ②앵커). 자유작업은 "현재 작업"을 지목하는 행위가 아니라 기록이다.
+# 마커가 **없는** 파일에서는 새 섹션이 맨 위에 붙어 첫 h2 헤더(= detect_fid 2순위)가 바뀐다 — 기록 전에 지금의 활성(첫 헤더)을 마커로 못박는다.
+#   소비자(hooks/governance-lib.sh detect_fid)와 **대칭**이어야 한다: 마커 인정 정규식이 같고(FID 없는 깨진 마커는 마커가 아니다),
+#   2순위의 첫 헤더는 fixture FID(`.specops/<FID>/.fixture`)를 건너뛰고 고른다 — 안 건너뛰면 fixture 가 첫 헤더일 때 못박기가 실패하고
+#   새 섹션이 맨 위에 붙어 활성이 바뀐다(이번 변경이 막으려던 사고 그대로).
+_freework_pin() {
+  [ "$COMMAND" = "/freework" ] || return 0
+  [ -f "$TARGET" ] || return 0
+  grep -qE '<!--[[:space:]]*active-fid:[[:space:]]*[0-9]{8}-[a-z0-9-]+[[:space:]]*-->' "$TARGET" && return 0
+  local cand prior=""
+  while IFS= read -r cand; do
+    [ -n "$cand" ] || continue
+    [ -f ".specops/$cand/.fixture" ] && continue
+    prior="$cand"; break
+  done <<EOF
+$(grep -E '^## [0-9]{8}-[a-z0-9-]+' "$TARGET" | sed -E 's/^## ([0-9]{8}-[a-z0-9-]+).*/\1/')
+EOF
+  [ -n "$prior" ] && [ "$prior" != "$FID" ] && _upsert_active_fid "$prior" "$TARGET"
+  return 0
+}
+# 마커 갱신 — /freework 는 건너뛴다
+_mark_active() { [ "$COMMAND" = "/freework" ] || _upsert_active_fid "$FID" "$TARGET"; }
+
 # 파일 부재 시 ensure-session-progress.sh 호출하여 생성
 if [ ! -f "$TARGET" ]; then
   script_dir=$_SPA_DIR
@@ -127,6 +152,8 @@ if [ ! -f "$TARGET" ]; then
     exit 1
   fi
 fi
+
+_freework_pin
 
 # 이중화 — prepend 직전 현 상태를 .bak 1세대로 백업 (best-effort, 실패해도 prepend 계속 — AC-2)
 [ -f "$TARGET" ] && cp "$TARGET" "$TARGET.bak" 2>/dev/null || true
@@ -177,7 +204,7 @@ if FID="$FID" awk '$0 == "## " ENVIRON["FID"] || index($0, "## " ENVIRON["FID"] 
       if (in_section && !added) print ENVIRON["LINE"]
     }
   ' "$TARGET" > "$TMP" && mv -f "$TMP" "$TARGET" 2>/dev/null || _write_fail
-  _upsert_active_fid "$FID" "$TARGET"
+  _mark_active
   echo "appended to existing section: $FID"
 else
   # 섹션 없음 — 파일 상단 (구분선 --- 다음 첫 ## 자리) 에 신규 섹션 prepend · `---` 가 없으면 파일 끝에 붙인다
@@ -202,6 +229,6 @@ else
     # 구분선(---)이 없는 파일 — 종전에는 섹션이 조용히 버려졌다. 파일 끝에 붙인다
     END { if (!added) { print ""; print ENVIRON["HEADER"]; print ""; print ENVIRON["LINE"] } }
   ' "$TARGET" > "$TMP" && mv -f "$TMP" "$TARGET" 2>/dev/null || _write_fail
-  _upsert_active_fid "$FID" "$TARGET"
+  _mark_active
   echo "created new section: $HEADER"
 fi

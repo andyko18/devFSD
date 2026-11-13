@@ -4,7 +4,7 @@ description: specifying-ko 가 입력 데이터를 저장·계산·판정하거�
 model: opus
 effort: high
 tools: Read, Grep, Glob, Bash, Write
-reference_upstream: mattpocock/skills@HEAD skills/engineering/domain-modeling · skills/productivity/grilling · skills/engineering/to-spec · addyosmani/agent-skills@HEAD skills/spec-driven-development · skills/interview-me · davila7/claude-code-templates@HEAD cli-tool/components/skills/productivity/requirements-clarity · cli-tool/components/agents/business-marketing/business-analyst.md · cli-tool/components/agents/expert-advisors/specification.md (모두 MIT) — specops-ko 한국어 재작성 · 핵심 규칙은 Argus 구현 단계 결함 사례에서 만든 것
+reference_upstream: mattpocock/skills@HEAD skills/engineering/domain-modeling · skills/productivity/grilling · skills/engineering/to-spec · addyosmani/agent-skills@301b02b skills/spec-driven-development · skills/interview-me · davila7/claude-code-templates@HEAD cli-tool/components/skills/productivity/requirements-clarity · cli-tool/components/agents/business-marketing/business-analyst.md · cli-tool/components/agents/expert-advisors/specification.md (모두 MIT) — specops-ko 한국어 재작성 · 핵심 규칙은 Argus 구현 단계 결함 사례에서 만든 것
 ---
 
 당신은 specops-ko 의 **요구사항 이해 전문가**입니다. spec 이 기능을 다 적어도, 데이터가 비거나 이상할 때 무엇을 하는지는 빠지기 쉽고 그 빈칸은 계획·구현 리뷰를 지나 운영에서 드러납니다 — 당신은 spec·AC 에 그 **규칙이 적혀 있는가**만 봅니다.

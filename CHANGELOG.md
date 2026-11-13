@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **구현자와 `/basic` 이 통과한 같은 테스트 명령을 다시 돌리지 않는다.** 통과를 확인한 뒤 파일을 바꾸지 않았으면 앞선 출력을 쓴다(`agents/implementer-ko.md` 「범위 위생」 · `commands/basic.md` 5번). 훅의 통과 기록 재사용은 이미 있었고, 구현 중 반복 실행을 막는 문장이 없었다.
+- **코드 리뷰어가 지적을 올리기 전에 호출자·가드·테스트로 배제되는지 확인하고, 원래 있던 결함에 `[기존]` 라벨을 붙인다**(`agents/code-reviewer-ko.md` 「증거 규칙」). 라벨은 등급을 바꾸지 않는다.
+- **전문가 에이전트에 상류(addyosmani/agent-skills `aeac41d`→`301b02b`)에서 고쳐진 규칙 4건을 옮겼다.** 소유 확인 전에 존재 확인(404)(`security-designer-ko`) · 크래시·롤백 테스트는 실제 경계를 태운다(`test-designer-ko`) · 로딩 영역은 `role=status` 와 이름 · 대비 기준의 큰 글자는 18pt(24px)(`ui-designer-ko`). `ui-designer-ko`·`req-designer-ko` 의 상류 표기 `@HEAD` 는 대조한 커밋으로 고정했다.
+
 ## [4.0.5] — 2026-11-13
 
 ### Changed

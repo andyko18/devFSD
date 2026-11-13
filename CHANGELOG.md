@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.9] — 2026-11-13
+
 ### Added
 
 - **브라우저 점검이 실패한 요청을 알려 준다**(`scripts/_internal/ui-probe.cjs`). 4xx·5xx 응답과 연결 실패를 `<화면>@<폭> 요청 실패 경고: <상태|사유> <메서드> <주소>` 줄로 내고, 있을 때만 요약 끝에 ` · 요청 실패 <N>` 을 붙인다. 콘솔 오류 문구에는 어느 요청인지가 없었다. **경고이고 판정(PASS·FAIL)은 종전 그대로다.** 주소는 쿼리·해시를 빼고, 화면 이동이 끊은 요청(`ERR_ABORTED`)은 세지 않으며, 화면·폭마다 10줄까지 낸다. `ui-probe.json` 의 화면별 `failedRequests` 에 전체가 남는다.
@@ -3894,7 +3896,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.8...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.9...HEAD
+[4.0.9]: https://github.com/andyko18/devFSD/compare/v4.0.8...v4.0.9
 [4.0.8]: https://github.com/andyko18/devFSD/compare/v4.0.7...v4.0.8
 [4.0.7]: https://github.com/andyko18/devFSD/compare/v4.0.6...v4.0.7
 [4.0.6]: https://github.com/andyko18/devFSD/compare/v4.0.5...v4.0.6

@@ -7,7 +7,7 @@
 <!-- 사용자가 채움 -->
 
 ```bash
-# 예시: git clone <repo-url> && cd <PROJECT_NAME>
+# 예시: git clone 저장소-주소 && cd <PROJECT_NAME>
 # 의존성 설치 명령
 ```
 
@@ -21,10 +21,10 @@
 
 ## 개발
 
-본 프로젝트는 [specops-ko](https://github.com/...) 자율 lifecycle 플러그인으로 개발됩니다.
+본 프로젝트는 devFSD 자율 lifecycle 플러그인으로 개발됩니다.
 
-- **새 기능 추가**: `/start "<기능 설명>"`
-- **유지보수**: `/maintain "<대상>"`
+- **새 기능 추가**: `/start` 뒤에 기능 설명
+- **유지보수**: `/maintain` 뒤에 대상
 - **산출물**: `.specops/<FID>/` (기능별 spec → plan → tasks → evidence)
 
 ### 프로젝트 문서
@@ -37,7 +37,7 @@
 ### 테스트
 
 ```bash
-# <TEST_COMMAND — CLAUDE.md §테스트 명령 참조>
+# CLAUDE.md 「테스트 명령」 참조
 ```
 
 ## 라이선스

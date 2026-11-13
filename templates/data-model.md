@@ -6,7 +6,7 @@
 > 한국 SI 표준 "테이블 설계서". `/init-project` Phase 8e 가 1회 생성 (DB 사용 시).
 > ERD + 엔티티 표 + 인덱스 + 제약 + 마이그레이션 도구 마스터.
 
-> ⚠️ **§2 ERD·§3 엔티티 표의 `users`/`orders`/`products` 등은 작성 방법을 보여주는 예시(e-commerce 샘플)이며 본 프로젝트 도메인과 무관하다. 실제 엔티티로 전부 교체하라.**
+> ⚠️ **§2 ERD·§3 엔티티 표·§4 인덱스 표의 `users`/`orders`/`products` 등은 작성 방법을 보여주는 예시(e-commerce 샘플)이며 본 프로젝트 도메인과 무관하다. 실제 내용으로 교체하고 `specops:example` 마커 블록째 삭제하라** — 블록이 남으면 종결 커밋(`init-finalize.sh`)이 멈춘다.
 
 ## §1. DB 종류
 
@@ -19,6 +19,7 @@
 
 ## §2. ERD (Entity-Relationship Diagram)
 
+<!-- specops:example:start -->
 ```mermaid
 erDiagram
   USER ||--o{ ORDER : places
@@ -66,6 +67,7 @@ erDiagram
     string postal_code
   }
 ```
+<!-- specops:example:end -->
 
 ## §3. 핵심 엔티티 표
 
@@ -85,8 +87,9 @@ erDiagram
 
 ## §4. 인덱스 정책
 
-조회 패턴 기반:
+조회 패턴 기반 — 인덱스마다 그 인덱스를 쓰는 조회를 근거 칸에 적는다:
 
+<!-- specops:example:start -->
 | 인덱스 | 테이블 | 컬럼 | 유형 | 근거 |
 |---|---|---|---|---|
 | `idx_users_email` | users | `email` | UNIQUE | 로그인 조회 |
@@ -94,13 +97,14 @@ erDiagram
 | `idx_orders_status` | orders | `status` | btree | 상태별 필터 (admin 대시보드) |
 | `idx_order_items_order` | order_items | `order_id` | btree | 주문 상세 JOIN |
 | `idx_products_name_trgm` | products | `name` | GIN trigram | 상품 검색 (PostgreSQL) |
+<!-- specops:example:end -->
 
 ## §5. 제약사항
 
-- **PK**: 모든 테이블 `uuid` (PostgreSQL: `gen_random_uuid()` / MySQL 8+: `UUID()` / SQLite: 앱 레벨 생성 / 또는 ULID — §1 유형에 맞게 선택)
+- **PK**: <PK 방식> (예: `uuid` — PostgreSQL `gen_random_uuid()` / MySQL 8+ `UUID()` / SQLite 앱 레벨 생성 / ULID — §1 유형에 맞게 정한다)
 - **FK**: ON DELETE 정책 명시 (CASCADE / RESTRICT / SET NULL)
-- **UNIQUE**: `users.email`, 비즈니스 키
-- **CHECK**: `orders.total_amount >= 0`, `products.stock >= 0`, `order_items.quantity > 0`
+- **UNIQUE**: <비즈니스 키>
+- **CHECK**: <도메인 제약>
 - **NOT NULL**: 필수 필드는 모두 NOT NULL + DEFAULT 명시
 
 ## §6. 마이그레이션 도구
@@ -112,16 +116,16 @@ erDiagram
 
 ## §7. 백업·복구
 
-- **백업 주기**: 일일 full + 시간별 incremental
-- **보관**: 30 일 + 월별 1 년 보관
-- **복구 RPO/RTO**: RPO < 1h, RTO < 4h
+- **백업 주기**: <주기>
+- **보관**: <보관 기간>
+- **복구 RPO/RTO**: <RPO·RTO>
 
 ## §8. 데이터 보호
 
 - **암호화 at-rest**: DB 레벨 (PostgreSQL/MySQL: TDE 또는 클라우드 관리형 암호화 / SQLite: SQLCipher / MongoDB: WiredTiger 암호화) + 디스크 암호화
 - **암호화 in-transit**: TLS 1.2+
-- **민감 컬럼**: `password_hash` (bcrypt cost 12+), PII 는 별도 암호화 (KMS)
-- **GDPR / 개인정보보호법**: 사용자 삭제 요청 시 cascade + 30 일 후 hard delete
+- **민감 컬럼**: <컬럼·보호 방식>
+- **GDPR / 개인정보보호법**: <삭제 요청 처리>
 - **개인정보 분류**: <새 컬럼마다 비개인 / PII / 민감(건강·금융·생체) — 수집 목적과 함께>
 - **보존·삭제**: <보존기간과 실제 삭제 경로(백업·캐시·검색 색인 포함)>
 

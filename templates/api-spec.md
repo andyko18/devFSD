@@ -28,7 +28,9 @@
 
 - **오류 형식**: <RFC 9457 Problem Details / 자체 envelope — 모든 엔드포인트가 이 하나만 쓴다>
 
-**공통 에러 포맷** (RFC 9457 Problem Details — 2023년에 RFC 7807 을 대체 · `Content-Type: application/problem+json`):
+**공통 에러 포맷** (RFC 9457 Problem Details — 2023년에 RFC 7807 을 대체 · `Content-Type: application/problem+json`) — 아래는 형식 예시다. 채택한 형식의 실제 예로 바꾸고 마커 블록째 삭제한다:
+
+<!-- specops:example:start -->
 ```json
 {
   "type": "https://example.com/errors/validation",
@@ -38,6 +40,7 @@
   "instance": "/v1/users"
 }
 ```
+<!-- specops:example:end -->
 
 ### 오류 코드 카탈로그
 
@@ -78,6 +81,9 @@
 
 ## §2. OpenAPI 3.1 YAML
 
+> ⚠️ **아래 `User` 스키마·경로는 작성 방법을 보여주는 예시다 — 실제 계약으로 교체하고 `specops:example` 마커 블록째 삭제하라.**
+
+<!-- specops:example:start -->
 ```yaml
 openapi: 3.1.0
 info:
@@ -144,9 +150,13 @@ components:
 security:
   - bearerAuth: []
 ```
+<!-- specops:example:end -->
 
 ## §3. GraphQL SDL
 
+> ⚠️ **아래 `User` 스키마·경로는 작성 방법을 보여주는 예시다 — 실제 계약으로 교체하고 `specops:example` 마커 블록째 삭제하라.**
+
+<!-- specops:example:start -->
 ```graphql
 "GraphQL 스키마 — <PROJECT_NAME>"
 
@@ -207,9 +217,13 @@ type PageInfo {
 
 scalar DateTime
 ```
+<!-- specops:example:end -->
 
 ## §4. RPC / TS 시그니처 (tRPC 등)
 
+> ⚠️ **아래 `User` 스키마·경로는 작성 방법을 보여주는 예시다 — 실제 계약으로 교체하고 `specops:example` 마커 블록째 삭제하라.**
+
+<!-- specops:example:start -->
 ```typescript
 // shared/api-contracts.ts
 import { z } from 'zod';
@@ -237,6 +251,7 @@ export interface UserRouter {
   delete(input: { id: string }): Promise<{ success: boolean }>;
 }
 ```
+<!-- specops:example:end -->
 
 ## §5. 인증·인가 정책
 
@@ -260,7 +275,7 @@ export interface UserRouter {
 ## §6. 버저닝
 
 - **버전 전략**: <URL prefix `/v1/` / 헤더 / 쿼리>
-- URL prefix `/v1/`, 신규 메이저 시 `/v2/` 신설 + `/v1/` 6 개월 deprecate
+- **폐기 정책**: <구 버전 유지 기간>
 - breaking change 정의: 응답 필드 제거, required 필드 추가, 의미 변경
 
 ## §7. 참조

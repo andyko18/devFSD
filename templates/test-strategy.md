@@ -33,11 +33,13 @@
 
 ## 3. 커버리지 목표
 
-- **line coverage**: 80% 이상
-- **branch coverage**: 70% 이상
-- **critical path coverage** (결제·인증·데이터 변경): 95% 이상
+- **line coverage**: <목표 %>
+- **branch coverage**: <목표 %>
+- **critical path coverage** (<핵심 경로>): <목표 %>
 
-CI 가 PR 마다 커버리지 측정. 신규 코드 커버리지 ≥ 80% 강제.
+CI 가 PR 마다 커버리지 측정. 신규 코드 커버리지 기준: <신규 코드 기준>
+
+> 위 임계값은 프로젝트가 정한다 — 정하지 않은 값을 기본값으로 굳히지 않는다(§6.5 가 이 값의 하향을 막는다).
 
 ## 4. 회귀 테스트 정책
 
@@ -82,8 +84,8 @@ jobs:
 
 ## 6. 결정 기록
 
-- **mock vs real**: 외부 API 는 통합 테스트에서 sandbox 사용. 단위 테스트는 mock
-- **테스트 데이터**: fixture / factory 패턴. seed 데이터는 별도 디렉토리
+- **mock vs real**: <외부 의존 처리>
+- **테스트 데이터**: <데이터 준비 방식>
 
 ## 6.5. 완료 정의(DoD)
 

@@ -26,6 +26,80 @@ _root="$(git rev-parse --show-toplevel 2>/dev/null)"
 [ -n "$_root" ] || { echo "init-finalize: repo 루트 확인 실패" >&2; exit 1; }
 cd "$_root" || { echo "init-finalize: repo 루트 이동 실패 ($_root)" >&2; exit 1; }
 
+# ── 설계 완료 표지 검증 (20261113) — stage 보다 앞: 내린 표지가 같은 커밋에 들어가야 한다 ──
+# 왜: `init 설계 완료`(화면 목록의 목적 칸)와 `<!-- specops:init-designed: M1 -->`(api-spec·data-model 머리)는
+#   /start-all Phase 2.5 가 그 화면·인터페이스의 설계·리뷰를 **건너뛰게** 하는 표지인데, 모델이 직접 쓴다.
+#   리뷰 없이 달리면 설계 리뷰가 통째로 사라진다. 그래서 **이번 커밋이 새로 다는 표지**만 리뷰 보고서
+#   (.specops/.init-design/design-review.md — 저장 훅이 리뷰어 출력에서 옮긴다)와 대조한다:
+#   보고서 없음·판정 줄 없음·SKIP → 전부 내린다 · FAIL → Critical·Important 이슈 줄이 가리키는 것만 내린다 · PASS → 그대로.
+#   HEAD 에 이미 있는 표지는 건드리지 않는다 — 앞선 부트스트랩이 승인받은 것이고, 리뷰 보고서는 커밋되지 않는 로컬 파일이다.
+#   한계: 보고서 파일의 출처(훅이 썼는가)는 여기서 증명하지 못한다.
+_ov=".specops/memory/screens-overview.md"
+_rv=".specops/.init-design/design-review.md"
+_designed_in() {   # stdin = screens-overview.md 내용 → 설계 완료 표지가 붙은 화면 이름(check-screens-overview.sh `designed` 와 같은 규칙)
+  awk '
+    /^<!-- screens-table:start -->/ { inside=1; next }
+    /^<!-- screens-table:end -->/   { inside=0; next }
+    inside && /^\|/ {
+      split($0, f, "|")
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", f[2]); gsub(/^[[:space:]]+|[[:space:]]+$/, "", f[4])
+      if (f[2] != "name" && f[2] != "" && index(f[4], "init 설계 완료") == 1) print f[2]
+    }'
+}
+_new_marks=""; _new_if=""
+if [ -f "$_ov" ]; then
+  _old=$(git show "HEAD:$_ov" 2>/dev/null | _designed_in)
+  while IFS= read -r _s; do
+    [ -n "$_s" ] || continue
+    printf '%s\n' "$_old" | grep -qxF -- "$_s" || _new_marks="${_new_marks}${_s}
+"
+  done <<EOF
+$(_designed_in < "$_ov")
+EOF
+fi
+for _f in .specops/memory/api-spec.md .specops/memory/data-model.md; do
+  [ -f "$_f" ] && grep -q '^<!-- specops:init-designed: ' "$_f" || continue
+  git show "HEAD:$_f" 2>/dev/null | grep -q '^<!-- specops:init-designed: ' && continue
+  _new_if="${_new_if}${_f}
+"
+done
+_demoted=""; _rv_state=""
+if [ -n "$_new_marks$_new_if" ]; then
+  _verdict=""
+  [ -f "$_rv" ] && [ ! -L "$_rv" ] && _verdict=$(grep -m1 -E '^DESIGN-REVIEW-RESULT: (PASS|FAIL|SKIP)[[:space:]]*$' "$_rv" 2>/dev/null | awk '{ print $2 }')
+  case "$_verdict" in
+    PASS) _rv_state="PASS" ;;
+    FAIL) _rv_state="리뷰 FAIL — 이슈가 걸린 것" ;;
+    SKIP) _rv_state="리뷰 SKIP" ;;
+    *)    _rv_state="리뷰 보고서 없음 — $_rv" ;;
+  esac
+  if [ "$_verdict" != "PASS" ]; then
+    _issues=""
+    [ "$_verdict" = "FAIL" ] && _issues=$(grep -E '^[[:space:]]*-[[:space:]]*\[(Critical|Important)\]' "$_rv" 2>/dev/null || true)
+    while IFS= read -r _s; do
+      [ -n "$_s" ] || continue
+      # FAIL 이면 이슈 줄이 그 화면을 가리킬 때만 내린다(이름은 영숫자·-·_ 라 정규식 메타가 없다)
+      if [ "$_verdict" = "FAIL" ] && ! printf '%s\n' "$_issues" | grep -qE "(^|[^A-Za-z0-9_-])${_s}([^A-Za-z0-9_-]|\$)"; then continue; fi
+      N="$_s" awk '
+        /^<!-- screens-table:start -->/ { inside=1 } /^<!-- screens-table:end -->/ { inside=0 }
+        inside && /^\|/ {
+          split($0, f, "|"); n = f[2]; gsub(/^[[:space:]]+|[[:space:]]+$/, "", n)
+          if (n == ENVIRON["N"]) sub(/init 설계 완료/, "init 보강")
+        }
+        { print }' "$_ov" > "$_ov.tmp" && mv "$_ov.tmp" "$_ov" && _demoted="${_demoted}${_demoted:+ }${_s}"
+    done <<EOF
+$_new_marks
+EOF
+    while IFS= read -r _f; do
+      [ -n "$_f" ] || continue
+      if [ "$_verdict" = "FAIL" ] && ! printf '%s\n' "$_issues" | grep -qE 'api-spec|data-model'; then continue; fi
+      grep -v '^<!-- specops:init-designed: ' "$_f" > "$_f.tmp" && mv "$_f.tmp" "$_f" && _demoted="${_demoted}${_demoted:+ }${_f##*/}"
+    done <<EOF
+$_new_if
+EOF
+  fi
+fi
+
 # 재-add — Phase 10 과 같은 범위(lib.sh `_init_stage_own`): enrich 가 고친 산출물을 다시 stage 한다.
 #   범위 밖(미리 stage 돼 있던 무관한 파일 · 화면 목록에 없는 screens/ 파일)과 보류 기록(.init-hold)의
 #   파일은 건드리지 않는다 — 아래 커밋도 경로를 지정하므로 인덱스의 나머지는 그대로 남는다.
@@ -44,6 +118,48 @@ if [ -z "$_own" ]; then
   rm -f "$INIT_WRITTEN_FILE" 2>/dev/null
   echo "init-finalize: 커밋 대상 없음 — 이미 종결됐거나 변경이 없습니다 (no-op)"
   exit 0
+fi
+
+# ── 보강 누락 차단 (20261113) — 이번 부트스트랩이 쓴 문서에 한한다 ──
+# 왜: 미채움은 제목과 출력으로 알리기만 했다. Phase 11(보강)을 통째로 건너뛰어도 골격·예시가 기준 문서로 커밋됐다.
+#   막는 범위는 좁다 — **이번 부트스트랩이 쓴 파일**(.init-written · 아직 HEAD 에 없는 것)에서
+#   ① 예시 블록(`specops:example`)이 남았거나 ② 깊게 보강하는 문서에 원시 자리표시자가 남았을 때만이다.
+#   init 이 쓰지 않은 문서(기존 문서 · 소급 보강 --enrich · 손으로 커밋한 뒤)는 종전대로 알리기만 한다:
+#   성숙한 문서의 `<cmd>` 같은 표기를 스캐너가 자리표시자로 세기 때문이다. 얕게 두는 문서(헌법·테스트 전략·
+#   CLAUDE·README)의 자리표시자도 막지 않는다. 골격만 커밋하려면 SPECOPS_INIT_ALLOW_UNFILLED=1.
+_is_deep() {
+  case "$1" in
+    PRD.md|DESIGN.md|.specops/memory/requirements.md|.specops/memory/api-spec.md|.specops/memory/data-model.md) return 0 ;;
+    .specops/memory/frontend-architecture.md|.specops/memory/backend-architecture.md|.specops/memory/process-design.md) return 0 ;;
+  esac
+  return 1
+}
+if [ "${SPECOPS_INIT_ALLOW_UNFILLED:-0}" != "1" ] && [ -f "$_DIR/scan-enrich-placeholders.sh" ]; then
+  _blk=""
+  while IFS= read -r _p; do
+    case "$_p" in *.md) ;; *) continue ;; esac
+    [ -f "$_p" ] && _init_written_fresh "$_p" || continue
+    _sc=$(bash "$_DIR/scan-enrich-placeholders.sh" "$_p" 2>/dev/null); _sc_rc=$?
+    [ "$_sc_rc" = "1" ] || continue
+    _e=$(printf '%s\n' "$_sc" | grep -c '\[example-block\]' || true)
+    _h=0; _is_deep "$_p" && _h=$(printf '%s\n' "$_sc" | grep -v '\[example-block\]' | grep -c . || true)
+    [ "${_e:-0}" -gt 0 ] || [ "${_h:-0}" -gt 0 ] || continue
+    _blk="${_blk}  - ${_p}:"
+    [ "${_h:-0}" -gt 0 ] && _blk="${_blk} 자리표시자 ${_h}건"
+    [ "${_e:-0}" -gt 0 ] && _blk="${_blk} 예시 블록 ${_e}건"
+    _blk="${_blk}
+"
+  done <<EOF
+$_own
+EOF
+  if [ -n "$_blk" ]; then
+    echo "init-finalize: 보강이 끝나지 않았습니다 — 커밋하지 않았습니다 (산출물은 staged 그대로)" >&2
+    printf '%s' "$_blk" >&2
+    echo "  줄 단위 목록: bash \"\${CLAUDE_PLUGIN_ROOT}\"/scripts/_internal/scan-enrich-placeholders.sh <파일>" >&2
+    echo "  Phase 11 보강으로 실제 값·\`가정:\`·미확정 마커 중 하나로 채우고 예시 블록은 마커째 지운 뒤 다시 실행하세요." >&2
+    echo "  골격 그대로 커밋하려면: SPECOPS_INIT_ALLOW_UNFILLED=1 bash \"\${CLAUDE_PLUGIN_ROOT}\"/scripts/_internal/init-finalize.sh" >&2
+    exit 1
+  fi
 fi
 
 # 진행 기록 — 미호출 검출의 근거(검출형). /init-project 는 FID 가 없으므로
@@ -160,6 +276,21 @@ fi
 sha=$(git rev-parse --short HEAD)
 echo "init-finalize: 커밋 완료 ${sha} (${n}파일)"
 
+# 내린 설계 완료 표지를 알린다 — 조용히 내리면 사용자는 /start-all 이 왜 다시 설계하는지 모른다.
+[ -n "$_demoted" ] && echo "init-finalize: 설계 완료 표지를 내렸습니다(${_rv_state}) — ${_demoted}. 이 화면·인터페이스는 /start-all Phase 2.5 가 다시 설계·리뷰합니다."
+
+# FR 이 마일스톤 시드 3행 그대로면 알린다 — 시드는 실제 문구라 미채움 스캔에 잡히지 않고, 그대로 두면 batch 에
+#   마일스톤 3개가 FR 3개로 들어간다(M1 분해 누락). 막지 않는다: 마일스톤이 곧 FR 인 작은 프로젝트가 있다.
+_rq=".specops/memory/requirements.md"
+if printf '%s\n' "${cpaths[@]}" | grep -qxF -- "$_rq" && grep -q '^<!-- seed-fr: FR-1,FR-2,FR-3 -->' "$_rq" 2>/dev/null \
+   && [ "$(grep -cE '^\| *FR-[0-9]+ *\|' "$_rq" 2>/dev/null || true)" = "3" ]; then
+  echo "init-finalize: 요구사항이 마일스톤 시드 3행(FR-1~3) 그대로입니다 — 첫 마일스톤(M1)의 FR 분해가 빠졌을 수 있습니다 (보강: /init-project --enrich)"
+fi
+
+# 단계별 소요 — 표시(`init-project.sh --mark`)가 있을 때만. 값은 앞 표시부터 그 표시까지 걸린 시간이다.
+_tm=$(_init_timing_summary 2>/dev/null || true)
+[ -n "$_tm" ] && echo "init-finalize: 단계별 소요 — $_tm"
+
 # 남은 미채움을 문서별로 알린다(많은 순 5개). 보강을 건너뛴 종결이 조용히 지나가지 않게 한다.
 if [ "${_n_ph:-0}" -gt 0 ]; then
   _by=$(printf '%s\n' "$_scan" | grep -v '\[example-block\]' | grep . | cut -d: -f1 | sort | uniq -c | sort -rn | head -5 \
@@ -167,7 +298,7 @@ if [ "${_n_ph:-0}" -gt 0 ]; then
   echo "init-finalize: 미채움 자리표시자 ${_n_ph}건이 남아 있습니다 — ${_by} (보강: /init-project --enrich)"
 fi
 if [ "${_n_ex:-0}" -gt 0 ]; then
-  echo "init-finalize: 예시 블록 ${_n_ex}건이 남아 있습니다(api-spec·data-model 의 샘플) — Phase 11 보강이 수행되지 않았을 수 있습니다"
+  echo "init-finalize: 예시 블록 ${_n_ex}건이 남아 있습니다(api-spec·data-model·architecture 의 샘플) — Phase 11 보강이 수행되지 않았을 수 있습니다"
 fi
 
 if [ "$_scan_state" = "unknown" ] && [ ${#_md[@]} -gt 0 ]; then
@@ -188,7 +319,7 @@ if [ -f "$INIT_HOLD_FILE" ]; then
   rm -f "$INIT_HOLD_FILE"
 fi
 # 이번 부트스트랩이 쓴 파일의 기록도 닫는다 — 종결됐으니 다음 실행은 새 부트스트랩이다.
-rm -f "$INIT_WRITTEN_FILE" .specops/.init-answers 2>/dev/null
+rm -f "$INIT_WRITTEN_FILE" "$INIT_TIMING_FILE" .specops/.init-answers 2>/dev/null
 _rest=$(git diff -z --cached --name-only 2>/dev/null | tr '\0' '\n' || true)
 [ -n "$_rest" ] && echo "init-finalize: init 과 무관한 staged 파일은 커밋하지 않고 그대로 두었습니다: $(_brief "$_rest")"
 # 화면 파일 형식(.md·.html)만 알린다 — 기존 앱의 screens/ 소스(.tsx 등)는 애초에 init 의 대상이 아니다.

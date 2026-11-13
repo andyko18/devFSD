@@ -953,7 +953,7 @@ printf '# 내 README (커밋 전)\n' > README.md                       # 미추�
 printf '# 내 가이드\n' > CLAUDE.md; git add CLAUDE.md               # 사용자가 stage 한 새 파일
 { printf "skip\n"; fullstack_stdin; } | bash "$SCRIPT" demo >/dev/null 2>&1
 _hold=$(sort .specops/.init-hold 2>/dev/null | tr '\n' ' ')
-bash "$PLUGIN/scripts/_internal/init-finalize.sh" >/dev/null 2>&1
+SPECOPS_INIT_ALLOW_UNFILLED=1 bash "$PLUGIN/scripts/_internal/init-finalize.sh" >/dev/null 2>&1   # 골격 그대로 종결 — 보강 누락 차단(test-init-finalize F25)은 여기서 보는 것이 아니다
 _cf=$(git show --name-only --format= HEAD 2>/dev/null)
 if [ "$_hold" = "CLAUDE.md README.md " ] && ! printf '%s\n' "$_cf" | grep -qxE 'README\.md|CLAUDE\.md' \
    && printf '%s\n' "$_cf" | grep -qx 'PRD.md' \
@@ -975,7 +975,7 @@ for _mode in rerun resume; do
     printf '4\nhome, login\n' | bash "$SCRIPT" --resume demo >/dev/null 2>&1
   fi
   _h=$([ -e .specops/.init-hold ] && tr '\n' ' ' < .specops/.init-hold || echo "")
-  bash "$PLUGIN/scripts/_internal/init-finalize.sh" >/dev/null 2>&1
+  SPECOPS_INIT_ALLOW_UNFILLED=1 bash "$PLUGIN/scripts/_internal/init-finalize.sh" >/dev/null 2>&1
   _n=$(git show --name-only --format= HEAD 2>/dev/null | grep -c . || true)
   if [ -z "$_h" ] && [ "${_n:-0}" -ge 15 ] && [ -z "$(git status --porcelain)" ] \
      && [ ! -e .specops/.init-written ]; then

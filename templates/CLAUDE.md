@@ -6,23 +6,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 <PRD §1 한 줄 설명 자동 인용 — `/init-project` Phase 5 가 채움>
 
-## specops-ko 사용
+## devFSD 사용
 
-본 프로젝트는 specops-ko 한국어 자율 Lifecycle 플러그인을 사용합니다.
+본 프로젝트는 devFSD 한국어 자율 Lifecycle 플러그인을 사용합니다.
 
-- **신규 기능**: `/start "<기능 설명>"`
-- **유지보수**: `/maintain "<대상>"`
-- **프로젝트 부트스트랩**: `/init-project [<프로젝트명>]` (이미 실행됨)
+- **신규 기능**: `/start` 뒤에 기능 설명 — 위험 신호가 없으면 기본 경로(spec 1장 → 구현 → 리뷰 → 검증 → PR), 있으면 풀 경로를 스크립트가 고른다(`--full` 은 무조건 풀)
+- **유지보수**: `/maintain` 뒤에 대상
+- **몇 줄 수정**: `/quick-fix` 뒤에 고칠 것 (문서 없이 테스트 + 코드 리뷰 1회)
+- **공통부 → 일괄 개발**: `/start-foundation` 다음에 `/start-all`
+- **프로젝트 부트스트랩**: `/init-project` (이미 실행됨 · 보강은 `--enrich`)
 - **산출물**: `.specops/<FID>/` (기능별 lifecycle 산출물)
 
 ## 테스트 명령
 
-<!-- 사용자가 채움. 예: -->
+<!-- 프로젝트의 테스트 명령 한 줄 — 검증 단계가 이 명령을 쓴다. 예: npm test · pytest · bash scripts/tests/run-all.sh -->
 
 ```bash
-# npm test
-# pytest
-# bash scripts/tests/test-*.sh
+<TEST_COMMAND>
 ```
 
 ## 코딩 컨벤션
@@ -60,9 +60,9 @@ UI 프로젝트인 경우:
 
 ## 작업 흐름
 
-1. **새 기능**: `/start "<기능>"` → spec → clarify → plan → decompose → implement → verify → review
-2. **버그/리팩터**: `/maintain "<대상>"` → analyzing-ko → spec → ... (chain)
-3. **검증**: `bash scripts/tests/test-*.sh` 또는 `<TEST_COMMAND>`
+1. **새 기능**: `/start` — 기본 경로는 spec 1장 승인 뒤 PR 까지, 풀 경로는 spec → clarify → plan → 분해 → 구현 → 검증 → 리뷰·게이트 → PR
+2. **버그/리팩터**: `/maintain` — 기본 경로는 같고, 풀 경로는 분석(현재 동작·영향)이 앞에 붙는다
+3. **검증**: 위 「테스트 명령」
 
 ---
 

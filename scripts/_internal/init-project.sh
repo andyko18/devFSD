@@ -37,6 +37,7 @@ _usage() {
   cat <<EOF
 Usage: $0 [--resume] [--answers <파일>] [<project-name>]
        $0 --answers-template
+       $0 --mark <단계 이름>
 
 devFSD 한국어 자율 Lifecycle 부트스트랩 — 한국 SI 표준 14종 산출물 자동 생성
 
@@ -45,6 +46,8 @@ Options:
   --answers <파일>      질문의 답을 키=값 파일로 준다 (순서 무관 · 비대화 호출의 권장 방식).
                         빠진 키·잘못된 값이 있으면 아무것도 쓰지 않고 rc=2 로 전부 알린다.
   --answers-template    답변 파일의 키 목록과 설명을 출력한다 (아무것도 쓰지 않는다)
+  --mark <단계 이름>    단계가 끝난 시각을 .specops/.init-timing 에 적는다 (영소문자·숫자·- 1~32자).
+                        종결 커밋(init-finalize.sh)이 단계별 소요를 출력한다. .specops 가 없으면 아무것도 하지 않는다.
 
 입력: --answers 가 없으면 질문을 stdin 에서 순서대로 읽는다(터미널용). 터미널이 아닌데 입력이 모자라거나
       선택지가 아닌 값이 들어오면 기본값으로 이어 가지 않고 rc=2 로 멈춘다.
@@ -79,6 +82,11 @@ main() {
         ANSWERS_FILE="${1#--answers=}"
         [ -n "$ANSWERS_FILE" ] || { echo "[init] --answers 의 파일 경로가 비어 있습니다" >&2; exit 2; } ;;
       --answers-template) want_template=1 ;;
+      --mark)
+        [ $# -ge 2 ] || { echo "[init] --mark 뒤에 단계 이름이 필요합니다" >&2; exit 2; }
+        _cd_repo_root
+        _init_mark_time "$2" || { echo "[init] --mark 의 단계 이름은 영소문자·숫자·- 1~32자입니다: '$2'" >&2; exit 2; }
+        exit 0 ;;
       --enrich)
         echo "[init] --enrich 는 이 스크립트의 옵션이 아닙니다 — bash 단계 없이 Phase 11(보강)만 하는 /init-project 의 모드입니다." >&2
         exit 2 ;;
@@ -108,6 +116,9 @@ main() {
     _check_git
     _answers_preflight
   fi
+  # 단계별 소요 기록 — 여기서 비우지 않는다: bash 보다 앞선 단계(Phase 0·답변 수집)의 표시가 같은 부트스트랩의
+  #   것이다. 기록은 종결 커밋이 성공하면 종결이 지운다(lib.sh `_init_mark_time`).
+  _init_mark_time bash-start
   phase_1_precheck "${project_name}"
   phase_2_classify
   phase_3_constitution
@@ -118,6 +129,7 @@ main() {
   phase_8_artifacts
   phase_9_readme
   phase_10_commit
+  _init_mark_time bash-end
 }
 
 # source 가드 — sourced 시 함수만 로드 (테스트가 _replace_line_prefix 등 단위 호출 가능)

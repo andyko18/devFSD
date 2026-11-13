@@ -147,4 +147,51 @@ _mark $NEED3; _stale F2n "★ 앞선 커밋의 변경(old.sh)을 언급하는 �
 _mark $NEED3 scripts/tests/test-old.sh; out=$(_run); rc=$?
 [ "$rc" = 0 ] && printf '%s' "$out" | grep -q 'suites=4)$' && ok "F2n0 대조 — 앞선 커밋의 스위트까지 덮으면 FRESH(4개)" || nope "F2n0" "rc=$rc out=[$out]"
 
+# ── M 병합 진행 중(MERGE_HEAD) — main 쪽 변경을 "내 변경"으로 세지 않는다 (20261114) ──
+#   사고: 작업 브랜치에 origin/main 을 병합하는 동안(커밋 전) 닿는 스위트가 137개(상한 80)로 부풀어 관련 스위트 증거가 무효가 됐다.
+#   병합 커밋을 만든 뒤에는 내 변경만 남는데, 그 커밋을 만드는 시점의 게이트가 부풀린 목록을 봤다.
+#   기준은 병합이 들여오는 쪽(MERGE_HEAD)이다 — 병합 후 공통 조상과 같아지므로 커밋 전후 목록이 같다.
+R2="$TMP/repo2"
+mkdir -p "$R2/scripts/tests" "$R2/scripts/_internal" "$R2/.specops"
+cp "$PLUGIN/scripts/tests/run-related.sh" "$R2/scripts/tests/run-related.sh"
+cp "$PLUGIN/scripts/_internal/verification-state.sh" "$PLUGIN/scripts/_internal/file-class.sh" "$R2/scripts/_internal/"
+printf '#!/usr/bin/env bash\necho structure-ok\n' > "$R2/scripts/_internal/validate-structure.sh"
+printf '#!/usr/bin/env bash\necho doc-numbers\n' > "$R2/scripts/tests/test-doc-numbers.sh"
+for n in mine theirs; do
+  printf '#!/usr/bin/env bash\necho %s\n' "$n" > "$R2/scripts/$n.sh"
+  printf '#!/usr/bin/env bash\n# scripts/%s.sh 를 본다\necho "PASS=1 FAIL=0"\n' "$n" > "$R2/scripts/tests/test-$n.sh"
+done
+printf '.specops/\n' > "$R2/.gitignore"
+_g2() { ( cd "$R2" && git -c user.name=t -c user.email=t@e.com -c commit.gpgsign=false "$@" ); }
+( cd "$R2" && git init -q -b main && git add -A ) >/dev/null 2>&1 && _g2 commit -qm init >/dev/null 2>&1 && _g2 branch -q work >/dev/null 2>&1
+printf 'echo main-side\n' >> "$R2/scripts/theirs.sh"; _g2 add scripts/theirs.sh >/dev/null 2>&1; _g2 commit -qm "main advances" >/dev/null 2>&1
+_g2 update-ref refs/remotes/origin/main HEAD >/dev/null 2>&1
+_g2 checkout -q work >/dev/null 2>&1
+printf 'echo mine\n' >> "$R2/scripts/mine.sh"; _g2 add scripts/mine.sh >/dev/null 2>&1; _g2 commit -qm "my work" >/dev/null 2>&1
+_g2 merge --no-commit --no-ff origin/main >/dev/null 2>&1   # 병합 진행 중 — 작업 트리에 main 쪽 변경이 들어와 있다
+_need2() { ( cd "$R2" && env -u SPECOPS_FORCE_FULL bash "$FRESH" --need 2>/dev/null ); }
+_mid=$(_need2)
+{ [ -f "$R2/.git/MERGE_HEAD" ] && printf '%s\n' "$_mid" | grep -qx 'scripts/tests/test-mine.sh' && ! printf '%s\n' "$_mid" | grep -qx 'scripts/tests/test-theirs.sh'; } \
+  && ok "M1 ★ 병합 진행 중 — 내 변경(mine)의 스위트만 뽑고 main 쪽 변경(theirs)의 스위트는 뽑지 않는다" || nope "M1" "MERGE_HEAD=$([ -f "$R2/.git/MERGE_HEAD" ] && echo y || echo n) 목록=[$(printf '%s' "$_mid" | tr '\n' ' ')]"
+_g2 commit -qm "merge main" >/dev/null 2>&1
+_after=$(_need2)
+{ [ ! -f "$R2/.git/MERGE_HEAD" ] && [ "$_mid" = "$_after" ] && [ -n "$_after" ]; } \
+  && ok "M2 ★ 병합 커밋을 만든 뒤 목록과 병합 진행 중 목록이 같다(커밋하는 시점의 게이트가 부풀린 목록을 보지 않는다)" || nope "M2" "전=[$(printf '%s' "$_mid" | tr '\n' ' ')] 후=[$(printf '%s' "$_after" | tr '\n' ' ')]"
+# M3 병합이 아닌 상태는 종전 그대로 — 기본 브랜치보다 앞선 커밋의 변경은 센다(F2n 과 같은 계약)
+_g2 reset -q --hard HEAD~1 >/dev/null 2>&1
+_need3=$(_need2)
+{ printf '%s\n' "$_need3" | grep -qx 'scripts/tests/test-mine.sh'; } && ok "M3 병합 아닐 때는 종전대로 앞선 커밋의 변경을 센다" || nope "M3" "목록=[$(printf '%s' "$_need3" | tr '\n' ' ')]"
+# M4 MERGE_HEAD 가 기본 브랜치의 조상이 아니면(다른 브랜치를 병합 중) 기준을 옮기지 않는다 — 종전 판정 그대로
+_g2 checkout -q -b other main >/dev/null 2>&1
+printf '#!/usr/bin/env bash\necho others\n' > "$R2/scripts/others.sh"
+printf '#!/usr/bin/env bash\n# scripts/others.sh 를 본다\necho "PASS=1 FAIL=0"\n' > "$R2/scripts/tests/test-others.sh"
+_g2 add scripts/others.sh scripts/tests/test-others.sh >/dev/null 2>&1; _g2 commit -qm "other branch" >/dev/null 2>&1
+_g2 checkout -q work >/dev/null 2>&1
+_g2 merge --no-commit --no-ff other >/dev/null 2>&1
+_need4=$(_need2)
+#   종전 판정에서는 병합으로 들어온 others 도 공통 조상 기준 변경이라 세어진다 — 기준이 MERGE_HEAD 로 옮겨 가면 빠진다(그러면 안 된다).
+{ [ -f "$R2/.git/MERGE_HEAD" ] && printf '%s\n' "$_need4" | grep -qx 'scripts/tests/test-mine.sh' && printf '%s\n' "$_need4" | grep -qx 'scripts/tests/test-others.sh'; } \
+  && ok "M4 ★ 기본 브랜치의 조상이 아닌 브랜치를 병합 중이면 기준을 옮기지 않는다(종전 판정 — 들어온 변경도 센다)" || nope "M4" "목록=[$(printf '%s' "$_need4" | tr '\n' ' ')]"
+_g2 merge --abort >/dev/null 2>&1
+
 finish

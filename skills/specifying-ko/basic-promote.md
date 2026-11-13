@@ -1,6 +1,6 @@
 # 기본 경로에서 올라온 FID 이어 가기 (`promoted-from-basic`)
 
-> `specifying-ko`·`analyzing-ko` 가 args 의 `<!-- promoted-from-basic: <FID> -->` 줄을 보면 이 문서를 Read 해 따른다. 그 줄은 `scripts/basic-path.sh promote` 가 안내한다(기본 경로 진행 중 위험 신호 — `commands/basic.md` 「풀 경로로 올리기」).
+> `specifying-ko`·`analyzing-ko` 가 args 의 `<!-- promoted-from-basic: <FID> -->` 줄을 보면 이 문서를 Read 해 따른다. 그 줄은 `scripts/basic-path.sh` 의 `promote` 가 안내한다(기본 경로 진행 중 위험 신호 — `commands/basic.md` 「풀 경로로 올리기」).
 
 기본 경로가 만든 것을 **버리지 않고** 풀 경로의 산출물 계약(intent · spec · acceptance-criteria · clarifications · plan · tasks · 진행 기록 · 검증 실행 증거)을 그대로 채운다. 승격은 축약이 아니다 — `§lite`·trivial 단축 경로를 쓰지 않는다(위험 신호가 있어서 올라왔다).
 

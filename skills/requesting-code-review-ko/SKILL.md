@@ -93,7 +93,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 ### 3. 피드백 대응
 
 - **Critical 이슈**: **즉시** 수정
-- **Important 이슈**: 다음 단계 진행 **전에** 수정
+- **Important 이슈**: 이번 FID 가 만든 결함이면 다음 단계 **전에** 수정, 이전부터 있던 것이면 넘긴다(`implementing-ko/dev-autonomy.md` §2)
 - **Minor 이슈**: 기록 후 나중에
 - **리뷰어가 틀렸으면**: 근거와 함께 pushback (본 스킬 `## 리뷰어가 틀렸을 때` 참조)
 
@@ -145,7 +145,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 **절대 금지**:
 - "간단하니까" 리뷰 생략
 - Critical 이슈 무시
-- Important 이슈 미해결로 진행
+- 이번 FID 가 만든 Important 이슈를 미해결로 진행
 - 타당한 기술 피드백에 논쟁
 
 **리뷰어가 틀렸을 때**:

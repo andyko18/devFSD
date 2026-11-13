@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **코드 리뷰어의 `[기존]` 라벨을 받는 쪽이 안다.** 4.0.7 에서 라벨만 넣고 받는 쪽을 잇지 않았다. `[기존]` Important 는 부모가 이번 범위에서 고치지 않고 넘긴다(`skills/implementing-ko/dev-autonomy.md` §2 · `/basic` 은 PR 본문 "넘긴 것"). `[기존]` Critical 은 라벨이 붙어도 종전대로 🔴 절에 올리고 수정 대상이다(「넘길 수 없는 것」 — 릴리즈 준비 판정이 🔴 절을 읽는다). 라벨은 참고이고 부모의 위치 판정이 우선한다.
+- **코드 리뷰어의 "다음 단계"를 지금의 흐름으로 고쳤다.** 고정 단계에서 빠진 `requesting-code-review-ko` 를 가리키던 두 줄을 `verifying-evidence-ko`(부모가 호출)로 바꿨다. README·CLAUDE.md 의 풀 경로 순서도 `implement(끝에 스펙·코드 리뷰) → verify → security` 로 맞췄다.
+- **코드 리뷰어 등급 낱말을 하나로 맞췄다.** 증거 없는 지적의 강등 등급을 Suggestion 으로 통일하고, 출력 형식에 Suggestion 절을 더했다(강등한 항목이 갈 곳이 없었다).
+- **Important 처리 규칙을 한 기준으로 맞췄다.** `requesting-code-review-ko`·`receiving-code-review-ko` 가 "이번 FID 가 만든 결함만 수정 대상"이라는 `dev-autonomy.md` §2 의 기준을 쓴다(종전엔 모든 Important 를 다음 단계 전에 고치라고 했다).
+
+### Tests/CI
+
+- **판정 방향이 뒤집혀도 통과하던 구멍을 메웠다**(20261113 변이 실측에서 살아남은 것). push 전 게이트: 다른 트리의 통과 기록으로 건너뛰지 않는다 · `master` 로 push 는 전체 스위트(`test-git-hooks` PR.12·PR.13). 갈래 판정: "범위 밖" 절 뒤 같은 깊이 절의 위험 낱말 · 판정기 부재 시 풀 경로 · 리뷰 보고서는 둘 다 필요 · 변경 파일 없이 봉인 거부(`test-basic-path` K1~K4). 위험 낱말 98개를 낱말마다 그 종류의 신호로 풀 판정이 나는지 표로 잠갔다(K5 — 종전엔 95개 중 55개가 어느 스위트에도 없었다). 변이 7종을 넣어 새 단언이 각각 잡는 것을 확인했다.
+- skill 크기 기준: `requesting-code-review-ko` +133B · `receiving-code-review-ko` +22B · 체인 총량 +155B.
+
 ## [4.0.9] — 2026-11-13
 
 ### Added

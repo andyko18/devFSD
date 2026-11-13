@@ -502,6 +502,40 @@ R="$TMP/f30b"; mkdir -p "$R"; cd "$R" || exit 1; git init -q
 bash "$PLUGIN/scripts/_internal/init-project.sh" --mark phase0; rc=$?
 [ "$rc" -eq 0 ] && [ ! -e .specops ] && ok "F30b .specops 없는 저장소 → 표시 안 남김 · .specops 미생성" || nope "F30b" "rc=$rc $(ls -A | tr '\n' ' ')"
 
+# ── F31 — 미확정 마커 건수를 제목과 출력이 말한다 (20261113) ──
+#   `<미확정 — 근거 필요>` 는 보강 계약상 허용이라 미채움 스캔·차단을 통과한다. 그래서 건수가 어디에도 보이지 않았다 —
+#   실주행(20261113): 깊게 보강한 문서에 84건이 남았는데 제목은 "미채움 37건"(얕게 두는 문서의 자리표시자)만 말했다.
+#   막지 않는다: 근거 없는 값을 지어내게 하는 것보다 모른다고 적는 쪽이 계약이다. 보이게만 한다.
+R="$TMP/f31"; _mkstaged "$R"
+printf '# 백엔드\n- 런타임: <미확정 — 근거 필요>\n- 로깅: <미확정 — 근거 필요> · 모니터링: <미확정 — 근거 필요>\n' > .specops/memory/backend-architecture.md
+printf '# 요구\n- 기간: <미확정 — 근거 필요>\n' > .specops/memory/requirements.md; git add -A
+out=$(bash "$FIN" 2>&1); rc=$?
+subj=$(git log -1 --format=%s 2>/dev/null)
+if [ "$rc" -eq 0 ] && printf '%s' "$subj" | grep -q '부트스트랩+enrich (.*미확정 4건)' && ! printf '%s' "$subj" | grep -q '미채움' \
+   && printf '%s' "$out" | grep -q '미확정 마커 4건' && printf '%s' "$out" | grep -q 'backend-architecture.md 3 · .*requirements.md 1'; then
+  ok "F31 미확정 마커 → 제목 '미확정 4건'(줄이 아니라 마커 수 · 미채움으로 세지 않음) · 문서별 건수 고지"
+else
+  nope "F31" "rc=$rc subj=[$subj] out=$(printf '%s' "$out" | grep 미확정 | cut -c1-200)"
+fi
+# F31b — 미확정 0건이면 제목·출력이 종전과 같다(위 F22 의 제목 계약 유지)
+R="$TMP/f31b"; _mkstaged "$R"
+out=$(bash "$FIN" 2>&1); rc=$?
+subj=$(git log -1 --format=%s 2>/dev/null)
+[ "$rc" -eq 0 ] && ! printf '%s%s' "$subj" "$out" | grep -q '미확정' && ok "F31b 미확정 0건 → 제목·출력에 언급 없음" || nope "F31b" "subj=[$subj]"
+
+# ── F32 — 헌법 원칙이 비어 있으면 종결이 알린다 (20261113) ──
+#   `principles=skip` 은 정당한 답이라 막지 않는다. 그런데 종전엔 승인 요약의 산문 한 줄에만 기대, 빈 헌법이 조용히
+#   굳었다(실기록: 원칙이 자리표시자인 채 FID 60개 진행 — 구조 규칙 검사기·태스크 맥락이 이 문서를 읽는다).
+R="$TMP/f32"; _mkstaged "$R"
+printf '# 헌법\n\n### 원칙 1: <PRINCIPLE_1_NAME>\n\n### 원칙 2: 가독성\n' > .specops/memory/constitution.md; git add -A
+out=$(bash "$FIN" 2>&1); rc=$?
+_a="$rc:$(printf '%s' "$out" | grep -c '헌법 원칙이 정해지지 않았습니다')"
+R="$TMP/f32b"; _mkstaged "$R"
+printf '# 헌법\n\n### 원칙 1: 단순함\n\n### 원칙 2: 가독성\n' > .specops/memory/constitution.md; git add -A
+out=$(bash "$FIN" 2>&1); rc=$?
+[ "$_a" = "0:1" ] && [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q '헌법 원칙' \
+  && ok "F32 헌법 원칙 자리표시자 → 경고 1줄(rc0 · 막지 않음) · 원칙이 채워졌으면 조용" || nope "F32" "skip=$_a filled_rc=$rc"
+
 DOC="$PLUGIN/scripts/doctor.sh"
 
 # F6 — 미커밋 부트스트랩 → bootstrap warn · exit 0 / 커밋 후 → ok

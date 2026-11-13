@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.8] — 2026-11-13
+
 ### Added
 
 - **기준 약화 후보를 스크립트가 먼저 뽑는다**(`scripts/_internal/scan-dod-weakening.sh --base <ref>`). 리뷰 범위의 변경과 추적하지 않는 새 파일에서 억제 주석 신규 · 테스트 skip·삭제 · 단언 순감소 · 임계 하향·타임아웃 상향 · 검증 무력화 · 미구현 표식 6종을 `<클래스>\t<파일>:<줄>\t<패턴>` 으로 내고, 조이는 방향의 변경은 내지 않는다. 종료 코드는 0(없음)·1(있음)·2(실행 불가 — 통과로 읽지 않는다)이고 줄 원문은 출력하지 않는다. 코드 리뷰어가 「기준 약화 탐지」에서 이 출력으로 읽을 곳을 정한다 — 사유·등급 판정은 종전대로 리뷰어 몫이다(`agents/code-reviewer-ko.md`). 계약은 addyosmani/agent-skills 의 floor-guard 에서 가져왔다.
@@ -3883,7 +3885,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.7...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.8...HEAD
+[4.0.8]: https://github.com/andyko18/devFSD/compare/v4.0.7...v4.0.8
 [4.0.7]: https://github.com/andyko18/devFSD/compare/v4.0.6...v4.0.7
 [4.0.6]: https://github.com/andyko18/devFSD/compare/v4.0.5...v4.0.6
 [4.0.5]: https://github.com/andyko18/devFSD/compare/v4.0.4...v4.0.5

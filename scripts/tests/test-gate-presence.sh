@@ -731,24 +731,24 @@ else
   nope "요구사항 이해 전문가 에이전트" "파일·frontmatter·빈칸 증명·핵심 규칙·공통 원칙·README 중 빠진 것이 있다"
 fi
 
-# 화면·UX 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 빈칸 증명(찾은 곳·빈칸) · 핵심 규칙 8(이름·근거 같은 줄) · 공통 원칙 4(출처 같은 줄) · Critical 없음 · README 16건·모델 표 (20261023-ui-expert-integrate)
+# 화면·UX 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 빈칸 증명(찾은 곳·빈칸) · 핵심 규칙 8(이름·근거 같은 줄) · 공통 원칙 6(출처 같은 줄) · Critical 없음 · README 16건·모델 표 (20261023-ui-expert-integrate)
 _UIA=agents/ui-designer-ko.md
 _uia_rules_ok() {
   local name
   for name in '로딩·오류·0건 구분' '일부 실패' '공통 컴포넌트 계약 대조' '색만으로 전달 금지' '알림 수준' '같은 목적 입력의 동작 통일' '근거 없는 라벨 금지' '앞서 가는 화면 값'; do
     grep -F -- "- **$name**:" "$_UIA" | grep -qE '근거: Argus 2026[0-9]{4}-' || return 1
   done
-  for name in '안내 문구의 실행 가능성' '디자인 토큰 밖 색' '포커스 이동' '부분 데이터가 없는 것보다 낫다'; do
+  for name in '안내 문구의 실행 가능성' '디자인 토큰 밖 색' '포커스 이동' '로딩 영역의 이름' '대비 기준의 글자 크기' '부분 데이터가 없는 것보다 낫다'; do
     grep -F -- "- **$name**:" "$_UIA" | grep -qE '출처: .*\((MIT|Apache-2\.0)\)' || return 1
   done
-  [ "$(awk '/^## 핵심 규칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 8 ] && [ "$(awk '/^## 공통 원칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 4 ] || return 1
+  [ "$(awk '/^## 핵심 규칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 8 ] && [ "$(awk '/^## 공통 원칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 6 ] || return 1
 }
 if [ -f "$_UIA" ] && has "$_UIA" '^name: ui-designer-ko$' '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/ui\.md` 하나뿐이다' \
      '^## 받는 컨텍스트' '^## 작업 순서' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^### Important 의 자격 — 빈칸 증명' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
      '`찾은 곳:`' '`빈칸:`' 'Important 는 많아야 5건' '\*\*`## 확인 필요` 질문으로만\*\*' 'Critical 은 쓰지 않는다' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' \
    && ! grep -q '^role: evaluator' "$_UIA" && grep -q 'agents/ .*← 16건 .*ui-designer' README.md && grep -qE '^\| ui-designer-ko .*\| opus · high \|' README.md \
    && _uia_rules_ok; then
-  ok "화면·UX 전문가 에이전트 — opus·high · 산출 파일 하나 · 빈칸 증명 · 핵심 규칙 8(근거) · 공통 원칙 4(출처) · Critical 없음 · README 16건·모델 표"
+  ok "화면·UX 전문가 에이전트 — opus·high · 산출 파일 하나 · 빈칸 증명 · 핵심 규칙 8(근거) · 공통 원칙 6(출처) · Critical 없음 · README 16건·모델 표"
 else
   nope "화면·UX 전문가 에이전트" "파일·frontmatter·빈칸 증명·핵심 규칙·공통 원칙·README 중 빠진 것이 있다"
 fi

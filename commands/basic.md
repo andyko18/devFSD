@@ -47,7 +47,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
 4. **승인 1회** — spec 경로와 요지(목표 · 범위 · AC 마다 한 줄 · `ASSUMED` 로 정한 것 · 화면 설계 경로)를 한 메시지로 보이고 "이대로 구현까지 진행할까요? [y/수정]" 을 묻는다. 승인되면:
    `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh approve <FID>`
    spec 절을 확인하고, spec 본문으로 갈래를 다시 판정하고, 수용 기준 절을 `acceptance-criteria.md` 로 옮긴다(검증 러너·스펙 리뷰어가 읽는 계약 파일). 종료 코드 3 = 풀 신호 → 「풀 경로로 올리기」(spec 을 쓰다가 풀 신호를 알아챘으면 승인을 묻기 전에 올린다 — 승인 묶음은 풀 경로 형식으로 한 번만 받는다). 승인 뒤에는 PR 까지 묻지 않는다(비가역 작업·리뷰어 `NEEDS_DISCUSSION`·고치지 못한 Critical 은 멈춘다).
-5. **직접 구현** — 주 세션이 구현한다(서브에이전트에게 구현을 맡기지 않는다). 수용 기준마다 **실패하는 테스트를 먼저** 쓰고 실패를 확인한 뒤 고친다(`devfsd:tdd-ko`). 구현 중에는 **관련 테스트만** 돌린다. 커밋은 7번 뒤에 한다.
+5. **직접 구현** — 주 세션이 구현한다(서브에이전트에게 구현을 맡기지 않는다). 수용 기준마다 **실패하는 테스트를 먼저** 쓰고 실패를 확인한 뒤 고친다(`devfsd:tdd-ko`). 구현 중에는 **관련 테스트만** 돌린다. 통과를 확인한 명령은 그 뒤로 파일을 바꾸지 않았으면 다시 돌리지 않는다(앞선 출력을 쓴다). 커밋은 7번 뒤에 한다.
 6. **리뷰 1회 (동시)** — 먼저 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh review <FID>` 로 진행 기록(구현 완료 · 리뷰 진행)을 남긴다(관제판 단계 표시용 — 판정은 없다). 그다음 한 메시지에서 함께 보낸다:
    - `devfsd:spec-reviewer-ko` — FID · tid `T1` · `spec.md`·`acceptance-criteria.md` 경로 · 리뷰 대상 `git diff <base>...HEAD` + 작업 트리 변경.
    - `devfsd:code-reviewer-ko` — 같은 대상 · `병렬 dispatch: yes (B 판정 대기)`.

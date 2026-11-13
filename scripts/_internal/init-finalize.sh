@@ -220,14 +220,26 @@ if [ "$_scan_state" = "found" ]; then
   _n_ex=$(printf '%s\n' "$_scan" | grep -c '\[example-block\]' || true)
   _n_ph=$(printf '%s\n' "$_scan" | grep -v '\[example-block\]' | grep -c . || true)
 fi
+# 미확정 마커(`<미확정 — 근거 필요>`)를 센다 — 보강 계약상 허용이라 위 스캔·차단을 통과하므로 따로 보이게 한다(20261113).
+#   실주행: 깊게 보강한 문서에 84건이 남았는데 제목은 얕게 두는 문서의 자리표시자 37건만 말했다. 막지 않는다 —
+#   근거 없는 값을 지어내는 것보다 모른다고 적는 쪽이 계약이다. 줄이 아니라 마커 수를 센다(한 줄에 여럿이 있다).
+_n_un=0; _un_by=""
+for _p in ${_md[@]+"${_md[@]}"}; do
+  _c=$(grep -o '미확정 — 근거 필요' "$_p" 2>/dev/null | grep -c . || true)
+  [ "${_c:-0}" -gt 0 ] || continue
+  _n_un=$((_n_un + _c))
+  _un_by="${_un_by}${_c} ${_p}
+"
+done
+_un_sfx=""; [ "$_n_un" -gt 0 ] && _un_sfx=" · 미확정 ${_n_un}건"
 case "$_scan_state" in
-  clean) _title="chore(init): /init-project 부트스트랩+enrich (${n}종)" ;;
+  clean) _title="chore(init): /init-project 부트스트랩+enrich (${n}종${_un_sfx})" ;;
   found)
     _left=""
     [ "${_n_ph:-0}" -gt 0 ] && _left="미채움 ${_n_ph}건"
     [ "${_n_ex:-0}" -gt 0 ] && _left="${_left}${_left:+ · }예시 블록 ${_n_ex}건"
-    _title="chore(init): /init-project 부트스트랩 (${n}종 · ${_left:-미채움 있음})" ;;
-  *) _title="chore(init): /init-project 부트스트랩 (${n}종)" ;;
+    _title="chore(init): /init-project 부트스트랩 (${n}종 · ${_left:-미채움 있음}${_un_sfx})" ;;
+  *) _title="chore(init): /init-project 부트스트랩 (${n}종${_un_sfx})" ;;
 esac
 if ! out=$(git commit -q -m "$_title" -- "${cpaths[@]}" 2>&1); then
   # 기록 되돌리기 — FR-5/AC-5 는 기록을 **커밋 성공**에 조건부로 둔다(spec.md:62 "성공 시",
@@ -290,6 +302,19 @@ fi
 # 단계별 소요 — 표시(`init-project.sh --mark`)가 있을 때만. 값은 앞 표시부터 그 표시까지 걸린 시간이다.
 _tm=$(_init_timing_summary 2>/dev/null || true)
 [ -n "$_tm" ] && echo "init-finalize: 단계별 소요 — $_tm"
+
+# 미확정 마커를 문서별로 알린다(많은 순 5개) — 사용자가 어디를 더 정해야 하는지 본다.
+if [ "$_n_un" -gt 0 ]; then
+  _ub=$(printf '%s' "$_un_by" | sort -rn | head -5 | awk '{ c = $1; $1 = ""; sub(/^ /, ""); printf "%s%s %s", (NR > 1 ? " · " : ""), $0, c }')
+  echo "init-finalize: 미확정 마커 ${_n_un}건 — ${_ub} (근거가 생기면 채웁니다 · /init-project --enrich)"
+fi
+
+# 헌법 원칙이 비어 있으면 알린다 — `principles=skip` 은 정당한 답이라 막지 않지만, 빈 헌법이 조용히 굳으면
+#   구조 규칙 검사·태스크 맥락이 읽을 원칙이 없다(실기록: 자리표시자인 채 FID 60개 진행).
+_cs=".specops/memory/constitution.md"
+if printf '%s\n' "${cpaths[@]}" | grep -qxF -- "$_cs" && grep -qE '^### 원칙 [0-9]+: *<' "$_cs" 2>/dev/null; then
+  echo "init-finalize: 헌법 원칙이 정해지지 않았습니다 — $_cs 의 원칙 이름이 자리표시자입니다. 원칙 5개를 정해 주면 constitution.md 와 CLAUDE.md 원칙 줄을 채웁니다."
+fi
 
 # 남은 미채움을 문서별로 알린다(많은 순 5개). 보강을 건너뛴 종결이 조용히 지나가지 않게 한다.
 if [ "${_n_ph:-0}" -gt 0 ]; then

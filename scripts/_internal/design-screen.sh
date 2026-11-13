@@ -87,15 +87,27 @@ fi
 FORCE=0
 NAME=""
 
+_usage() {
+  echo "Usage: $0 <name> [--force]"
+  echo "       $0 --check <file...>"
+  echo "  <name>   화면 이름 (영숫자/-/_ 1~64자 · '-' 로 시작할 수 없다)"
+  echo "  --force  이미 있는 screens/<name>.md·.html 을 덮어쓴다"
+}
+
+# 모르는 옵션은 화면 이름으로 삼지 않는다 — 아래 이름 검증은 `-` 로 시작하는 낱말을 통과시키므로,
+#   종전엔 `--help` 가 screens/--help.md·.html 을 만들고 화면 목록에 행을 올렸다(20261113 실주행 재현).
+#   옵션을 먼저 다 본 뒤에 만든다: `--nope orders` 처럼 이름이 함께 와도 아무것도 쓰지 않는다.
 for arg in "$@"; do
   case "$arg" in
     --force) FORCE=1 ;;
+    -h|--help) _usage; exit 0 ;;
+    -*) echo "Error: 모르는 옵션: $arg" >&2; _usage >&2; exit 1 ;;
     *) NAME="$arg" ;;
   esac
 done
 
 if [ -z "$NAME" ]; then
-  echo "Usage: $0 <name> [--force]" >&2
+  _usage >&2
   exit 1
 fi
 

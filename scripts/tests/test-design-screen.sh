@@ -210,6 +210,25 @@ _b=$(cat "$_ov"); out=$(bash "$SCRIPT" nofence 2>&1)
   && ok  "T12.c fence 없는 표 → 무변경 · '갱신됨' 거짓 보고 없음" \
   || nope "T12.c" "out=$out"
 
+# T13 (20261113): 모르는 옵션을 화면 이름으로 삼지 않는다
+#   실주행 재현: 사용법을 보려고 `design-screen.sh --help` 를 부르자 `screens/--help.md`·`.html` 이 생기고
+#   화면 목록에 `--help` 행이 올라갔다(이름 검증이 `-` 로 시작하는 낱말을 통과시킨다).
+_snap() { { ls -A screens 2>/dev/null; cat "$_ov" 2>/dev/null; } | cksum; }
+_b=$(_snap); out=$(bash "$SCRIPT" --help 2>&1); rc=$?
+{ [ "$rc" -eq 0 ] && [ "$_b" = "$(_snap)" ] && [ ! -e "screens/--help.md" ] && printf '%s' "$out" | grep -q '^Usage: .*<name> \[--force\]'; } \
+  && ok  "T13.a --help → 사용법 출력(rc0) · 화면·목록 무변경" \
+  || nope "T13.a" "rc=$rc out=$(printf '%s' "$out" | head -2 | tr '\n' '|') files=$(ls -A screens | grep -c -- '^--' || true)"
+_b=$(_snap); out=$(bash "$SCRIPT" -h 2>&1); rc=$?
+{ [ "$rc" -eq 0 ] && [ "$_b" = "$(_snap)" ]; } && ok "T13.b -h → 사용법(rc0) · 무변경" || nope "T13.b" "rc=$rc"
+_b=$(_snap); out=$(bash "$SCRIPT" --nope orders 2>&1); rc=$?
+{ [ "$rc" -eq 1 ] && [ "$_b" = "$(_snap)" ] && [ ! -e "screens/orders.md" ] && printf '%s' "$out" | grep -q "모르는 옵션: --nope"; } \
+  && ok  "T13.c 모르는 옵션 → rc1 · 사유 · 함께 준 이름으로도 만들지 않는다" \
+  || nope "T13.c" "rc=$rc out=$(printf '%s' "$out" | head -2 | tr '\n' '|')"
+# 기존 계약은 그대로다 — 이름 뒤 --force · 이름 앞 --force 둘 다 덮어쓴다
+bash "$SCRIPT" t13force >/dev/null 2>&1; printf 'MINE\n' > screens/t13force.md
+bash "$SCRIPT" --force t13force >/dev/null 2>&1; rc=$?
+{ [ "$rc" -eq 0 ] && ! grep -q '^MINE$' screens/t13force.md; } && ok "T13.d --force 는 이름 앞에 와도 듣는다(회귀)" || nope "T13.d" "rc=$rc"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

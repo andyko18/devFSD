@@ -8,6 +8,12 @@
 
 - **커밋·PR 게이트가 관련 스위트 통과를 실행 증거로 읽는다.** 종전에는 작업 브랜치 push 는 관련 스위트로 판정하면서 커밋 전 R-1·PR 전 R-2 는 `run-all.sh` 전체 스위트나 `run-verification.sh` 만 러너로 읽어, 관련 스위트를 통과시키고도 전체 스위트를 한 번 더 돌려야 했다. 이제 `scripts/tests/run-related.sh` 가 전부 통과하고 판정기 `scripts/_internal/related-suite-fresh.sh`(rc 0 = FRESH — 통과 기록이 지금 트리의 것이고 기본 브랜치와의 차이가 닿는 스위트를 전부 덮음)가 인정할 때만 `VERIFY: PASS` 를 내고, 훅은 그 줄을 `run-all.sh` 와 같은 술어로 읽는다. 검증 판정이 `STALE` 이어도 통과 기록(`.specops/.related-suite-pass`)이 있고 같은 판정기가 FRESH 면 막지 않는다. 차단 안내 5곳이 돌릴 명령(`bash scripts/tests/run-related.sh $(bash scripts/_internal/related-suite-fresh.sh --need)`)을 적는다. 대가: 판정 1회(스위트 고르기 — 실측 이 트리 변경 21파일에 10초 · 2026-11-13 · 머신 부하에 따라 더 길다)가 러너 통과 때 1회, 그리고 통과 기록이 있는데 판정이 `STALE` 인 커밋마다 1회 붙는다 — push 게이트 경로 포함. 덮지 못한 통과는 종전대로 실행 증거가 아니다(`run-related: 실행 증거로 치지 않는다 — <사유>`).
 
+### Fixed
+
+- **구현 구간을 맡은 자식 세션이 긴 구현자를 기다리다 끊기던 것.** `claude -p` 는 백그라운드 서브에이전트를 마지막 턴 뒤 10분까지만 기다린다 — 구현자가 그보다 길면 자식 세션이 끝 마커 없이 종료돼 `SPLIT-RESULT: FAILED` 가 났다(실측: 43분 진행 뒤 종료). `split-session.sh run` 이 자식에게 대기 상한 끔(`CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`)을 넘긴다. 전체 상한(`timeout_min`)은 그대로 워치독이 보고, 사용자가 그 변수를 지정했으면 그 값을 따른다.
+- **`security-scan.sh` 가 디렉터리를 훑을 때 `.specops/` 의 가짜 키를 Critical 로 세던 것.** lifecycle 기록(마스킹 테스트의 수용 기준·마찰 로그)에 든 의도적 가짜 키가 gitleaks 에 잡혀 `security-scan.sh .` 가 `crit=4` 를 냈고, 그 FAIL 기록이 PR 게이트를 막았다. 디렉터리 대상에서는 그 아래 `.specops/` 의 secret 을 세지 않고(self-check 는 이미 그 폴더를 뺀다), 뺀 건수를 출력 줄에 적는다 — `(.specops 제외 N건 — 그 폴더를 직접 지정하면 집계)`. `.specops` 안의 파일·폴더를 직접 지정한 스캔은 표기(`./…`·`…/`)와 무관하게 그대로 세고, 대상 경로를 정리할 수 없는 표기(`a/../b`)는 빼지 않고 전부 센다. 대가: `.specops/` 를 커밋하는 저장소에서는 그 안의 진짜 secret 도 디렉터리 스캔 집계에서 빠진다 — 출력의 제외 건수가 0 이 아니면 `security-scan.sh .specops` 로 확인한다.
+- **`SPECOPS_FORCE_FULL` 이 물려 오면 훅 테스트 2건(`T-vstale.e`·`T-vstale.g3`)이 거짓 실패하던 것.** 문서화된 `SPECOPS_FORCE_FULL=1 git push` 가 그 변수를 전체 스위트까지 물려줘 "전체 스위트 통과 기록으로 STALE 을 푼다"는 양성 단언이 깨졌다(392 통과 · 2 실패). 두 단언이 그 변수를 지우고 훅을 부른다.
+
 ## [4.0.3] — 2026-11-13
 
 ### Changed

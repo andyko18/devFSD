@@ -187,6 +187,56 @@ calls=$(wc -l < "$T/log" | tr -d ' ')
   && ok "AC-4-gl 다중 인자 gitleaks 인자별 2회 호출·건수 합산(crit=2)" || nope "AC-4-gl" "calls=$calls out=$out ec=$ec"
 rm -rf "$T"
 
+# 디렉터리 대상의 .specops/ 는 secret 집계에서 뺀다 (20261113) — lifecycle 기록에는 의도적 가짜 키(마스킹 테스트의 수용 기준·마찰 로그)가 있다.
+#   실측: `security-scan.sh .` 가 gitignore 된 옛 FID 기록의 가짜 키 4건으로 crit=4 를 내 PR 게이트가 막혔다. self-check 는 이미 그 폴더를 뺀다.
+T=$(mktemp -d); mkdir -p "$T/bin" "$T/repo/.specops/20260101-x" "$T/repo/src"
+printf 'k\n' > "$T/repo/.specops/20260101-x/evidence.md"; printf 'x=1\n' > "$T/repo/src/a.py"
+cat > "$T/bin/gitleaks" <<'STUB'
+#!/usr/bin/env bash
+# 대상이 디렉터리면 그 아래 .specops 1건 + src 2건, 파일이면 그 파일 1건을 보고한다.
+#   File 은 실 gitleaks(8.30.1)처럼 **정리된 경로**로 낸다 — `./x`·`x/`·`x/.` → `x/…` · `a/../b` → `b/…` · 대상 `.` → 접두 없음.
+#   (친 그대로 붙이는 스텁은 실 도구와 달라, `./.specops/<FID>` 직접 지정이 0건으로 통과하는 결함을 보지 못했다 — 코드 리뷰 실측)
+src=""; rep=""
+while [ "$#" -gt 0 ]; do case "$1" in --source) src="$2"; shift 2;; --report-path) rep="$2"; shift 2;; *) shift;; esac; done
+c="$src"
+while :; do case "$c" in ./*) c="${c#./}";; */.) c="${c%/.}";; ?*/) c="${c%/}";; *) break;; esac; done
+c=$(printf '%s' "$c" | sed -E 's#(^|/)[^/]+/\.\./#\1#g')
+p="$c/"; case "$c" in .|"") p="";; esac
+if [ -d "$src" ]; then
+  printf '[{"RuleID":"k","File":"%s.specops/20260101-x/evidence.md"},{"RuleID":"k","File":"%ssrc/a.py"},{"RuleID":"k","File":"%ssrc/.specops-notes/b.py"}]\n' "$p" "$p" "$p" > "$rep"
+else
+  printf '[{"RuleID":"k","File":"%s"}]\n' "$c" > "$rep"
+fi
+exit 0
+STUB
+chmod +x "$T/bin/gitleaks"
+_gl() { PATH="$T/bin:$PATH" SPECOPS_SAST_EXTERNAL=1 SPECOPS_SAST_TIMEOUT=0 bash "$SC" "$@" 2>&1; }
+out=$(_gl "$T/repo"); ec=$?
+{ printf '%s' "$out" | grep -qE 'crit=2 ' && [ "$ec" = 1 ]; } \
+  && ok "AC-gl-specops ★ 디렉터리 대상: .specops/ 아래 secret 은 세지 않는다(3건 중 2건 — 이름이 비슷한 .specops-notes 는 센다)" || nope "AC-gl-specops" "out=$out ec=$ec"
+printf '%s' "$out" | grep -qF '(.specops 제외 1건 — 그 폴더를 직접 지정하면 집계)' \
+  && ok "AC-gl-specops-note ★ 뺀 건수를 출력에 적는다(조용히 빼지 않는다)" || nope "AC-gl-specops-note" "out=$out"
+for t in . ./ "$T/repo/" "$T/repo/."; do
+  out=$( cd "$T/repo" && _gl "$t" ); ec=$?
+  { printf '%s' "$out" | grep -qE 'crit=2 .*\.specops 제외 1건' && [ "$ec" = 1 ]; } \
+    && ok "AC-gl-specops-form 대상 표기 '${t#"$T"}' 도 같다(crit=2 · 제외 1건)" || nope "AC-gl-specops-form ${t#"$T"}" "out=$out ec=$ec"
+done
+out=$(_gl "$T/repo/.specops/20260101-x/evidence.md"); ec=$?
+{ printf '%s' "$out" | grep -qE 'crit=1 ' && ! printf '%s' "$out" | grep -q '제외' && [ "$ec" = 1 ]; } \
+  && ok "AC-gl-specops-file ★ 파일을 직접 지정하면 .specops 안이어도 센다(명시한 대상은 빼지 않는다)" || nope "AC-gl-specops-file" "out=$out ec=$ec"
+# .specops 안의 폴더를 직접 지정 — 대상 기준 상대 경로로 판정한다. 스텁은 그 폴더 아래에 다시 `.specops/…` 1건을 두므로 3건 중 2건이다.
+#   ★ 표기가 정리되지 않은 꼴(`./…`·`…//`·`…/.`)이어도 같아야 한다 — 접두를 못 벗기고 글자만 보면 대상 전체가 빠져 crit=0 으로 통과한다.
+for t in .specops/20260101-x ./.specops/20260101-x .specops/20260101-x// .specops/20260101-x/.; do
+  out=$( cd "$T/repo" && _gl "$t" ); ec=$?
+  { printf '%s' "$out" | grep -qE 'crit=2 ' && [ "$ec" = 1 ]; } \
+    && ok "AC-gl-specops-inside ★ .specops 안의 폴더 직접 지정 '$t' → 그 아래는 센다(crit=2)" || nope "AC-gl-specops-inside $t" "out=$out ec=$ec"
+done
+# 정리로 따라가지 못하는 표기(a/../b)는 빼지 않고 전부 센다 — 모르면 세는 쪽이다
+out=$( cd "$T/repo" && _gl "src/../.specops/20260101-x" ); ec=$?
+{ printf '%s' "$out" | grep -qE 'crit=3 ' && ! printf '%s' "$out" | grep -q '제외' && [ "$ec" = 1 ]; } \
+  && ok "AC-gl-specops-unnorm ★ 접두를 벗길 수 없는 표기 → 빼지 않고 전부 센다(crit=3)" || nope "AC-gl-specops-unnorm" "out=$out ec=$ec"
+rm -rf "$T"
+
 # 첫 호출만 1건을 쓰고 이후 호출은 리포트 없이 rc 3 으로 실패 — stale 리포트 이중 계상 방지(: > 리포트)와 강등 표기 1회를 잠근다
 T=$(mktemp -d); mkdir -p "$T/bin"
 printf 'x=1\n' > "$T/a.py"; printf 'x=2\n' > "$T/b.py"; printf 'x=3\n' > "$T/c.py"

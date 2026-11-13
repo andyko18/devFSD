@@ -185,7 +185,10 @@ cmd_run() {
   [ -n "$sid" ] && args+=(--resume "$sid")
 
   local started; started=$(date +%s)
-  SPECOPS_SPLIT_CHILD=1 run_child $((tmin * 60)) "$CLAUDE_BIN" "${args[@]}"
+  # 백그라운드 대기 상한을 끈다(20261113): print 모드는 백그라운드 서브에이전트를 마지막 턴 뒤 10분까지만 기다리고 그 뒤 끝낸다 —
+  #   구현자가 10분을 넘으면 자식이 끝 마커 없이 종료됐다(실측). 전체 상한은 위 워치독(timeout_min)이 본다. 사용자가 준 값은 그대로 둔다.
+  SPECOPS_SPLIT_CHILD=1 CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-0}" \
+    run_child $((tmin * 60)) "$CLAUDE_BIN" "${args[@]}"
   local child_rc=$? mins=$(( ($(date +%s) - started) / 60 ))
 
   # 결과 판독. 자식은 백그라운드 작업 알림으로 턴이 다시 열릴 때마다 result 줄을 낸다(실측: 1회 실행에 4줄 ·

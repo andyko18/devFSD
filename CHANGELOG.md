@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.7] — 2026-11-13
+
 ### Changed
 
 - **구현자와 `/basic` 이 통과한 같은 테스트 명령을 다시 돌리지 않는다.** 통과를 확인한 뒤 파일을 바꾸지 않았으면 앞선 출력을 쓴다(`agents/implementer-ko.md` 「범위 위생」 · `commands/basic.md` 5번). 훅의 통과 기록 재사용은 이미 있었고, 구현 중 반복 실행을 막는 문장이 없었다.
@@ -3873,7 +3875,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.6...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.7...HEAD
+[4.0.7]: https://github.com/andyko18/devFSD/compare/v4.0.6...v4.0.7
 [4.0.6]: https://github.com/andyko18/devFSD/compare/v4.0.5...v4.0.6
 [4.0.5]: https://github.com/andyko18/devFSD/compare/v4.0.4...v4.0.5
 [4.0.4]: https://github.com/andyko18/devFSD/compare/v4.0.3...v4.0.4

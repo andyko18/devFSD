@@ -38,16 +38,18 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
    요청 문장으로 갈래를 판정하고, FID 폴더·진행 기록·spec 골격(`.specops/<FID>/spec.md`)을 만든다. 기본 브랜치 위면 브랜치를 만든다.
    - **유지보수**(`/maintain` 에서 왔거나 이미 있는 코드·동작을 고치는 요청)면 끝에 `maintain` 을 붙인다 — 골격에 `**§유형**: 유지보수` · `### 현재 동작과 영향` 절 · `### AC-R-1`(기존 동작 유지)이 더해지고 4번 승인이 셋을 검사한다. 분석 단계(`analyzing-ko`)는 돌리지 않는다 — 2번에서 코드를 읽으며 그 절을 채운다.
    - 종료 코드 **3** = 풀 신호 → 만든 것이 없다. "위험 신호 <무엇> — 풀 경로로 진행" 1줄을 알리고 풀 경로로 들어간다(신규 `devfsd:specifying-ko` · 유지보수 `devfsd:analyzing-ko` 에 `<!-- entry: maintain -->` 첫 줄 — `commands/start.md`·`commands/maintain.md` 의 풀 경로 절차).
-2. **spec 1장** — 코드를 읽고 골격을 채운다: 목표 · 범위(범위 밖 · 화면 변경) · 수용 기준(`### AC-n:` 블록 — Given·When·Then·우선순위) · 비기능 요구. 질문이 있으면 **많아야 4개를 한 번에** 묻고(추천 선택지 먼저), 나머지는 추천안으로 정해 spec 에 `(ASSUMED)` 로 적는다.
+2. **spec 1장** — 코드를 읽고 골격을 채운다: 목표 · 범위(범위 밖 · 화면 변경) · 수용 기준(`### AC-n:` 블록 — Given·When·Then·우선순위) · 비기능 요구. 질문이 있으면 **많아야 4개를 한 번에** 묻고(추천 선택지 먼저), 나머지는 추천안으로 정해 spec 에 `(ASSUMED)` 로 적는다. 화면을 건드리는데 `.specops/memory/ui-probe.json`(화면 기록)이 없으면 **서버 시작 명령·포트·화면 경로**를 이 질문 묶음에 넣는다 — 7번 화면 점검이 쓰고, 승인 뒤에는 묻지 않는다.
 3. **화면 설계 확인 범위** — 화면을 건드리면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh design-scope <고치는 화면 수> [new|flow]` 의 답을 따른다. 화면 변경량은 갈래를 바꾸지 않고 **설계 확인 범위만** 정한다.
    - `DESIGN: none` (문구·스타일만) → 설계 확인 없음.
    - `DESIGN: update` (기존 화면 1~2개 일부 수정) → 구현과 함께 `screens/<name>.md` 의 해당 부분을 갱신한다.
    - `DESIGN: approve` (화면 3개 이상 · 새 화면(`new`) · 흐름 변경(`flow`)) → 구현 전에 화면 스펙·목업을 만들고(`/design-screen`·`/design-screens` 의 절차) 4번 승인에 그 경로를 함께 싣는다.
+   - 같은 출력의 `UI:` 줄은 설계 확인 범위와 무관하게 항상 따른다(`DESIGN: none` 이어도) — 5번의 **목업 CSS 이식**과 7번의 **화면 점검**.
    - API·테이블 계약을 바꾸는 작업은 풀 신호다(1번에서 걸린다). 걸리지 않았는데 `api-spec.md`·`data-model.md` 를 고쳐야 하면(2~5번 어디서든) 그 파일을 고치지 말고 풀 경로로 올린다(「풀 경로로 올리기」).
 4. **승인 1회** — spec 경로와 요지(목표 · 범위 · AC 마다 한 줄 · `ASSUMED` 로 정한 것 · 화면 설계 경로)를 한 메시지로 보이고 "이대로 구현까지 진행할까요? [y/수정]" 을 묻는다. 승인되면:
    `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh approve <FID>`
    spec 절을 확인하고, spec 본문으로 갈래를 다시 판정하고, 수용 기준 절을 `acceptance-criteria.md` 로 옮긴다(검증 러너·스펙 리뷰어가 읽는 계약 파일). 종료 코드 3 = 풀 신호 → 「풀 경로로 올리기」(spec 을 쓰다가 풀 신호를 알아챘으면 승인을 묻기 전에 올린다 — 승인 묶음은 풀 경로 형식으로 한 번만 받는다). 승인 뒤에는 PR 까지 묻지 않는다(비가역 작업·리뷰어 `NEEDS_DISCUSSION`·고치지 못한 Critical 은 멈춘다).
 5. **직접 구현** — 주 세션이 구현한다(서브에이전트에게 구현을 맡기지 않는다). 수용 기준마다 **실패하는 테스트를 먼저** 쓰고 실패를 확인한 뒤 고친다(`devfsd:tdd-ko`). 구현 중에는 **관련 테스트만** 돌린다. 통과를 확인한 명령은 그 뒤로 파일을 바꾸지 않았으면 다시 돌리지 않는다(앞선 출력을 쓴다). 커밋은 7번 뒤에 한다.
+   - **화면을 건드리면 — 목업 CSS 이식이 첫 일이다**: 고치는 화면에 `screens/<name>.html` 목업이 있으면 화면 코드를 쓰기 전에 **목업 CSS 이식**부터 한다 — 목업 `<style>` 의 토큰(`:root` 변수)과 공통 컴포넌트 클래스(카드·버튼·입력·표·배지·내비 등)를 앱 전역 CSS(또는 공통 컴포넌트)로 옮기고, 화면 코드는 그 클래스·토큰을 쓴다. 이미 옮겨져 있으면 빠진 것만 더한다. Tailwind 앱이면 클래스 대신 토큰을 tailwind 설정으로 옮긴다. 화면 CSS 는 목업이 기준이다 — 최소 구현(YAGNI)으로 줄이지 않는다(풀 경로 `planning-ko` 「화면 FID — 목업 CSS 이식」과 같은 규칙. 근거: 하류 4개 앱 20261114 재실측 생존율 8%·33%·90%).
 6. **리뷰 1회 (동시)** — 먼저 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh review <FID>` 로 진행 기록(구현 완료 · 리뷰 진행)을 남긴다(관제판 단계 표시용 — 판정은 없다). 그다음 한 메시지에서 함께 보낸다:
    - `devfsd:spec-reviewer-ko` — FID · tid `T1` · `spec.md`·`acceptance-criteria.md` 경로 · 리뷰 대상 `git diff <base>...HEAD` + 작업 트리 변경.
    - `devfsd:code-reviewer-ko` — 같은 대상 · `병렬 dispatch: yes (B 판정 대기)`.
@@ -56,6 +58,24 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
    - 리뷰어가 도는 동안 주 세션은 **PR 본문을 준비**한다(기다리기만 하지 않는다).
    - **지적 처리**: 스펙 미충족·Critical(`[기존]` 라벨이 붙어도 같다)·보안 Critical/High 는 주 세션이 고치고 **관련 테스트를 다시 돌린다 — 재리뷰는 없다**. Important 는 이번 변경이 만든 결함이면 고치고 아니면(리뷰어의 `[기존]` 라벨) PR 본문 "넘긴 것" 에 적는다. 고칠 수 없는 Critical 이나 `NEEDS_DISCUSSION` 은 멈추고 사용자에게 묻는다.
 7. **봉인과 검증 1회**
+   - **화면 점검 (화면을 건드렸을 때 — 봉인 전 1회)**: 통합 게이트는 돌리지 않지만 화면은 실제 브라우저로 한 번 연다.
+     ```bash
+     node "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/ui-probe.cjs --out .specops/<FID>/ui \
+       --memory .specops/memory/ui-probe.json --a11y-baseline .specops/memory/ui-a11y-baseline.json \
+       [--start-cmd "<서버 시작 명령>"] [--mock screens/<이름>.html ...] [http://localhost:<port>/<경로> ...]
+     bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-mock-css.sh .
+     ```
+     - 화면 기록이 있으면 URL 없이 돈다. 없으면 2번에서 받은 서버 시작 명령·포트·경로로 첫 실행한다(서버는 주 세션이 띄우고 끝나면 끈다 — 하네스는 서버를 띄우지 않는다). 고친 화면의 목업은 `--mock` 으로 넘긴다.
+     - `UI-PROBE: FAIL`(가로 넘침·콘솔 오류·기준선에 없던 접근성 위반) → 고치고 다시 돌린다. 여기서 고친 것은 리뷰어가 보지 않는다(재리뷰 없음) — 관련 테스트와 검증 러너가 본다.
+     - **접근성 기준선 첫 실행**: 기준선 파일이 없던 저장소는 지금 위반을 기록만 하고 막지 않는다(`기준선 기록:` 줄 — 아래에 요소가 붙는다). 그 줄에 **이번에 만들거나 고친 화면**이 있으면 고치고 기준선 파일을 지운 뒤 다시 돌린다 — 방금 만든 위반을 기준선에 넣지 않는다. 남긴 `기준선 기록:` 줄은 `evidence.md` 에 그대로 옮긴다. `배치 경고`(`L-CLIP-X`·`L-OVERLAP`)는 판정을 바꾸지 않지만 이번 변경이 만든 것이면 고친다.
+     - 찍힌 `<화면>@<폭>.png` 를 Read 로 열어 본다 — 목업(`.mock.png`)이 있으면 폭마다 나란히 보고, 눈에 띄는 차이(브라우저 기본 모양의 입력·버튼, 빠진 상태 표시)는 고친다.
+     - `MOCK-CSS: WARN` → 빠진 클래스를 5번의 이식으로 돌아가 채운다. `SKIP`·`OK` 는 그대로 적는다.
+     - `UI-PROBE: SKIP (…)` 이거나 서버를 띄울 수 없으면 멈추지 않는다 — **PASS 로 적지 않는다**. 미실행으로 적고 PR 본문 "미실행 게이트" 에 싣는다.
+     - 검증이 끝난 뒤 `evidence.md` 에 한 줄을 남긴다(풀 경로 통합 테스트의 브라우저 줄에 `MOCK-CSS:` 를 더한 형식 — 이 경로는 사용자에게 묻지 않으므로 `USER_SKIP` 은 없다):
+       ```
+       **브라우저**: 실행(<N>화면·<M>폭 · UI-PROBE: PASS|FAIL · 배치 경고 <N> · 계측 못 함 <M> · MOCK-CSS: <OK|WARN|SKIP …> · .specops/<FID>/ui/)
+       **브라우저**: 미실행(NO_TOOL|NO_ENV|NO_SERVER — <한 줄 사유>)
+       ```
    - **검증 명령 고르기** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh related` 의 답을 `test_command` 로 쓴다.
      - `RELATED: <명령>` → 그 명령 그대로(변경 파일이 닿는 스위트만 돈다). 스위트 매핑(`scripts/tests/run-related.sh`)이 있는 저장소에서만 나온다.
      - `RELATED: none — <사유>` → 종전대로 **프로젝트의 테스트 명령 전체**(테스트 스크립트 · `pytest` · `npm test` 등 검증 러너가 받는 형태). 매핑이 없는 저장소, 관련 스위트를 특정할 수 없는 변경, 너무 넓게 닿는 변경이 여기다. `none — …` 줄 자체는 명령이 아니다 — seal 은 검증 러너가 받지 않는 형식의 문자열을 거부한다(rc 1).
@@ -64,7 +84,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
    - **전체 스위트는 여기서 돌리지 않는다** — 관련 스위트로 검증했으면 전체는 PR 의 CI 가 맡는다(작업 브랜치의 push 전 게이트 `pre-push` 는 같은 관련 스위트로 판정하고, 같은 트리의 통과 기록이 있으면 건너뛴다 — 기본 브랜치·태그 push 는 전체다). push 전 게이트도 CI 도 없는 저장소는 `related` 가 `none` 을 내므로 위에서 이미 전체를 돌렸다.
    - 통과하면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /verify PASS "evidence.md, AC N/N (/basic)"`. 보안 스캔 결과를 `evidence.md` 에 `## /security-review — <시각>` 절(결과·근거)로 남긴다.
    - 실패하면 고치고 다시 seal → 검증이다. 세 번 실패하면 `devfsd:systematic-debugging-ko`.
-8. **커밋 · PR** — `git add <파일…>` 과 `git commit` 을 따로 실행한다. 커밋·PR 은 `/start` 와 같은 훅(R-1·R-2)이 본다 — 7번의 검증 실행 출력과 진행 기록이 있어야 열린다. 막히면 우회하지 않고 사유를 고친다. PR 을 만들지 묻고(y/n), 만들면 본문에 요약 · 테스트 계획 · 리뷰어가 찾았지만 넘긴 것 · **돌리지 않은 게이트**(아래)를 싣는다.
+8. **커밋 · PR** — `git add <파일…>` 과 `git commit` 을 따로 실행한다. 커밋·PR 은 `/start` 와 같은 훅(R-1·R-2)이 본다 — 7번의 검증 실행 출력과 진행 기록이 있어야 열린다. 막히면 우회하지 않고 사유를 고친다. PR 을 만들지 묻고(y/n), 만들면 본문에 요약 · 테스트 계획 · 리뷰어가 찾았지만 넘긴 것 · **돌리지 않은 게이트**(아래)를 싣는다. 화면을 건드렸으면 7번의 `**브라우저**:` 줄을 그대로 옮긴다.
 9. **마무리** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh done <FID> "<한 줄 요약>"`
 
 ## 풀 경로로 올리기 (승격)
@@ -83,7 +103,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
 
 ## 이 경로가 하지 않는 것
 
-- **통합·성능 게이트** — 돌리지 않는다. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/gate-preflight.sh <FID>` 가 `GATE integration APPLY` 나 `GATE performance APPLY` 를 내면 PR 본문에 "미실행 게이트" 로 적는다(성능 임계값이 수용 기준이면 풀 경로가 맞다).
+- **통합·성능 게이트** — 돌리지 않는다(화면을 건드린 작업의 브라우저 점검만 7번에서 1회 돈다 — 하류 E2E·API 통합 테스트는 여전히 없다). `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/gate-preflight.sh <FID>` 가 `GATE integration APPLY` 나 `GATE performance APPLY` 를 내면 PR 본문에 "미실행 게이트" 로 적는다(성능 임계값이 수용 기준이면 풀 경로가 맞다).
 - **plan 리뷰 · 전문가 패스(DB·구조·API·보안·테스트 설계)** — 없다. 그 검토가 필요한 작업이 풀 신호의 대상이다.
 - **재리뷰** — 리뷰는 한 번이다. 고친 것은 관련 테스트와 검증 러너가 본다.
 - **검증 단계의 전체 스위트** — 관련 스위트 명령(`RELATED: <명령>`)으로 검증한 작업은 커밋 시점에 전체 스위트가 돌지 않은 상태다. 전체는 PR 의 CI 가 돌린다(작업 브랜치의 push 전 게이트는 관련 스위트만 본다) — 거기서 떨어지면 고치고 다시 seal → 검증이다.
@@ -96,6 +116,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
 | 승인 대기 | 없음 | 1회 | 질문 묶음 최대 2회 + 승인 1회 |
 | 구현 | 주 세션 | 주 세션 | 구현자 서브에이전트 |
 | 리뷰 | 코드 리뷰 | 스펙 + 코드 + 보안 스캔 (동시 1회) | plan 리뷰 · 전문가 · 스펙 + 코드 · 게이트 3종 |
+| 화면 | 구조 변경 없음 | 목업 CSS 이식 · 브라우저 점검 1회 | 화면 전문가 · 목업 CSS 이식 · 통합 테스트의 브라우저 점검 · 데모 |
 | 크기·위험 상한 | 파일 2·20줄 (훅) | 풀 신호 없음 (스크립트 3회) | 없음 |
 | 끝나는 지점 | 커밋 | PR | PR |
 
@@ -113,6 +134,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
 - `skills/specifying-ko/basic-promote.md` — 풀 경로로 올린 뒤의 절차
 - `scripts/tests/run-related.sh` — 변경 파일이 닿는 스위트 고르기(`--list`)·실행 (스위트 매핑이 있는 저장소)
 - `templates/spec-basic.md` — spec 1장 골격
+- `scripts/_internal/ui-probe.cjs` · `scripts/_internal/check-mock-css.sh` — 7번 화면 점검(브라우저 판정 · 목업 클래스 생존율)
 - `scripts/_internal/risk-profile.sh` — 영문 위험 신호 판정(`rp::detect_strict_signals`)
 - `commands/quick-fix.md` · `commands/start.md` · `commands/maintain.md` — 이웃 갈래
 

@@ -203,6 +203,18 @@ fix "{\"a\":{\"violations\":[$BN2]}}"; out=$(fk --out "$TMP/p2" http://h:1/a 2>&
 fix '{}'; out2=$(fk --out "$TMP/p3" http://h:1/ http://h:1/home 2>&1); rc2=$?
 [ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | sed -n 2p)" = '  - a@1280 접근성 critical button-name(2곳): H1' ] && [ "$rc2" -eq 0 ] && has "$out2" '(2화면·3폭' \
   && ok "U8b 플래그 없는 위반 줄 형식(종전) · 중복 화면 이름도 거부하지 않는다" || no "U8b" "rc=$rc [$out] rc2=$rc2 [$out2]"
+# U8b2 — 위반 줄 아래에 어느 요소인지(선택자)와 대비 색 쌍을 적는다 — 건수만으로는 고칠 곳을 찾지 못한다(20261114 실측: 경고색 토큰 1개가 3화면 7곳)
+CC='{"id":"color-contrast","impact":"serious","nodes":7,"help":"H3","detail":[{"t":".badge-warning","c":"#9a6700 / #f3ede0 = 4.17 (기준 4.5:1)"},{"t":".unassigned","c":""},{"t":"a3","c":""},{"t":"a4","c":""},{"t":"a5","c":""},{"t":"a6","c":""}]}'
+fix "{\"a\":{\"violations\":[$CC]}}"; out=$(fk --out "$TMP/p2b" http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 1 ] && [ "$(printf '%s\n' "$out" | sed -n 2p)" = '  - a@1280 접근성 serious color-contrast(7곳): H3' ] \
+  && [ "$(printf '%s\n' "$out" | sed -n 3p)" = '      · .badge-warning — 글자 / 배경 #9a6700 / #f3ede0 = 4.17 (기준 4.5:1)' ] && [ "$(printf '%s\n' "$out" | sed -n 4p)" = '      · .unassigned' ] \
+  && [ "$(printf '%s\n' "$out" | grep -c '^      · ')" = 6 ] && [ "$(printf '%s\n' "$out" | sed -n 8p)" = '      · 외 2곳' ] \
+  && node -e 'const r=require(process.argv[1]).results.find(x=>x.width===1280); process.exit(r.a11y[0].detail.length===6?0:1)' "$TMP/p2b/ui-probe.json" \
+  && ok "U8b2 ★ 위반 요소 상세 — 선택자·대비 색 쌍 5줄까지 + '외 N곳' · json 에는 받은 대로" || no "U8b2" "rc=$rc [$out]"
+fix "{\"a\":{\"violations\":[$CC]}}"; out=$(fk --out "$TMP/p2c" --a11y-baseline "$TMP/fb/cc.json" http://h:1/a 2>&1); rc=$?
+printf '{"_widest":1280,"a|color-contrast":2}' > "$TMP/fb/cc2.json"; out2=$(fk --out "$TMP/p2d" --a11y-baseline "$TMP/fb/cc2.json" http://h:1/a 2>&1); rc2=$?
+[ "$rc" -eq 0 ] && has "$out" '기준선 기록: a@1280 serious color-contrast(7곳)' && [ "$(printf '%s\n' "$out" | grep -c '^      · ')" = 6 ] && [ "$rc2" -eq 1 ] && has "$out2" 'color-contrast(7곳, 기준선 2곳)' && has "$out2" '      · .badge-warning — 글자 / 배경 #9a6700' \
+  && ok "U8b3 기준선 기록 실행도 기록 줄 아래에 요소 상세를 낸다(막지는 않는다 — rc 0) · 기준선보다 늘어난 위반도 상세를 낸다" || no "U8b3" "rc=$rc [$out] rc2=$rc2 [$out2]"
 
 # U8c — 기록(--memory)·로그인 상태
 M="$TMP/fm/ui-probe.json"; SS="$TMP/ss.json"; echo '{"cookies":[],"origins":[]}' > "$SS"

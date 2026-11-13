@@ -75,7 +75,7 @@ if ! command -v node >/dev/null 2>&1; then echo "SKIP T6g~T6m (node 없음)"; el
   [ "$(cntf "$TMP/pw.log" '{"width":390}')" = 1 ] && [ "$(cntf "$TMP/pw.log" '{"width":1280}')" = 1 ] && [ "$(cntf "$TMP/pw.log" 'width')" = 2 ] && [ "$(cntf "$TMP/pw.log" "{\"url\":\"file://$H\"}")" = 2 ] \
     && ok "T6i 계측은 찍은 그 화면을 390·1280 두 폭으로 연다(인자 전달)" || no "T6i" "[$(cat "$TMP/pw.log")]"
   DEVFSD_UI_HARNESS_DIR="$FKP" shot "$TMP/p2" >/dev/null
-  [ "$(cat "$TMP/p2.probe.txt")" = '배치 경고 0건 (390·1280 폭 · 화면을 연 상태 기준 · 세로 잘림과 불투명한 층에 덮인 글자는 재지 않는다)' ] \
+  [ "$(sed -n 1p "$TMP/p2.probe.txt")" = '배치 경고 0건 (390·1280 폭 · 화면을 연 상태 기준 · 세로 잘림과 불투명한 층에 덮인 글자는 재지 않는다)' ] && ! grep -q 'L-CLIP-X' "$TMP/p2.probe.txt" \
     && ok "T6j 다시 찍으면 덮어쓴다 — 적중이 사라지면 0건 한 줄" || no "T6j" "[$(cat "$TMP/p2.probe.txt" 2>&1)]"
   out=$(DEVFSD_UI_HARNESS_DIR="$FKP" FAKE_LAYOUT_THROW=1 shot "$TMP/p5"); rc=$?
   [ "$rc" -eq 0 ] && [ "$(grep -c '계측 중 오류: layout boom' "$TMP/p5.probe.txt")" = 2 ] && ! grep -q '0건' "$TMP/p5.probe.txt" \
@@ -86,6 +86,27 @@ if ! command -v node >/dev/null 2>&1; then echo "SKIP T6g~T6m (node 없음)"; el
     && ok "T6l SCREEN_SHOT_PROBE=0 — 계측 안 함 · 낡은 파일도 지워짐 · 촬영 출력은 종전과 같다" || no "T6l" "rc=$rc [$out]"
   out=$(SCREEN_SHOT_CHROME=/nonexistent/chrome DEVFSD_UI_HARNESS_DIR="$FKP" bash "$SS" "$H" "$TMP/p4" 2>&1); rc=$?
   [ "$rc" -eq 3 ] && [ ! -e "$TMP/p4.probe.txt" ] && ok "T6m 찍지 못하면(rc 3) 계측 파일이 없다 — 낡은 파일도 지워짐" || no "T6m" "rc=$rc"
+  # T6n~T6p — 접근성(대비) 결과도 probe.txt 에 남는다 — 목업 단계에서 고치게 (20261114: 생성 3화면 전부 대비 위반인데 촬영 계측이 말해 주지 않았다)
+  FKA="$TMP/fka"; mkdir -p "$FKA/node_modules/axe-core"; cp -R "$FKP/node_modules/playwright-core" "$FKA/node_modules/"; : > "$FKA/node_modules/axe-core/index.js"; : > "$FKA/node_modules/axe-core/axe.min.js"
+  sed -i.bak -e 's|evaluate: async (fn) => {|evaluate: async (fn, arg) => {|' -e 's|return false; },|if (Array.isArray(arg)) return process.env.FAKE_A11Y ? JSON.parse(process.env.FAKE_A11Y) : []; return false; },|' "$FKA/node_modules/playwright-core/index.js"
+  DEVFSD_UI_HARNESS_DIR="$FKA" FAKE_A11Y='[{"id":"color-contrast","impact":"serious","nodes":2,"help":"H3","detail":[{"t":".badge-warning","c":"#9a6700 / #f3ede0 = 4.17 (기준 4.5:1)"}]},{"id":"region","impact":"moderate","nodes":1,"help":"H4"}]' shot "$TMP/p6" >/dev/null
+  r1=1; sed -n 1p "$TMP/p6.probe.txt" | grep -q '^배치 경고 0건' && sed -n 2p "$TMP/p6.probe.txt" | grep -qE '@1280 접근성 serious color-contrast\(2곳\): H3$' && r1=0   # 배치 줄이 먼저, 접근성 줄이 그 뒤
+  grep -qF '      · .badge-warning — 글자 / 배경 #9a6700 / #f3ede0 = 4.17' "$TMP/p6.probe.txt"; r2=$?; grep -q 'region' "$TMP/p6.probe.txt"; r3=$?
+  [ "$r1" -eq 0 ] && [ "$r2" -eq 0 ] && [ "$r3" -ne 0 ] && ok "T6n ★ 접근성 심각 위반 — 위반 줄과 요소 상세가 probe.txt 에(경미한 것은 빼고)" || no "T6n" "[$(cat "$TMP/p6.probe.txt" 2>&1)]"
+  sed -i.bak 's|goto: async (u) => { log({ url: u }); },|goto: async (u) => { log({ url: u }); if (process.env.FAKE_GOTO_FAIL) throw new Error("boom"); },|' "$FKA/node_modules/playwright-core/index.js"
+  DEVFSD_UI_HARNESS_DIR="$FKA" FAKE_GOTO_FAIL=1 shot "$TMP/p8" >/dev/null
+  grep -qxF '접근성 계측 못 함 (화면을 열지 못했다 — 위반 없음이 아니다)' "$TMP/p8.probe.txt" && ! grep -q '접근성 심각 0건' "$TMP/p8.probe.txt" \
+    && ok "T6s ★ 화면을 열지 못한 계측 — 접근성을 0건으로 쓰지 않는다" || no "T6s" "[$(cat "$TMP/p8.probe.txt" 2>&1)]"
+  DEVFSD_UI_HARNESS_DIR="$FKA" shot "$TMP/p6" >/dev/null
+  [ "$(sed -n 2p "$TMP/p6.probe.txt")" = '접근성 심각 0건 (1280 폭 · 대비 포함 WCAG 2.1 AA)' ] && [ "$(wc -l < "$TMP/p6.probe.txt" | tr -d ' ')" = 2 ] \
+    && ok "T6o 위반이 없으면 0건 한 줄(잰 폭을 적는다)" || no "T6o" "[$(cat "$TMP/p6.probe.txt" 2>&1)]"
+  echo stale > "$TMP/p7@390.full.png"; out=$(DEVFSD_UI_HARNESS_DIR="$FKP" shot "$TMP/p7")
+  [ "$(cat "$TMP/p7@390.full.png")" = x ] && [ "$(cat "$TMP/p7@1280.full.png")" = x ] && [ "$(printf '%s\n' "$out" | grep -c '^SCREEN-SHOT-FULL: ')" = 2 ] && [ "$(printf '%s\n' "$out" | grep -c '^SCREEN-SHOT: ')" = 2 ] \
+    && ok "T6q ★ 화면 전체 촬영 — 계측이 찍은 전체 높이 PNG 를 <접두>@<폭>.full.png 로 남긴다(고정 높이 촬영은 긴 화면 아래쪽을 못 본다)" || no "T6q" "[$out]"
+  out=$(DEVFSD_UI_HARNESS_DIR="$TMP/empty-h" shot "$TMP/p7")
+  [ ! -e "$TMP/p7@390.full.png" ] && [ ! -e "$TMP/p7@1280.full.png" ] && ! printf '%s' "$out" | grep -q 'SCREEN-SHOT-FULL' && ok "T6r 계측 도구가 없으면 전체 촬영도 없다 — 낡은 파일을 남기지 않는다" || no "T6r" "[$out]"
+  DEVFSD_UI_HARNESS_DIR="$FKP" shot "$TMP/p7" >/dev/null
+  [ "$(sed -n 2p "$TMP/p7.probe.txt")" = '접근성 계측 못 함 (axe-core 없음 — 위반 없음이 아니다)' ] && ok "T6p axe-core 없음 — 0건으로 쓰지 않는다" || no "T6p" "[$(cat "$TMP/p7.probe.txt" 2>&1)]"
 fi
 
 # T7 — frontend-design 원문을 그대로 들여왔다(Apache-2.0 고지·라이선스 사본) + devFSD 보충 지침
@@ -103,6 +124,51 @@ for f in skills/specifying-ko/SKILL.md commands/design-screen.md commands/design
   grep -qF 'frontend-design-guide.md' "$PLUGIN/$f" && grep -qF 'screen-design-guide.md' "$PLUGIN/$f" && grep -qF 'screen-shot.sh' "$PLUGIN/$f" \
     && ok "T8 $f — frontend-design 원문 → 보충 → 찍고 다듬기" || no "T8 $f" "원문·보충·촬영 연결 없음"
 done
+
+# T9 — 색 대비: 템플릿 기본 토큰과 디자인 방향 9종의 상태색이 글자로 쓰여도 WCAG AA(4.5)를 넘는다 (20261114 실측: 경고색 #9A6700 이 자기 옅은 배경 위에서 4.17 — 생성 3화면 7곳 위반의 유일한 원인)
+if ! command -v python3 >/dev/null 2>&1; then echo "SKIP T9 (python3 없음)"; else
+  out=$(python3 - "$H" "$PLUGIN/templates/design-directions.md" <<'PY'
+import re, sys
+def rgb(h): h = h.lstrip('#'); return [int(h[i:i+2], 16) for i in (0, 2, 4)]
+def lum(c):
+    f = lambda v: v/12.92 if v <= 0.03928 else ((v+0.055)/1.055)**2.4
+    r, g, b = [f(x/255) for x in c]; return 0.2126*r + 0.7152*g + 0.0722*b
+def cr(a, b): la, lb = lum(a), lum(b); return (max(la, lb)+0.05)/(min(la, lb)+0.05)
+def mix(fg, bg, p): return [round(f*p + b*(1-p)) for f, b in zip(fg, bg)]
+bad = []; n = 0
+html = open(sys.argv[1], encoding='utf-8').read()
+tok = dict(re.findall(r'--color-([a-z-]+):\s*(#[0-9A-Fa-f]{6})', html))
+softp = {k: int(v)/100 for k, v in re.findall(r'--color-([a-z]+)-soft:\s*color-mix\(in srgb, var\(--color-[a-z]+\) (\d+)%', html)}
+for name in ('warning', 'error', 'success', 'primary'):
+    c = rgb(tok[name]); p = softp[name]
+    for under in ('panel', 'bg', 'surface'):
+        v = cr(c, mix(c, rgb(tok[under]), p)); n += 1
+        if v < 4.5: bad.append('template %s on %s-soft@%s %.2f' % (name, name, under, v))
+    for under in ('panel', 'bg', 'surface'):
+        v = cr(c, rgb(tok[under])); n += 1
+        if v < 4.5: bad.append('template %s on %s %.2f' % (name, under, v))
+    v = cr(c, mix(rgb(tok['primary']), rgb(tok['panel']), softp['primary'])); n += 1   # 선택된 행(주색 옅은 배경) 위의 상태 글자
+    if v < 4.5: bad.append('template %s on primary-soft %.2f' % (name, v))
+rows = [l for l in open(sys.argv[2], encoding='utf-8') if re.match(r'\| \d+ \|', l)]
+for l in rows:
+    c = [x.strip() for x in l.strip().strip('|').split('|')]
+    BG, SF, T2, ER, OK = rgb(c[9]), rgb(c[10]), rgb(c[12]), rgb(c[14]), rgb(c[15])
+    for nm, col, p in (('Text Secondary', T2, 0), ('Error', ER, softp['error']), ('Success', OK, softp['success'])):
+        for bn, bg in (('Background', BG), ('Surface', SF)):
+            v = cr(col, bg); n += 1
+            if v < 4.5: bad.append('dir %s %s on %s %.2f' % (c[0], nm, bn, v))
+            if p:
+                v = cr(col, mix(col, bg, p)); n += 1
+                if v < 4.5: bad.append('dir %s %s on soft@%s %.2f' % (c[0], nm, bn, v))
+print('rows=%d pairs=%d bad=%d' % (len(rows), n, len(bad)))
+for b in bad: print('  ' + b)
+PY
+)
+  printf '%s\n' "$out" | sed -n 1p | grep -qE '^rows=9 pairs=[0-9]+ bad=0$' && ok "T9a ★ 템플릿 토큰 4색 × 배경 7종 · 방향 9종 상태색·보조 글자 — 전부 대비 4.5 이상" || no "T9a" "$out"
+  grep -qF '대비 4.5' "$G" && grep -qF '접근성 serious color-contrast' "$G" && ok "T9b 보충 지침 — 색 글자 대비 기준과 촬영 계측의 대비 줄" || no "T9b" "지침에 대비 규칙 없음"
+  miss=""; for n in '좁은 폭(390)' 'white-space: nowrap' '세로 목록' '행 카드' '.full.png' '지우지 않는다' '막대 높이만큼' '첫 화면 높이 자리'; do grep -qF -- "$n" "$G" || miss="$miss [$n]"; done
+  [ -z "$miss" ] && ok "T9c 보충 지침 — 좁은 폭 규칙(줄바꿈·차트·행 카드는 값을 지우지 않음·고정 막대 아래 여백)과 전체 촬영의 고정 요소 읽는 법 (20261114 블라인드: 좁은 폭 최약 · 재측정에서 행 카드 정보 손실)" || no "T9c" "없음:$miss"
+fi
 
 echo "── test-screen-design: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

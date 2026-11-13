@@ -334,7 +334,7 @@ bash scripts/basic-path.sh review <FID>                     # 구현 뒤·리뷰
 bash scripts/basic-path.sh related                          # 검증에 쓸 test_command 제안 — RELATED: <명령> | RELATED: none — <사유>
 bash scripts/basic-path.sh seal <FID> "<test_command>"      # 리뷰 뒤: 변경 파일로 재판정 · tasks.md · 리뷰 감사 행 (4=리뷰 보고서 없음 · 검증 러너가 받지 않는 명령은 거부)
 bash scripts/basic-path.sh promote <FID> "<사유>"           # 풀 경로로 올린다 — 산출물을 basic-draft/ 로 보존 · /full 승격 기록 · NEXT·ARGS·PROCEDURE 안내
-bash scripts/basic-path.sh design-scope <화면 수> [new|flow] # 화면 설계 확인 범위 — none | update | approve
+bash scripts/basic-path.sh design-scope <화면 수> [new|flow] # 화면 설계 확인 범위 — none | update | approve (+ `UI:` 줄 — 목업 CSS 이식·브라우저 점검 안내)
 bash scripts/basic-path.sh done <FID> "<한 줄 요약>"        # 종결 기록
 ```
 

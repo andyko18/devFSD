@@ -89,6 +89,13 @@ out=$(_bp "$d" design-scope 3); printf '%s' "$out" | grep -q '^DESIGN: approve' 
 out=$(_bp "$d" design-scope 1 new); printf '%s' "$out" | grep -q '^DESIGN: approve' && ok "L3d ★ 새 화면은 1개여도 approve" || no "L3d" "$out"
 out=$(_bp "$d" design-scope 1 flow); printf '%s' "$out" | grep -q '^DESIGN: approve' && ok "L3e ★ 흐름 변경은 1개여도 approve" || no "L3e" "$out"
 grep -q '^BASIC_SCREEN_APPROVAL_MIN=3 ' "$BP" && ok "L3f 기준값은 스크립트 상수 한 곳(3)" || no "L3f"
+# 화면을 건드리면 설계 확인 범위와 별개로 구현 품질 두 가지(목업 CSS 이식 · 브라우저 점검)를 항상 알린다 — 하류 실측 생존율 8%·33% (20261114)
+i=0
+for args in "0" "2" "3" "1 new" "1 flow"; do
+  i=$((i+1)); out=$(_bp "$d" design-scope $args)
+  [ "$(printf '%s\n' "$out" | grep -c '^UI: ')" = 1 ] && printf '%s\n' "$out" | grep '^UI: ' | grep -q '목업 CSS 이식' && printf '%s\n' "$out" | grep '^UI: ' | grep -q '브라우저 점검' \
+    && [ "$(printf '%s\n' "$out" | grep -c '^DESIGN: ')" = 1 ] && ok "L3g.$i ★ design-scope $args → UI 줄 1개(이식·브라우저 점검) + DESIGN 줄 1개" || no "L3g.$i" "$out"
+done
 
 # ── S start ──
 out=$(_bp "$d" start "$FID" "결제 모듈 교체"); rc=$?
@@ -396,6 +403,11 @@ has "$C" '**모델이 갈래를 고르기**' '**표본 2건**' '아직 재지 �
 has "$C" 'basic-path.sh review <FID>' && grep -qF "cmds: ['/approve', BASIC_CMD]" "$PLUGIN/hooks/progress-pane.tsx" \
   && for c in /implement /review /verify /lifecycle; do grep -qF "cmds: ['$c']" "$PLUGIN/hooks/progress-pane.tsx" || exit 1; done \
   && ok "D10 리뷰 dispatch 전 review 기록 · 관제판 기본 경로 단계가 이 스크립트의 기록 이름을 읽는다" || no "D10"
+has "$C" '`UI:` 줄' '**목업 CSS 이식**' 'Tailwind' '최소 구현(YAGNI)으로 줄이지 않는다' \
+  && ok "D11 ★ 화면을 건드리면 구현 첫 일은 목업 CSS 이식(풀 경로 planning 과 같은 규칙)" || no "D11"
+has "$C" '**화면 점검**' 'ui-probe.cjs --out .specops/<FID>/ui' '.specops/memory/ui-probe.json' 'check-mock-css.sh' '`UI-PROBE: FAIL`' '**PASS 로 적지 않는다**' \
+  '**브라우저**: 실행(' '**브라우저**: 미실행(' '**접근성 기준선 첫 실행**' '방금 만든 위반을 기준선에 넣지 않는다' && ok "D12 ★ 봉인 전 브라우저 점검 1회 · 생존율 계측 · FAIL 은 고친다 · SKIP 은 PASS 아님 · evidence 브라우저 줄" || no "D12"
+has "$C" '서버 시작 명령·포트·화면 경로' && ok "D13 화면 기록이 없으면 질문 묶음에서 한 번에 묻는다(승인 뒤 무질문 유지)" || no "D13"
 has "$C" 'basic-path.sh related' 'RELATED: none' '**프로젝트의 테스트 명령 전체**' '**전체 스위트는 여기서 돌리지 않는다**' 'push 전 게이트' \
   && ok "D9 검증 명령은 related 의 답 · 매핑 없으면 전체 명령 · 전체 스위트는 push 전 게이트와 CI" || no "D9"
 grep -qF '`/quick-fix`·`--full`·`--step` 은 슬래시 전용' "$PLUGIN/skills/using-specops-ko/SKILL.md" \

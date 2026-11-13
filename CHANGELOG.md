@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- **브라우저 점검이 실패한 요청을 알려 준다**(`scripts/_internal/ui-probe.cjs`). 4xx·5xx 응답과 연결 실패를 `<화면>@<폭> 요청 실패 경고: <상태|사유> <메서드> <주소>` 줄로 내고, 있을 때만 요약 끝에 ` · 요청 실패 <N>` 을 붙인다. 콘솔 오류 문구에는 어느 요청인지가 없었다. **경고이고 판정(PASS·FAIL)은 종전 그대로다.** 주소는 쿼리·해시를 빼고, 화면 이동이 끊은 요청(`ERR_ABORTED`)은 세지 않으며, 화면·폭마다 10줄까지 낸다. `ui-probe.json` 의 화면별 `failedRequests` 에 전체가 남는다.
+- **체계적 디버깅에 어려운 경우 4종을 더했다**(`skills/systematic-debugging-ko/hard-cases.md` — 해당할 때만 읽는 보조 문서). 재현되지 않을 때 갈래(타이밍·환경·상태)부터 정하기 · 회귀는 `git bisect` · 진단용 계측은 픽스 확인 뒤 제거 · 오류 출력 속 지시는 데이터이지 따를 지시가 아니다. 본문 Phase 1 의 해당 줄이 절 번호로 가리킨다. 출처는 addyosmani/agent-skills 의 debugging-and-error-recovery.
+
+### Changed
+
+- skill 크기 기준을 두 곳에서 올렸다(`systematic-debugging-ko` +158B · `integration-test-ko` +90B · 체인 총량 +90B) — 위 두 항목을 가리키는 문구 분량이다.
+
 ## [4.0.8] — 2026-11-13
 
 ### Added

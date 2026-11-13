@@ -430,7 +430,8 @@ if [ -n "$violation" ]; then
    마지막 수정: ${_stale_cause#stale }
    수정 이후의 코드로 다시 검증해야 합니다 — 러너를 **한 번 더** 실행하세요:
    bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>}
-   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
+   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.
+    변경이 닿는 스위트 전부를 돌린 관련 스위트 통과도 인정됩니다 — bash scripts/tests/run-related.sh \$(bash scripts/_internal/related-suite-fresh.sh --need) · 확인: bash scripts/_internal/related-suite-fresh.sh)"
   elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "vstale" ]; then
     # 검증 판정이 STALE — transcript 의 편집 이벤트로는 보이지 않는 변경이다(셸 명령·포매터·코드 생성·서브에이전트).
     _evidence_hint="✘ ① 검증 이후 코드가 바뀌었습니다 — 이 FID 의 검증 판정이 **STALE** 입니다.
@@ -439,6 +440,7 @@ if [ -n "$violation" ]; then
    지금 코드로 다시 검증하세요: bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>}
    현재 verdict 확인: bash '${plugin_root}'/scripts/_internal/verification-state.sh current ${fid:-<FID>}
    (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트를 **지금 이 트리에서** 통과시켜도 인정됩니다.
+    변경이 닿는 스위트 전부를 돌린 관련 스위트 통과도 인정됩니다 — bash scripts/tests/run-related.sh \$(bash scripts/_internal/related-suite-fresh.sh --need) · 확인: bash scripts/_internal/related-suite-fresh.sh
     달라진 것이 아직 추적하지 않는 파일뿐이면 막지 않습니다 — 단 커밋을 다른 명령과 한 번에 실행하면(\`&&\`·\`;\`·파이프·명령 치환·경로 인자)
     그 사이 인덱스가 바뀔 수 있어 막습니다. 그 경우 \`git commit -m …\` 만 따로 실행하세요.
     검증 때 추적하지 않던 파일을 그 뒤에 인덱스에 올린 것도 달라진 것으로 봅니다 — 다시 검증하면 풀립니다.)"
@@ -447,7 +449,8 @@ if [ -n "$violation" ]; then
     _evidence_hint="✘ ① 실행 증거: 이 세션에서 돌린 러너는 **다른 FID** 를 검증했습니다 — ${fid:-<FID>} 의 통과한 실행 기록이 없습니다.
    run-verification.sh 뒤에 적힌 FID 가 이 FID 가 아닙니다(한 세션에서 FID 여럿을 다루면 앞 FID 의 PASS 는 뒤 FID 의 증거가 아닙니다).
    이 FID 로 실행하세요: bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>}
-   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
+   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.
+    변경이 닿는 스위트 전부를 돌린 관련 스위트 통과도 인정됩니다 — bash scripts/tests/run-related.sh \$(bash scripts/_internal/related-suite-fresh.sh --need) · 확인: bash scripts/_internal/related-suite-fresh.sh)"
   elif [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "ok" ]; then
     _evidence_hint="✔ ① 실행 증거: 이 축은 차단 사유가 아닙니다(이 세션 transcript 기준 실행 증거 있음, 또는 판정 불가로 fail-open). 차단 사유는 아래 ②·receipt 입니다."
   else
@@ -457,7 +460,8 @@ if [ -n "$violation" ]; then
    bash '${plugin_root}'/scripts/_internal/run-verification.sh ${fid:-<FID>} 를 이 세션에서 실행하세요.
    러너를 이미 실행했는데 \`VERIFY: PARTIAL\` 로 끝났다면 tasks.md 의 test_command 가 whitelist 미통과라 건너뛰어진 것이며 실행 증거로 인정되지 않습니다 —
    test_command 를 허용 형태(bash scripts/tests/… · bash tests/… · pytest · npm test 등)로 고친 뒤 다시 실행하세요.
-   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.)"
+   (플러그인 자기 repo self-maintenance 는 bash scripts/tests/run-all.sh 전체 스위트 통과도 인정됩니다.
+    변경이 닿는 스위트 전부를 돌린 관련 스위트 통과도 인정됩니다 — bash scripts/tests/run-related.sh \$(bash scripts/_internal/related-suite-fresh.sh --need) · 확인: bash scripts/_internal/related-suite-fresh.sh)"
   fi
   # ① 이 충족이면 백그라운드 안내는 소음이다 — 그때만 끈다.
   [ "$_cause_ok" -eq 1 ] && [ "$_c_exec" = "ok" ] && _bg_hint=""
@@ -524,7 +528,8 @@ $_receipt_hint
     _nolc_plugin=""
     declare -F fc::is_plugin_repo >/dev/null 2>&1 && fc::is_plugin_repo \
       && _nolc_plugin="
-   (이 플러그인 저장소에서는 bash scripts/tests/run-all.sh 전체 스위트를 지금 이 트리에서 통과시켜도 열립니다.)"
+   (이 플러그인 저장소에서는 bash scripts/tests/run-all.sh 전체 스위트를 지금 이 트리에서 통과시켜도 열립니다.
+    변경이 닿는 스위트 전부를 돌린 관련 스위트 통과도 인정됩니다 — bash scripts/tests/run-related.sh \$(bash scripts/_internal/related-suite-fresh.sh --need) · 확인: bash scripts/_internal/related-suite-fresh.sh)"
     reason="$act 차단 — 이 커밋은 진행 중인 lifecycle 태스크에 속하지 않습니다(현재 FID: ${fid} — 태스크 문서 tasks.md 가 없어 검증 러너를 돌릴 수 없습니다).
 
 코드를 바꾸는 커밋은 검증을 거친 작업 단위로 들어가야 합니다. 크기에 맞는 경로로 시작하세요:

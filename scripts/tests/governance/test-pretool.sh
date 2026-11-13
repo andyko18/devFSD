@@ -1666,6 +1666,11 @@ _nocheck "T-vstale.b3 '러너 실행 기록이 없다' 는 거짓 원인을 말�
 # 안내가 "막히는 표기" 를 글자 그대로 적는다 — 이 줄의 `&&` 가 `||` 로 바뀌어도 살아남았다(문안 변이).
 #   거부 사유가 틀린 표기를 가리키면 사용자는 막히지 않는 명령을 고치느라 헤맨다.
 check "T-vstale.b5 사유가 한 번에 실행하는 표기(&&·;·파이프)를 그대로 적는다" '`&&`·`;`·파이프' "$msg"
+# 안내가 관련 스위트 경로를 말한다 (20261113-commit-gate-related-evidence) — 돌릴 명령과 판정 확인 명령을 글자 그대로
+check "T-vstale.b6 ★ 사유가 관련 스위트 통과도 인정됨과 돌릴 명령(--need)을 적는다" 'related-suite-fresh.sh --need' "$msg"
+check "T-vstale.b7 사유가 '변경이 닿는 스위트 전부' 조건을 적는다" '변경이 닿는 스위트 전부' "$msg"
+# 안내는 다섯 가지(stale·vstale·otherfid·missing·lifecycle 밖)에 모두 있어야 한다 — 한 곳만 고치고 끝내는 것을 잡는다(소스 수 단언)
+check "T-vstale.b8 ★ 차단 안내 5곳 모두 --need 명령을 적는다" '^5$' "$(grep -c 'related-suite-fresh.sh --need' "$PLUGIN/hooks/pretool-governance.sh")"
 # PR 생성(R-2)은 이 검사의 대상이 아니다 — R-2 는 커밋 범위를 보고, 작업트리의 미커밋 변경은 PR 에 실리지 않는다
 out=$(mkstdin 'gh pr create --fill' "$FIX/exec-evidence-pass.jsonl" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
 if printf '%s' "$out" | grep -q '검증 이후 코드가 바뀌었습니다'; then
@@ -1772,6 +1777,40 @@ printf '%s\n' "$_fp" > "$_VS/.specops/.full-suite-pass"
 out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" env -u SPECOPS_FORCE_FULL bash "$HOOK" 2>/dev/null)   # 강제 전체 변수가 물려 와도(SPECOPS_FORCE_FULL=1 git push) 이 양성 단언이 깨지지 않게
 check "T-vstale.g3 지문 없는 PASS 기록이어도 전체 스위트가 이 트리에서 통과 → allow" '"continue":true' "$out"
 rm -rf "$_VS"
+
+# T-vstale.r — STALE 이어도 관련 스위트가 지금 트리에서 변경이 닿는 스위트를 전부 덮어 통과했으면 막지 않는다
+#   (20261113-commit-gate-related-evidence). 별도 픽스처다 — 위 _VS 에 파일을 더하면 그쪽 지문 단언이 흔들린다.
+_VR=$(mktemp -d) || exit 1
+mkdir -p "$_VR/.specops/20260101-x" "$_VR/scripts/tests" "$_VR/scripts/_internal"
+cp "$PLUGIN/scripts/tests/run-related.sh" "$_VR/scripts/tests/run-related.sh"
+printf '#!/usr/bin/env bash\necho ok\n' > "$_VR/scripts/_internal/validate-structure.sh"
+printf '#!/usr/bin/env bash\necho ok\n' > "$_VR/scripts/tests/test-doc-numbers.sh"
+printf '#!/usr/bin/env bash\n# alpha.sh 를 본다\necho "PASS=1 FAIL=0"\n' > "$_VR/scripts/tests/test-alpha.sh"
+printf 'echo v1\n' > "$_VR/alpha.sh"; printf '.specops/\n' > "$_VR/.gitignore"
+( cd "$_VR" && git init -q -b main && git add -A && git -c user.name=t -c user.email=t@e.com -c commit.gpgsign=false commit -qm init \
+  && git update-ref refs/remotes/origin/main HEAD ) >/dev/null 2>&1
+( cd "$_VR" && printf 'echo v2\n' > alpha.sh && git add alpha.sh \
+  && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" record 20260101-x PASS --executed 1 --failed 0 ) >/dev/null 2>&1
+printf '<!-- active-fid: 20260101-x -->\n## 20260101-x\n- 2099-01-01 10:00 /verify PASS (evidence.md)\n' > "$_VR/.specops/session-progress.md"
+( cd "$_VR" && printf 'echo UNVERIFIED\n' > alpha.sh && git add alpha.sh )
+_vr_in=$(mkstdin 'git commit -m "feat: v2"' "$FIX/exec-evidence-pass.jsonl")
+_vr_v=$(cd "$_VR" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/verification-state.sh" current 20260101-x)
+[ "$_vr_v" = "STALE" ] && { echo "PASS T-vstale.r0 픽스처 STALE 성립"; pass=$((pass+1)); } \
+  || { echo "FAIL T-vstale.r0 픽스처 verdict=$_vr_v (STALE 아님)"; fail=$((fail+1)); }
+_vr_fp=$( cd "$_VR" && . "$PLUGIN/scripts/_internal/verification-state.sh" && vs::nondoc_fingerprint )
+_vr_mk="$_VR/.specops/.related-suite-pass"
+out=$(printf '%s' "$_vr_in" | CLAUDE_PROJECT_DIR="$_VR" bash "$HOOK" 2>/dev/null)
+check "T-vstale.r1 대조 — 통과 기록 없음 → deny" '"permissionDecision":"deny"' "$out"
+printf '%s\n' "$_vr_fp" scripts/_internal/validate-structure.sh scripts/tests/test-alpha.sh scripts/tests/test-doc-numbers.sh > "$_vr_mk"
+out=$(printf '%s' "$_vr_in" | CLAUDE_PROJECT_DIR="$_VR" env -u SPECOPS_FORCE_FULL bash "$HOOK" 2>/dev/null)   # 강제 전체 변수가 물려 와도 이 양성 단언이 깨지지 않게
+check "T-vstale.r2 ★ STALE 이지만 관련 스위트가 이 트리에서 변경을 전부 덮어 통과 → allow" '"continue":true' "$out"
+printf '%s\n' deadbeef scripts/_internal/validate-structure.sh scripts/tests/test-alpha.sh scripts/tests/test-doc-numbers.sh > "$_vr_mk"
+msg=$(_deny_msg "$_VR" "$HOOK" "$_vr_in")
+check "T-vstale.r3 ★ 통과 기록이 다른 트리의 것 → deny(검증 이후 코드가 바뀌었다)" '검증 이후 코드가 바뀌었습니다' "$msg"
+printf '%s\n' "$_vr_fp" scripts/_internal/validate-structure.sh scripts/tests/test-doc-numbers.sh > "$_vr_mk"
+out=$(printf '%s' "$_vr_in" | CLAUDE_PROJECT_DIR="$_VR" bash "$HOOK" 2>/dev/null)
+check "T-vstale.r4 ★ 통과 기록이 변경이 닿는 스위트(test-alpha)를 빠뜨림 → deny" '"permissionDecision":"deny"' "$out"
+rm -rf "$_VR"
 
 # ══════════════════════════════════════════════════════════════════════════
 # T-fidbind: 다른 FID 의 run-verification 출력은 이 FID 의 실행 증거가 아니다 (20261009)

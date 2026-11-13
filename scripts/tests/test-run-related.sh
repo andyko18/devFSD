@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # run-related.sh — 변경 파일이 닿는 스위트 고르기·실행 (20261112 speed)
 #   계약: 고를 수 없으면(언급하는 스위트 없음·상한 초과·경로 이상) rc 3 으로 **전체 스위트 쪽**에 넘기고,
-#   실행은 스위트 목록에 든 경로만 받으며, 전체 스위트의 통과 기록(마커)·커밋 훅의 실행 증거(VERIFY 토큰)를 만들지 않는다.
+#   실행은 스위트 목록에 든 경로만 받으며, 전체 스위트의 통과 기록(마커)을 만들지 않는다. `VERIFY: PASS` 는 변경이 닿는 스위트를 전부 덮었을 때만 낸다.
 set -u
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES   # 훅 환경 격리 — 직접 실행돼도 픽스처가 실저장소를 건드리지 않게 (test-git-hooks GH-env.4 가 잠근다)
 PASS=0; FAIL=0
@@ -76,7 +76,8 @@ rm -f "$R"/scripts/tests/test-many-*.sh
 # ── X 실행 ──
 out=$(_rr scripts/tests/test-count.sh scripts/_internal/validate-structure.sh); rc=$?
 [ "$rc" = 0 ] && printf '%s' "$out" | grep -q 'run-related: suites PASS=2 FAIL=0 (total=2)' && ok "X1 고른 스위트만 실행 → rc 0 · 요약 줄" || nope "X1" "rc=$rc $out"
-! printf '%s' "$out" | grep -q 'VERIFY:' && ok "X2 ★ VERIFY 토큰을 내지 않는다(커밋 훅의 실행 증거가 아니다)" || nope "X2" "$out"
+{ ! printf '%s\n' "$out" | grep -q '^VERIFY:' && printf '%s\n' "$out" | grep -q '^run-related: 실행 증거로 치지 않는다 — '; } \
+  && ok "X2 ★ 덮었다고 판정되지 않으면 VERIFY 줄을 내지 않고 사유 1줄을 낸다" || nope "X2" "$out"
 [ ! -e "$R/.specops/.full-suite-pass" ] && ok "X3 ★ 전체 스위트 통과 마커를 쓰지 않는다(pre-push 는 이 실행을 통과로 치지 않는다)" || nope "X3"
 printf '%s' "$out" | grep -q '전체 스위트 아님' && ok "X4 요약 줄이 전체 스위트가 아님을 적는다" || nope "X4" "$out"
 out=$(_rr scripts/tests/test-count.sh scripts/tests/dag/test-broken.sh); rc=$?
@@ -137,10 +138,35 @@ out=$(_rr scripts/tests/test-count.sh scripts/_internal/validate-structure.sh); 
   && ok "X16 ★ 전부 통과 → 통과 기록(지문 + 돌린 스위트) · 전체 스위트 기록·VERIFY 토큰은 여전히 없다" || nope "X16" "rc=$rc fp=$fp mk=[$(cat "$MK" 2>&1)]"
 out=$(_rr scripts/tests/test-count.sh scripts/tests/dag/test-broken.sh); rc=$?
 { [ "$rc" = 1 ] && [ ! -e "$MK" ]; } && ok "X17 ★ 실패하면 낡은 통과 기록을 지운다" || nope "X17" "rc=$rc mk=[$(cat "$MK" 2>&1)]"
+# 실행 증거 (20261113-commit-gate-related-evidence) — 변경이 닿는 스위트를 전부 덮은 통과에만 VERIFY: PASS 를 낸다
+cp "$PLUGIN/scripts/_internal/related-suite-fresh.sh" "$R/scripts/_internal/"
+( cd "$R" && git add -A && git -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q -m g; git update-ref refs/remotes/origin/main HEAD ) >/dev/null 2>&1
+printf 'echo v2\n' >> "$R/scripts/count.sh"
+N3="scripts/_internal/validate-structure.sh scripts/tests/test-count.sh scripts/tests/test-doc-numbers.sh"
+# shellcheck disable=SC2086
+out=$( cd "$R" && env -u SPECOPS_FORCE_FULL bash scripts/tests/run-related.sh $N3 2>&1 ); rc=$?   # 강제 전체 변수가 물려 와도 이 양성 단언이 깨지지 않게
+{ [ "$rc" = 0 ] && [ "$(printf '%s\n' "$out" | tail -1)" = "VERIFY: PASS" ] && [ "$(printf '%s\n' "$out" | grep -c '^VERIFY:')" = 1 ]; } \
+  && ok "X19 ★ 변경이 닿는 스위트 전부 통과 → 마지막 줄 VERIFY: PASS (1줄뿐)" || nope "X19" "rc=$rc $out"
+out=$( cd "$R" && env -u SPECOPS_FORCE_FULL bash scripts/tests/run-related.sh scripts/_internal/validate-structure.sh scripts/tests/test-doc-numbers.sh 2>&1 ); rc=$?   # 사유 문자열을 단언한다 — 강제 전체 변수가 물려 오면 사유가 달라진다
+{ [ "$rc" = 0 ] && ! printf '%s\n' "$out" | grep -q '^VERIFY:' \
+  && printf '%s\n' "$out" | grep -q '^run-related: 실행 증거로 치지 않는다 — 스위트 누락 1개 — scripts/tests/test-count.sh$'; } \
+  && ok "X20 ★ 닿는 스위트 하나를 빼고 통과 → rc 0 · VERIFY 줄 없음 · 빠진 스위트를 알린다" || nope "X20" "rc=$rc $out"
+# shellcheck disable=SC2086
+out=$(_rr $N3 scripts/tests/dag/test-broken.sh); rc=$?
+{ [ "$rc" = 1 ] && ! printf '%s\n' "$out" | grep -q '^VERIFY:' && ! printf '%s\n' "$out" | grep -q '실행 증거로 치지 않는다'; } \
+  && ok "X21 대상 스위트가 실패 → rc 1 · VERIFY 줄도 사유 줄도 없다(종전 출력)" || nope "X21" "rc=$rc $out"
+mv "$R/.specops" "$TMP/specops-bak2"
+# shellcheck disable=SC2086
+out=$(_rr $N3); rc=$?
+{ [ "$rc" = 0 ] && [ ! -e "$R/.specops" ] && ! printf '%s\n' "$out" | grep -q '^VERIFY:' \
+  && printf '%s\n' "$out" | grep -qF 'run-related: 실행 증거로 치지 않는다 — 기록 폴더(.specops/)가 없다'; } \
+  && ok "X22 ★ .specops/ 가 없으면 VERIFY 줄 없이 그 사유를 알리고 폴더를 만들지 않는다" || nope "X22" "rc=$rc $out"
+mv "$TMP/specops-bak2" "$R/.specops"
+( cd "$R" && git checkout -q -- scripts/count.sh )
 rm -rf "$R/.git"
 out=$(_rr scripts/tests/test-count.sh); rc=$?
 { [ "$rc" = 0 ] && [ ! -e "$MK" ]; } && ok "X18 지문을 낼 수 없으면(git 저장소 아님) 기록하지 않는다" || nope "X18" "rc=$rc mk=[$(cat "$MK" 2>&1)]"
-rm -f "$R/.gitignore" "$R/scripts/_internal/verification-state.sh" "$R/scripts/_internal/file-class.sh" "$MK" "$R/.specops"/suite-times-related.tsv
+rm -f "$R/.gitignore" "$R/scripts/_internal/verification-state.sh" "$R/scripts/_internal/file-class.sh" "$R/scripts/_internal/related-suite-fresh.sh" "$MK" "$R/.specops"/suite-times-related.tsv
 
 # ── K 계약 잠금 ──
 # 스위트 목록이 run-all.sh 와 같아야 한다 — 한쪽에만 폴더가 늘면 그 폴더의 스위트는 관련으로 잡히지 않는다
@@ -148,8 +174,8 @@ _dirs() { grep -oE '"\$PLUGIN"/scripts/tests/[A-Za-z0-9_/-]*test-\*\.sh' "$1" | 
 a=$(_dirs "$PLUGIN/scripts/tests/run-all.sh"); b=$(_dirs "$RR")
 [ -n "$a" ] && [ "$a" = "$b" ] && ok "K1 ★ 스위트 폴더 목록 == run-all.sh 의 목록" || nope "K1" "run-all=[$a] related=[$b]"
 ! grep -qE '^[^#]*\.full-suite-pass' "$RR" && ok "K2 마커 경로를 코드에서 다루지 않는다" || nope "K2"
-! grep -q 'run-related' "$PLUGIN/hooks/governance-lib.sh" && ! grep -q 'run-related' "$PLUGIN/hooks/rules.jsonl" \
-  && ok "K3 ★ 훅은 이 러너를 실행 증거로 알지 못한다(훅을 고치지 않았다)" || nope "K3"
+grep -q '^_RUNNER_ANCHOR_PAT=.*tests/run-related\\\.sh' "$PLUGIN/hooks/governance-lib.sh" && ! grep -q 'run-related' "$PLUGIN/hooks/rules.jsonl" \
+  && ok "K3 ★ 훅은 이 러너를 러너 앵커로만 안다(규칙 파일은 그대로) — VERIFY: PASS 는 덮은 통과에만 나온다(X19·X20)" || nope "K3"
 ! grep -q 'run-related' "$PLUGIN/.githooks/pre-push" && ok "K4 pre-push 는 그대로 전체 스위트를 본다" || nope "K4"
 # 검증 러너의 허용 형식에 맞는다 — basic-path.sh related 가 내는 명령이 SKIP 되지 않는다
 WL=$(sed -n "s/^_WHITELIST_PAT='\(.*\)'\$/\1/p" "$PLUGIN/scripts/_internal/run-verification.sh")

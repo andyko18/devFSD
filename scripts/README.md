@@ -348,7 +348,7 @@ bash scripts/basic-path.sh done <FID> "<한 줄 요약>"        # 종결 기록
 
 ```bash
 bash scripts/tests/run-related.sh --list [<변경 파일>…]   # 관련 스위트 고르기 (3=고를 수 없다 → 전체 스위트)
-bash scripts/tests/run-related.sh <스위트 경로>…          # 그 스위트만 실행 — 통과 마커·VERIFY 토큰을 만들지 않는다
+bash scripts/tests/run-related.sh <스위트 경로>…          # 그 스위트만 실행 — 전체 스위트 통과 마커는 만들지 않는다 · 변경이 닿는 스위트를 전부 덮은 통과에만 VERIFY: PASS
 bash scripts/_internal/ci-suite-pass.sh                   # 같은 커밋 트리가 원격 CI 의 run-all 을 통과했는가 (0=통과 · 1=STALE — release.sh pre-flight 가 쓴다)
 ```
 
@@ -394,6 +394,8 @@ bash scripts/_internal/install-git-hooks.sh --uninstall
 `full-suite-fresh.sh` 는 직전 전체 스위트 통과 마커(`.specops/.full-suite-pass`)가 현재 비문서 트리와 같은지 판정하는 헬퍼입니다(rc 0 = FRESH · 1 = STALE, stdout 1줄). `pre-push` 가 이 판정으로 스위트 실행을 건너뛰고 `verifying-evidence-ko` 가 같은 판정으로 수동 전체 스위트 재실행을 생략합니다 — 판정은 이 한 곳에만 둡니다. 마커 부재·불일치·`SPECOPS_FORCE_FULL` 등 판정이 애매하면 전부 STALE(재실행)입니다.
 
 `prepush-related.sh` 는 작업 브랜치 push 를 전체 스위트 대신 관련 스위트로 판정하는 헬퍼입니다(rc 0 = 통과 · 1 = 관련 스위트 실패 · 3 = 이 경로로 판정하지 않음 → `pre-push` 가 전체 스위트). 기본 브랜치·태그 push, 커밋하지 않은 추적 변경, HEAD 가 아닌 커밋, 관련 스위트를 고를 수 없는 변경(`run-related.sh --list` rc≠0), `SPECOPS_FORCE_FULL` 은 전부 rc 3 입니다. 같은 트리에서 같은 스위트가 이미 통과한 기록(`.specops/.related-suite-pass` — `run-related.sh` 가 전부 통과했을 때만 씀)이 있으면 다시 돌지 않습니다. 전체 스위트는 PR 의 CI 가 맡습니다 — CI 는 리눅스라 관련 스위트 밖의 맥 전용 결함은 머지 뒤 `run-all-macos` 에서 발견됩니다.
+
+`related-suite-fresh.sh` 는 관련 스위트 통과 기록(`.specops/.related-suite-pass`)이 **지금 이 트리**의 것이고 기본 브랜치와의 차이가 닿는 스위트를 전부 덮었는지 판정하는 헬퍼입니다(rc 0 = FRESH · 1 = STALE, stdout 1줄 — `related-suite FRESH (fp=…, suites=N)` 또는 `related-suite STALE (<사유>)`). `--need` 는 지금 돌려야 하는 스위트 경로를 한 줄에 하나씩 냅니다 — `bash scripts/tests/run-related.sh $(bash scripts/_internal/related-suite-fresh.sh --need)`. 소비자는 둘입니다: `run-related.sh` 가 전부 통과한 뒤 이 판정이 FRESH 일 때만 `VERIFY: PASS` 를 내고, 커밋 훅(`_vs_stale_blocks`)이 검증 판정 `STALE` 에서도 통과 기록이 있으면 이 판정으로 커밋을 열어 줍니다 — 판정은 이 한 곳에만 둡니다. 기록 부재·지문 불일치·스위트 누락·`SPECOPS_FORCE_FULL` 은 전부 STALE 입니다.
 
 ## check-propagation.sh — 계약 경계 전파 스캔 (Wave C)
 

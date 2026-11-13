@@ -852,6 +852,31 @@ _ms_call; _mrc=$?
 [ "$_mrc" -eq 1 ]; _mut_ok "T-mut.i0 대조 — 마커가 있으면 판정기의 답을 쓴다(rc 1)" $? "rc=$_mrc"
 rm -rf "$_ms"
 
+# T-mut.k STALE 예외 ①' — 관련 스위트 통과 기록 (20261113-commit-gate-related-evidence).
+#   기록이 없으면 판정기를 부르지 않는다(훅은 커밋마다 돈다) · 판정기가 rc 0 일 때만 막지 않는다 · 판정기 실패·부재는 막는다.
+_mk=$(mktemp -d)
+( cd "$_mk" && git init -q && mkdir -p .specops spy sub ) >/dev/null 2>&1
+_mk_spy() { printf '#!/usr/bin/env bash\necho called >> "%s/spy/calls"\nexit %s\n' "$_mk" "$1" > "$_mk/spy/related-suite-fresh.sh"; : > "$_mk/spy/calls"; }
+_mk_call() {   # [$1=하위 폴더] — 훅의 현재 폴더가 최상위가 아닐 때도 기록은 최상위의 .specops 에서 찾는다
+  ( cd "$_mk/${1:-.}" && source "$PLUGIN/hooks/governance-lib.sh"
+    _VERIFICATION_STATE_SH="$_mk/spy/verification-state.sh"
+    _vs_stale_blocks "20260101-x" "$_G add -A && $_G $_C -m 'x'" ) >/dev/null 2>&1
+}
+_mk_spy 0; _mk_call; _mrc=$?
+{ [ "$_mrc" -eq 0 ] && [ ! -s "$_mk/spy/calls" ]; }; _mut_ok "T-mut.k ★ 통과 기록 없음 → 막는다(rc 0) · 판정기 호출 0회" $? "rc=$_mrc calls=$(wc -l < "$_mk/spy/calls" | tr -d ' ')"
+: > "$_mk/.specops/.related-suite-pass"
+_mk_spy 0; _mk_call; _mrc=$?
+{ [ "$_mrc" -eq 1 ] && [ "$(wc -l < "$_mk/spy/calls" | tr -d ' ')" = 1 ]; }; _mut_ok "T-mut.k0 ★ 기록 있음 + 판정기 rc 0 → 막지 않는다(rc 1) · 호출 1회" $? "rc=$_mrc"
+_mk_spy 0; _mk_call sub; _mrc=$?
+{ [ "$_mrc" -eq 1 ] && [ "$(wc -l < "$_mk/spy/calls" | tr -d ' ')" = 1 ]; }; _mut_ok "T-mut.k4 ★ 하위 폴더에서 불려도 작업 트리 최상위의 기록을 본다(rc 1 · 호출 1회)" $? "rc=$_mrc"
+_mk_spy 1; _mk_call; _mrc=$?
+[ "$_mrc" -eq 0 ]; _mut_ok "T-mut.k1 ★ 기록 있음 + 판정기 rc 1(STALE) → 막는다" $? "rc=$_mrc"
+_mk_spy 2; _mk_call; _mrc=$?
+[ "$_mrc" -eq 0 ]; _mut_ok "T-mut.k2 판정기 rc 2(비정상) → 막는다" $? "rc=$_mrc"
+rm -f "$_mk/spy/related-suite-fresh.sh"; _mk_call; _mrc=$?
+[ "$_mrc" -eq 0 ]; _mut_ok "T-mut.k3 판정기 파일 없음 → 막는다" $? "rc=$_mrc"
+rm -rf "$_mk"
+
 # T-mut.j 거부 사유의 receipt 축 — PR(R-2)에는 receipt 경로가 없다. FID·tasks.md 가 있고 verify 가 PASS 여도 n/a 다.
 #   R-1 이면 같은 상태가 closed-verified 다(대조) — R-2 에 그 값이 새면 "verify 가 이미 유효 PASS" 라는 엉뚱한 안내가 붙는다.
 _mr=$(mktemp -d); mkdir -p "$_mr/.specops/20260101-rc"

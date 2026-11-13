@@ -141,6 +141,26 @@ EOF
   printf '%s' "$out" | shasum -a 256 | awk '{print $1}' | tr -d '\n'
 }
 
+# 통과 마커의 지문 신선도 — 마커 첫 줄(기록 시점 비문서 지문)이 지금 트리의 비문서 지문과 같은가 (20261113-commit-gate-related-evidence).
+#   $1 = 마커 경로. rc 0 = 일치(stdout 에 지금 지문) · rc 1 = 불일치·판정 불가(stdout 에 사유 1줄). 판정이 애매하면 rc 1 이다.
+#   소비자: full-suite-fresh.sh(.full-suite-pass) · related-suite-fresh.sh(.related-suite-pass) — 둘이 같은 판정을 두 벌로 갖고 있었다.
+#   마커 부재·빈 첫 줄은 소비자가 자기 어휘("마커 부재"·"통과 기록 부재")로 먼저 막는다 — 여기 사유는 그 뒤의 공통 구간이다.
+vs::marker_fresh() {
+  local marker="$1" rec top unreadable now
+  rec=$(head -1 "$marker" 2>/dev/null || printf '')
+  [ -n "$rec" ] || { printf '마커가 비었거나 읽을 수 없음'; return 1; }
+  top=$(git rev-parse --show-toplevel 2>/dev/null) || { printf '현재 지문 산출 불가'; return 1; }
+  # 지문 계산(git add -A)은 읽을 수 없는 untracked 파일이 있으면 통째로 실패하고 HEAD 지문으로 퇴행한다 — 비교 전에 막는다
+  unreadable=$( git -C "$top" ls-files -o --exclude-standard -z 2>/dev/null \
+    | while IFS= read -r -d '' _f; do [ -r "$top/$_f" ] || { printf x; break; }; done )
+  [ -z "$unreadable" ] || { printf '읽을 수 없는 untracked 파일 — 지문 신뢰 불가'; return 1; }
+  now=$( cd "$top" && vs::nondoc_fingerprint 2>/dev/null ) || now=""
+  [ -n "$now" ] && [ "$now" != "NO_GIT" ] && [ "$now" != "UNHASHABLE" ] || { printf '현재 지문 산출 불가'; return 1; }
+  [ "$rec" = "$now" ] || { printf '트리 변경 — 지문 불일치'; return 1; }
+  printf '%s' "$now"
+  return 0
+}
+
 vs::legacy_verdict() {
   local evidence="$1" verdict
   [ -f "$evidence" ] || { printf 'NOT_RUN'; return 0; }

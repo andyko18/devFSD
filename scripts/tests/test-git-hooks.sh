@@ -819,6 +819,7 @@ S="${SPECOPS_ROOT:-.specops}"
 if [ "${1:-}" = "--list" ]; then cat >/dev/null; cat "$S/rr-list" 2>/dev/null; exit "$(cat "$S/rr-list-rc" 2>/dev/null || echo 0)"; fi
 printf '%s\n' "$@" > "$S/.rel-ran"
 echo "==== run-related: suites PASS=$# FAIL=0 (total=$#) ===="
+echo "VERIFY: PASS"
 exit "$(cat "$S/rr-rc" 2>/dev/null || echo 0)"
 STUB
 # 훅과 헬퍼는 작업 트리의 것을 넣는다 — 픽스처 생성이 추적 파일만 옮기면 새 헬퍼가 빠진다(그러면 PR.11 만 공허하게 통과한다).
@@ -850,6 +851,8 @@ else
   _pr_case "PR.1 작업 브랜치 → 관련 스위트만" 0 related
   { [ "$(cat "$_fc/.specops/.rel-ran" 2>/dev/null | tr '\n' ' ')" = "scripts/tests/test-a.sh scripts/tests/test-b.sh " ] && printf '%s' "$PR_ERR" | grep -q 'CI' && printf '%s' "$PR_ERR" | grep -q 'SPECOPS_FORCE_FULL=1'; } \
     && ok "PR.1b 고른 스위트를 그대로 돌리고 CI 위임·강제 방법을 알린다" || nope "PR.1b" "ran=$(cat "$_fc/.specops/.rel-ran" 2>/dev/null | tr '\n' ' ') err=$PR_ERR"
+  { printf '%s\n' "$PR_ERR" | grep -q '^==== run-related' && ! printf '%s\n' "$PR_ERR" | grep -q '^VERIFY:'; } \
+    && ok "PR.1c ★ push 게이트는 러너의 요약 줄을 보인다(마지막 줄 VERIFY: PASS 가 아니다)" || nope "PR.1c" "err=$PR_ERR"
   echo 1 > "$_fc/.specops/rr-rc"
   _pr_run refs/heads/feat "$_pr_head"
   _pr_case "PR.2 관련 스위트 실패 → 차단" 1 related

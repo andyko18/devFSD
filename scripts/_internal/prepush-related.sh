@@ -91,6 +91,6 @@ $(printf '%s' "$out" | grep -E '^(FAILED|====|FAIL)' | head -20)
 EOF
   exit 1
 fi
-printf '%s\n' "$out" | tail -1 >&2
+printf '%s\n' "$out" | grep '^==== run-related' | tail -1 >&2   # 요약 줄 — 러너의 마지막 줄은 이제 VERIFY: PASS 또는 사유다
 echo "  전체로 강제: SPECOPS_FORCE_FULL=1 git push" >&2
 exit 0

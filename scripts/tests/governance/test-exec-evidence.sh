@@ -256,6 +256,29 @@ for _c in 'echo proxy bash scripts/tests/run-all.sh' 'rtkx bash scripts/tests/ru
   _tx=$(_mk_run_tx "$_c" "VERIFY: PASS")
   _verify_exec_evidence "$_tx"; ck "T64s 다른 접두는 불인정: $_c" 1 $?
 done
+# T64q — 관련 스위트 러너(tests/run-related.sh)도 러너다 (20261113-commit-gate-related-evidence).
+#   러너는 변경이 닿는 스위트를 전부 덮었을 때만 VERIFY: PASS 를 낸다 — 훅은 그 줄을 run-all.sh 와 같은 술어로 읽는다.
+_rsum="==== run-related: suites PASS=1 FAIL=0 (total=1) — 관련 스위트만 돌렸다(전체 스위트 아님) ===="
+for _c in 'bash scripts/tests/run-related.sh scripts/tests/test-x.sh' 'rtk proxy bash scripts/tests/run-related.sh scripts/tests/test-x.sh' \
+          'cd /repo && SPECOPS_RUN_ALL_JOBS=4 bash scripts/tests/run-related.sh scripts/tests/test-x.sh 2>&1 | tail -5'; do
+  _tx=$(_mk_run_tx "$_c" "$_rsum
+VERIFY: PASS")
+  _verify_exec_evidence "$_tx"; ck "T64q ★ 관련 스위트 러너 + VERIFY: PASS 인정: $_c" 0 $?
+done
+_tx=$(_mk_run_tx 'bash scripts/tests/run-related.sh scripts/tests/test-x.sh' "$_rsum
+run-related: 실행 증거로 치지 않는다 — 스위트 누락 1개 — scripts/tests/test-y.sh")
+_verify_exec_evidence "$_tx"; ck "T64q2 ★ 러너가 VERIFY 줄을 내지 않았으면(덮지 못함) 불인정" 1 $?
+_tx=$(_mk_run_tx 'echo bash scripts/tests/run-related.sh scripts/tests/test-x.sh' "VERIFY: PASS")
+_verify_exec_evidence "$_tx"; ck "T64q3 echo 위장은 불인정" 1 $?
+_tx=$(_mk_run_tx 'bash scripts/tests/run-related.sh --list hooks/governance-lib.sh' "scripts/_internal/validate-structure.sh
+scripts/tests/test-doc-numbers.sh")
+_verify_exec_evidence "$_tx"; ck "T64q4 --list 는 결과에 VERIFY: PASS 가 없어 불인정(결과 술어가 막는다)" 1 $?
+_tx=$(_mk_run_tx 'bash ./run-related.sh scripts/tests/test-x.sh' "VERIFY: PASS")
+_verify_exec_evidence "$_tx"; ck "T64q6 ★ tests/ 밖의 run-related.sh 는 불인정(run-all 의 T15 와 같다)" 1 $?
+_tx=$(_mk_run_tx 'bash scripts/tests/run-related.sh scripts/tests/test-x.sh' "$_rsum
+VERIFY: PASS")
+jq -nc --arg p "$PLUGIN/hooks/governance-lib.sh" '{type:"assistant",message:{content:[{type:"tool_use",id:"e1",name:"Edit",input:{file_path:$p}}]}}' >> "$_tx"
+_verify_exec_evidence "$_tx"; ck "T64q5 ★ 통과 뒤 코드 편집이 있으면 불인정(신선도)" 1 $?
 rm -rf "$_t64d"
 
 # T25 — 앵커 리터럴 재등장 감지 (변수화 역행 잠금)

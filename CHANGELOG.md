@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **기준 약화 후보를 스크립트가 먼저 뽑는다**(`scripts/_internal/scan-dod-weakening.sh --base <ref>`). 리뷰 범위의 변경과 추적하지 않는 새 파일에서 억제 주석 신규 · 테스트 skip·삭제 · 단언 순감소 · 임계 하향·타임아웃 상향 · 검증 무력화 · 미구현 표식 6종을 `<클래스>\t<파일>:<줄>\t<패턴>` 으로 내고, 조이는 방향의 변경은 내지 않는다. 종료 코드는 0(없음)·1(있음)·2(실행 불가 — 통과로 읽지 않는다)이고 줄 원문은 출력하지 않는다. 코드 리뷰어가 「기준 약화 탐지」에서 이 출력으로 읽을 곳을 정한다 — 사유·등급 판정은 종전대로 리뷰어 몫이다(`agents/code-reviewer-ko.md`). 계약은 addyosmani/agent-skills 의 floor-guard 에서 가져왔다.
+
+### Fixed
+
+- `commands/basic.md` 의 `specops_version` 을 본문이 마지막으로 바뀐 4.0.7 로 맞췄다(릴리즈 때 뜨던 미갱신 경고).
+
 ## [4.0.7] — 2026-11-13
 
 ### Changed

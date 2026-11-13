@@ -14,6 +14,8 @@ updated: "{{updated}}"
 > AI 에이전트용 화면 설계 문서. `/design-screen` 커맨드로 생성.
 > HTML 미리보기: `screens/{{name}}.html`
 
+**관련 FR**: [FR-N, … — 이 화면이 구현하는 요구사항 ID(`.specops/memory/requirements.md`). 공통 셸 화면이면 `공통`]
+
 **원형**: [목록 | 상세 | 폼 | 다단 폼 | 대시보드 | 기타 — 복합 화면은 쉼표로 나열(예: 목록, 상세). 원형별 장르 규칙은 DESIGN.md §6.1]
 
 ## 목적

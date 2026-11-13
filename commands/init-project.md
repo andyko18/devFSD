@@ -158,7 +158,7 @@ should (수치·상세 — 근거 없으면 마커 + 사유):
    - `y` = 전체 승인, 번호 = 해당 가정만 수정 후 재제시 (루프 cap 없음 — 사용자 주권)
    - **수정 요청을 반영한 뒤에는 다시 게이트를 받는다** — 반영 직후 곧바로 종결 커밋하지 않는다(실기록: 수정 요청 뒤 재승인 없이 커밋). `y` 를 받은 내용과 커밋하는 내용이 같아야 한다
 2. (구 그룹①②③ 3게이트 폐지)
-3. DESIGN.md 보강 후 `screens/*.html` 이 **이미 존재**하면(구 부트스트랩·수동 생성): `bash` 로 각 html 에 `scripts/_internal/init-project/lib.sh` 의 `_inject_design_palette` 재실행 — DESIGN.md 확정 색을 화면 미리보기에 반영 (**스캐폴딩 원본·사용자 미편집 상태에서만** — 편집본 덮어쓰기 금지)
+3. DESIGN.md 보강 후 `screens/*.html` 이 **이미 존재**하면(구 부트스트랩·수동 생성): `bash` 로 각 html 에 `"${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-project/lib.sh` 의 `_inject_design_palette` 재실행 — DESIGN.md 확정 색을 화면 미리보기에 반영 (**스캐폴딩 원본·사용자 미편집 상태에서만** — 편집본 덮어쓰기 금지)
 
 **가정 다이제스트 + 결정 원장** (대화형·무인 공통):
 - 승인(또는 자동수락)된 `가정:` 전건을 **PRD.md 말미 `## §보강 가정 다이제스트`** 에 기록 (PRD 단일 출처 — requirements 등 중복 금지). 재실행(--enrich 포함) 시 기존 섹션 **전건 갱신**(replace) — 중복 섹션 append 금지.

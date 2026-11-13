@@ -119,4 +119,53 @@ d=$(_fx skills/x-ko/SKILL.md '`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.s
 [ "$rc" -eq 1 ] && ok "P18 테스트 경로 예시가 같은 줄에 있어도 다른 인자 위반 → FAIL" || nope "P18" "rc=$rc"
 rm -rf "$d"
 
+# ── 넷째 표면: `bash` 없이 적은 실행 표기 (20261113) ─────────────────────────
+#   리뷰어 에이전트가 "계측기: `scripts/_internal/x.sh` (직접 실행)" 을 받고 하류에서 경로를 짐작했다(플러그인 캐시를 찾아 실행).
+#   백틱이 plugin 상대 스크립트 경로로 시작하고 ① 백틱 안에 인자가 붙었거나(명령 형태) ② 닫는 백틱 바로 뒤에 실행·호출이 오면 위반이다.
+_xfx() {  # $1=상대경로 $2=내용 $3=플러그인에 만들어 둘 스크립트 → 샌드박스 루트 출력
+  local d; d=$(_fx "$1" "$2"); mkdir -p "$d/$(dirname "$3")"; : > "$d/$3"; printf '%s' "$d"
+}
+# P19: 경로 뒤에 실행 동사 → 위반
+d=$(_xfx agents/a.md '- 화면 품질 계측기: `scripts/_internal/check-x.sh` (직접 실행 — read-only)' scripts/_internal/check-x.sh); out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'agents/a.md:1:' && ok "P19 백틱 경로 + 직접 실행 → FAIL" || nope "P19" "rc=$rc out=$out"
+rm -rf "$d"
+d=$(_xfx skills/x-ko/SKILL.md '추가는 `scripts/add.sh` 직접 호출.' scripts/add.sh); bash "$CHK" "$d" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] && ok "P19b 백틱 경로 + 직접 호출 → FAIL" || nope "P19b" "rc=$rc"
+rm -rf "$d"
+# P20: 백틱 안에 인자가 붙은 명령 형태 → 위반 (.cjs 도 같은 표면)
+d=$(_xfx agents/a.md '규칙 정의는 `scripts/_internal/probe.cjs --rules` 가 SoT 다.' scripts/_internal/probe.cjs); out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'agents/a.md:1:' && ok "P20 백틱 안 명령 형태(경로 + 인자) → FAIL" || nope "P20" "rc=$rc out=$out"
+rm -rf "$d"
+# P21: 플러그인 루트를 붙이면 통과 (실행 동사·인자가 그대로여도)
+d=$(_xfx agents/a.md '- 계측기: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-x.sh` (직접 실행)
+규칙 정의는 `node "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/probe.cjs --rules` 가 SoT 다.' scripts/_internal/check-x.sh); out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "P21 플러그인 루트 접두 → OK" || nope "P21" "rc=$rc out=$out"
+rm -rf "$d"
+# P22: 인자도 실행 동사도 없는 설명용 언급은 그대로 통과 (P5 와 같은 경계 — 파일이 플러그인에 있어도)
+d=$(_xfx skills/x-ko/SKILL.md '판정 SoT = `scripts/_internal/check-x.sh` (구현 직전 `emit.sh` 가 재검한다). 뒤 문장에서 다른 것을 실행한다.' scripts/_internal/check-x.sh); out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "P22 설명용 언급(인자·실행 동사 없음) → 통과" || nope "P22" "rc=$rc out=$out"
+rm -rf "$d"
+# P22b: 실행 동사가 닫는 백틱에서 12바이트(한글 4자)보다 멀면 통과 — 한도를 잠근다(백틱 없이 떨어뜨려 한도만 잰다)
+d=$(_xfx skills/x-ko/SKILL.md '`scripts/_internal/check-x.sh` 가 고른 갈래를 그대로 실행한다.' scripts/_internal/check-x.sh); out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "P22b 실행 동사가 한도 밖 → 통과" || nope "P22b" "rc=$rc out=$out"
+# P22c: 로케일이 달라도 판정이 같다 (종전 초안은 UTF-8 에서 글자, C 에서 바이트로 세어 갈렸다)
+_rc_c=$(LC_ALL=C bash "$CHK" "$d" >/dev/null 2>&1; echo $?); _rc_u=$(LC_ALL=en_US.UTF-8 bash "$CHK" "$d" >/dev/null 2>&1; echo $?)
+[ "$_rc_c" = 0 ] && [ "$_rc_u" = 0 ] && ok "P22c 로케일 C·UTF-8 판정 일치" || nope "P22c" "C=$_rc_c UTF-8=$_rc_u"
+rm -rf "$d"
+# P23: 플러그인에 없는 경로는 하류 프로젝트의 것이다 (P15 와 같은 경계)
+d=$(_fx skills/x-ko/SKILL.md '프로젝트의 `scripts/deploy.sh --dry` 를 본다. `scripts/seed.sh` 를 실행한다.'); out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "P23 플러그인에 없는 스크립트(하류 경로) → 통과" || nope "P23" "rc=$rc out=$out"
+rm -rf "$d"
+# P24: 허용 목록 — plugin repo 에서만 도는 skill · 하류 테스트 명령 예시
+d=$(_xfx skills/release-ko/SKILL.md '`scripts/release.sh <X.Y.Z>` 를 실행' scripts/release.sh); bash "$CHK" "$d" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "P24a release-ko 허용" || nope "P24a" "rc=$rc"
+rm -rf "$d"
+d=$(_xfx skills/x-ko/SKILL.md '`scripts/tests/run-all.sh --jobs 4` 를 실행' scripts/tests/run-all.sh); bash "$CHK" "$d" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "P24b 하류 테스트 명령 예시 허용" || nope "P24b" "rc=$rc"
+rm -rf "$d"
+# P25: commands/ 도 같은 표면이다
+d=$(_xfx commands/c.md '`scripts/show.sh` — 실행 스크립트' scripts/show.sh); out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'commands/c.md:1:' && ok "P25 commands/ 의 실행 표기 → FAIL" || nope "P25" "rc=$rc out=$out"
+rm -rf "$d"
+
 finish

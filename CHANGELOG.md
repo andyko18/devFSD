@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **리뷰어·skill 이 플러그인 스크립트를 저장소 상대 경로로 받아 하류에서 경로를 짐작하던 것.** `agents/design-reviewer-ko.md` 가 화면 품질 계측기를 `scripts/_internal/check-screen-quality.sh` 로 적어, 플러그인이 설치만 된 프로젝트에서는 그 파일이 없었다(실측 2026-11-13: 리뷰어가 플러그인 캐시를 찾아 실행했다 — 못 찾으면 계측 없이 판정한다). 같은 표기 12곳을 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/…` 로 고쳤다: `design-reviewer-ko`(계측기 · `ui-probe.cjs --rules`) · `gbrain-ko`(연계 유틸 표 4행 · 직접 호출 안내) · `security-review-ko` · `performance-test-ko` · `commands/status.md` · `commands/gbrain.md`(마찰 집계 단계) · `commands/init-project.md`(팔레트 재주입의 `lib.sh`). Read 로 읽히는 보조 문서 2곳(`using-specops-ko/guardrails.md` · `specifying-ko/basic-promote.md`)은 그 변수가 치환되지 않아 접두를 붙이지 않고, 명령처럼 보이던 표기만 풀었다(`scripts/basic-path.sh` 의 `route`). `check-plugin-paths.sh` 가 이 형태를 넷째 표면으로 잡는다 — 백틱이 plugin 상대 스크립트 경로로 시작하고 백틱 안에 인자가 붙었거나(명령 형태) 닫는 백틱 바로 뒤(12바이트 안)에 실행·호출이 오는 표기이고, 로케일과 무관하게 바이트로 센다. 종전 검사는 `bash|source` 가 앞에 있을 때만 봤다. 인자도 실행 동사도 없는 설명용 언급(`판정 SoT = scripts/…`)은 종전대로 대상이 아니고 그대로 남아 있다. 알려진 한계: 바로 뒤의 "실행하지 않는다"·"실행 결과" 도 걸리고(접두를 붙이면 풀린다), `x.sh 를 Bash 로 돌린다`·코드 펜스 속 맨 경로·`templates/…` 열람 표기는 보지 않는다.
+
 ## [4.0.4] — 2026-11-13
 
 ### Changed

@@ -26,7 +26,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 5. 각 FID `.specops/<FID>/spec.md` 경로
 6. 촬영 이미지 폴더 `.specops/<BATCH_ID>/shots/` (있으면 — 화면마다 `<화면>@1280.png`·`<화면>@390.png`) · 같은 폴더의 배치 계측 결과 `<화면>.probe.txt`
 
-- 화면 품질 계측기: `scripts/_internal/check-screen-quality.sh` (직접 실행 — read-only·항상 exit 0)
+- 화면 품질 계측기: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screen-quality.sh` (플러그인 설치 경로 기준 — 프로젝트 저장소에는 이 파일이 없다 · 직접 실행 — read-only·항상 exit 0)
 
 화면·IF **둘 다 부재**면 `DESIGN-REVIEW-RESULT: SKIP` 후 종료 (부모도 호출하지 않는 것이 정상).
 
@@ -58,7 +58,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 
 **촬영 이미지 (있으면 본다)**: 화면마다 `.specops/<BATCH_ID>/shots/<화면>@1280.png`·`@390.png` 가 있으면 Read 로 열어 **위계(핵심 수치·주 액션이 먼저 보이는가) · 정렬 · 390 폭에서의 잘림·겹침** 만 본다. 이미지에서 받은 인상은 `[시각]` 접두의 **Minor 로만** 낸다 — Critical·Important 로 올리지 않는다(규칙 ID 가 없는 판단이고, `/start-all-auto` 는 Critical≥1 에서 무인 실행을 멈춘다). 이미지가 없거나 열 수 없으면 `촬영 이미지 없음 — 소스·계측기 판정만` 한 줄을 적고 그대로 진행한다(찍지 못한 것을 본 것처럼 쓰지 않는다).
 
-**배치 계측 결과 (있으면 인용한다)**: 같은 폴더의 `<화면>.probe.txt` 에 `배치 경고 L-CLIP-X`(가로 잘림)·`L-OVERLAP`(글자 겹침) 줄이 있으면 그 줄을 인용해 **Important** 로 낸다 — 규칙 ID 가 있는 계측이다(Critical 은 주지 않는다). 촬영 이미지에서 그 요소가 실제로는 잘리거나 겹쳐 보이지 않을 때만 `계측 오탐 의심 — <이유>` 를 적고 Minor 로 내린다. `배치 경고 0건` 은 계측이 재는 범위(가로 잘림·포개져 보이는 글자)에서 적중이 없다는 뜻이다 — 이미지에서 본 잘림·겹침은 그대로 `[시각]` 으로 적는다. 내용이 `UI-PROBE: SKIP`·`배치 계측 못 함` 이거나 파일이 없으면 `계측 못 함 — <화면@폭> <사유>` 를 적고 위반 없음으로 쓰지 않는다 — 그때 이미지에서 본 잘림·겹침은 위의 `[시각]` Minor 다. 리뷰어는 계측을 직접 돌리지 않는다(쓰기 금지) — 촬영 폴더에 있는 현재 결과만 읽는다(화면 전문가 지적을 반영해 다시 찍은 뒤 남은 적중만 여기 온다). 규칙 정의는 `scripts/_internal/ui-probe.cjs --rules` 가 SoT 다.
+**배치 계측 결과 (있으면 인용한다)**: 같은 폴더의 `<화면>.probe.txt` 에 `배치 경고 L-CLIP-X`(가로 잘림)·`L-OVERLAP`(글자 겹침) 줄이 있으면 그 줄을 인용해 **Important** 로 낸다 — 규칙 ID 가 있는 계측이다(Critical 은 주지 않는다). 촬영 이미지에서 그 요소가 실제로는 잘리거나 겹쳐 보이지 않을 때만 `계측 오탐 의심 — <이유>` 를 적고 Minor 로 내린다. `배치 경고 0건` 은 계측이 재는 범위(가로 잘림·포개져 보이는 글자)에서 적중이 없다는 뜻이다 — 이미지에서 본 잘림·겹침은 그대로 `[시각]` 으로 적는다. 내용이 `UI-PROBE: SKIP`·`배치 계측 못 함` 이거나 파일이 없으면 `계측 못 함 — <화면@폭> <사유>` 를 적고 위반 없음으로 쓰지 않는다 — 그때 이미지에서 본 잘림·겹침은 위의 `[시각]` Minor 다. 리뷰어는 계측을 직접 돌리지 않는다(쓰기 금지) — 촬영 폴더에 있는 현재 결과만 읽는다(화면 전문가 지적을 반영해 다시 찍은 뒤 남은 적중만 여기 온다). 규칙 정의는 `node "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/ui-probe.cjs --rules` 출력이 SoT 다.
 
 - **품질 관점 6종(상태 설계·접근성·디자인 시스템 준수·콘텐츠 품질·장르 규칙·안티패턴)은 `check-screen-quality.sh` 실행 결과를 인용해 판정한다.** 이 6종의 Important 는 계측 결과로만 판정한다 — 소스나 촬영 이미지를 눈으로 본 인상으로 올리지 않는다(추측 판정 금지 · 이미지는 위 `[시각]` Minor 의 근거로만 쓴다). 계측기는 차단하지 않으므로 **심각도는 리뷰어가 붙인다** — 단 이 6종에 **Critical 을 부여하지 않는다**(`/start-all-auto` 가 Critical≥1 에서 무인 실행을 정지시킨다). 표의 규칙 ID 와 심각도는 `check-screen-quality.sh --rules` 카탈로그가 SoT 다 — 계측 상세줄 끝 `rule=` 로 규칙을 식별한다. 아래 표의 `배치(렌더 계측)` 행은 이 6종 밖이다 — 규칙 정의는 `ui-probe.cjs --rules` 이고 근거는 위의 배치 계측 결과다.
 

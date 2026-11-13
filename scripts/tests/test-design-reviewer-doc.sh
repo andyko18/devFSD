@@ -256,4 +256,12 @@ _n19=""
 [ "$(_t19 "$_sa_A" "$_sa_A2" "${_sa_D//.probe.txt/}")" = " [D:probe.txt]" ] || _n19="$_n19 D"
 [ -z "$_n19" ] && ok "T19.b 음성 — 절마다 지우면 그 절만 FAIL" || nope "T19.b" "진단 불일치:$_n19"
 
+# T20: 계측기 실행 표기가 플러그인 설치 경로 기준 (20261113 — 하류에서 리뷰어가 저장소 상대 경로를 받고 경로를 짐작했다)
+_ql=$(grep -F '화면 품질 계측기:' "$AG" | sed -n 1p)
+_ql_ok() { printf '%s' "$1" | grep -qF '"${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screen-quality.sh' && ! printf '%s' "$1" | grep -qF '`scripts/'; }
+if _ql_ok "$_ql"; then ok "T20.a 화면 품질 계측기 경로 = 플러그인 루트 접두"; else nope "T20.a" "행='${_ql:0:120}'"; fi
+if ! _ql_ok '- 화면 품질 계측기: `scripts/_internal/check-screen-quality.sh` (직접 실행)'; then ok "T20.b 음성 — 저장소 상대 경로 표기는 FAIL"; else nope "T20.b" "상대 경로가 통과"; fi
+grep -qF '"${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/ui-probe.cjs --rules' "$AG" \
+  && ok "T20.c 배치 계측 규칙 카탈로그 경로 = 플러그인 루트 접두" || nope "T20.c" "ui-probe.cjs 상대 경로"
+
 finish

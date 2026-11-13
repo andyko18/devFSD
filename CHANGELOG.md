@@ -11,16 +11,18 @@
 - **촬영이 화면 전체도 남긴다**(`screen-shot.sh`). 계측이 돌면 `<접두>@390.full.png`·`@1280.full.png`(전체 높이)와 `SCREEN-SHOT-FULL:` 줄이 나온다 — 종전 두 장은 높이가 고정(1280×1000 · 390×1400)이라 긴 화면의 아래쪽을 볼 수 없었다. 계측 도구가 없으면 종전처럼 두 장뿐이다.
 - **화면 보충 지침에 좁은 폭 규칙과 색 글자 대비 기준을 더했다**(`templates/screen-design-guide.md`). 칩·배지 줄바꿈 금지 · 차트를 가로 스크롤 안에 숨기지 않기 · 행 카드에 열 이름 되풀이 금지(값은 지우지 않고 접는다) · 결론과 주 액션의 위치 · 고정 막대 아래 여백 · 전체 촬영에서 고정 요소 읽는 법. 블라인드 실측(같은 명세 3화면 · 평가자 2명)에서 좁은 폭이 3.5/5 로 가장 낮았다. 같은 평가자의 재측정(이전 3화면 대 새 절차 3화면)에서 좁은 폭 2.83 → 4.17 · 대비 위반 7곳 → 0 · 전체 평균은 3.94 → 4.03 으로 사실상 같고 고유성은 3.67 → 3.0 으로 내렸다(생성 1회 — 원인 미확정).
 
+### Fixed
+
+- **기본 경고색·성공색과 디자인 방향 8종의 상태색이 자기 옅은 배경 위에서 대비 4.5 에 못 미치던 것.** 템플릿 `--color-warning` `#9A6700` → `#885B00`(옅은 배경 위 4.17 → 4.6 이상), `--color-success` `#1E7A45` → `#1C7140`, 디자인 방향 카탈로그의 Error·Success 12값을 같은 색조에서 최소한만 짙게(다크 방향은 밝게) 옮겼다. 현재 절차로 만든 3화면 전부에서 나온 대비 위반 7곳의 원인이 경고색 토큰 하나였다 — 새 값으로 같은 화면이 위반 0. **행동 변경**: 새로 만드는 `DESIGN.md`·목업의 상태색이 조금 짙어진다(기존 프로젝트의 `DESIGN.md` 는 바뀌지 않는다). 주색을 글자로 쓰는 경우(방향 3·6 의 밝은 주색)는 값 대신 지침으로 다룬다.
+
+## [4.0.10] — 2026-11-14
+
 ### Changed
 
 - **코드 리뷰어의 `[기존]` 라벨을 받는 쪽이 안다.** 4.0.7 에서 라벨만 넣고 받는 쪽을 잇지 않았다. `[기존]` Important 는 부모가 이번 범위에서 고치지 않고 넘긴다(`skills/implementing-ko/dev-autonomy.md` §2 · `/basic` 은 PR 본문 "넘긴 것"). `[기존]` Critical 은 라벨이 붙어도 종전대로 🔴 절에 올리고 수정 대상이다(「넘길 수 없는 것」 — 릴리즈 준비 판정이 🔴 절을 읽는다). 라벨은 참고이고 부모의 위치 판정이 우선한다.
 - **코드 리뷰어의 "다음 단계"를 지금의 흐름으로 고쳤다.** 고정 단계에서 빠진 `requesting-code-review-ko` 를 가리키던 두 줄을 `verifying-evidence-ko`(부모가 호출)로 바꿨다. README·CLAUDE.md 의 풀 경로 순서도 `implement(끝에 스펙·코드 리뷰) → verify → security` 로 맞췄다.
 - **코드 리뷰어 등급 낱말을 하나로 맞췄다.** 증거 없는 지적의 강등 등급을 Suggestion 으로 통일하고, 출력 형식에 Suggestion 절을 더했다(강등한 항목이 갈 곳이 없었다).
 - **Important 처리 규칙을 한 기준으로 맞췄다.** `requesting-code-review-ko`·`receiving-code-review-ko` 가 "이번 FID 가 만든 결함만 수정 대상"이라는 `dev-autonomy.md` §2 의 기준을 쓴다(종전엔 모든 Important 를 다음 단계 전에 고치라고 했다).
-
-### Fixed
-
-- **기본 경고색·성공색과 디자인 방향 8종의 상태색이 자기 옅은 배경 위에서 대비 4.5 에 못 미치던 것.** 템플릿 `--color-warning` `#9A6700` → `#885B00`(옅은 배경 위 4.17 → 4.6 이상), `--color-success` `#1E7A45` → `#1C7140`, 디자인 방향 카탈로그의 Error·Success 12값을 같은 색조에서 최소한만 짙게(다크 방향은 밝게) 옮겼다. 현재 절차로 만든 3화면 전부에서 나온 대비 위반 7곳의 원인이 경고색 토큰 하나였다 — 새 값으로 같은 화면이 위반 0. **행동 변경**: 새로 만드는 `DESIGN.md`·목업의 상태색이 조금 짙어진다(기존 프로젝트의 `DESIGN.md` 는 바뀌지 않는다). 주색을 글자로 쓰는 경우(방향 3·6 의 밝은 주색)는 값 대신 지침으로 다룬다.
 
 ### Tests/CI
 
@@ -3904,7 +3906,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.9...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.10...HEAD
+[4.0.10]: https://github.com/andyko18/devFSD/compare/v4.0.9...v4.0.10
 [4.0.9]: https://github.com/andyko18/devFSD/compare/v4.0.8...v4.0.9
 [4.0.8]: https://github.com/andyko18/devFSD/compare/v4.0.7...v4.0.8
 [4.0.7]: https://github.com/andyko18/devFSD/compare/v4.0.6...v4.0.7

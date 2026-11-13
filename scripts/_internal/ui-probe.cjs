@@ -9,6 +9,8 @@
 //   UI-PROBE: SKIP (NO_ENV — 사유)                     — 로그인 상태 파일을 찾지·읽지 못했거나 모양이 맞지 않는다
 //   그 아래 문제마다 `  - <화면>@<폭> <종류>: <내용>` 한 줄, 그리고 `  png: <경로>` 줄들
 //   배치 계측(경고 — 판정에 들어가지 않는다): `  - <화면>@<폭> 배치 경고 L-CLIP-X|L-OVERLAP(<이름>): <설명>` · 못 잰 화면·폭은 `배치 계측 못 함: <사유>`
+//   요청 실패(경고 — 판정에 들어가지 않는다): `  - <화면>@<폭> 요청 실패 경고: <상태|사유> <메서드> <주소>` — 4xx·5xx 응답과 연결 실패.
+//     주소는 쿼리·해시·userinfo 를 뺀다(경로는 남는다). 화면·폭마다 10줄까지(넘으면 `외 N건`). 있을 때만 요약 끝에 ` · 요청 실패 <N>` 이 붙는다.
 //   규칙 정의: node ui-probe.cjs --rules  (ui-probe-layout.cjs 가 유일한 곳)
 //   <폴더>/ui-probe.json · <폴더>/<화면>@<폭>.png
 // rc: 0 PASS · 1 FAIL · 3 SKIP · 2 인자 오류
@@ -31,6 +33,9 @@ const USAGE = 'usage: node ui-probe.cjs --out <폴더> [--widths 375,768,1280] [
 
 const WARN_IMPACTS = ['critical', 'serious'];
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa'];
+const REQ_FAIL_FROM = 400;            // 이 상태 코드부터 실패한 요청으로 센다
+const REQ_LINES_MAX = 10;             // 화면·폭마다 출력하는 요청 실패 줄 상한
+const REQ_ABORTED = 'net::ERR_ABORTED';   // 화면 이동이 끊은 요청 — 실패가 아니다
 
 function parseArgs(argv) {
   const a = { out: '', widths: [375, 768, 1280], urls: [], memory: '', startCmd: '', storageState: '', mocks: [], baseline: '', baselineUpdate: false, rules: false, missing: [] };
@@ -105,7 +110,12 @@ async function probeOne(browser, url, width, out, axeFile, doAxe, ssFile) {
   const consoleErrors = [];
   page.on('console', (m) => { if (m.type() === 'error') consoleErrors.push(m.text().slice(0, 200)); });
   page.on('pageerror', (e) => consoleErrors.push(String(e.message || e).slice(0, 200)));
-  const r = { url, width, png: '', overflow: false, consoleErrors, a11y: null, loadError: '', layout: null };
+  // 실패한 요청 — 콘솔 오류 문구에는 어느 요청인지 없다. 같은 요청(상태·메서드·주소)은 한 번만 적는다
+  const failedRequests = [];
+  const noteReq = (what, method, u) => { const k = `${what} ${method} ${state.requestLabel(u)}`; if (!failedRequests.includes(k)) failedRequests.push(k); };
+  page.on('response', (res) => { const st = res.status(); if (st >= REQ_FAIL_FROM) noteReq(String(st), res.request().method(), res.url()); });
+  page.on('requestfailed', (req) => { const f = req.failure(); const why = (f && f.errorText) || 'failed'; if (why !== REQ_ABORTED) noteReq(why, req.method(), req.url()); });
+  const r = { url, width, png: '', overflow: false, consoleErrors, failedRequests, a11y: null, loadError: '', layout: null };
   try {
     await page.goto(url, { waitUntil: 'networkidle', timeout: 20000 }).catch(() => page.goto(url, { waitUntil: 'load', timeout: 20000 }));
   } catch (e) { r.loadError = String(e.message || e).slice(0, 200); r.layout = layout.unmeasured('열기 실패'); await ctx.close(); return r; }
@@ -224,12 +234,15 @@ async function main() {
 
   const L = layout.summarize(results.map((r) => ({ tag: `${slugOf(r.url)}@${r.width}`, layout: r.layout })));
   const issues = [];
-  let over = 0, cerr = 0, severe = 0, minor = 0, same = 0, recorded = 0;
+  let over = 0, cerr = 0, severe = 0, minor = 0, same = 0, recorded = 0, nreq = 0;
   for (const r of results) {
     const tag = `${slugOf(r.url)}@${r.width}`;
     if (r.loadError) { issues.push(`${tag} 열기 실패: ${r.loadError}`); continue; }
     if (r.overflow) { over++; issues.push(`${tag} 가로 넘침: 문서 폭이 화면 폭(${r.width})보다 넓다`); }
     for (const m of r.consoleErrors) { cerr++; issues.push(`${tag} 콘솔 오류: ${m}`); }
+    nreq += r.failedRequests.length;
+    for (const q of r.failedRequests.slice(0, REQ_LINES_MAX)) issues.push(`${tag} 요청 실패 경고: ${q}`);
+    if (r.failedRequests.length > REQ_LINES_MAX) issues.push(`${tag} 요청 실패 경고: 외 ${r.failedRequests.length - REQ_LINES_MAX}건`);
     for (const v of r.a11y || []) {
       if (!WARN_IMPACTS.includes(v.impact)) minor++;
       else if (bl.mode === 'plain') { severe++; issues.push(`${tag} 접근성 ${v.impact} ${v.id}(${v.nodes}곳): ${v.help}`); }
@@ -274,7 +287,7 @@ async function main() {
   let a11yNote = axeFile ? `접근성 심각 ${severe}${minor ? ` · 경미 ${minor}` : ''}` : '접근성 SKIP(axe-core 없음)';
   if (axeFile && bl.mode === 'compare') a11yNote += ` · 기준선 ${same}`;
   if (axeFile && bl.mode === 'record') a11yNote += ` · 기준선 기록 ${recorded}`;
-  console.log(`UI-PROBE: ${verdict} (${a.urls.length}화면·${a.widths.length}폭 · 넘침 ${over} · 콘솔 오류 ${cerr} · ${a11yNote}${L.note})`);
+  console.log(`UI-PROBE: ${verdict} (${a.urls.length}화면·${a.widths.length}폭 · 넘침 ${over} · 콘솔 오류 ${cerr} · ${a11yNote}${L.note}${nreq ? ` · 요청 실패 ${nreq}` : ''})`);
   for (const i of issues) console.log(`  - ${i}`);
   for (const w of L.lines) console.log(`  - ${w}`);
   for (const e of extra) console.log(`  - ${e}`);

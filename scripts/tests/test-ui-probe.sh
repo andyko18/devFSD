@@ -146,7 +146,7 @@ ne=1; for o in "$a1" "$a2" "$a3"; do printf '%s\n' "$o" | grep -q '^UI-PROBE: SK
 FK="$TMP/fakepw"; mkdir -p "$FK/node_modules/playwright-core" "$FK/node_modules/axe-core"
 : > "$FK/node_modules/axe-core/index.js"; : > "$FK/node_modules/axe-core/axe.min.js"
 cat > "$FK/node_modules/playwright-core/index.js" <<'EOF'
-// 가짜 Playwright — 화면별 결과는 FAKE_PW_FIX(slug → {fail, overflow, violations, layout, layoutThrow, layoutThrowAt}), 컨텍스트마다 FAKE_PW_LOG 에 {width, storageState} 한 줄
+// 가짜 Playwright — 화면별 결과는 FAKE_PW_FIX(slug → {fail, overflow, violations, layout, layoutThrow, layoutThrowAt, responses, requestfailed}), 컨텍스트마다 FAKE_PW_LOG 에 {width, storageState} 한 줄
 const fs = require('fs'), path = require('path');
 const FIX = process.env.FAKE_PW_FIX ? JSON.parse(fs.readFileSync(process.env.FAKE_PW_FIX, 'utf8')) : {};
 const log = (o) => { if (process.env.FAKE_PW_LOG) fs.appendFileSync(process.env.FAKE_PW_LOG, JSON.stringify(o) + '\n'); };
@@ -156,9 +156,15 @@ exports.chromium = { launch: async () => ({
   newContext: async (opts) => {
     log({ width: opts.viewport.width, storageState: opts.storageState || '' });
     let url = '';
+    const H = {};
     return { newPage: async () => ({
-      on() {},
-      goto: async (u) => { url = u; if ((FIX[slug(u)] || {}).fail) throw new Error('boom'); },
+      on(ev, fn) { (H[ev] = H[ev] || []).push(fn); },
+      goto: async (u) => {
+        url = u; const f = FIX[slug(u)] || {};
+        if (f.fail) throw new Error('boom');
+        for (const r of f.responses || []) for (const fn of H.response || []) fn({ status: () => r.status, url: () => r.url, request: () => ({ method: () => r.method || 'GET' }) });
+        for (const r of f.requestfailed || []) for (const fn of H.requestfailed || []) fn({ url: () => r.url, method: () => r.method || 'GET', failure: () => (r.error ? { errorText: r.error } : null) });
+      },
       evaluate: async (fn, arg) => {
         const f = FIX[slug(url)] || {};
         if (typeof fn === 'function' && fn.name === 'measureLayout') {
@@ -493,6 +499,33 @@ printf '%s\n' "$SEC" | grep -F -- '--storage-state' | grep -qF 'NO_ENV' || miss=
 grep -n -F '.mock.png' "$DEMO" | grep -qF '나란히' && grep -n -F '.mock.png' "$DEMO" | grep -qF '폭마다' \
   && ok "U4d demo-ko — .mock.png 와 구현 PNG 를 폭마다 나란히 (같은 줄)" || no "U4d" ".mock.png 와 나란히·폭마다가 같은 줄에 없다"
 
+# U11 — 실패한 네트워크 요청(4xx·5xx·연결 실패): 경고만 · 판정 불변 · 쿼리 비출력 (20261113-debug-probe-hardening)
+fix '{"a":{"responses":[{"status":200,"url":"http://h:1/ok"},{"status":500,"url":"http://h:1/api/items?token=SECRETVALUE#frag"},{"status":404,"url":"http://h:1/x.png"},{"status":500,"url":"http://h:1/api/items?token=OTHER"}]}}'
+out=$(fk --out "$TMP/q1" --widths 390 http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(printf '%s\n' "$out" | sed -n 1p)" = 'UI-PROBE: PASS (1화면·1폭 · 넘침 0 · 콘솔 오류 0 · 접근성 심각 0 · 요청 실패 2)' ] \
+  && [ "$(printf '%s\n' "$out" | sed -n 2p)" = '  - a@390 요청 실패 경고: 500 GET http://h:1/api/items' ] \
+  && [ "$(printf '%s\n' "$out" | sed -n 3p)" = '  - a@390 요청 실패 경고: 404 GET http://h:1/x.png' ] \
+  && [ "$(node -e 'console.log(require(process.argv[1]).results[0].failedRequests.length)' "$TMP/q1/ui-probe.json")" = 2 ] \
+  && ok "U11a 4xx·5xx 응답 — rc 0 · PASS · 요약에 건수 · 경고 줄 형식 · 같은 요청은 한 번 · 2xx 는 아님 · 기록에 같은 건수" || no "U11a" "rc=$rc [$out]"
+! has "$out" 'SECRETVALUE' && ! has "$out" 'OTHER' && ! has "$out" 'frag' && ! grep -qE 'SECRETVALUE|OTHER|frag' "$TMP/q1/ui-probe.json" \
+  && ok "U11b 쿼리·해시는 출력에도 기록에도 남지 않는다" || no "U11b" "[$out]"
+fix '{"a":{"requestfailed":[{"error":"net::ERR_CONNECTION_REFUSED","method":"POST","url":"http://h:9/save?x=1"},{"error":"net::ERR_ABORTED","url":"http://h:1/nav"},{"url":"http://h:1/noinfo"}]}}'
+out=$(fk --out "$TMP/q2" --widths 390 http://h:1/a 2>&1); rc=$?
+[ "$rc" -eq 0 ] && has "$out" '요청 실패 2)' && has "$out" '  - a@390 요청 실패 경고: net::ERR_CONNECTION_REFUSED POST http://h:9/save' && has "$out" '  - a@390 요청 실패 경고: failed GET http://h:1/noinfo' && ! has "$out" 'ERR_ABORTED' \
+  && ok "U11c 연결 실패 — 사유·메서드·주소 · 사유 없음은 failed · 중단(ERR_ABORTED)은 세지 않는다" || no "U11c" "rc=$rc [$out]"
+fix '{"a":{"overflow":true,"responses":[{"status":503,"url":"http://h:1/api"}]}}'; out=$(fk --out "$TMP/q3" --widths 390 http://h:1/a 2>&1); rc=$?
+fix '{"a":{"overflow":true}}'; out0=$(fk --out "$TMP/q4" --widths 390 http://h:1/a 2>&1); rc0=$?
+[ "$rc" -eq 1 ] && [ "$rc0" -eq 1 ] && has "$out" '요청 실패 1)' && ! has "$out0" '요청 실패' \
+  && ok "U11d 판정 불변 — 요청 실패가 있어도 없어도 같은 rc · 0건이면 요약·줄에 아무것도 안 붙는다" || no "U11d" "rc=$rc,$rc0 [$out|$out0]"
+many=$(node -e 'console.log(JSON.stringify({a:{responses:Array.from({length:12},(_,i)=>({status:500,url:"http://h:1/r"+i}))}}))'); fix "$many"
+out=$(fk --out "$TMP/q5" --widths 390 http://h:1/a 2>&1)
+[ "$(cnt "$out" '요청 실패 경고: 500 GET ')" = 10 ] && has "$out" '  - a@390 요청 실패 경고: 외 2건' && has "$out" '요청 실패 12)' \
+  && [ "$(node -e 'console.log(require(process.argv[1]).results[0].failedRequests.length)' "$TMP/q5/ui-probe.json")" = 12 ] \
+  && ok "U11e 화면·폭마다 10줄까지 — 넘으면 '외 N건' · 요약과 기록은 전체 건수" || no "U11e" "[$out]"
+got=$(node -e 'const s=require(process.argv[1]);console.log(JSON.stringify(["http://h:1/a/b?x=1#y","data:text/plain;base64,QUJD","blob:http://h:1/uuid","not a url","file:///tmp/dir/x.html?q=1","http://user:PASSWD@h:1/a?t=1","about:blank","javascript:alert(1)","chrome-extension://abc/x?y=1"].map((u)=>s.requestLabel(u))))' "$S")
+[ "$got" = '["http://h:1/a/b","data:","blob:","(주소를 읽지 못함)","file:///tmp/dir/x.html","http://h:1/a","about:","javascript:","chrome-extension:"]' ] \
+  && ok "U11f requestLabel — 쿼리·해시·userinfo 제거 · data:·blob:·origin 없는 스킴은 스킴만 · 읽지 못한 주소는 원문을 내지 않는다" || no "U11f" "$got"
+
 # U4e — integration-test-ko 브라우저 줄에 배치 경고 건수·못 잰 것, 경고는 판정 불변 (AC-10)
 _u4e() {  # $1=통합 테스트 스킬 본문 → 빠진 키
   local m=""
@@ -505,6 +538,9 @@ _u4e() {  # $1=통합 테스트 스킬 본문 → 빠진 키
 _int=$(cat "$INT")
 [ -z "$(_u4e "$_int")" ] && [ "$(_u4e "${_int//경고는 판정을 바꾸지 않는다/}")" = " [판정 불변]" ] && [ "$(_u4e "${_int//배치 경고 <N>/}")" = " [브라우저 줄:건수]" ] && [ "$(_u4e "${_int//0 이 아니라 그렇게 적는다/}")" = " [0 아님]" ] \
   && ok "U4e integration-test-ko — 브라우저 줄에 배치 경고 건수·못 잰 것 · 판정 불변 · 키를 지우면 그 키만 FAIL(AC-10)" || no "U4e" "없음:$(_u4e "$_int")"
+
+# U4f — integration-test-ko 가 요청 실패 경고 줄을 evidence 로 옮기라 하고 판정 불변을 적는다
+grep -F '`요청 실패 경고` 줄' "$INT" | grep -qF '판정 불변' && ok "U4f integration-test-ko — 요청 실패 경고 줄 · 판정 불변" || no "U4f" "문구 없음"
 
 echo "── test-ui-probe: PASS=$PASS FAIL=$FAIL SKIP=$SKIPPED ──"
 [ "$FAIL" -eq 0 ]

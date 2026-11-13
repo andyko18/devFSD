@@ -14,7 +14,8 @@ SS="$PLUGIN/scripts/split-session.sh"
 F=20261112-split-x
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 unset SPECOPS_SPLIT_CHILD SPECOPS_NO_SPLIT SPECOPS_SPLIT_PERMISSION_MODE SPECOPS_SPLIT_MODEL \
-      SPECOPS_SPLIT_TIMEOUT_MIN SPECOPS_SPLIT_MAX_BUDGET_USD SPECOPS_SPLIT_WARN_TOKENS SPECOPS_ROOT SPECOPS_CONFIG
+      SPECOPS_SPLIT_TIMEOUT_MIN SPECOPS_SPLIT_MAX_BUDGET_USD SPECOPS_SPLIT_WARN_TOKENS SPECOPS_ROOT SPECOPS_CONFIG \
+      CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS   # 물려 온 값이 R4b 를 거짓 실패(다른 값)·거짓 통과(0 — 분리 자식 세션 안)시키지 않게
 export CLAUDE_CONFIG_DIR="$TMP/home"   # 사용자 실제 settings 를 읽지 않게
 mkdir -p "$CLAUDE_CONFIG_DIR"
 
@@ -24,6 +25,7 @@ cat > "$STUB" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$STUB_ARGS"
 printf 'child=%s\n' "${SPECOPS_SPLIT_CHILD:-}" >> "$STUB_ARGS"
+printf 'ceil=%s\n' "${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS-unset}" >> "$STUB_ARGS"
 echo '{"type":"system","subtype":"init","session_id":"sid-123"}'
 case "${STUB_MODE:-done}" in
   done)   echo '{"type":"result","subtype":"success","session_id":"sid-123","num_turns":7,"total_cost_usd":1.25,"result":"요약\nSPLIT-CHILD-DONE: 20261112-split-x"}' ;;
@@ -106,6 +108,11 @@ grep -q -- '--output-format stream-json' "$STUB_ARGS" && grep -q '^child=1$' "$S
   && ok "R3 자식 호출 — stream-json · SPECOPS_SPLIT_CHILD=1 · 프롬프트에 진입 skill 과 끝 마커 규칙" || nope "R3" "$(cat "$STUB_ARGS")"
 ! grep -q -- 'dangerously-skip-permissions\|bypassPermissions' "$STUB_ARGS" && ! grep -q -- '--permission-mode' "$STUB_ARGS" \
   && ok "R4 ★ inherit 는 권한 옵션을 넘기지 않는다(skip-permissions 없음)" || nope "R4" "$(cat "$STUB_ARGS")"
+# 백그라운드 대기 상한 (20261113) — print 모드는 백그라운드 서브에이전트를 마지막 턴 뒤 10분까지만 기다린다. 구현자가 그보다 길면
+#   자식이 끝 마커 없이 종료됐다(실측: T3 구현자 대기 중 종료 · 43분 뒤 FAILED). 자식에게 상한 끔(0)을 넘긴다 — 전체 상한은 워치독이 본다.
+grep -q '^ceil=0$' "$STUB_ARGS" && ok "R4b ★ 자식에게 백그라운드 대기 상한 끔(CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0)을 넘긴다" || nope "R4b" "$(grep '^ceil=' "$STUB_ARGS")"
+: > "$STUB_ARGS"; _run "$sb" env STUB_MODE=done CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=600000 >/dev/null 2>&1
+grep -q '^ceil=600000$' "$STUB_ARGS" && ok "R4c 사용자가 지정한 상한은 그대로 둔다" || nope "R4c" "$(grep '^ceil=' "$STUB_ARGS")"
 
 out=$(_run "$(_mk)" env STUB_MODE=held); rc=$?
 [ "$rc" = 10 ] && printf '%s' "$out" | grep -q '^SPLIT-RESULT: HELD ' && ok "R5 자식 HELD → rc 10" || nope "R5" "rc=$rc out=$out"

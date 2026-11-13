@@ -1676,7 +1676,7 @@ else echo "PASS T-vstale.b4 STALE 검사는 R-1 한정 (PR 생성에는 적용�
 #   리뷰 지적을 고치고 전체 스위트를 다시 통과시킨 정직한 흐름이 "검증 이후 코드가 바뀌었다" 로 막혔다.
 _fp=$( cd "$_VS" && . "$PLUGIN/scripts/_internal/verification-state.sh" && vs::nondoc_fingerprint )
 printf '%s\n' "$_fp" > "$_VS/.specops/.full-suite-pass"
-out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" env -u SPECOPS_FORCE_FULL bash "$HOOK" 2>/dev/null)   # 강제 전체 변수가 물려 와도(SPECOPS_FORCE_FULL=1 git push) 이 양성 단언이 깨지지 않게
 check "T-vstale.e ★ STALE 이지만 전체 스위트가 이 트리에서 통과 → allow" '"continue":true' "$out"
 printf 'deadbeef\n' > "$_VS/.specops/.full-suite-pass"
 out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
@@ -1769,7 +1769,7 @@ check "T-vstale.g2 사유가 지문 없는 기록도 STALE 이라고 말한다" 
 # 전체 스위트가 지금 이 트리에서 통과했으면 종전 STALE 과 같은 예외로 열린다 (정직한 흐름의 출구는 같다)
 _fp=$( cd "$_VS" && . "$PLUGIN/scripts/_internal/verification-state.sh" && vs::nondoc_fingerprint )
 printf '%s\n' "$_fp" > "$_VS/.specops/.full-suite-pass"
-out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" bash "$HOOK" 2>/dev/null)
+out=$(printf '%s' "$_vin" | CLAUDE_PROJECT_DIR="$_VS" env -u SPECOPS_FORCE_FULL bash "$HOOK" 2>/dev/null)   # 강제 전체 변수가 물려 와도(SPECOPS_FORCE_FULL=1 git push) 이 양성 단언이 깨지지 않게
 check "T-vstale.g3 지문 없는 PASS 기록이어도 전체 스위트가 이 트리에서 통과 → allow" '"continue":true' "$out"
 rm -rf "$_VS"
 

@@ -132,6 +132,7 @@ if [ "$ext_skip" = 0 ] && command -v semgrep >/dev/null 2>&1; then
     high=$((high + $(_num "$(printf '%s' "$j" | jq '[.results[]?|select(.extra.severity=="WARNING")]|length' 2>/dev/null)")))
   fi
 fi
+gl_excluded=0   # 디렉터리 대상에서 뺀 `.specops/` 아래 secret 건수 — 출력에 적는다(조용히 빼지 않는다)
 # gitleaks (secret) — --no-git: 작업트리 파일시스템 스캔(git 히스토리 아님, code-reviewer I-1).
 #   tmp 리포트는 mktemp + trap 정리(고정 /tmp 경로 race·심볼릭링크 회피, code-reviewer I-2).
 if [ "$ext_skip" = 0 ] && command -v gitleaks >/dev/null 2>&1; then
@@ -155,7 +156,24 @@ if [ "$ext_skip" = 0 ] && command -v gitleaks >/dev/null 2>&1; then
           fi ;;
       esac
       if [ -f "$glrep" ] && command -v jq >/dev/null 2>&1; then
-        crit=$((crit + $(_num "$(jq 'length' "$glrep" 2>/dev/null)")))  # secret = Critical
+        if [ -d "$_t" ]; then
+          # 디렉터리 대상은 그 아래 `.specops/` 를 세지 않는다(20261113) — lifecycle 기록에는 의도적 가짜 키(마스킹 테스트의 수용 기준·마찰 로그)가
+          #   있고, 위 self-check 도 그 폴더를 뺀다. 대상 기준 상대 경로로 본다: `.specops` 안의 폴더·파일을 직접 지정한 스캔은 그대로 센다.
+          #   gitleaks 는 File 을 정리된 경로로 낸다(`./x`·`x/`·`x//`·`x/.` → `x/…` · 대상 `.` → 접두 없음 — 8.30.1 실측). 대상 표기를 같은 꼴로
+          #   정리해 접두를 벗기고, **벗기지 못하면 빼지 않고 센다**(`a/../b` 같은 표기 — 모르면 세는 쪽이다. 벗기지 못한 채 `.specops` 글자만 보면
+          #   `./.specops/<FID>` 를 직접 지정한 스캔이 0건으로 통과한다 — 코드 리뷰 실측).
+          _tn="$_t"
+          while :; do case "$_tn" in ./*) _tn="${_tn#./}" ;; */.) _tn="${_tn%/.}" ;; ?*/) _tn="${_tn%/}" ;; *//*) _tn="${_tn//\/\//\/}" ;; *) break ;; esac; done
+          [ -n "$_tn" ] || _tn=.
+          _gl=$(jq -r --arg t "$_tn" 'def rel: if $t == "." then . elif startswith($t + "/") then .[(($t | length) + 1):] else null end;
+            def in_specops: startswith(".specops/") or contains("/.specops/");
+            [.[] | ((.File // "") | rel) as $r | if $r != null and ($r | in_specops) then "x" else "c" end]
+            | "\(map(select(. == "c")) | length) \(map(select(. == "x")) | length)"' "$glrep" 2>/dev/null) || _gl=""
+          crit=$((crit + $(_num "${_gl%% *}")))  # secret = Critical
+          gl_excluded=$((gl_excluded + $(_num "${_gl##* }")))
+        else
+          crit=$((crit + $(_num "$(jq 'length' "$glrep" 2>/dev/null)")))  # secret = Critical
+        fi
       fi
     done
   fi
@@ -175,5 +193,8 @@ elif [ "$SAST_EXTERNAL" = 0 ]; then
 elif ! { command -v semgrep >/dev/null 2>&1 || command -v gitleaks >/dev/null 2>&1; }; then
   ext_note=" (self-check only — semgrep·gitleaks 미설치)"
 fi
-echo "SECURITY: crit=$crit high=$high med=$med$ruleset_note$ext_note"
+# 뺀 것은 뺐다고 적는다 — 하류 저장소는 `.specops/` 를 커밋하므로 그 안의 진짜 secret 도 이 제외에 걸린다. 건수를 보고 직접 지정해 확인할 수 있게 한다.
+excl_note=""
+[ "$gl_excluded" -gt 0 ] && excl_note=" (.specops 제외 ${gl_excluded}건 — 그 폴더를 직접 지정하면 집계)"
+echo "SECURITY: crit=$crit high=$high med=$med$ruleset_note$ext_note$excl_note"
 { [ "$crit" -gt 0 ] || [ "$high" -gt 0 ]; } && exit 1 || exit 0

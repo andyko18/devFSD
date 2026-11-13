@@ -174,8 +174,8 @@ _dirs() { grep -oE '"\$PLUGIN"/scripts/tests/[A-Za-z0-9_/-]*test-\*\.sh' "$1" | 
 a=$(_dirs "$PLUGIN/scripts/tests/run-all.sh"); b=$(_dirs "$RR")
 [ -n "$a" ] && [ "$a" = "$b" ] && ok "K1 ★ 스위트 폴더 목록 == run-all.sh 의 목록" || nope "K1" "run-all=[$a] related=[$b]"
 ! grep -qE '^[^#]*\.full-suite-pass' "$RR" && ok "K2 마커 경로를 코드에서 다루지 않는다" || nope "K2"
-! grep -q 'run-related' "$PLUGIN/hooks/governance-lib.sh" && ! grep -q 'run-related' "$PLUGIN/hooks/rules.jsonl" \
-  && ok "K3 ★ 훅은 이 러너를 실행 증거로 알지 못한다(훅을 고치지 않았다)" || nope "K3"
+grep -q '^_RUNNER_ANCHOR_PAT=.*tests/run-related\\\.sh' "$PLUGIN/hooks/governance-lib.sh" && ! grep -q 'run-related' "$PLUGIN/hooks/rules.jsonl" \
+  && ok "K3 ★ 훅은 이 러너를 러너 앵커로만 안다(규칙 파일은 그대로) — VERIFY: PASS 는 덮은 통과에만 나온다(X19·X20)" || nope "K3"
 ! grep -q 'run-related' "$PLUGIN/.githooks/pre-push" && ok "K4 pre-push 는 그대로 전체 스위트를 본다" || nope "K4"
 # 검증 러너의 허용 형식에 맞는다 — basic-path.sh related 가 내는 명령이 SKIP 되지 않는다
 WL=$(sed -n "s/^_WHITELIST_PAT='\(.*\)'\$/\1/p" "$PLUGIN/scripts/_internal/run-verification.sh")

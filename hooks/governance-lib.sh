@@ -311,9 +311,11 @@ EOF_TC
 #       **미해결 결함으로 인지하고 별도 FID 로 미룬다** — T70 fixture 가 `#!skip` 으로 명시 제외한다.
 # rtk 접두(20261113): 러너 앞의 `rtk` · `rtk proxy` 를 읽는다 — 출력 원문을 보려고 `rtk proxy bash …/tests/run-all.sh` 로
 #   돌린 통과가 실행 증거로 안 쳐졌다. R-1·R-2 트리거는 이미 rtk 접두를 읽는다. 그 밖의 rtk 하위 명령(`rtk gain …`)은 불인정(T64s).
+# 관련 스위트 러너(20261113): `tests/run-related.sh` 도 러너로 읽는다 — 러너가 변경이 닿는 스위트를 전부 덮었을 때만
+#   `VERIFY: PASS` 를 내므로(판정기 related-suite-fresh.sh) 결과 술어는 그대로다. 앵커는 `tests/` 아래로 좁힌다(T64q6).
 # 한계: `npx <bin>`·`(pnpm|yarn) exec <bin>` 은 임의 바이너리를 받는다(`npx cowsay VERIFY` 도 인정).
 #   whitelist 와 동치라는 요구의 귀결이며, 되돌리려면 whitelist 도 함께 좁혀야 한다.
-_RUNNER_ANCHOR_PAT='(^|[;&|(\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(rtk[[:space:]]+(proxy[[:space:]]+)?)?((poetry|uv|pdm|rye)[[:space:]]+run[[:space:]]+)?(bash[[:space:]]+\S*(run-verification\.sh|tests/run-all\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+((--dir|--filter|-C|workspace)[[:space:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:space:]]+)*(run[[:space:]]+)?test(:[A-Za-z0-9._-]+)?|go[[:space:]]+test|cargo[[:space:]]+test|npx[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(pnpm|yarn)[[:space:]]+exec[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*)'
+_RUNNER_ANCHOR_PAT='(^|[;&|(\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(rtk[[:space:]]+(proxy[[:space:]]+)?)?((poetry|uv|pdm|rye)[[:space:]]+run[[:space:]]+)?(bash[[:space:]]+\S*(run-verification\.sh|tests/run-all\.sh|tests/run-related\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+((--dir|--filter|-C|workspace)[[:space:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:space:]]+)*(run[[:space:]]+)?test(:[A-Za-z0-9._-]+)?|go[[:space:]]+test|cargo[[:space:]]+test|npx[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(pnpm|yarn)[[:space:]]+exec[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*)'
 
 _verify_exec_evidence() {
   local transcript="$1" fiddir="${2:-}"
@@ -1944,11 +1946,14 @@ _exec_cause() {
   [ "${_EXEC_OTHER_FID:-0}" = "1" ] && printf 'otherfid' || printf 'missing'
 }
 
-# ── STALE 인데도 R-1 을 막지 않는 두 경우 (20261009) ──────────────────────────
+# ── STALE 인데도 R-1 을 막지 않는 세 경우 (20261009 · ①' 20261113) ──────────────────────────
 # rc 0 = 막는다 · rc 1 = 막지 않는다(종전 판정 경로로 흘려보낸다 — 실행 증거·앵커는 그대로 요구된다).
 #   ① 전체 스위트가 **지금 이 트리**에서 통과했다. run-all.sh 는 `VERIFY: PASS` 를 내는 정식 러너인데 판정 상태를
 #      갱신하지 않는다 — 통과 마커(.full-suite-pass)의 지문이 현재 비문서 트리와 같으면 그 변경은 검증된 것이다.
 #      마커가 있을 때만 잰다: 지문 계산이 한 번 더 든다(추적 파일이 수천 개면 초 단위 — 마커 없는 하류 저장소에서 헛돈다).
+#   ①' 관련 스위트가 **지금 이 트리**에서 변경이 닿는 스위트를 전부 덮어 통과했다(20261113-commit-gate-related-evidence).
+#      판정은 related-suite-fresh.sh 한 곳(rc 0 = FRESH)이 한다 — 통과 기록(.related-suite-pass)이 있을 때만 부른다
+#      (스위트 고르기가 수 초다 · 훅은 커밋마다 돈다). 판정기 실패·부재(rc≠0)는 막는 쪽으로 흐른다.
 #   ② 달라진 것이 **이 커밋에 실리지 않는 파일**뿐이다 — 추적하지 않는 파일(로그·캐시·.DS_Store)이 생기거나 바뀌었다.
 #      **커밋만 실행하는 명령일 때만** 적용한다. 훅이 보는 것은 명령 실행 전의 인덱스라, 같은 명령이 커밋 전에 다른 일을
 #      하면(`git add`·`xargs git add`·`find -exec`·`sh -c`·`git config core.hooksPath`·`git diff --output=` …) 그 사이
@@ -1962,6 +1967,7 @@ _vs_stale_blocks() {
   local fid="$1" cmd="${2:-}" dir="${_VERIFICATION_STATE_SH%/*}" top
   top=$(git rev-parse --show-toplevel 2>/dev/null) || top=""
   [ -n "$top" ] && [ -f "$top/.specops/.full-suite-pass" ] && bash "$dir/full-suite-fresh.sh" >/dev/null 2>&1 && return 1
+  [ -n "$top" ] && [ -f "$top/.specops/.related-suite-pass" ] && bash "$dir/related-suite-fresh.sh" >/dev/null 2>&1 && return 1
   # `-a`·`--all`·`-am` 을 벗긴 뒤 묻는다(인용 안의 글자도 함께 바뀌지만 판정기는 인용 내용을 보지 않는다).
   cmd=$(printf '%s' "$cmd" | sed -E 's/(^|[[:space:]])(-a|--all)([[:space:]]|$)/\1\3/g; s/(^|[[:space:]])-am([[:space:]])/\1-m\2/g')
   _commit_scope_is_staged "$cmd" || return 0

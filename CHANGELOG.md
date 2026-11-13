@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **커밋·PR 게이트가 관련 스위트 통과를 실행 증거로 읽는다.** 종전에는 작업 브랜치 push 는 관련 스위트로 판정하면서 커밋 전 R-1·PR 전 R-2 는 `run-all.sh` 전체 스위트나 `run-verification.sh` 만 러너로 읽어, 관련 스위트를 통과시키고도 전체 스위트를 한 번 더 돌려야 했다. 이제 `scripts/tests/run-related.sh` 가 전부 통과하고 판정기 `scripts/_internal/related-suite-fresh.sh`(rc 0 = FRESH — 통과 기록이 지금 트리의 것이고 기본 브랜치와의 차이가 닿는 스위트를 전부 덮음)가 인정할 때만 `VERIFY: PASS` 를 내고, 훅은 그 줄을 `run-all.sh` 와 같은 술어로 읽는다. 검증 판정이 `STALE` 이어도 통과 기록(`.specops/.related-suite-pass`)이 있고 같은 판정기가 FRESH 면 막지 않는다. 차단 안내 5곳이 돌릴 명령(`bash scripts/tests/run-related.sh $(bash scripts/_internal/related-suite-fresh.sh --need)`)을 적는다. 대가: 러너가 전부 통과할 때마다 판정 1회(스위트 고르기 2~5초)가 붙는다 — push 게이트 경로 포함. 덮지 못한 통과는 종전대로 실행 증거가 아니다(`run-related: 실행 증거로 치지 않는다 — <사유>`).
+
 ## [4.0.3] — 2026-11-13
 
 ### Changed

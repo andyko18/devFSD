@@ -49,6 +49,9 @@ fi
 n=$(grep -c '^_RUNNER_ANCHOR_PAT=.*tests/run-all\\\.sh' "$PLUGIN/hooks/governance-lib.sh")
 [ "$n" -ge 1 ] && ok "T3 governance-lib 러너 클래스에 tests/run-all.sh 앵커 존재 ($n)" \
   || nope "T3 앵커 배선" "governance-lib 에 tests/run-all 앵커 없음"
+n=$(grep -c '^_RUNNER_ANCHOR_PAT=.*tests/run-related\\\.sh' "$PLUGIN/hooks/governance-lib.sh")
+[ "$n" -ge 1 ] && ok "T3b governance-lib 러너 클래스에 tests/run-related.sh 앵커 존재 ($n)" \
+  || nope "T3b 앵커 배선" "governance-lib 에 tests/run-related 앵커 없음"
 
 # ── T5: 네트워크 금지 계약 — aggregator 가 외부 SAST 를 끈다 (20260828-sast-timeout) ──
 # 왜 계약인가: 이 export 가 사라지면 test-security-scan·test-self-config-collect 가 다시 실

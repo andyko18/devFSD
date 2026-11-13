@@ -112,12 +112,12 @@ _resolve_conflict_policy() {
       return 0
     fi
     echo "충돌 파일 ${conflicts}개 감지."
-    printf "기존 파일 처리 정책? (skip/overwrite/merge) [skip]: "
-    _ask_choice conflict "기존 파일 처리 정책" "skip" 'skip|overwrite|merge' "skip · overwrite"
+    # merge 는 선택지가 아니다 — 구현된 적이 없어 고르면 skip 으로 떨어졌다(답변 파일 모드는 이미 거부한다).
+    printf "기존 파일 처리 정책? (skip/overwrite) [skip]: "
+    _ask_choice conflict "기존 파일 처리 정책" "skip" 'skip|overwrite' "skip · overwrite"
     p="$REPLY"
     case "$p" in
       overwrite) CONFLICT_POLICY="overwrite" ;;
-      merge)     CONFLICT_POLICY="skip"; echo "⚠️  merge 정책 미구현 — skip 으로 fallback. 기존 파일은 보존됩니다." >&2 ;;
       *)         CONFLICT_POLICY="skip" ;;
     esac
   fi

@@ -4,7 +4,7 @@ description: devFSD 한국어 자율 Lifecycle 진입 — 한국 SI 표준 14종
 triggers:
   - "/init-project"
 mode: ask
-specops_version: 2.17.0
+specops_version: 4.0.6
 specops_layer: Lifecycle-Bootstrap
 reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 ---
@@ -60,7 +60,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 2: 종류 분류 (Web/UI · BE/API · CLI/lib · 풀스택 · 모바일 · 기타). 고른 종류는 Phase 10 이 `project-context.md` 머리에 `<!-- specops:project-kind: N -->` 로 적는다 — foundation 필수 판정과 다음 `--resume` 이 추정 대신 이 값을 쓴다(`--resume` 이고 종류가 기록돼 있으면 `kind` 를 비워 두거나 생략할 수 있다 — 기록이 없는 기존 프로젝트는 답해야 한다).
    - Phase 3: 헌법 5원칙 입력 ('skip' 가능)
    - Phase 4: PRD — 답변 파일의 `prd.*` 6키 (stdin 모드는 numbered list · 구 `.init-prd-fields` 도 읽는다)
-   - Phase 5: CLAUDE.md 자동 생성 (PRD §1 + constitution 원칙 5개 인용)
+   - Phase 5: CLAUDE.md 자동 생성 (PRD §1 + constitution 원칙 5개 인용). 산출물 인덱스는 Phase 10 이 이 프로젝트에 없는 문서의 줄을 뺀다(init 이 쓴 CLAUDE.md 만)
    - Phase 6: DESIGN.md (UI/풀스택/모바일만) — 디자인 방향 카탈로그(`templates/design-directions.md`, 9개)에서 1택 → 방향 선언·다이얼·§1 팔레트 9색·§8 방향 특성을 채운다
    - Phase 7: 화면 **이름 목록만** → `screens-overview.md` 표. **`screens/*.{md,html}` 껍데기 미생성**. 표가 이미 있으면 **보존**하고 표에 없는 이름만 끝에 덧붙인다(기존 행·손으로 쓴 줄 무변경)
      - **★ 이 목록의 소비자**: `/design-screen(s)`(fence 갱신) · **`/start-all` Phase 2.5-A**(Step 1 `list` 로 화면셋에 합류 · `designed` 로 설계 완료분 제외 · Step 4 `sync` 로 갱신 · `diff` 로 잔여 고지 — 20260906 배선). 마스터에만 있고 어느 FR 도 언급하지 않은 화면은 **queue 헤더에 고지**되며, 비차단이므로 batch 는 계속 진행된다.
@@ -70,7 +70,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
    - Phase 10: `.specops/.gitignore`(없으면 생성 · 있으면 **병합** — 사용자 규칙 보존) + session-progress + **원장 골격**(`project-context.md`·`decisions.md`) + **스테이징만**(커밋은 Phase 11 단일 · 범위는 init 산출물뿐 — 미리 stage 돼 있던 다른 파일·기존 앱의 `screens/` 는 건드리지 않는다). `SPECOPS_INIT_COMMIT_NOW=1` 이면 bash에서 즉시 커밋. 종결 커밋은 Phase 11 의 `init-finalize.sh` 가 수행.
 3. **Phase 11 — Light enrich** (bash 종료 후, 아래 §Phase 11 섹션 준수)
 4. **설계 통합 뷰 생성** (생성물이라 커밋 대상이 아니다): `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh` 를 실행하고 출력된 경로를 사용자에게 알린다("전체 설계를 한 화면에서 보려면 `<경로>` 를 브라우저로 여세요"). **두 번 만든다** — ① Phase 11 승인 게이트 직전(보강·설계 리뷰 반영 뒤 — 사용자가 이 HTML 로 화면·인터페이스 설계를 보고 승인한다 · 수정 요청을 반영해 게이트를 다시 받을 때마다 다시 만든다) ② 종결 커밋 뒤(커밋된 내용과 같은 지문으로 남긴다). 실패(rc≠0 — python3 부재 등)는 1줄 고지만 하고 부트스트랩을 실패로 만들지 않는다 — 게이트는 요약만으로 받는다. `--enrich` 도 같다.
-5. 종료 후 안내: "이제 `/start \"<첫 기능>\"` 또는 `/start-foundation` → `/start-all` 으로 lifecycle 진입하세요"
+5. 종료 후 안내는 **종류를 따른다** — bash 가 Phase 10 끝에 낸 "그다음:" 줄을 그대로 전한다. UI·백엔드·풀스택·모바일은 `/start-foundation`(공통부) → `/start-all`(일괄), CLI·기타는 `/start` 다. `/start-all` 은 앞의 네 종류에서 공통부가 끝나지 않았으면 Phase 0 에서 멈추므로 `/start-all` 을 먼저 권하지 않는다.
 
 ## Phase 11 — Light enrich (bash 종료 후)
 
@@ -164,7 +164,7 @@ should (수치·상세 — 근거 없으면 마커 + 사유):
 
 **가정 다이제스트 + 결정 원장** (대화형·무인 공통):
 - 승인(또는 자동수락)된 `가정:` 전건을 **PRD.md 말미 `## §보강 가정 다이제스트`** 에 기록 (PRD 단일 출처 — requirements 등 중복 금지). 재실행(--enrich 포함) 시 기존 섹션 **전건 갱신**(replace) — 중복 섹션 append 금지.
-- **동시**: `.specops/memory/project-context.md` §1~2 채움(머리의 `<!-- specops:project-kind: N -->` 줄은 **지우지 않는다** — 뒤 단계가 읽는 종류 기록이다) + `.specops/memory/decisions.md` 표에 행 upsert (출처=`init Phase0`/`init Phase11.5`) — 이유·검토한 대안 칸도 채운다(근거가 없으면 비운다 · 5칸 원장이면 머리·구분선 끝에 두 칸을 붙인다). specifying·clarifying이 이 원장을 소비한다.
+- **동시**: `.specops/memory/project-context.md` §1~2 채움(§1 의 한 줄·페르소나는 bash 가 이미 채웠다 — 남은 칸만 · 머리의 `<!-- specops:project-kind: N -->` 줄은 **지우지 않는다** — 뒤 단계가 읽는 종류 기록이다) + `.specops/memory/decisions.md` 표에 행 upsert (출처=`init Phase0`/`init Phase11.5`) — 이유·검토한 대안 칸도 채운다(근거가 없으면 비운다 · 5칸 원장이면 머리·구분선 끝에 두 칸을 붙인다). specifying·clarifying이 이 원장을 소비한다.
 
 **단일 커밋** (bash Phase 10 스테이징 + enrich 변경 통합) — **반드시 아래 1줄로 수행한다**:
 
@@ -221,7 +221,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 → 설계 통합 뷰 생성 → 게이트 1회 [y] (질문에 통합 뷰 경로)
 → bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh → "init-finalize: 커밋 완료 <sha> (N파일)"
 → 설계 통합 뷰 다시 생성(커밋본 기준)
-→ "이제 /start-foundation 또는 /start-all 로 lifecycle 진입하세요" (/start-all Phase 2.5 는 설계 완료분을 건너뛴다)
+→ 종류별 다음 단계 안내 — 풀스택이면 "/start-foundation 으로 공통부 → /start-all" (/start-all Phase 2.5 는 설계 완료분을 건너뛴다)
 ```
 
 ## 안티패턴
@@ -242,4 +242,4 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 
 ---
 
-*specops-ko v2.17.0 · 2026-11-12 · 답변 파일 · Light enrich · M1 설계 완료 · 원장 · Phase7 목록만 · 커밋1*
+*specops-ko v4.0.6 · 2026-11-13 · 답변 파일 · Light enrich · M1 설계 완료 · 원장 · Phase7 목록만 · 커밋1*

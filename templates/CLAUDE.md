@@ -39,7 +39,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 아키텍처
 
-`.specops/memory/*` 산출물 자동 인덱스 — `/init-project` Phase 5 가 활성 산출물만 채움:
+`.specops/memory/*` 산출물 인덱스 — `/init-project` 가 이 프로젝트에 만든 산출물만 남긴다:
 
 - 헌법: `.specops/memory/constitution.md`
 - 요구사항 마스터: `.specops/memory/requirements.md`
@@ -51,6 +51,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 테이블 설계서: `.specops/memory/data-model.md` (DB 사용 시)
 - 화면 목록: `.specops/memory/screens-overview.md` (UI/풀스택/모바일)
 - 테스트 전략: `.specops/memory/test-strategy.md`
+- 프로세스 설계서: `.specops/memory/process-design.md`
 - 프로젝트 컨텍스트: `.specops/memory/project-context.md`
 - 결정 원장: `.specops/memory/decisions.md`
 

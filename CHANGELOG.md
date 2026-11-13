@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.12] — 2026-11-14
+
 ### Added
 
 - **기본 경로가 화면 품질을 본다**(`commands/basic.md` · `scripts/basic-path.sh`). 화면을 건드리는 작업이면 ① 구현 첫 일로 **목업 CSS 이식**(목업 토큰·공통 클래스를 앱 전역 CSS 로 — 풀 경로 `planning-ko` 와 같은 규칙), ② 봉인 전에 **브라우저 점검 1회**(`ui-probe.cjs` — 375·768·1280 촬영 · 가로 넘침 · 콘솔 오류 · 접근성)와 목업 클래스 생존율(`check-mock-css.sh`)을 돌리고 `evidence.md`·PR 본문에 `**브라우저**:` 줄을 남긴다. `basic-path.sh design-scope` 가 `DESIGN:` 줄 아래에 `UI:` 줄을 항상 1줄 낸다. 종전엔 두 장치가 풀 경로에만 있었다 — 하류 실측에서 목업 클래스 생존율이 8%·33%·90% 로 갈렸고, 지금 기본으로 고르는 이 경로는 그것을 보지 않았다. 화면 기록(`.specops/memory/ui-probe.json`)이 없으면 서버 시작 명령·포트·경로를 spec 질문 묶음에서 한 번에 묻는다(승인 뒤 무질문 유지). 브라우저 도구가 없거나 서버를 못 띄우면 멈추지 않고 미실행으로 적는다(PASS 로 적지 않는다).
@@ -3932,7 +3934,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.11...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.12...HEAD
+[4.0.12]: https://github.com/andyko18/devFSD/compare/v4.0.11...v4.0.12
 [4.0.11]: https://github.com/andyko18/devFSD/compare/v4.0.10...v4.0.11
 [4.0.10]: https://github.com/andyko18/devFSD/compare/v4.0.9...v4.0.10
 [4.0.9]: https://github.com/andyko18/devFSD/compare/v4.0.8...v4.0.9

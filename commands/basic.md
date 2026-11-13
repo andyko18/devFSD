@@ -5,7 +5,7 @@ description: "[단일·기본] 기본 경로 직접 지정 — spec 1장 승인 
 triggers:
   - "/basic"
 mode: ask
-specops_version: 4.0.7
+specops_version: 4.0.10
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (commands/start.md 와 commands/quick-fix.md 사이의 기본 경로)
 ---
@@ -56,7 +56,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` (인자에서 슬러그를 뽑는다 — 정식 
    - 보안 스캔 — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh <변경 파일…>` 을 백그라운드(Bash `run_in_background`)로.
    - 두 리뷰어 프롬프트에 `<<<REVIEW fid=<FID> tid=T1 phase=<B|C> verdict=…>>>` 보고 형식(`skills/implementing-ko/SKILL.md` 「부모 dispatch 프롬프트 규약」)과 실행 상한(대상 테스트 실행 B 2회·C 3회 이내 · 전체 스위트 실행 금지 · 되돌려-관찰은 임시 복사본에서)을 적는다. 저장 훅이 `.specops/<FID>/reviews/T1-B-report.md`·`T1-C-report.md` 로 옮긴다.
    - 리뷰어가 도는 동안 주 세션은 **PR 본문을 준비**한다(기다리기만 하지 않는다).
-   - **지적 처리**: 스펙 미충족·Critical·보안 Critical/High 는 주 세션이 고치고 **관련 테스트를 다시 돌린다 — 재리뷰는 없다**. Important 는 이번 변경이 만든 결함이면 고치고 아니면 PR 본문 "넘긴 것" 에 적는다. 고칠 수 없는 Critical 이나 `NEEDS_DISCUSSION` 은 멈추고 사용자에게 묻는다.
+   - **지적 처리**: 스펙 미충족·Critical(`[기존]` 라벨이 붙어도 같다)·보안 Critical/High 는 주 세션이 고치고 **관련 테스트를 다시 돌린다 — 재리뷰는 없다**. Important 는 이번 변경이 만든 결함이면 고치고 아니면(리뷰어의 `[기존]` 라벨) PR 본문 "넘긴 것" 에 적는다. 고칠 수 없는 Critical 이나 `NEEDS_DISCUSSION` 은 멈추고 사용자에게 묻는다.
 7. **봉인과 검증 1회**
    - **화면 점검 (화면을 건드렸을 때 — 봉인 전 1회)**: 통합 게이트는 돌리지 않지만 화면은 실제 브라우저로 한 번 연다.
      ```bash

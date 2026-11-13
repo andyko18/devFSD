@@ -413,5 +413,147 @@ has "$C" 'basic-path.sh related' 'RELATED: none' '**프로젝트의 테스트 �
 grep -qF '`/quick-fix`·`--full`·`--step` 은 슬래시 전용' "$PLUGIN/skills/using-specops-ko/SKILL.md" \
   && ok "D8 메타 skill: /quick-fix·--full·--step 은 슬래시 전용" || no "D8"
 
+# ── K 판정 방향 잠금 (20261113 변이 실측에서 살아남은 4건 + 낱말 표) ──
+# K1 "범위 밖" 절은 **그 절만** 가린다 — 뒤따르는 같은 깊이의 절(화면 변경)에 든 위험 낱말은 신호다 (변이: lvl <= depth → <)
+g=$(_repo gap); _bp "$g" start "$FID" "줄 수 세기 명령에 옵션 추가" >/dev/null
+_fill_spec "$g"
+awk 'f && $0 == "없음" { print "로그인 화면의 권한 안내 문구를 바꾼다"; f = 0; next } /^### 화면 변경/ { f = 1 } { print }' "$g/.specops/$FID/spec.md" > "$g/.specops/$FID/spec.new" \
+  && mv "$g/.specops/$FID/spec.new" "$g/.specops/$FID/spec.md"
+out=$(_bp "$g" approve "$FID"); rc=$?
+[ "$rc" = 3 ] && [ ! -e "$g/.specops/$FID/acceptance-criteria.md" ] && ok "K1 ★ '범위 밖' 뒤 같은 깊이 절의 위험 낱말 → rc 3 (가림은 그 절에서 끝난다)" || no "K1" "rc=$rc $out"
+
+# K2 판정기를 읽을 수 없으면 가벼운 쪽으로 열리지 않는다 — route 는 풀, lane 은 rc 1 (변이: 판정 불가 가지 삭제)
+mkdir -p "$TMP/plug/scripts"; cp "$BP" "$TMP/plug/scripts/basic-path.sh"
+out=$( cd "$g" && bash "$TMP/plug/scripts/basic-path.sh" route start "목록 화면에 정렬 버튼 추가" 2>&1 ); rc=$?
+printf '%s\n' "$out" | grep -q '^ROUTE: full — 위험 신호 판정 불가' && ! printf '%s\n' "$out" | grep -q '^ROUTE: basic' \
+  && ok "K2 ★ 판정기 부재 → ROUTE: full(판정 불가) — basic 으로 열리지 않는다" || no "K2" "rc=$rc $out"
+out=$( cd "$g" && bash "$TMP/plug/scripts/basic-path.sh" lane "목록 화면에 정렬 버튼 추가" 2>&1 ); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '^LANE: full ' && ok "K2b 판정기 부재 → lane rc 1 · LANE: full" || no "K2b" "rc=$rc $out"
+
+# K4 변경 파일이 없으면 봉인하지 않는다 (변이: 빈 목록 검사 삭제) · K3 리뷰 보고서는 둘 다 있어야 한다 (변이: && → ||)
+_fill_spec "$g"; _bp "$g" approve "$FID" >/dev/null
+out=$(_bp "$g" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '변경된 파일이 없다' && [ ! -e "$g/.specops/$FID/tasks.md" ] && ok "K4 ★ 변경 파일 없이 seal → rc 1 · 태스크 문서 없음" || no "K4" "rc=$rc $out"
+printf '#!/usr/bin/env bash\ngrep -c . "$1"\n' > "$g/scripts/count.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$g/scripts/tests/test-count.sh"; chmod +x "$g/scripts/count.sh" "$g/scripts/tests/test-count.sh"
+mkdir -p "$g/.specops/$FID/reviews"
+printf '# B\n**판정**: PASS\n' > "$g/.specops/$FID/reviews/T1-B-report.md"
+out=$(_bp "$g" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 4 ] && [ ! -e "$g/.specops/$FID/tasks.md" ] && ok "K3a ★ 스펙 리뷰 보고서만 있고 코드 리뷰 보고서가 없으면 seal rc 4" || no "K3a" "rc=$rc $out"
+rm -f "$g/.specops/$FID/reviews/T1-B-report.md"
+printf '# C\n**판정**: READY_TO_MERGE\n' > "$g/.specops/$FID/reviews/T1-C-report.md"
+out=$(_bp "$g" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 4 ] && [ ! -e "$g/.specops/$FID/tasks.md" ] && ok "K3b ★ 코드 리뷰 보고서만 있고 스펙 리뷰 보고서가 없으면 seal rc 4" || no "K3b" "rc=$rc $out"
+
+# K5 위험 낱말 표 — 낱말 하나만 든 문장이 그 종류의 신호로 풀 판정이 나는가 (20261113: 95개 중 55개가 어느 스위트에도 없었다 — 낱말 삭제·오타가 통과했다)
+#   한 줄 = `<신호 이름>|<그 낱말만 위험한 문장>`. 판정기(basic-path.sh _ko_signals · risk-profile.sh rp::detect_strict_signals)에 낱말을 더하면 여기에도 더한다.
+kw_total=0; kw_bad=""
+while IFS='|' read -r kc kq; do
+  [ -n "$kc" ] || continue
+  kw_total=$((kw_total+1))
+  out=$(_bp "$d" lane "$kq"); rc=$?
+  { [ "$rc" = 3 ] && printf ' %s ' "${out#LANE: full }" | grep -qF " $kc "; } || kw_bad="$kw_bad [$kc|$kq → rc=$rc $out]"
+done <<'KW'
+auth|화면에 인증 안내를 더한다
+auth|인가 규칙 설명을 고친다
+auth|권한 안내를 고친다
+auth|로그인 문구를 고친다
+auth|비밀번호 안내를 고친다
+auth|세션 토큰 설명을 고친다
+auth|auth 모듈 주석을 고친다
+auth|oauth 설명을 고친다
+auth|jwt 설명을 고친다
+auth|rbac 설명을 고친다
+auth|permission 표를 고친다
+auth|credential 설명을 고친다
+auth|secret 이름을 바꾼다
+auth|값을 .env 에서 읽는다
+db_schema|스키마 설명을 고친다
+db_schema|마이그레이션 안내를 고친다
+db_schema|컬럼 이름을 고친다
+db_schema|주문 테이블 추가
+db_schema|주문 테이블 변경
+db_schema|주문 테이블 삭제
+db_schema|주문 테이블 생성
+db_schema|주문 인덱스 추가
+db_schema|주문 인덱스 삭제
+db_migration|migration 파일을 본다
+db_migration|alembic 설정을 본다
+db_migration|prisma/migrations 를 본다
+db_migration|supabase/migrations 를 본다
+db_migration|CREATE TABLE orders
+db_migration|ALTER TABLE orders
+db_migration|DROP TABLE orders
+db_migration|data-model.md 를 고친다
+data_move|오래된 데이터 삭제
+data_move|주문 데이터 이관
+data_move|주문 데이터 이전
+data_move|주문 데이터 정리
+data_move|주문 일괄 삭제
+data_move|주문 백필
+data_move|orders backfill
+data_move|truncate orders
+data_move|purge orders
+api_shape|주문 조회 응답 형태를 본다
+api_shape|주문 조회 응답 형식을 본다
+api_shape|주문 조회 응답 구조를 본다
+api_shape|주문 조회 응답 필드를 본다
+api_shape|주문 조회 응답 스키마를 본다
+api_shape|하위 호환 설명을 고친다
+api_shape|breaking 표시를 더한다
+api_shape|주문 API 변경
+api_shape|주문 API 수정
+api_shape|주문 API 삭제
+irreversible_ext|운영 배포 안내를 고친다
+irreversible_ext|운영 반영 안내를 고친다
+irreversible_ext|결제 화면 문구를 고친다
+irreversible_ext|과금 문구를 고친다
+irreversible_ext|환불 문구를 고친다
+irreversible_ext|가입 메일 발송
+irreversible_ext|가입 문자 발송
+irreversible_ext|가입 푸시 발송
+irreversible_ext|가입 알림 발송
+irreversible_ext|되돌릴 수 없는 작업 안내
+destructive_fs|irreversible: true 표시
+destructive_fs|Delete: 항목을 본다
+destructive_fs|unlink( 호출을 본다
+destructive_fs|rm -rf 를 쓴다
+destructive_fs|path.join 을 쓴다
+destructive_fs|filesystem 접근을 본다
+destructive_fs|fs.unlink 를 쓴다
+destructive_fs|fs.rm 을 쓴다
+payment_pii|payment 화면을 본다
+payment_pii|billing 화면을 본다
+payment_pii|pii 필드를 본다
+payment_pii|개인정보 안내를 고친다
+payment_pii|주민등록 번호 칸을 본다
+payment_pii|credit card 칸을 본다
+public_api|api-spec.md 를 고친다
+public_api|/api/ 경로를 본다
+public_api|openapi 문서를 본다
+public_api|public api 문서를 본다
+public_api|엔드포인트 설명을 고친다
+infra|.github/workflows 를 본다
+infra|Dockerfile 을 본다
+infra|terraform 설정을 본다
+infra|kubernetes 설정을 본다
+infra|k8s 설정을 본다
+infra|helm 차트를 본다
+infra|deploy 안내를 고친다
+external_exec|subprocess 를 쓴다
+external_exec|child_process 를 쓴다
+external_exec|os.system 을 쓴다
+external_exec|exec( 호출을 본다
+external_exec|bash -c 로 돌린다
+external_exec|Runtime.exec 를 쓴다
+cross_service|cross-service 호출을 본다
+cross_service|microservice 구성을 본다
+cross_service|message queue 를 쓴다
+cross_service|sqs 를 쓴다
+cross_service|kafka 를 쓴다
+cross_service|external api 를 부른다
+KW
+[ -z "$kw_bad" ] && [ "$kw_total" -ge 95 ] && ok "K5 ★ 위험 낱말 ${kw_total}개 — 낱말마다 그 종류의 신호로 풀 판정(rc 3)" || no "K5" "total=$kw_total 빠짐:$kw_bad"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

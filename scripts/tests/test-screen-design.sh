@@ -166,8 +166,8 @@ PY
 )
   printf '%s\n' "$out" | sed -n 1p | grep -qE '^rows=9 pairs=[0-9]+ bad=0$' && ok "T9a ★ 템플릿 토큰 4색 × 배경 7종 · 방향 9종 상태색·보조 글자 — 전부 대비 4.5 이상" || no "T9a" "$out"
   grep -qF '대비 4.5' "$G" && grep -qF '접근성 serious color-contrast' "$G" && ok "T9b 보충 지침 — 색 글자 대비 기준과 촬영 계측의 대비 줄" || no "T9b" "지침에 대비 규칙 없음"
-  miss=""; for n in '좁은 폭(390)' 'white-space: nowrap' '세로 목록' '행 카드' '.full.png'; do grep -qF -- "$n" "$G" || miss="$miss [$n]"; done
-  [ -z "$miss" ] && ok "T9c 보충 지침 — 좁은 폭 규칙(줄바꿈·차트·행 카드)과 전체 촬영 (20261114 블라인드: 좁은 폭 3.5 로 최약)" || no "T9c" "없음:$miss"
+  miss=""; for n in '좁은 폭(390)' 'white-space: nowrap' '세로 목록' '행 카드' '.full.png' '지우지 않는다' '막대 높이만큼' '첫 화면 높이 자리'; do grep -qF -- "$n" "$G" || miss="$miss [$n]"; done
+  [ -z "$miss" ] && ok "T9c 보충 지침 — 좁은 폭 규칙(줄바꿈·차트·행 카드는 값을 지우지 않음·고정 막대 아래 여백)과 전체 촬영의 고정 요소 읽는 법 (20261114 블라인드: 좁은 폭 최약 · 재측정에서 행 카드 정보 손실)" || no "T9c" "없음:$miss"
 fi
 
 echo "── test-screen-design: PASS=$PASS FAIL=$FAIL ──"

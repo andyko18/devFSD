@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.11] — 2026-11-14
+
 ### Changed
 
 - **"다른 작업 트리로 옮겨 커밋" 차단 안내가 서브에이전트가 따를 수 있는 길을 준다.** 종전 안내는 "`cd` 를 별도 호출로"뿐인데, 서브에이전트는 호출마다 셸 위치가 초기화돼 그럴 수 없다 — 리뷰 서브에이전트가 자기 임시 저장소(mktemp 폴더의 복사본)에서 확인하다 같은 차단을 겪었다. 안내에 **자기 임시 저장소의 git 단계는 자기 임시 폴더 안의 스크립트 파일로 쓰고 `bash <그 파일>` 로 실행**하라는 문장을 더했고, 이 저장소(프로젝트 폴더)의 커밋은 그 방법으로 하지 않는다고 못박았다(`hooks/pretool-governance.sh` · `test-worktree-target` WT-E8.2b). **게이트 판정은 바꾸지 않았다** — 이동 판정(`_gov_cmd_moves_elsewhere`)을 풀어 "목적지에 `.specops` 가 없으면 허용"하는 안은 `git clone --local` 사본으로 검증 없이 원격에 올리는 구멍이 돼 채택하지 않았다(20261016 기록).
@@ -3919,7 +3921,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.10...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.11...HEAD
+[4.0.11]: https://github.com/andyko18/devFSD/compare/v4.0.10...v4.0.11
 [4.0.10]: https://github.com/andyko18/devFSD/compare/v4.0.9...v4.0.10
 [4.0.9]: https://github.com/andyko18/devFSD/compare/v4.0.8...v4.0.9
 [4.0.8]: https://github.com/andyko18/devFSD/compare/v4.0.7...v4.0.8

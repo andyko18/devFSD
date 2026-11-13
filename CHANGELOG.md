@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **"다른 작업 트리로 옮겨 커밋" 차단 안내가 서브에이전트가 따를 수 있는 길을 준다.** 종전 안내는 "`cd` 를 별도 호출로"뿐인데, 서브에이전트는 호출마다 셸 위치가 초기화돼 그럴 수 없다 — 리뷰 서브에이전트가 자기 임시 저장소(mktemp 폴더의 복사본)에서 확인하다 같은 차단을 겪었다. 안내에 **자기 임시 저장소의 git 단계는 자기 임시 폴더 안의 스크립트 파일로 쓰고 `bash <그 파일>` 로 실행**하라는 문장을 더했고, 이 저장소(프로젝트 폴더)의 커밋은 그 방법으로 하지 않는다고 못박았다(`hooks/pretool-governance.sh` · `test-worktree-target` WT-E8.2b). **게이트 판정은 바꾸지 않았다** — 이동 판정(`_gov_cmd_moves_elsewhere`)을 풀어 "목적지에 `.specops` 가 없으면 허용"하는 안은 `git clone --local` 사본으로 검증 없이 원격에 올리는 구멍이 돼 채택하지 않았다(20261016 기록).
+
 ### Fixed
 
 - **자유작업 기록이 활성 FID 를 바꾸던 것.** 종결 줄 없이 머지된 옛 FID 에 자유작업이 귀속되고 그 FID 가 활성이 돼, 이후 커밋이 그 FID 의 검증 기록을 요구했다(R-1 ②앵커). 두 곳을 고쳤다. `scripts/freework-resolve-fid.sh` 는 종결 줄이 없어도 **이미 머지된** FID(`reconcile-check.sh` 와 같은 판정 — 브랜치 `feat/<FID>` 가 머지 커밋으로 들어감)를 귀속하지 않는다. `scripts/session-progress-append.sh` 는 `/freework` 기록이 활성 FID 마커를 옮기지 않으며, 마커가 없는 파일에서는 새 섹션이 맨 위에 붙기 전에 지금의 활성(첫 헤더 — fixture 는 건너뜀)을 마커로 못박는다. 성공 기준은 기록 스크립트의 출력이 아니라 **기록 전후로 `detect_fid` 의 답이 같은가**다(`test-session-progress-append` F1~F7). squash·fast-forward 머지는 종전대로 판정하지 못해 귀속된다(`reconcile-check.sh` 의 알려진 한계).

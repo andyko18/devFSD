@@ -13,7 +13,8 @@
 #   전체는 PR 의 CI 와 기본 브랜치·태그 push 의 push 전 게이트(.githooks/pre-push)가 맡는다(작업 브랜치 push 는 관련 스위트로 판정 — 20261113). 그래서 이 러너는:
 #   - 전체 스위트 통과 마커(.specops/.full-suite-pass)를 쓰지 않는다 → 기본 브랜치·태그 push 는 이 실행을 통과 기록으로 치지 않는다.
 #     전부 통과하면 관련 스위트 통과 기록(.specops/.related-suite-pass)을 남긴다 → 작업 브랜치 push 는 같은 트리·같은 스위트면 다시 돌지 않는다(prepush-related.sh).
-#   - `VERIFY: …` 토큰을 내지 않는다 → 커밋 훅(R-1)의 실행 증거가 되지 않는다(증거는 run-verification.sh 가 낸다).
+#   - 전부 통과하고 변경이 닿는 스위트를 전부 덮었으면(related-suite-fresh.sh) 마지막 줄에 `VERIFY: PASS` 를 낸다 → 커밋·PR 훅의 실행 증거가 된다.
+#     덮지 못했으면 사유 1줄만 낸다(`run-related: 실행 증거로 치지 않는다 — <사유>`) — 종료 코드는 그대로 0.
 #   - 스위트별 소요는 `.specops/suite-times-related.tsv` 에 남긴다(전체 스위트의 기록 suite-times.tsv 와 다른 파일).
 #
 # 고르는 규칙 (--list) — **애매하면 전체다**(rc 3):
@@ -190,7 +191,7 @@ WORKER
 
 # 통과 기록 (20261113) — 전부 통과하면 `.specops/.related-suite-pass` 에 **실행 전** 비문서 지문(첫 줄)과 돌린 스위트(이후 줄)를
 #   남긴다. 소비자는 scripts/_internal/prepush-related.sh 하나다(작업 브랜치 push 에서 같은 트리·같은 스위트면 다시 돌지 않는다).
-#   전체 스위트 통과 기록(.full-suite-pass)과는 다른 파일이고 `VERIFY:` 토큰도 여전히 내지 않는다. 실패하면 기록을 지운다.
+#   전체 스위트 통과 기록(.full-suite-pass)과는 다른 파일이다. 기록을 쓴 뒤 그 기록이 지금 변경을 덮는지 판정해 `VERIFY: PASS` 를 낸다(아래 끝). 실패하면 기록을 지운다.
 #   지문을 낼 수 없거나(NO_GIT·UNHASHABLE·헬퍼 부재) `.specops/` 가 없으면 남기지 않는다(run-all.sh 의 마커와 같은 규칙).
 _RSP_MARKER="$PLUGIN/${SPECOPS_ROOT:-.specops}/.related-suite-pass"
 _RSP_TREE=NO_GIT
@@ -267,4 +268,24 @@ fi
 if [ "$_RSP_TREE" != "NO_GIT" ] && [ "$_RSP_TREE" != "UNHASHABLE" ] && [ -d "$(dirname "$_RSP_MARKER")" ]; then
   { printf '%s\n' "$_RSP_TREE"; cat "$WORK/list"; } > "$_RSP_MARKER" 2>/dev/null || true
 fi
+
+# 실행 증거 (20261113-commit-gate-related-evidence) — 방금 쓴 통과 기록이 지금 트리·지금 변경이 닿는 스위트 전부를 덮으면(판정기 rc 0)
+#   마지막 줄에 `VERIFY: PASS`. 그 밖에는 사유 1줄만 — `VERIFY: PARTIAL`·`VERIFY: FAIL` 글자는 어디에도 내지 않는다(훅이 그 글자를 보면 PASS 를 불인정한다).
+_RSP_WHY=""
+if [ ! -d "$(dirname "$_RSP_MARKER")" ]; then
+  _RSP_WHY="기록 폴더(.specops/)가 없다"
+elif [ ! -f "$PLUGIN/scripts/_internal/related-suite-fresh.sh" ]; then
+  _RSP_WHY="판정기(related-suite-fresh.sh)가 없다"
+else
+  _RSP_OUT=$(cd "$PLUGIN" && bash scripts/_internal/related-suite-fresh.sh 2>/dev/null); _RSP_RC=$?
+  if [ "$_RSP_RC" -eq 0 ]; then
+    echo "VERIFY: PASS"
+  else
+    case "$_RSP_OUT" in
+      "related-suite STALE ("*")") _RSP_WHY=${_RSP_OUT#related-suite STALE (}; _RSP_WHY=${_RSP_WHY%)} ;;
+      *) _RSP_WHY="판정 불가" ;;
+    esac
+  fi
+fi
+[ -z "$_RSP_WHY" ] || echo "run-related: 실행 증거로 치지 않는다 — $_RSP_WHY"
 exit 0

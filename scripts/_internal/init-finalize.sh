@@ -125,12 +125,15 @@ fi
 #   막는 범위는 좁다 — **이번 부트스트랩이 쓴 파일**(.init-written · 아직 HEAD 에 없는 것)에서
 #   ① 예시 블록(`specops:example`)이 남았거나 ② 깊게 보강하는 문서에 원시 자리표시자가 남았을 때만이다.
 #   init 이 쓰지 않은 문서(기존 문서 · 소급 보강 --enrich · 손으로 커밋한 뒤)는 종전대로 알리기만 한다:
-#   성숙한 문서의 `<cmd>` 같은 표기를 스캐너가 자리표시자로 세기 때문이다. 얕게 두는 문서(헌법·테스트 전략·
-#   CLAUDE·README)의 자리표시자도 막지 않는다. 골격만 커밋하려면 SPECOPS_INIT_ALLOW_UNFILLED=1.
+#   성숙한 문서의 `<cmd>` 같은 표기를 스캐너가 자리표시자로 세기 때문이다. 얕게 두는 문서(헌법·CLAUDE·README)의
+#   자리표시자도 막지 않는다. 골격만 커밋하려면 SPECOPS_INIT_ALLOW_UNFILLED=1.
 _is_deep() {
   case "$1" in
     PRD.md|DESIGN.md|.specops/memory/requirements.md|.specops/memory/api-spec.md|.specops/memory/data-model.md) return 0 ;;
     .specops/memory/frontend-architecture.md|.specops/memory/backend-architecture.md|.specops/memory/process-design.md) return 0 ;;
+    # 테스트 전략·전체 구조(20261113 승격) — 하류가 읽는다(planning·tdd·테스트 전문가·코드 리뷰어 · specifying).
+    #   얕게 두던 때 실주행에서 test-strategy 의 자리표시자 21건이 그대로 커밋됐다. 모르는 값은 미확정 마커로 적는다.
+    .specops/memory/test-strategy.md|.specops/memory/architecture.md) return 0 ;;
   esac
   return 1
 }

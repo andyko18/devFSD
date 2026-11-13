@@ -13,6 +13,9 @@ _phase_8a_requirements() {
   case "$PROJECT_KIND" in
     2|3) sed -i.bak -e '/^| NFR-4 | 접근성 |/d' -e '/^| NFR-5 | 호환성 |/d' "$target" && rm -f "$target.bak" ;;
   esac
+  # §1 프로젝트 줄 — 템플릿이 "자동 인용" 이라고 적어 둔 자리다. 종전엔 채우지 않아 LLM 보강이 옮겨 적었다(20261113).
+  #   한 줄이 없거나 <TODO> 면 자리표시자를 그대로 둔다(미채움 스캔에 잡혀야 한다).
+  case "${PRD_ONELINE:-}" in ''|'<TODO>') ;; *) _replace_line_prefix "$target" '**프로젝트**:' "**프로젝트**: ${PRD_ONELINE}" ;; esac
   # 전략 C: PRD 마일스톤(PRD_F4/F5/F6) → §5 이름 치환 + §2 FR 시드행
   _seed_fr_row() {  # $1=FR-N $2=텍스트 $3=마일스톤 $4=우선순위
     [ -z "$2" ] || [ "$2" = "<TODO>" ] && return
@@ -287,6 +290,23 @@ EOF
   [ "$added" -eq 0 ] || echo "→ .specops/.gitignore 기존 규칙 보존 · 빠진 규칙 ${added}줄 보충"
 }
 
+# 하류 CLAUDE.md 의 산출물 인덱스에서 **이 프로젝트에 없는 문서**의 줄을 뺀다(20261113).
+#   템플릿은 14종을 전부 나열하고 "활성 산출물만" 이라고 적는데, 종전엔 다듬지 않아 CLI 프로젝트의 CLAUDE.md 가
+#   없는 파일 6개(구조·프론트·백엔드·API·소비 API·화면 목록)를 가리켰다 — 매 세션 읽히는 문서다.
+#   산출물이 다 만들어진 뒤(Phase 10)에 한다. init 이 이번에 쓴 CLAUDE.md 만 고친다 — 보존한 사용자 문서는 건드리지 않는다.
+#   빼는 것은 `- <라벨>: \`<경로>\`` 꼴의 줄 가운데 그 경로(.specops/memory/*.md · DESIGN.md)가 없는 것뿐이다.
+_claude_index_prune() {
+  local f="CLAUDE.md" line p ui=0
+  [ -f "$f" ] && _init_written "$f" || return 0
+  case "$PROJECT_KIND" in 1|4|5) ui=1 ;; esac
+  while IFS= read -r line || [ -n "$line" ]; do
+    p=$(printf '%s\n' "$line" | sed -n -e 's/^- [^`]*`\(\.specops\/memory\/[a-z-]*\.md\)`.*/\1/p' -e 's/^- [^`]*`\(DESIGN\.md\)`.*/\1/p' | head -1)
+    if [ -n "$p" ] && [ ! -f "$p" ]; then continue; fi
+    [ "$ui" = "0" ] && [ "$line" = "UI 프로젝트인 경우:" ] && continue
+    printf '%s\n' "$line"
+  done < "$f" > "${f}.tmp" && mv "${f}.tmp" "$f"
+}
+
 phase_10_commit() {
   echo ""
   echo "[Phase 10] commit + .specops/.gitignore"
@@ -309,11 +329,18 @@ phase_10_commit() {
     if [ ! -f ".specops/memory/${ledger}" ]; then
       cp "$PLUGIN/templates/${ledger}" ".specops/memory/${ledger}"
       _replace_token ".specops/memory/${ledger}" "<PROJECT_NAME>" "$PROJECT_NAME"
+      # 프로젝트 컨텍스트 §1 의 한 줄·페르소나 — bash 가 이미 아는 값이다(20261113). 표 칸이라 `|` 는 `/` 로 바꾼다
+      #   (FR 시드와 같은 이유 — 판독기가 `|` 로 칸을 나눈다). 값이 없으면 자리표시자를 둔다.
+      if [ "$ledger" = "project-context.md" ]; then
+        case "${PRD_ONELINE:-}" in ''|'<TODO>') ;; *) _replace_line_prefix ".specops/memory/${ledger}" '| 한 줄 |' "| 한 줄 | ${PRD_ONELINE//|//} |" ;; esac
+        [ -z "${PRD_F2:-}" ] || _replace_line_prefix ".specops/memory/${ledger}" '| 페르소나 |' "| 페르소나 | ${PRD_F2//|//} |"
+      fi
       echo "→ .specops/memory/${ledger} 골격 생성"
     fi
   done
   # 종류를 적는다 — 뒤 단계(foundation 필수 판정)와 다음 `--resume` 이 추정 대신 이 값을 쓴다.
   _record_kind
+  _claude_index_prune
   # stage — init 범위만(lib.sh `_init_stage_own`). screens/ 를 디렉토리째 넣지 않는다:
   #   이 시점엔 specops 화면 파일이 아직 없어, 넣으면 기존 앱의 screens/ 소스만 딸려 들어간다.
   _init_stage_own
@@ -346,6 +373,12 @@ EOF
   fi
   echo ""
   echo "초기화(bash) 완료. 활성 산출물 ${active}종."
-  echo "이어서 Phase 11 LLM 보강 → 단일 커밋 후 /start \"<첫 기능>\" 으로 lifecycle 진입하세요."
-  echo "  (공통 인프라 먼저면 /start-foundation · 화면은 /start-all Phase 2.5 · 현황 /status)"
+  # 다음 단계 안내는 종류를 따른다(20261113) — 종전엔 종류와 무관하게 "/start … 공통 먼저면 /start-foundation" 이었고
+  #   명령 본문의 두 안내와도 문구가 달랐다. /start-all 은 UI·백엔드·풀스택·모바일에서 공통부(foundation)가 끝나지
+  #   않았으면 Phase 0 에서 멈춘다(foundation-kind.sh 와 같은 종류 구분).
+  echo "이어서 Phase 11 LLM 보강 → 단일 커밋으로 부트스트랩을 마칩니다. 그다음:"
+  case "$PROJECT_KIND" in
+    1|2|4|5) echo "  /start-foundation 으로 공통부를 먼저 만들고 → /start-all 로 FR 을 일괄 개발합니다 (기능 하나만이면 /start · 현황 /status)" ;;
+    *)       echo "  /start 뒤에 첫 기능을 적어 lifecycle 로 들어갑니다 (FR 이 여럿이면 /start-all · 현황 /status)" ;;
+  esac
 }

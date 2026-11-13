@@ -8,6 +8,7 @@
 //   UI-PROBE: SKIP (NO_TOOL|NO_BROWSER — 사유)        — 판정하지 못함. PASS 로 위장하지 않는다
 //   UI-PROBE: SKIP (NO_ENV — 사유)                     — 로그인 상태 파일을 찾지·읽지 못했거나 모양이 맞지 않는다
 //   그 아래 문제마다 `  - <화면>@<폭> <종류>: <내용>` 한 줄, 그리고 `  png: <경로>` 줄들
+//   접근성 위반 줄 아래에는 요소마다 `      · <선택자>[ — 글자 / 배경 <색> / <색> = <비율> (기준 <비율>)]` (5곳까지 · 넘으면 `외 N곳`)
 //   배치 계측(경고 — 판정에 들어가지 않는다): `  - <화면>@<폭> 배치 경고 L-CLIP-X|L-OVERLAP(<이름>): <설명>` · 못 잰 화면·폭은 `배치 계측 못 함: <사유>`
 //   요청 실패(경고 — 판정에 들어가지 않는다): `  - <화면>@<폭> 요청 실패 경고: <상태|사유> <메서드> <주소>` — 4xx·5xx 응답과 연결 실패.
 //     주소는 쿼리·해시·userinfo 를 뺀다(경로는 남는다). 화면·폭마다 10줄까지(넘으면 `외 N건`). 있을 때만 요약 끝에 ` · 요청 실패 <N>` 이 붙는다.
@@ -32,6 +33,16 @@ const layout = require('./ui-probe-layout.cjs');
 const USAGE = 'usage: node ui-probe.cjs --out <폴더> [--widths 375,768,1280] [--memory <파일> [--start-cmd <명령>]] [--storage-state <파일>] [--mock <html>]... [--a11y-baseline <파일> [--a11y-baseline-update]] <URL>...';
 
 const WARN_IMPACTS = ['critical', 'serious'];
+const A11Y_DETAIL_MAX = 5;   // 위반 줄 아래에 적는 요소 수 — 나머지는 '외 N곳' (전체는 ui-probe.json)
+// 위반 줄 아래 요소 상세. detail 이 없는 결과(예전 기록·상세를 못 받은 실행)는 줄을 내지 않는다
+function a11yDetailLines(v) {
+  const d = Array.isArray(v.detail) ? v.detail : [];
+  if (!d.length) return [];
+  const lines = d.slice(0, A11Y_DETAIL_MAX).map((x) => `      · ${x.t}${x.c ? ` — 글자 / 배경 ${x.c}` : ''}`);
+  const rest = Math.max(Number(v.nodes) || 0, d.length) - Math.min(d.length, A11Y_DETAIL_MAX);
+  if (rest > 0) lines.push(`      · 외 ${rest}곳`);
+  return lines;
+}
 const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21aa'];
 const REQ_FAIL_FROM = 400;            // 이 상태 코드부터 실패한 요청으로 센다
 const REQ_LINES_MAX = 10;             // 화면·폭마다 출력하는 요청 실패 줄 상한
@@ -127,7 +138,10 @@ async function probeOne(browser, url, width, out, axeFile, doAxe, ssFile) {
     r.a11y = await page.evaluate(async (tags) => {
       // eslint-disable-next-line no-undef
       const res = await axe.run(document, { runOnly: { type: 'tag', values: tags } });
-      return res.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, help: v.help }));
+      // detail: 어느 요소인지(선택자)와, 대비 위반이면 색 쌍 — 건수만으로는 고칠 곳을 찾지 못한다. 화면당 규칙마다 앞 20곳까지만 싣는다
+      const one = (n) => { const d = (n.any || []).map((c) => c.data).find((x) => x && x.fgColor) || null;
+        return { t: String((n.target || []).join(' ')).slice(0, 120), c: d ? `${d.fgColor} / ${d.bgColor} = ${d.contrastRatio} (기준 ${d.expectedContrastRatio})` : '' }; };
+      return res.violations.map((v) => ({ id: v.id, impact: v.impact, nodes: v.nodes.length, help: v.help, detail: v.nodes.slice(0, 20).map(one) }));
     }, AXE_TAGS);
   }
   r.layout = await layout.run(page);   // 화면 상태(스크롤)를 건드릴 수 있어 판정 입력을 다 모은 뒤 마지막에 잰다
@@ -245,7 +259,7 @@ async function main() {
     if (r.failedRequests.length > REQ_LINES_MAX) issues.push(`${tag} 요청 실패 경고: 외 ${r.failedRequests.length - REQ_LINES_MAX}건`);
     for (const v of r.a11y || []) {
       if (!WARN_IMPACTS.includes(v.impact)) minor++;
-      else if (bl.mode === 'plain') { severe++; issues.push(`${tag} 접근성 ${v.impact} ${v.id}(${v.nodes}곳): ${v.help}`); }
+      else if (bl.mode === 'plain') { severe++; issues.push(`${tag} 접근성 ${v.impact} ${v.id}(${v.nodes}곳): ${v.help}`, ...a11yDetailLines(v)); }
     }
   }
   if (bl.mode === 'compare') {
@@ -254,14 +268,14 @@ async function main() {
     for (const f of c.fresh) {
       const v = viol.find((x) => `${x.slug}|${x.id}` === f.key);
       severe++;
-      issues.push(`${v.slug}@${widest} 접근성 ${v.impact} ${v.id}(${f.cur}곳, ${f.prev === undefined ? '기준선 없음' : `기준선 ${f.prev}곳`}): ${v.help}`);
+      issues.push(`${v.slug}@${widest} 접근성 ${v.impact} ${v.id}(${f.cur}곳, ${f.prev === undefined ? '기준선 없음' : `기준선 ${f.prev}곳`}): ${v.help}`, ...a11yDetailLines(v));
     }
   }
   if (bl.mode === 'record') {
     if (allAxe) {
       const slugs = widestRows.map((r) => slugOf(r.url));
       const w = state.writeJson(a.baseline, state.mergeBaseline(a.baselineUpdate ? bl.base : null, slugs, cur, widest));
-      if (w.ok) { recorded = viol.length; for (const v of viol) extra.push(`기준선 기록: ${v.slug}@${widest} ${v.impact} ${v.id}(${v.nodes}곳)`); }
+      if (w.ok) { recorded = viol.length; for (const v of viol) extra.push(`기준선 기록: ${v.slug}@${widest} ${v.impact} ${v.id}(${v.nodes}곳)`, ...a11yDetailLines(v)); }   // 막지 않는 줄이지만 어느 요소인지는 적는다 — 방금 만든 화면의 위반이 섞였는지 보게
       else extra.push(`기록을 쓰지 못함: ${a.baseline} (${w.reason})`);
     } else extra.push(`기준선을 쓰지 않음: ${axeFile ? '열기에 실패한 화면이 있다' : 'axe-core 를 찾지 못했다'}`);
   }
@@ -288,9 +302,9 @@ async function main() {
   if (axeFile && bl.mode === 'compare') a11yNote += ` · 기준선 ${same}`;
   if (axeFile && bl.mode === 'record') a11yNote += ` · 기준선 기록 ${recorded}`;
   console.log(`UI-PROBE: ${verdict} (${a.urls.length}화면·${a.widths.length}폭 · 넘침 ${over} · 콘솔 오류 ${cerr} · ${a11yNote}${L.note}${nreq ? ` · 요청 실패 ${nreq}` : ''})`);
-  for (const i of issues) console.log(`  - ${i}`);
+  for (const i of issues) console.log(i.startsWith('      · ') ? i : `  - ${i}`);   // 요소 상세 줄은 위반 줄에 딸린 줄이라 머리표를 붙이지 않는다
   for (const w of L.lines) console.log(`  - ${w}`);
-  for (const e of extra) console.log(`  - ${e}`);
+  for (const e of extra) console.log(e.startsWith('      · ') ? e : `  - ${e}`);
   for (const r of results) if (r.png) console.log(`  png: ${r.png}`);
   for (const m of mockPngs) console.log(`  mock: ${m}`);
   fs.writeFileSync(path.join(a.out, 'ui-probe.json'), JSON.stringify({ verdict, widths: a.widths, playwright: pw.dir, axe: Boolean(axeFile), ...(mockPngs.length ? { mocks: mockPngs } : {}), results }, null, 2));

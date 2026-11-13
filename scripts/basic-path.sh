@@ -9,7 +9,7 @@
 #   basic-path.sh review <FID>                  구현 뒤·리뷰 dispatch 직전: 진행 기록만 남긴다(구현 완료 · 리뷰 진행 — 관제판 단계 표시)
 #   basic-path.sh related                       검증에 쓸 test_command 제안 — `RELATED: <명령>` 또는 `RELATED: none — <사유>`(쓰지 않는다)
 #   basic-path.sh seal <FID> "<test_command>"   리뷰 뒤: 변경 파일로 갈래 재판정 → 1-태스크 문서 · 리뷰 감사 행
-#   basic-path.sh design-scope <화면 수> [new|flow]   화면 설계 확인 범위 — `DESIGN: none|update|approve`
+#   basic-path.sh design-scope <화면 수> [new|flow]   화면 설계 확인 범위 — `DESIGN: none|update|approve` + `UI:` 줄(이식·브라우저 점검 안내 — 항상 1줄)
 #   basic-path.sh promote <FID> "<사유>"        풀 경로로 올린다 — 기본 경로 산출물을 basic-draft/ 로 보존 · 진행 기록 · 이어 갈 skill 과 args 줄 안내
 #   basic-path.sh done <FID> "<한 줄 요약>"     종결 기록
 # Exit: 0 = 성공 · 3 = 풀 경로 대상(위험 신호) · 4 = 리뷰 보고서 없음 · 1 = 그 밖(입력 오류 · 절 누락 · 관할 아님)
@@ -194,6 +194,8 @@ case "$ACTION" in
     else
       echo "DESIGN: none — 문구·스타일만 바뀐다(화면 설계 확인 없음)"
     fi
+    # 설계 확인 범위와 별개 — 화면을 건드리는 작업이면 구현 품질 두 가지를 항상 알린다(하류 실측: 목업 클래스 생존율 8%·33%)
+    echo "UI: 목업 CSS 이식을 구현 첫 일로(목업이 있는 화면) · 봉인 전 브라우저 점검 1회(ui-probe.cjs — commands/basic.md 5번·7번)"
     ;;
 
   start)

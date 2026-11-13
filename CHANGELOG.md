@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.6] — 2026-11-13
+
 ### Changed
 
 - **`test-strategy.md`·`architecture.md` 를 깊게 보강하는 문서로 올렸다.** 하류가 읽는 문서인데(planning·tdd·테스트 전문가·코드 리뷰어 · specifying) 얕게 두어, 실주행에서 `test-strategy` 의 자리표시자 21건이 그대로 커밋됐다. 이제 이번 부트스트랩이 쓴 두 문서에 자리표시자가 남으면 종결 커밋이 멈춘다 — 모르는 값은 미확정 마커로 적으면 통과한다. **행동 변경**: 종결 커밋이 막는 문서가 2개 늘었다.
@@ -3865,7 +3867,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.5...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.6...HEAD
+[4.0.6]: https://github.com/andyko18/devFSD/compare/v4.0.5...v4.0.6
 [4.0.5]: https://github.com/andyko18/devFSD/compare/v4.0.4...v4.0.5
 [4.0.4]: https://github.com/andyko18/devFSD/compare/v4.0.3...v4.0.4
 [4.0.3]: https://github.com/andyko18/devFSD/compare/v4.0.2...v4.0.3

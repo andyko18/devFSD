@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **`/init-project` 의 종결 커밋이 보강 안 된 골격·예시와 리뷰 없는 설계 완료 표지를 커밋하지 않는다.** 산출물은 이후 모든 FID 의 기준 문서인데 품질을 지키는 장치가 산문 지시뿐이었다. `init-finalize.sh` 가 ① 이번 커밋이 새로 다는 `init 설계 완료` 표지를 리뷰 보고서(`.specops/.init-design/design-review.md`)와 대조한다 — 보고서가 없거나 `SKIP` 이면 전부, `FAIL` 이면 Critical·Important 이슈가 가리키는 것만 `init 보강` 으로 내리고 알린다(HEAD 에 이미 있는 표지는 건드리지 않는다). ② 이번 부트스트랩이 쓴 문서에 예시 블록이 남았거나 깊게 보강하는 문서(`PRD`·`DESIGN`·`requirements`·`api-spec`·`data-model`·`frontend-architecture`·`backend-architecture`·`process-design`)에 자리표시자가 남으면 rc 1 로 커밋하지 않는다(우회 `SPECOPS_INIT_ALLOW_UNFILLED=1` — 기존 문서·`--enrich` 대상은 종전대로 건수만 알린다). ③ FR 이 마일스톤 시드 3행 그대로면 경고한다. **행동 변경**: 20261009 의 "막지 않는다" 결정을 이번 부트스트랩이 쓴 문서에 한해 뒤집는다.
+- **`/init-project` 템플릿의 예시를 전부 마커 안으로 옮기고 정한 적 없는 수치를 자리표시자로 바꿨다.** 마커 밖에 있던 예시(`data-model` 의 ERD·인덱스 표, `architecture` 의 구성요소·통신·배포 표와 구성도·NFR 매핑, `api-spec` 의 오류 형식 예와 방식별 스키마 예)는 자리표시자를 다 채워도 스캔을 통과해 쇼핑몰 예시가 설계 계약으로 남았다(실험: `data-model` 19건·`architecture` 18건). 커버리지 80/70/95%·RPO/RTO·보관 기간·deprecate 6개월·종속 NFR 같은 사전 기입 수치도 자리표시자로 돌렸다. 하류 `CLAUDE.md`·`README.md` 템플릿은 이름 devFSD·기본·풀·quick 경로·테스트 명령 칸으로 갱신했고, 사용법 표기의 `<…>` 를 없애 미채움 오탐이 줄었다(`CLAUDE.md` 6→1 · `README.md` 3→0).
+- **설계 리뷰 보고서(`design-reviewer-ko` init 모드)를 훅이 저장한다.** `save-review-report.sh` 가 첫 줄이 `DESIGN-REVIEW-MODE: init` 인 보고서를 `.specops/.init-design/design-review.md` 로 옮긴다 — 부모가 손으로 옮겨 적던 것을 대체하고 위 표지 검증의 근거가 된다. `hooks.json` 의 SubagentStop matcher 에 `devfsd:design-reviewer-ko` 가 추가됐다. batch 리뷰(모드 줄 없음)는 종전대로 저장하지 않는다.
+- **`/init-project` 가 단계별 소요를 출력한다.** `init-project.sh --mark <단계>` 로 남긴 표시를 종결 커밋이 구간별로 낸다(표시가 없으면 출력 없음). 무인 실주행 1회 측정: 34분 43초 · 보강 13분 38초 · 전문가·설계 리뷰 20분 20초 · bash 1초.
+- **테스트 안내에 `claude plugin eval` 과 `evals/` 를 적었다.** 자체 러너(`llm-eval/`)와 공존하는 경계와 케이스를 어디에 둘지(`scripts/tests/CLAUDE.md`).
+
+### Fixed
+
+- **`design-screen.sh` 가 모르는 옵션을 화면 이름으로 삼던 것.** `--help` 가 사용법 대신 `screens/--help.md`·`.html` 을 만들고 화면 목록에 행을 올렸다(이름 검증이 `-` 로 시작하는 낱말을 통과시켰다). `-h`·`--help` 는 사용법을 내고, 그 밖의 `-` 로 시작하는 인자는 rc 1 로 거부한다. **행동 변경**: `-` 로 시작하는 화면 이름은 더 이상 받지 않는다.
+
 ## [4.0.4] — 2026-11-13
 
 ### Changed

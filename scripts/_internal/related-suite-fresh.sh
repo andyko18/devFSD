@@ -40,15 +40,12 @@ if [ "$MODE" = judge ]; then
   [ -f "$MARKER" ] || _stale "통과 기록 부재"
   rec=$(head -1 "$MARKER" 2>/dev/null || printf '')
   [ -n "$rec" ] || _stale "통과 기록이 비었거나 읽을 수 없음"
-  # 지문 계산(git add -A)은 읽을 수 없는 untracked 파일이 있으면 HEAD 지문으로 퇴행한다 — 비교 전에 막는다
-  unreadable=$( cd "$ROOT" && git ls-files -o --exclude-standard -z 2>/dev/null \
-    | while IFS= read -r -d '' _f; do [ -r "$_f" ] || { printf x; break; }; done )
-  [ -z "$unreadable" ] || _stale "읽을 수 없는 untracked 파일 — 지문 신뢰 불가"
   [ -f "$VS_LIB" ] || _stale "verification-state.sh 부재"
+  # 지문 신선도(읽을 수 없는 untracked → 지문 산출 → 비교)는 vs::marker_fresh 한 곳이 판정한다 — full-suite-fresh.sh 와 공유.
   # shellcheck source=/dev/null
-  now=$( { cd "$ROOT" && . "$VS_LIB" && vs::nondoc_fingerprint; } 2>/dev/null ) || now=""
-  [ -n "$now" ] && [ "$now" != "NO_GIT" ] && [ "$now" != "UNHASHABLE" ] || _stale "현재 지문 산출 불가"
-  [ "$rec" = "$now" ] || _stale "트리 변경 — 지문 불일치"
+  if now=$( { cd "$ROOT" && . "$VS_LIB" && vs::marker_fresh "$MARKER"; } 2>/dev/null ); then :; else
+    _stale "${now:-현재 지문 산출 불가}"
+  fi
 fi
 
 base=""

@@ -57,16 +57,11 @@ fi
 rec=$(head -1 "$MARKER" 2>/dev/null || printf '')
 [ -n "$rec" ] || _stale "마커가 비었거나 읽을 수 없음"
 
-# 지문 계산(git add -A)은 읽을 수 없는 untracked 파일이 있으면 통째로 실패하고 HEAD 지문으로 퇴행한다
-# (verification-state.sh 의 기존 한계) — 생략 방향 오판이라 헬퍼가 따로 STALE 로 막는다.
-unreadable=$( cd "$ROOT" && git ls-files -o --exclude-standard -z 2>/dev/null \
-  | while IFS= read -r -d '' _f; do [ -r "$_f" ] || { printf x; break; }; done )
-[ -z "$unreadable" ] || _stale "읽을 수 없는 untracked 파일 — 지문 신뢰 불가"
-
+# 지문 신선도(읽을 수 없는 untracked → 지문 산출 → 비교)는 vs::marker_fresh 한 곳이 판정한다 — related-suite-fresh.sh 와 공유.
 # shellcheck source=/dev/null
-now=$( { cd "$ROOT" && . "$VS_LIB" && vs::nondoc_fingerprint; } 2>/dev/null ) || now=""
-[ -n "$now" ] && [ "$now" != "NO_GIT" ] && [ "$now" != "UNHASHABLE" ] || _stale "현재 지문 산출 불가"
-[ "$rec" = "$now" ] || _stale "트리 변경 — 지문 불일치"
+if now=$( { cd "$ROOT" && . "$VS_LIB" && vs::marker_fresh "$MARKER"; } 2>/dev/null ); then :; else
+  _stale "${now:-현재 지문 산출 불가}"
+fi
 
 printf 'full-suite FRESH (fp=%s)\n' "$(printf '%s' "$now" | cut -c1-12)"
 exit 0

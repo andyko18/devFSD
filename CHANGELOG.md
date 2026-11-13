@@ -8,6 +8,40 @@
 
 - **리뷰어·skill 이 플러그인 스크립트를 저장소 상대 경로로 받아 하류에서 경로를 짐작하던 것.** `agents/design-reviewer-ko.md` 가 화면 품질 계측기를 `scripts/_internal/check-screen-quality.sh` 로 적어, 플러그인이 설치만 된 프로젝트에서는 그 파일이 없었다(실측 2026-11-13: 리뷰어가 플러그인 캐시를 찾아 실행했다 — 못 찾으면 계측 없이 판정한다). 같은 표기 12곳을 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/…` 로 고쳤다: `design-reviewer-ko`(계측기 · `ui-probe.cjs --rules`) · `gbrain-ko`(연계 유틸 표 4행 · 직접 호출 안내) · `security-review-ko` · `performance-test-ko` · `commands/status.md` · `commands/gbrain.md`(마찰 집계 단계) · `commands/init-project.md`(팔레트 재주입의 `lib.sh`). Read 로 읽히는 보조 문서 2곳(`using-specops-ko/guardrails.md` · `specifying-ko/basic-promote.md`)은 그 변수가 치환되지 않아 접두를 붙이지 않고, 명령처럼 보이던 표기만 풀었다(`scripts/basic-path.sh` 의 `route`). `check-plugin-paths.sh` 가 이 형태를 넷째 표면으로 잡는다 — 백틱이 plugin 상대 스크립트 경로로 시작하고 백틱 안에 인자가 붙었거나(명령 형태) 닫는 백틱 바로 뒤(12바이트 안)에 실행·호출이 오는 표기이고, 로케일과 무관하게 바이트로 센다. 종전 검사는 `bash|source` 가 앞에 있을 때만 봤다. 인자도 실행 동사도 없는 설명용 언급(`판정 SoT = scripts/…`)은 종전대로 대상이 아니고 그대로 남아 있다. 알려진 한계: 바로 뒤의 "실행하지 않는다"·"실행 결과" 도 걸리고(접두를 붙이면 풀린다), `x.sh 를 Bash 로 돌린다`·코드 펜스 속 맨 경로·`templates/…` 열람 표기는 보지 않는다.
 
+## [4.0.6] — 2026-11-13
+
+### Changed
+
+- **`test-strategy.md`·`architecture.md` 를 깊게 보강하는 문서로 올렸다.** 하류가 읽는 문서인데(planning·tdd·테스트 전문가·코드 리뷰어 · specifying) 얕게 두어, 실주행에서 `test-strategy` 의 자리표시자 21건이 그대로 커밋됐다. 이제 이번 부트스트랩이 쓴 두 문서에 자리표시자가 남으면 종결 커밋이 멈춘다 — 모르는 값은 미확정 마커로 적으면 통과한다. **행동 변경**: 종결 커밋이 막는 문서가 2개 늘었다.
+- **화면·엔드포인트·테이블에 요구사항 추적 칸이 생겼다.** 화면 스펙의 `**관련 FR**` 줄, 엔드포인트 표와 엔티티 표의 `FR` 칸(공통부면 `공통`). 종전엔 어느 FR 의 것인지 적을 곳이 없어 M1 범위 판정과 정합 대조가 모델의 기억에 달렸다.
+- **설계 리뷰어가 역방향도 본다(고아 계약).** 어떤 화면의 Interactions·데이터 소스도, 어떤 대상 FR 도 쓰지 않는 엔드포인트·테이블을 Important 로 지적한다 — 종전엔 화면 → 계약 한 방향만 봐서 예시 잔재나 범위 밖 설계가 통과했다. 공통부 구간(`foundation-baseline`)·FR 칸이 `공통` 인 행·재사용분은 세지 않는다.
+- **기타(종류 6)도 API 설계서를 만들 수 있다.** API 방식 질문이 백엔드·풀스택에만 있어, 기타로 분류한 프로젝트는 API 가 있어도 `api-spec.md` 를 만들 경로가 없었다. **행동 변경**: 종류 6 의 답변 파일에 `api` 키가 필요하다(API 가 없으면 `api=5`).
+- **`/init-project` 의 보강 순서를 고정하고 M1 범위표를 먼저 확정한다.** requirements 분해 → 범위표(`.specops/.init-design/m1-scope.md`) → process-design → 화면 → 인터페이스 → 나머지 → 자가 점검 → 전문가·리뷰. 종전엔 범위를 같은 단계에서 쓰는 `process-design.md` 로 정해 순환이었다.
+- **전문가·리뷰어를 부르기 전에 자가 점검을 한다.** 화면 품질 계측(`check-screen-quality.sh`) · `DESIGN.md` §6.1·§7 대조 · 추적·정합. 실주행에서 설계 리뷰 1회차가 §7 오류 요약 배너 누락으로 FAIL 해 재리뷰 1회(약 5분 + 반영)가 더 들었다.
+- **자가 점검에 업무 규칙 정합과 경합·재시도 정합을 더했다.** 2차 실주행에서 계측과 `DESIGN.md` 대조를 하고도 설계 리뷰 1회차가 Important 2건으로 FAIL 했다 — "2주 뒤까지" 의 단위가 문서마다 달랐고(요청 시점부터 14일 대 오늘+14일), 409 충돌 문구가 멱등 정책과 어긋났다. M1 범위표에 업무 규칙을 한 문장(단위·경계·기준)으로 먼저 적어 모든 문서가 따르게 하고, 리뷰 전에 규칙이 나오는 곳을 전부 대조한다. 상태를 바꾸는 Interaction 마다 충돌 응답·멱등 정책·중복 제출·제약을 본다.
+- **`/init-project` 의 질문을 두 번으로 묶는다.** 입력 확정(근거 문서 사용·PRD 6필드·답변 키)을 한 메시지로, 인터뷰를 한 메시지로. 종전엔 문서 사용 확인·6필드 확인·키 질문이 따로였다.
+
+- **`/init-project` 의 bash 단계가 아는 값을 스스로 채운다.** 요구사항 §1 의 프로젝트 줄(템플릿이 "자동 인용" 이라 적어 둔 자리)과 프로젝트 컨텍스트 §1 의 한 줄·페르소나를 PRD 답에서 채운다 — 종전엔 자리표시자로 남아 LLM 보강이 옮겨 적었다. 하류 `CLAUDE.md` 의 산출물 인덱스는 이 프로젝트에 없는 문서의 줄을 빼고(종전: CLI 프로젝트에도 구조·프론트·백엔드·API 등 없는 파일 6개를 나열) 프로세스 설계서를 올린다. init 이 이번에 쓴 `CLAUDE.md` 만 고친다.
+- **`/init-project` 의 다음 단계 안내가 종류를 따른다.** UI·백엔드·풀스택·모바일은 `/start-foundation` → `/start-all`, CLI·기타는 `/start`. 종전엔 bash 출력과 명령 본문 두 곳의 문구가 서로 달랐고, 공통부가 끝나지 않으면 Phase 0 에서 멈추는 `/start-all` 을 먼저 권하기도 했다.
+- **충돌 정책에서 `merge` 를 뺐다.** 구현된 적이 없어 고르면 경고 뒤 `skip` 으로 진행했다. 이제 선택지가 아니다 — 비대화 입력에서는 rc 2 로 멈추고 아무것도 쓰지 않는다(답변 파일 모드는 이미 거부하고 있었다). **행동 변경**: stdin 으로 `merge` 를 주던 호출은 멈춘다.
+
+- **`/init-project` 의 종결 커밋이 미확정 마커 건수를 말한다.** `<미확정 — 근거 필요>` 는 보강 계약상 허용이라 미채움 스캔과 차단을 통과해, 건수가 어디에도 보이지 않았다 — 실주행(20261113)에서 깊게 보강한 문서에 84건이 남았는데 커밋 제목은 얕게 두는 문서의 자리표시자 37건만 말했다. 이제 제목 끝에 `· 미확정 N건` 이 붙고 출력에 문서별 건수(많은 순 5개)가 나온다. 줄이 아니라 마커 수를 세고, 막지는 않는다. 승인 요약에도 총 건수와 상위 문서 3개를 싣는다.
+- **헌법 원칙이 비어 있으면 종결 커밋이 알리고, 인터뷰가 한 번 묻는다.** `principles=skip` 은 정당한 답이라 막지 않지만, 종전엔 승인 요약의 산문 한 줄에만 기대 빈 헌법이 조용히 굳었다(실기록: 원칙이 자리표시자인 채 FID 60개). 종결 커밋이 경고 한 줄을 내고, Phase 11.5 인터뷰가 5문항 안에서 "지금 정할까요? [직접 입력 / 나중에]" 를 묻는다 — 원칙 후보를 지어 선택지로 내놓지 않는다.
+
+## [4.0.5] — 2026-11-13
+
+### Changed
+
+- **`/init-project` 의 종결 커밋이 보강 안 된 골격·예시와 리뷰 없는 설계 완료 표지를 커밋하지 않는다.** 산출물은 이후 모든 FID 의 기준 문서인데 품질을 지키는 장치가 산문 지시뿐이었다. `init-finalize.sh` 가 ① 이번 커밋이 새로 다는 `init 설계 완료` 표지를 리뷰 보고서(`.specops/.init-design/design-review.md`)와 대조한다 — 보고서가 없거나 `SKIP` 이면 전부, `FAIL` 이면 Critical·Important 이슈가 가리키는 것만 `init 보강` 으로 내리고 알린다(HEAD 에 이미 있는 표지는 건드리지 않는다). ② 이번 부트스트랩이 쓴 문서에 예시 블록이 남았거나 깊게 보강하는 문서(`PRD`·`DESIGN`·`requirements`·`api-spec`·`data-model`·`frontend-architecture`·`backend-architecture`·`process-design`)에 자리표시자가 남으면 rc 1 로 커밋하지 않는다(우회 `SPECOPS_INIT_ALLOW_UNFILLED=1` — 기존 문서·`--enrich` 대상은 종전대로 건수만 알린다). ③ FR 이 마일스톤 시드 3행 그대로면 경고한다. **행동 변경**: 20261009 의 "막지 않는다" 결정을 이번 부트스트랩이 쓴 문서에 한해 뒤집는다.
+- **`/init-project` 템플릿의 예시를 전부 마커 안으로 옮기고 정한 적 없는 수치를 자리표시자로 바꿨다.** 마커 밖에 있던 예시(`data-model` 의 ERD·인덱스 표, `architecture` 의 구성요소·통신·배포 표와 구성도·NFR 매핑, `api-spec` 의 오류 형식 예와 방식별 스키마 예)는 자리표시자를 다 채워도 스캔을 통과해 쇼핑몰 예시가 설계 계약으로 남았다(실험: `data-model` 19건·`architecture` 18건). 커버리지 80/70/95%·RPO/RTO·보관 기간·deprecate 6개월·종속 NFR 같은 사전 기입 수치도 자리표시자로 돌렸다. 하류 `CLAUDE.md`·`README.md` 템플릿은 이름 devFSD·기본·풀·quick 경로·테스트 명령 칸으로 갱신했고, 사용법 표기의 `<…>` 를 없애 미채움 오탐이 줄었다(`CLAUDE.md` 6→1 · `README.md` 3→0).
+- **설계 리뷰 보고서(`design-reviewer-ko` init 모드)를 훅이 저장한다.** `save-review-report.sh` 가 첫 줄이 `DESIGN-REVIEW-MODE: init` 인 보고서를 `.specops/.init-design/design-review.md` 로 옮긴다 — 부모가 손으로 옮겨 적던 것을 대체하고 위 표지 검증의 근거가 된다. `hooks.json` 의 SubagentStop matcher 에 `devfsd:design-reviewer-ko` 가 추가됐다. batch 리뷰(모드 줄 없음)는 종전대로 저장하지 않는다.
+- **`/init-project` 가 단계별 소요를 출력한다.** `init-project.sh --mark <단계>` 로 남긴 표시를 종결 커밋이 구간별로 낸다(표시가 없으면 출력 없음). 무인 실주행 1회 측정: 34분 43초 · 보강 13분 38초 · 전문가·설계 리뷰 20분 20초 · bash 1초.
+- **테스트 안내에 `claude plugin eval` 과 `evals/` 를 적었다.** 자체 러너(`llm-eval/`)와 공존하는 경계와 케이스를 어디에 둘지(`scripts/tests/CLAUDE.md`).
+
+### Fixed
+
+- **`design-screen.sh` 가 모르는 옵션을 화면 이름으로 삼던 것.** `--help` 가 사용법 대신 `screens/--help.md`·`.html` 을 만들고 화면 목록에 행을 올렸다(이름 검증이 `-` 로 시작하는 낱말을 통과시켰다). `-h`·`--help` 는 사용법을 내고, 그 밖의 `-` 로 시작하는 인자는 rc 1 로 거부한다. **행동 변경**: `-` 로 시작하는 화면 이름은 더 이상 받지 않는다.
+
 ## [4.0.4] — 2026-11-13
 
 ### Changed
@@ -3837,7 +3871,9 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.4...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.6...HEAD
+[4.0.6]: https://github.com/andyko18/devFSD/compare/v4.0.5...v4.0.6
+[4.0.5]: https://github.com/andyko18/devFSD/compare/v4.0.4...v4.0.5
 [4.0.4]: https://github.com/andyko18/devFSD/compare/v4.0.3...v4.0.4
 [4.0.3]: https://github.com/andyko18/devFSD/compare/v4.0.2...v4.0.3
 [4.0.2]: https://github.com/andyko18/devFSD/compare/v4.0.1...v4.0.2

@@ -220,6 +220,23 @@ for _pair in 'T13.c|screens/<name>\.md|화면이' 'T13.d|process-design\.md|프�
     printf 'FAIL %-6s %s\n' "$_id" "$_what '깊게' 불릿 항목으로 명시"; FAIL=$((FAIL+1))
   fi
 done
+# ── T20 (20261113) — 추적 칸과 역방향 대조 ──
+#   종전엔 화면·엔드포인트·테이블이 어느 FR 의 것인지 적을 칸이 없어 M1 범위 판정과 정합 대조가 모델의 기억에 달렸고,
+#   리뷰어는 화면 → 계약 한 방향만 봐서 어떤 화면·FR 도 쓰지 않는 엔드포인트·테이블(예시 잔재 포함)이 통과했다.
+t T20.a "화면 스펙에 관련 FR 줄"          '^\*\*관련 FR\*\*:'                                   "$PLUGIN/templates/screen.md"
+t T20.b "엔드포인트 표에 FR 칸"            '^\| Method \| Path \|.*\| FR \|'                    "$PLUGIN/templates/api-spec.md"
+t T20.c "엔티티 표에 FR 칸"                '^\| 테이블 \| 역할 \|.*\| FR \|'                    "$PLUGIN/templates/data-model.md"
+t T20.d "리뷰어 역방향(고아 계약) 관점"    '^\| 고아 계약 \|'                                      "$PLUGIN/agents/design-reviewer-ko.md"
+t T20.e "고아 판정에서 공통부 구간 제외"   '고아 계약.*foundation-baseline|foundation-baseline.*고아' "$PLUGIN/agents/design-reviewer-ko.md"
+t T20.f "본문이 추적 칸을 채우라고 지시"   '관련 FR.*FR 칸|FR 칸.*관련 FR'                          "$CMD"
+# ── T21 (20261113) — 리뷰 전 자가 점검: 업무 규칙 정합 · 경합·재시도 정합 ──
+#   2차 실주행(20261113)에서 계측과 DESIGN 대조를 하고도 설계 리뷰 1회차가 Important 2건으로 FAIL 했다:
+#   ① "2주 뒤까지" 가 한 문서는 요청 시점부터 14일(시각), 다른 문서는 오늘+14일(날짜) ② 409 충돌 문구가 멱등 정책과 어긋남.
+#   둘 다 계측기와 DESIGN 대조가 보지 않는 종류다 — 규칙을 범위표에 한 문장으로 먼저 정하고(예방), 리뷰 전에 대조한다(검출).
+t T21.a "범위표에 업무 규칙 절(한 문장·단위·경계)"   '범위표.*업무 규칙.*(단위|경계)'                 "$CMD"
+t T21.b "자가 점검 — 업무 규칙 정합"                 '\*\*업무 규칙 정합\*\*'                        "$CMD"
+t T21.c "자가 점검 — 경합·재시도 정합"               '\*\*경합·재시도 정합\*\*'                      "$CMD"
+t T21.d "경합 점검이 멱등 정책과 대조한다"           '경합·재시도 정합.*멱등'                           "$CMD"
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

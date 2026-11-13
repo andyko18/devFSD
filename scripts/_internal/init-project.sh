@@ -20,7 +20,7 @@ ARTIFACTS_MEMORY=(
   ".specops/memory/process-design.md"
 )
 PROJECT_KIND=""           # 1=UI 2=BE 3=CLI 4=Full 5=Mobile 6=Other
-CONFLICT_POLICY="skip"    # skip|overwrite|merge
+CONFLICT_POLICY="skip"    # skip|overwrite
 PROJECT_NAME=""           # phase_1 에서 인자/basename 으로 설정
 PRD_ONELINE=""            # PRD §1 한 줄 — phase_5 에서 CLAUDE/README 인용
 BM_REF="n"               # brainstorming 메모 참조 여부 (y|n)

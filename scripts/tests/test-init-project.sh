@@ -356,18 +356,20 @@ else
 fi
 teardown_fixture
 
-# ── T16.a (C1) merge → skip fallback 안내 + 보존 ─
+# ── T16.a (C1) merge 는 선택지가 아니다 → 거부 + 보존 (20261113 — 종전: skip 으로 떨어뜨리고 경고) ─
+#   지키는 것은 그대로 "기존 파일이 손실되지 않는다" 다. merge 는 구현된 적이 없어 고르면 skip 이 됐고,
+#   답변 파일 모드는 이미 거부했다 — 두 입력 모드를 같게 맞춘다. 거부하면 아무것도 쓰지 않는다.
 setup_fixture
 echo "# MERGE PRESERVED" > PRD.md
 out=$({
-  printf "merge\n"      # 충돌 정책 = merge → skip fallback
+  printf "merge\n"      # 충돌 정책 = merge → 선택지 아님
   printf "3\n"
   printf "skip\n"
   printf "\n"
   printf "n\n"
-} | bash "$SCRIPT" 2>&1)
-if grep -q "MERGE PRESERVED" PRD.md && echo "$out" | grep -q "merge 정책 미구현\|merge 미구현"; then
-  ok "T16.a (C1) merge → skip fallback 안내 + 기존 파일 보존 (데이터 손실 차단)"
+} | bash "$SCRIPT" 2>&1); rc16=$?
+if grep -q "MERGE PRESERVED" PRD.md && [ "$rc16" -eq 2 ] && echo "$out" | grep -q "선택지가 아닌 값.*merge" && [ ! -e CLAUDE.md ]; then
+  ok "T16.a (C1) merge → 선택지 아님(rc2) + 기존 파일 보존 · 아무것도 쓰지 않음 (데이터 손실 차단)"
 else
   nope "T16.a merge" "PRD 보존 또는 fallback 안내 부재 (out=$(echo \"$out\" | grep -i merge | head -1))"
 fi
@@ -506,12 +508,12 @@ else
 fi
 teardown_fixture
 
-# ── T24.a merge 정책 선택 → stderr ⚠️ 경고 + skip fallback ──
+# ── T24.a merge 정책 선택 → 허용 값을 알려 주고 멈춘다 (20261113 — 종전: 경고 뒤 skip 으로 진행) ──
 setup_fixture
 echo "existing" > PRD.md
 out_24=$(printf 'merge\n' | bash "$SCRIPT" 2>&1 || true)
-if echo "$out_24" | grep -q "merge 정책 미구현\|merge.*fallback\|fallback.*merge"; then
-  ok "T24.a merge 정책 → ⚠️ 경고 + skip fallback"
+if echo "$out_24" | grep -q "허용: skip · overwrite" && [ "$(cat PRD.md)" = "existing" ]; then
+  ok "T24.a merge 정책 → 허용 값(skip · overwrite) 안내 + 기존 파일 그대로"
 else
   nope "T24.a merge warning" "merge fallback 경고 미출력 (out='$(echo "$out_24" | head -5)')"
 fi
@@ -1490,6 +1492,79 @@ grep -q '상태 셀' "$PLUGIN/commands/init-project.md" && { _d=1; echo "  init-
 grep -q '다시 게이트' "$PLUGIN/commands/init-project.md" || { _d=1; echo "  init-project: 수정 뒤 재승인 지시 없음"; }
 grep -q '미확정 — 근거 필요.*채운다\|채운다.*미확정 — 근거 필요' "$PLUGIN/skills/specifying-ko/SKILL.md" || { _d=1; echo "  specifying-ko: 재사용 화면의 미확정 항목을 메우라는 지시 없음"; }
 [ "$_d" = "0" ] && ok "T36.c 문서의 낡은 문구 0 · 재승인·미확정 메움 지시 존재" || nope "T36.c" "위 항목 참고"
+
+# ── T37 (20261113) — bash 가 아는 값은 bash 가 채운다 · 종료 안내는 종류를 따른다 ──
+#   종전엔 요구사항 §1 의 "자동 인용" 자리와 프로젝트 컨텍스트의 한 줄·페르소나가 자리표시자로 남아 LLM 보강이
+#   옮겨 적었고, 하류 CLAUDE.md 의 산출물 인덱스는 "활성 산출물만" 이라면서 CLI 프로젝트에도 없는 파일을 나열했다.
+_t37_run() {  # <kind> → 답변 파일로 완주. OUT 에 출력
+  setup_fixture
+  printf 'kind=%s\nprinciples=skip\nprd.oneline=회의실 예약 | 사내 & 외부\nprd.persona=사무직 직원\nprd.values=가, 나, 다\nprd.m1=목록\nprd.m2=알림\nprd.m3=통계\ndesign=1\nscreens=home\ndb=y\napi=1\napi.consumer=n\n' "$1" > ans.txt
+  OUT=$(bash "$SCRIPT" --answers ans.txt demo 2>&1 </dev/null); RC=$?
+}
+_t37_run 4
+if [ "$RC" -eq 0 ] && grep -qF '**프로젝트**: 회의실 예약 | 사내 & 외부' .specops/memory/requirements.md \
+   && ! grep -q 'PRD §1 한 줄 설명 자동 인용' .specops/memory/requirements.md; then
+  ok "T37.a 요구사항 §1 프로젝트 줄 = PRD 한 줄(|·& 원문 그대로)"
+else nope "T37.a" "rc=$RC line=$(grep -m1 '^\*\*프로젝트\*\*' .specops/memory/requirements.md)"; fi
+if grep -qF '| 한 줄 | 회의실 예약 / 사내 & 외부 |' .specops/memory/project-context.md \
+   && grep -qF '| 페르소나 | 사무직 직원 |' .specops/memory/project-context.md \
+   && grep -q '^<!-- specops:project-kind: 4 ' .specops/memory/project-context.md; then
+  ok "T37.b 프로젝트 컨텍스트 §1 한 줄·페르소나 채움(표 구분자 | 는 / 로) · 종류 기록 유지"
+else nope "T37.b" "$(grep -E '^\| (한 줄|페르소나) ' .specops/memory/project-context.md | tr '\n' ' ')"; fi
+# 인덱스: 풀스택은 전부 있고 프로세스 설계서도 올라 있다
+_idx() { grep -oE '`(\.specops/memory/[a-z-]+\.md|DESIGN\.md)`' CLAUDE.md | tr -d '`' | sort -u; }
+_dead=0; for _f in $(_idx); do [ -f "$_f" ] || _dead=$((_dead + 1)); done
+{ [ "$_dead" = "0" ] && _idx | grep -qx '.specops/memory/process-design.md' && _idx | grep -qx '.specops/memory/api-spec.md'; } \
+  && ok "T37.c 풀스택 CLAUDE.md 인덱스 — 없는 파일 0 · 프로세스 설계서 포함" || nope "T37.c" "dead=$_dead idx=$(_idx | tr '\n' ' ')"
+printf '%s' "$OUT" | grep -q '/start-foundation' && printf '%s' "$OUT" | grep -q '/start-all' \
+  && ok "T37.d 풀스택 종료 안내 — /start-foundation → /start-all" || nope "T37.d" "$(printf '%s' "$OUT" | tail -3 | tr '\n' '|')"
+teardown_fixture
+# CLI(종류 3): 없는 산출물(구조·프론트·백엔드·API·화면 목록·DESIGN)이 인덱스에 없다 · UI 안내 블록도 없다
+_t37_run 3
+_dead=0; for _f in $(_idx); do [ -f "$_f" ] || _dead=$((_dead + 1)); done
+if [ "$RC" -eq 0 ] && [ "$_dead" = "0" ] && ! grep -q 'UI 프로젝트인 경우' CLAUDE.md \
+   && ! grep -q 'frontend-architecture\|backend-architecture\|api-spec\|screens-overview\|DESIGN.md' CLAUDE.md \
+   && _idx | grep -qx '.specops/memory/requirements.md' && _idx | grep -qx '.specops/memory/data-model.md'; then
+  ok "T37.e CLI CLAUDE.md 인덱스 — 없는 파일 0 · UI 블록 없음 · 있는 문서는 유지"
+else nope "T37.e" "rc=$RC dead=$_dead idx=$(_idx | tr '\n' ' ')"; fi
+{ printf '%s' "$OUT" | grep -q '/start ' && ! printf '%s' "$OUT" | grep -q '/start-foundation'; } \
+  && ok "T37.f CLI 종료 안내 — /start (공통부 단계 안내 없음)" || nope "T37.f" "$(printf '%s' "$OUT" | tail -3 | tr '\n' '|')"
+teardown_fixture
+# 사용자가 두고 있던 CLAUDE.md 는 다듬지 않는다(보존 정책)
+setup_fixture
+printf '# 내 가이드\n- 프론트: `.specops/memory/frontend-architecture.md`\n' > CLAUDE.md
+printf 'kind=3\nconflict=skip\nprinciples=skip\nprd.oneline=가\nprd.persona=나\nprd.values=가, 나, 다\nprd.m1=1\nprd.m2=2\nprd.m3=3\ndb=n\n' > ans.txt
+bash "$SCRIPT" --answers ans.txt demo >/dev/null 2>&1 </dev/null
+grep -q 'frontend-architecture.md' CLAUDE.md && ok "T37.g 보존한 기존 CLAUDE.md 는 인덱스를 다듬지 않는다" || nope "T37.g" "사용자 줄이 지워졌다"
+teardown_fixture
+# 충돌 정책: 구현되지 않은 merge 는 선택지가 아니다(stdin 모드도 답변 파일 모드와 같게 거부)
+setup_fixture
+printf '# 내 PRD\n' > PRD.md
+out=$(printf 'merge\n' | bash "$SCRIPT" demo 2>&1); rc=$?
+{ [ "$rc" -eq 2 ] && printf '%s' "$out" | grep -q "선택지가 아닌 값" && ! grep -rq 'skip/overwrite/merge' "$PLUGIN/scripts/_internal/init-project/lib.sh"; } \
+  && ok "T37.h 충돌 정책 merge → 선택지 아님(rc2) · 프롬프트에서 제거" || nope "T37.h" "rc=$rc out=$(printf '%s' "$out" | tail -2 | tr '\n' '|')"
+teardown_fixture
+
+# ── T38 (20261113) — 기타(종류 6)도 API 설계서를 만들 수 있다 ──
+#   종전엔 API 방식 질문이 백엔드·풀스택(2·4)에만 있어, 기타로 분류한 프로젝트(데이터 파이프라인·봇·서버리스 등)가
+#   API 를 가져도 api-spec.md 를 만들 경로가 없었다 — 설계할 문서가 없으니 인터페이스 설계가 통째로 빠졌다.
+_t38() {  # <api 값>
+  setup_fixture
+  printf 'kind=6\nprinciples=skip\nprd.oneline=가\nprd.persona=나\nprd.values=가, 나, 다\nprd.m1=1\nprd.m2=2\nprd.m3=3\ndb=n\n' > ans.txt
+  [ -z "$1" ] || printf '%s\n' "$1" >> ans.txt
+  OUT=$(bash "$SCRIPT" --answers ans.txt demo 2>&1 </dev/null); RC=$?
+}
+_t38 ''
+{ [ "$RC" -eq 2 ] && printf '%s' "$OUT" | grep -q '빠짐: api '; } && ok "T38.a 기타(6) — api 키가 빠지면 알려 준다(rc2)" || nope "T38.a" "rc=$RC out=$(printf '%s' "$OUT" | grep 빠짐 | tr '\n' '|')"
+teardown_fixture
+_t38 'api=1'
+{ [ "$RC" -eq 0 ] && [ -f .specops/memory/api-spec.md ] && grep -q 'api-spec.md' CLAUDE.md && [ ! -f .specops/memory/backend-architecture.md ]; } \
+  && ok "T38.b 기타(6) api=1 → api-spec.md 생성 · CLAUDE.md 인덱스에 오름 · 백엔드 구조 문서는 만들지 않음" || nope "T38.b" "rc=$RC"
+teardown_fixture
+_t38 'api=5'
+{ [ "$RC" -eq 0 ] && [ ! -f .specops/memory/api-spec.md ]; } && ok "T38.c 기타(6) api=5 → 만들지 않음" || nope "T38.c" "rc=$RC"
+teardown_fixture
+grep -q '종류 2·4·6' <(bash "$SCRIPT" --answers-template) && ok "T38.d 답변 파일 안내가 api 키의 대상 종류(2·4·6)를 말한다" || nope "T38.d" "안내 미갱신"
 
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

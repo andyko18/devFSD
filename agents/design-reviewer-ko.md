@@ -77,6 +77,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 | 화면 완결성 | UI 신호 있는데 `screens/*.md` 부재·필수 8섹션 전무 | 필수 섹션 일부 공백·껍데기 마커 잔존 | HTML 미리보기만 부실 |
 | Interactions↔API | Interaction이 가리키는 동작에 대응 엔드포인트 전무(API 기능인데) | 메서드/경로 불일치·인증 누락 의심(실측) | 명명만 다름 |
 | 데이터소스↔모델 | 화면이 저장/조회하는 엔티티가 data-model에 전무(스키마 기능인데) | 필드 누락·타입 명백 불일치 | 표기 스타일 |
+| 고아 계약 | — | 대상 문서의 엔드포인트·테이블을 어떤 화면의 Interactions·데이터 소스도, 어떤 대상 FR 도 쓰지 않는다(실측: 경로·테이블명을 `screens/*.md`·FR 목록·표의 FR 칸에서 grep — 0건) — 예시 잔재이거나 범위 밖 설계다 | 화면은 쓰는데 FR 칸만 비었다 |
 | cross-FR 계약 | 동일 메서드+경로/테이블이 모순 정의(서로 다른 스키마) | 중복 행·드리프트 | 문서 순서 |
 | foundation-baseline | `<!-- foundation-baseline -->` 마커 구간이 Phase 2.5에서 재작성·삭제됨(또는 마커 없이 공통 auth/health 베이스를 FR이 덮어쓴 실측) | 마커 밖 행만 갱신인데 문서 주석 불명확 | — |
 | foundation-shell | allowlist(`app-shell`/`layout`/`login`) ∩ `<!-- foundation-shell -->` 화면이 Phase 2.5-A에서 재작성·마커 삭제됨 | 기능 화면이 셸 컴포넌트를 복제 구현(실측) | — |
@@ -93,6 +94,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 | DESIGN 준수 | — | screens/*.md States 가 DESIGN.md §7 과 어긋남, 또는 레이아웃이 §6.1 원형 필수 요소를 빠뜨림 | 표기 순서 차이 |
 
 순수 UI(IF SKIP)·순수 API(화면 SKIP)면 해당 축 관점은 적용하지 않는다.
+**고아 계약**은 역방향 대조다(계약 → 화면·FR) — 위 두 행(화면 → 계약)의 반대 방향이다. `<!-- foundation-baseline -->` 마커 구간과 FR 칸이 `공통` 인 행, 재사용분(init 설계 완료)은 고아 계약으로 세지 않는다. 화면이 없는 종류(순수 API)는 FR 목록과 FR 칸만으로 대조한다.
 **foundation-baseline**: `check-foundation-if-baseline.sh` FAIL과 정합 — 마커 재작성은 **Critical**(기계 검사가 1차 teeth).
 **foundation-shell**: `check-foundation-shell-baseline.sh` FAIL과 정합 — 셸 screens 재작성은 **Critical**.
 

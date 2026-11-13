@@ -125,12 +125,15 @@ fi
 #   막는 범위는 좁다 — **이번 부트스트랩이 쓴 파일**(.init-written · 아직 HEAD 에 없는 것)에서
 #   ① 예시 블록(`specops:example`)이 남았거나 ② 깊게 보강하는 문서에 원시 자리표시자가 남았을 때만이다.
 #   init 이 쓰지 않은 문서(기존 문서 · 소급 보강 --enrich · 손으로 커밋한 뒤)는 종전대로 알리기만 한다:
-#   성숙한 문서의 `<cmd>` 같은 표기를 스캐너가 자리표시자로 세기 때문이다. 얕게 두는 문서(헌법·테스트 전략·
-#   CLAUDE·README)의 자리표시자도 막지 않는다. 골격만 커밋하려면 SPECOPS_INIT_ALLOW_UNFILLED=1.
+#   성숙한 문서의 `<cmd>` 같은 표기를 스캐너가 자리표시자로 세기 때문이다. 얕게 두는 문서(헌법·CLAUDE·README)의
+#   자리표시자도 막지 않는다. 골격만 커밋하려면 SPECOPS_INIT_ALLOW_UNFILLED=1.
 _is_deep() {
   case "$1" in
     PRD.md|DESIGN.md|.specops/memory/requirements.md|.specops/memory/api-spec.md|.specops/memory/data-model.md) return 0 ;;
     .specops/memory/frontend-architecture.md|.specops/memory/backend-architecture.md|.specops/memory/process-design.md) return 0 ;;
+    # 테스트 전략·전체 구조(20261113 승격) — 하류가 읽는다(planning·tdd·테스트 전문가·코드 리뷰어 · specifying).
+    #   얕게 두던 때 실주행에서 test-strategy 의 자리표시자 21건이 그대로 커밋됐다. 모르는 값은 미확정 마커로 적는다.
+    .specops/memory/test-strategy.md|.specops/memory/architecture.md) return 0 ;;
   esac
   return 1
 }
@@ -220,14 +223,26 @@ if [ "$_scan_state" = "found" ]; then
   _n_ex=$(printf '%s\n' "$_scan" | grep -c '\[example-block\]' || true)
   _n_ph=$(printf '%s\n' "$_scan" | grep -v '\[example-block\]' | grep -c . || true)
 fi
+# 미확정 마커(`<미확정 — 근거 필요>`)를 센다 — 보강 계약상 허용이라 위 스캔·차단을 통과하므로 따로 보이게 한다(20261113).
+#   실주행: 깊게 보강한 문서에 84건이 남았는데 제목은 얕게 두는 문서의 자리표시자 37건만 말했다. 막지 않는다 —
+#   근거 없는 값을 지어내는 것보다 모른다고 적는 쪽이 계약이다. 줄이 아니라 마커 수를 센다(한 줄에 여럿이 있다).
+_n_un=0; _un_by=""
+for _p in ${_md[@]+"${_md[@]}"}; do
+  _c=$(grep -o '미확정 — 근거 필요' "$_p" 2>/dev/null | grep -c . || true)
+  [ "${_c:-0}" -gt 0 ] || continue
+  _n_un=$((_n_un + _c))
+  _un_by="${_un_by}${_c} ${_p}
+"
+done
+_un_sfx=""; [ "$_n_un" -gt 0 ] && _un_sfx=" · 미확정 ${_n_un}건"
 case "$_scan_state" in
-  clean) _title="chore(init): /init-project 부트스트랩+enrich (${n}종)" ;;
+  clean) _title="chore(init): /init-project 부트스트랩+enrich (${n}종${_un_sfx})" ;;
   found)
     _left=""
     [ "${_n_ph:-0}" -gt 0 ] && _left="미채움 ${_n_ph}건"
     [ "${_n_ex:-0}" -gt 0 ] && _left="${_left}${_left:+ · }예시 블록 ${_n_ex}건"
-    _title="chore(init): /init-project 부트스트랩 (${n}종 · ${_left:-미채움 있음})" ;;
-  *) _title="chore(init): /init-project 부트스트랩 (${n}종)" ;;
+    _title="chore(init): /init-project 부트스트랩 (${n}종 · ${_left:-미채움 있음}${_un_sfx})" ;;
+  *) _title="chore(init): /init-project 부트스트랩 (${n}종${_un_sfx})" ;;
 esac
 if ! out=$(git commit -q -m "$_title" -- "${cpaths[@]}" 2>&1); then
   # 기록 되돌리기 — FR-5/AC-5 는 기록을 **커밋 성공**에 조건부로 둔다(spec.md:62 "성공 시",
@@ -290,6 +305,19 @@ fi
 # 단계별 소요 — 표시(`init-project.sh --mark`)가 있을 때만. 값은 앞 표시부터 그 표시까지 걸린 시간이다.
 _tm=$(_init_timing_summary 2>/dev/null || true)
 [ -n "$_tm" ] && echo "init-finalize: 단계별 소요 — $_tm"
+
+# 미확정 마커를 문서별로 알린다(많은 순 5개) — 사용자가 어디를 더 정해야 하는지 본다.
+if [ "$_n_un" -gt 0 ]; then
+  _ub=$(printf '%s' "$_un_by" | sort -rn | head -5 | awk '{ c = $1; $1 = ""; sub(/^ /, ""); printf "%s%s %s", (NR > 1 ? " · " : ""), $0, c }')
+  echo "init-finalize: 미확정 마커 ${_n_un}건 — ${_ub} (근거가 생기면 채웁니다 · /init-project --enrich)"
+fi
+
+# 헌법 원칙이 비어 있으면 알린다 — `principles=skip` 은 정당한 답이라 막지 않지만, 빈 헌법이 조용히 굳으면
+#   구조 규칙 검사·태스크 맥락이 읽을 원칙이 없다(실기록: 자리표시자인 채 FID 60개 진행).
+_cs=".specops/memory/constitution.md"
+if printf '%s\n' "${cpaths[@]}" | grep -qxF -- "$_cs" && grep -qE '^### 원칙 [0-9]+: *<' "$_cs" 2>/dev/null; then
+  echo "init-finalize: 헌법 원칙이 정해지지 않았습니다 — $_cs 의 원칙 이름이 자리표시자입니다. 원칙 5개를 정해 주면 constitution.md 와 CLAUDE.md 원칙 줄을 채웁니다."
+fi
 
 # 남은 미채움을 문서별로 알린다(많은 순 5개). 보강을 건너뛴 종결이 조용히 지나가지 않게 한다.
 if [ "${_n_ph:-0}" -gt 0 ]; then

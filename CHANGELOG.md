@@ -11,13 +11,18 @@
 - **촬영이 화면 전체도 남긴다**(`screen-shot.sh`). 계측이 돌면 `<접두>@390.full.png`·`@1280.full.png`(전체 높이)와 `SCREEN-SHOT-FULL:` 줄이 나온다 — 종전 두 장은 높이가 고정(1280×1000 · 390×1400)이라 긴 화면의 아래쪽을 볼 수 없었다. 계측 도구가 없으면 종전처럼 두 장뿐이다.
 - **화면 보충 지침에 좁은 폭 규칙과 색 글자 대비 기준을 더했다**(`templates/screen-design-guide.md`). 칩·배지 줄바꿈 금지 · 차트를 가로 스크롤 안에 숨기지 않기 · 행 카드에 열 이름 되풀이 금지(값은 지우지 않고 접는다) · 결론과 주 액션의 위치 · 고정 막대 아래 여백 · 전체 촬영에서 고정 요소 읽는 법. 블라인드 실측(같은 명세 3화면 · 평가자 2명)에서 좁은 폭이 3.5/5 로 가장 낮았다. 같은 평가자의 재측정(이전 3화면 대 새 절차 3화면)에서 좁은 폭 2.83 → 4.17 · 대비 위반 7곳 → 0 · 전체 평균은 3.94 → 4.03 으로 사실상 같고 고유성은 3.67 → 3.0 으로 내렸다(생성 1회 — 원인 미확정).
 
+### Fixed
+
+- **기본 경고색·성공색과 디자인 방향 8종의 상태색이 자기 옅은 배경 위에서 대비 4.5 에 못 미치던 것.** 템플릿 `--color-warning` `#9A6700` → `#885B00`(옅은 배경 위 4.17 → 4.6 이상), `--color-success` `#1E7A45` → `#1C7140`, 디자인 방향 카탈로그의 Error·Success 12값을 같은 색조에서 최소한만 짙게(다크 방향은 밝게) 옮겼다. 현재 절차로 만든 3화면 전부에서 나온 대비 위반 7곳의 원인이 경고색 토큰 하나였다 — 새 값으로 같은 화면이 위반 0. **행동 변경**: 새로 만드는 `DESIGN.md`·목업의 상태색이 조금 짙어진다(기존 프로젝트의 `DESIGN.md` 는 바뀌지 않는다). 주색을 글자로 쓰는 경우(방향 3·6 의 밝은 주색)는 값 대신 지침으로 다룬다.
+
+## [4.0.11] — 2026-11-14
+
 ### Changed
 
 - **"다른 작업 트리로 옮겨 커밋" 차단 안내가 서브에이전트가 따를 수 있는 길을 준다.** 종전 안내는 "`cd` 를 별도 호출로"뿐인데, 서브에이전트는 호출마다 셸 위치가 초기화돼 그럴 수 없다 — 리뷰 서브에이전트가 자기 임시 저장소(mktemp 폴더의 복사본)에서 확인하다 같은 차단을 겪었다. 안내에 **자기 임시 저장소의 git 단계는 자기 임시 폴더 안의 스크립트 파일로 쓰고 `bash <그 파일>` 로 실행**하라는 문장을 더했고, 이 저장소(프로젝트 폴더)의 커밋은 그 방법으로 하지 않는다고 못박았다(`hooks/pretool-governance.sh` · `test-worktree-target` WT-E8.2b). **게이트 판정은 바꾸지 않았다** — 이동 판정(`_gov_cmd_moves_elsewhere`)을 풀어 "목적지에 `.specops` 가 없으면 허용"하는 안은 `git clone --local` 사본으로 검증 없이 원격에 올리는 구멍이 돼 채택하지 않았다(20261016 기록).
 
 ### Fixed
 
-- **기본 경고색·성공색과 디자인 방향 8종의 상태색이 자기 옅은 배경 위에서 대비 4.5 에 못 미치던 것.** 템플릿 `--color-warning` `#9A6700` → `#885B00`(옅은 배경 위 4.17 → 4.6 이상), `--color-success` `#1E7A45` → `#1C7140`, 디자인 방향 카탈로그의 Error·Success 12값을 같은 색조에서 최소한만 짙게(다크 방향은 밝게) 옮겼다. 현재 절차로 만든 3화면 전부에서 나온 대비 위반 7곳의 원인이 경고색 토큰 하나였다 — 새 값으로 같은 화면이 위반 0. **행동 변경**: 새로 만드는 `DESIGN.md`·목업의 상태색이 조금 짙어진다(기존 프로젝트의 `DESIGN.md` 는 바뀌지 않는다). 주색을 글자로 쓰는 경우(방향 3·6 의 밝은 주색)는 값 대신 지침으로 다룬다.
 - **자유작업 기록이 활성 FID 를 바꾸던 것.** 종결 줄 없이 머지된 옛 FID 에 자유작업이 귀속되고 그 FID 가 활성이 돼, 이후 커밋이 그 FID 의 검증 기록을 요구했다(R-1 ②앵커). 두 곳을 고쳤다. `scripts/freework-resolve-fid.sh` 는 종결 줄이 없어도 **이미 머지된** FID(`reconcile-check.sh` 와 같은 판정 — 브랜치 `feat/<FID>` 가 머지 커밋으로 들어감)를 귀속하지 않는다. `scripts/session-progress-append.sh` 는 `/freework` 기록이 활성 FID 마커를 옮기지 않으며, 마커가 없는 파일에서는 새 섹션이 맨 위에 붙기 전에 지금의 활성(첫 헤더 — fixture 는 건너뜀)을 마커로 못박는다. 성공 기준은 기록 스크립트의 출력이 아니라 **기록 전후로 `detect_fid` 의 답이 같은가**다(`test-session-progress-append` F1~F7). squash·fast-forward 머지는 종전대로 판정하지 못해 귀속된다(`reconcile-check.sh` 의 알려진 한계).
 - **병합 커밋을 만드는 시점에 관련 스위트 증거가 부풀던 것.** 작업 브랜치에 `origin/main` 을 병합하는 동안(커밋 전) 공통 조상이 옛 것이라 main 쪽 변경이 전부 "내 변경"으로 세어져 닿는 스위트가 137개(상한 80)가 됐다. `scripts/_internal/related-suite-fresh.sh` 가 병합 진행 중(`MERGE_HEAD`)이고 `MERGE_HEAD` 가 기본 브랜치의 조상일 때 비교 기준을 `MERGE_HEAD` 로 옮긴다 — 병합 커밋 전후의 목록이 같아진다. 비교는 작업 트리 대 커밋이라 병합 중 손으로 푼 충돌·끼워 넣은 변경도 그대로 센다(빠지는 것은 main 쪽만 바꾼 파일뿐). 기본 브랜치의 조상이 아닌 브랜치를 병합 중이면 종전 판정 그대로다.
 
@@ -1062,6 +1067,7 @@ implementing-ko 판별 케이스를 effort low·medium·high × N=3 으로 실�
 
 ⚠️ **한계 (정직 고백)**: 위 eval 은 모두 수동 실행(토큰 비용)이며 CI 비포함이다. `llm_rubric` 채점기는 `judge-calibration` 범위 밖이라 판별력이 보정되지 않았다. `commands/doctor.md` 의 `specops_version` 을 이번 릴리즈 값으로 올렸다.
 
+
 ## [2.6.0] — 2026-10-07
 
 ### 공식 문서 대조 반영 (3/3) — `claude plugin eval` 라우팅 스위트 · 주입 문구 가설 검증
@@ -1125,6 +1131,7 @@ Claude Code 공식 문서(`code.claude.com/docs/en/` skills·sub-agents·hooks·
 링크 worktree 에서 `git push` 하면 git 이 훅에 **절대경로** `GIT_DIR` 를 export 하고, pre-push 가 돌리는 `run-all` 안 테스트 픽스처(`cd $tmp && git init/commit/config`)가 임시 repo 가 아니라 공유 실저장소에 실행돼 `core.worktree`·`user.name` 주입·로컬 main 이동·잡 브랜치 19개를 남겼다. `.githooks/pre-push` 가 최상단에서 `GIT_DIR`·`GIT_WORK_TREE`·`GIT_INDEX_FILE`·`GIT_COMMON_DIR`·`GIT_PREFIX`·`GIT_OBJECT_DIRECTORY`·`GIT_ALTERNATE_OBJECT_DIRECTORIES` 를 지우고(훅 cwd 는 worktree 루트라 이후 `rev-parse` 가 같은 저장소를 찾는다), `run-all.sh` 선두에도 같은 방어를 둬 release.sh pre-flight·수동 실행 같은 훅 밖 경로를 막는다. 잠금: `test-git-hooks` GH-env.1(훅 환경 변수 비누수)·GH-env.2(run-all 선두 unset)·**GH-env.3(sandbox 의 링크 worktree 에서 실 `git push` — 수정 전 훅은 `user.name=POLLUTED` 재현·수정 후 무오염)**.
 
 ⚠️ 한계: 훅과 run-all 선두만 막았다 — 개별 스위트가 `git` 을 `-C` 없이 부르는 관용은 그대로(사고 재발 방어는 환경 차단에 의존). 이제 링크 worktree 에서도 pre-push 를 쓸 수 있지만, 이 작업은 독립 clone 에서 push 해 왔고 실 worktree push 로는 검증하지 않았다(sandbox 종단으로 갈음).
+
 
 ## [2.4.0] — 2026-10-07
 
@@ -1532,6 +1539,7 @@ SubagentStop 리뷰 저장 훅은 계약 위반(형식 불일치·FID 불일치�
 > 비차단성이고, 사용자 화면 표시는 공식 hooks-guide 와 설치본 문자열 근거에 머문다 — 헤드리스 프로브로는
 > UI 를 볼 수 없다. dogfood 도 성공 경로만 탔다. `semgrep` 실행 실패(rc=2)로 외부 SAST 미반영,
 > 외부 critic 의견 0건(`CRITIC: FAIL timeout 120s`).
+
 
 ### batch 게이트 전파 누락을 종결 전에 표면화 (#56)
 
@@ -2073,6 +2081,7 @@ harness 600s 상한을 넘겨 포그라운드 완주가 불가능했고, 백그�
 > ①(실행 증거)·②(receipt) 중 무엇이 빠졌는지 구분하지 않고 항상 ① 안내를 찍어 오진을 유도한 것이다
 > (`20260828-deny-cause-truth` 가 고친 병의 다른 축 재발). 별건 FID `20260910-receipt-window-close` 에서 다룬다.
 
+
 ### IF·테이블은 실설계로 채우는데 화면만 그 층에 없었다 — 프로세스는 산출물조차 없었다 (#41)
 
 `/init-project` Phase 11 Light enrich 는 `api-spec.md`·`data-model.md` 를 **PRD 기반 실설계**로 채운다
@@ -2285,6 +2294,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - **R-1 이 부모 세션 transcript 만 조인한다** — 서브에이전트의 `run-all` 158/158 은 **게이트에 보이지 않아** 서브에이전트는 원리적으로 커밋할 수 없다(구현자가 인덱스로 실증). 3파일을 태스크별로 쪼개 receipt 경로로 커밋해 우회했다.
 - 부수: `record-task-receipt.sh` 화이트리스트가 `test_command` 를 **단일 명령**으로 제한한다(`&&` 연쇄 거부) — 태스크가 두 스위트를 걸치면 receipt 를 못 만든다.
 
+
 ## [1.93.0] — 2026-09-04
 
 ### 진단·안내가 자기 검사 범위를 넘어 말하던 두 곳을 고쳤다 (#30 · #31)
@@ -2395,6 +2405,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
   - 검증: `run-all` **155/155** `VERIFY: PASS`(154→155) · lint `검사 113 · 산문 skip 68 · 미분류 0` · 원장 `PASS (181 edges)` · **AC-R-1** main 원장 대조 `PASS (178 edges)`(`git show` 실패 가드 포함 — 없으면 빈 원장에 `PASS (0 edges)` 로 공허 통과) · AC 8/8 · Phase B/C Critical 0 · `REVIEW-AUDIT: PASS` · CI 3종 통과 · 스위트 단독 2.1s.
   - 알려진 한계: semgrep 이 rc=2 + 빈 출력으로 실패해 외부 SAST 미반영(**세션 3회 연속** 동일 관찰, 미규명 — backlog 격상). placeholder 스캐너가 코드블록 안 꺾쇠를 오탐(**세션 3회**). 스크래치 사본으로 스크립트를 돌릴 때 `PLUGIN` 경로가 어긋나 오판하는 함정에 **리뷰어 2명이 연달아** 걸림(구조적 함정 — backlog).
 
+
 ## [1.90.0] — 2026-08-31
 
 ### Fixed
@@ -2409,6 +2420,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
   - **주석의 개수 하드코딩 제거**: `pre-commit:39`·`test-propagation:110` 의 `173 edge` 는 메커니즘 설명에 박힌 개수라 원장이 늘 때마다 틀린 말이 된다 → `전량 edge`. 반면 `CLAUDE.md`·`pre-push` 의 스위트 수는 **사람에게 비용 규모를 알리는 추정치**라 갱신이 정상 운용(153→154, run-all 실측 총계).
   - 검증: `run-all` **154/154** `VERIFY: PASS` · AC **8/8 MET** · Phase B/C Critical 0 · `REVIEW-AUDIT: PASS (6건 대조)` · CI 3종(Linux·macOS·shellcheck) 통과 · **AC-R-1**: main 원장 대조에서 신규 5줄+총계줄 **외 차이 0**.
   - 알려진 한계: semgrep 이 rc=2 + 빈 출력으로 실패해 외부 SAST 축 미반영(v1.89.0 과 동일 관찰, 미규명) — self-check + gitleaks 2종만이 `crit=0 high=0` 을 지지한다. `pre-push` 는 stdin ref 계약이라 경계 왕복 미검증(`run-all` 실행으로 대체). backlog: `must_match` 판별력 기계 검사기(전 원장 대상 — 이번에 사람이 세 번 잡은 것을 기계화) · placeholder 스캐너가 백틱 안 꺾쇠를 오탐.
+
 
 ## [1.89.0] — 2026-08-31
 
@@ -2425,6 +2437,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
   - 검증: `run-all` **153/153** `VERIFY: PASS`(스위트 151→153) · Phase B AC 7/7 MET · Phase C Critical 0 · `REVIEW-AUDIT: PASS (8건 대조)` · CI 3종(Linux·macOS run-all + shellcheck) 통과.
   - 알려진 한계: **semgrep 이 rc=2 + stdout·stderr 양쪽 빈 출력으로 실패**해 외부 SAST 축은 미반영이다 — self-check + gitleaks 2종만이 `crit=0 high=0` 을 지지한다(도구 부재는 "검증 불가"이지 "안전"이 아님). `.githooks/pre-push` 는 stdin ref 계약이라 경계 왕복으로 확인하지 않고 `run-all` 실행으로 대신했다. backlog: **env 핀 계약이 `propagation-matrix.jsonl` 에 미등재**(두 곳에 사는 계약인데 매트릭스가 모른다 — 총계 파문을 한 FID 안에서 반복하지 않으려 후속으로 이관) · `scripts/README.md` 의 env 미문서화 · placeholder 스캐너가 백틱 안 꺾쇠를 오탐.
 
+
 ## [1.88.0] — 2026-08-30
 
 ### Fixed
@@ -2438,6 +2451,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
   - 검증: `run-all` **152/152** `VERIFY: PASS` · Phase B AC 8/8 MET · Phase C Critical 0 · **변이 5종**이 각각 의도한 테스트만 격추(특히 rc 뭉뚱그림 복원이 오귀속 행을 재현해 Minor 가 실제 결함임을 확정).
   - 알려진 한계: NFR-4(훅 hot path 800ms) 단독 계측 미수행(벤치 스위트 PASS 로 간접 확인) · 개발기는 도구가 다 있어 skip 5분기가 dead 라 실배선은 **jq 가림 실행**으로만 실증 · backlog 3건(`doctor --json` + jq 부재 시 무음 공백(main 기존 동작) · `brew install jq` macOS 전용 문구 · `SPECOPS_GOVERNANCE_PROFILE` env 가 CONFIG 읽기 전 단락해 이번 수정을 무효화하는 경로).
 
+
 ## [1.87.0] — 2026-08-29
 
 ### Fixed
@@ -2449,6 +2463,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
   - `comm` + process substitution 을 **기각**: `sort` 는 로케일 collation 을 따르고 `comm` 은 아니라 불일치 시 조용히 틀린 답을 낸다 — 무음 드리프트를 잡는 테스트에서 최악의 실패모드. `LC_ALL=C sort -u` 직렬화 + `case` 멤버십으로 처리하고, 추출이 깨져 빈 집합끼리 공허하게 PASS 하는 경로에 별도 가드를 뒀다.
   - 되돌려-관찰 5종 전부 실측 재현: §2 제거→`FAIL U24.i` · canonical 에만 §4→`FAIL U24.k` · 비-canonical 에만 §5→`FAIL U24.k` · 참조 위치 이동→`FAIL U24.j` · 경계 소실→`FAIL U24.j`. 스위트 97→**100**, run-all 151/151.
   - 알려진 한계: 이 계층은 계약의 **정적 거동**만 본다(산문 배선의 실제 LLM 소비는 `llm-eval` 소관) · `U24.j` 는 A/B **순서 뒤바뀜**은 못 잡는다(의미상 비현실적이라 미차단) · `§7`~`§9` 무앵커(`§9`→`§90` 오통과, 이번 diff 이전부터 존재) 는 후속 FID.
+
 
 ## [1.86.0] — 2026-08-29
 
@@ -2462,6 +2477,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
   - **테스트 격리 계약**(NFR-3): run-all 이 `UIUX_ENGINE_DISABLE=1` 로 실 엔진 호출을 금지하고, 엔진 동작은 stub(`fixtures/uiux-engine/`)으로 검증 — 격리 3점 세트(aggregator export + 스위트 자체 export + 양성 E-케이스 호출별 `=0` 재주입, SAST 선례 동형). `test-uiux-assets.sh` 97케이스.
   - ★ Phase C 프로브가 prefix-only hex 가드 결함을 실증(`#1&C/` 오염값 주입+성공보고) → 전체검사 가드(`case "$v" in '#'*[!0-9A-Fa-f]*)`) + 회귀 E6d 로 잠금. **부분 검사 가드는 가드가 아니다.**
   - 실측: 실 엔진 주입 확인(Fira Code/Fira Sans·`#0F172A`), 호출 81ms/61ms ≪ NFR ~1s. 알려진 한계: 실 엔진 `colors` 10키 < CSV 16라벨 — 잔존 6라벨은 파생 규칙(후속 FID). stub 스키마 드리프트는 무음(dogfood 확인 항목).
+
 
 ## [1.85.0] — 2026-08-29
 
@@ -2669,6 +2685,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 
 - **도입 검토자용 상세 분석 `docs/architecture.md` 신설 (#11)** — `DESIGN.md` 는 색상·타이포그래피 UI 디자인 시스템이고 `CONTRIBUTING.md` 는 기여 절차, `CLAUDE.md` 는 Claude 용 내부 규약이라 **"이게 어떻게 동작하고 왜 무너지지 않는가"를 설명하는 문서가 없었다**. 장치 4종(훅·실행-근거 게이트·Generator↔Evaluator 분리·파일 기반 상태) · 실행-근거 게이트가 뚫린 4가지 시도와 대응(잘못 고친 2회 포함) · 규모 실측(102 릴리즈·테스트:코드 2.6:1) · **§6 한계 6종**(의도 위조 미차단·기록 진실성 미검사·토큰 비용·큰 FID 정체·repo 밖 산출물 부적합·Claude Code 전용). README 는 카운트·버전이 이미 정확해 통째로 갈지 않고 진입 링크 2곳 + 자기검증 수치 1줄만 더했다.
 - **사례 연구 `docs/case-studies/2026-08-27-argus-batch-stall.md` (#12)** — downstream 실사용 데이터(FID 36건·§batch 25건) 사후 분석. 단일 모드 체인은 정상이고 batch 층이 마지막 관문 직전에서 죽는다는 것, 그 사실이 라벨 드리프트로 감춰졌다는 것, 건너뛴 리뷰가 숨기고 있던 결함(Critical 2·Important 12)을 실측으로 규명. **대조군이 결정적이다** — 같은 배치·같은 날·같은 코드베이스에서 리뷰가 실제로 돈 화면만 PASS 였다. 개선안 7종을 도출했고 **이번 릴리즈가 전부 구현한다**.
+
 
 ## [1.80.0] — 2026-08-21
 
@@ -2890,6 +2907,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - **시한폭탄 테스트 2건 (같은 FID 에서 수습)** — `test-verification-state.sh`·`test-verdict-board.sh` 가 waiver 만료일을 **`2026-08-10T00:00:00Z` 로 하드코딩**해, 그 시각이 지나자 `WAIVED` 가 `NOT_RUN` 으로 계산돼 **두 스위트가 동시에 FAIL** 했다(자정 실발화, `main` 에서도 재현). **프로덕션은 정상이다** — `verification-state.sh` 가 조회 시점에 만료를 계산하는 게 설계이고, 테스트가 "미래" 라고 가정한 값이 과거가 된 것뿐이다. 상대 날짜(`date -u -v+1d` / GNU 폴백)로 바꾸고 **`TB1`** 이 미래 날짜 하드코딩을 잠근다. 과거 날짜(`2020-01-01`)는 만료 거부를 증명하는 의도적 고정값이라 대상이 아니다.
   - 이 수습 없이는 **AC-R-2(run-all 전건 PASS)를 충족할 수 없어** 본 FID 가 자기 AC 를 FAIL 로 두는 모순이 생긴다(Phase B 리뷰어 판정). 사용자 승인 후 포함.
 
+
 ## [1.68.0] — 2026-08-10
 
 ### Fixed
@@ -2912,6 +2930,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 
 ### Changed
 - **선행 기록 정정** — `20260809-runner-anchor-downstream` 의 evidence·gbrain 에 *"변이 전 `trap … EXIT INT TERM` 이 필수"* 라고 **검증 없이** 기록했다. 실측으로 반증됐고 #256 의 인사이트가 정정본이다.
+
 
 ## [1.67.0] — 2026-08-09
 
@@ -3176,6 +3195,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 
 ### Fixed
 - **Evaluator fable 하드고정이 크레딧 소진 시 Generator↔Evaluator 붕괴 (P1 — test2 정주행 회고)** — `plan-reviewer-ko`·`spec-reviewer-ko`·`code-reviewer-ko` 가 `model: fable` 고정이라, fable 크레딧 소진 시 **3 Evaluator 전부 dispatch 불가** → 부모(생성자) self-review 로 후퇴 = **Evaluator=Generator 편향**(specops 핵심 가치인 독립 리뷰 붕괴). test2 완결 run 의 실측 근거: 부모 self-review 가 놓친 Critical(I-1 self-gate exit 마스킹)을 **독립 비-fable 리뷰어가 잡았다**(독립-약한 모델 ≫ 편향-강한 모델). fix: fable 불가 시 **같은 Evaluator 를 독립 서브에이전트로 가용 모델 override 재dispatch**(컨텍스트 분리로 불변식 보존), **부모 self-review 후퇴 명시 금지**, dispatch-log degradation 기록 + 고위험 FID 크레딧 복구 후 재리뷰 권고. fable 고정(강한 리뷰어 보장)은 가용 시 유지 — graceful floor. implementing-ko(B/C) + planning-ko(plan-reviewer) 배선. teeth: test-gate-presence(mutation 2/2, cross-ref 오매칭 조임 포함).
+
 
 ### Changed
 - **E2 최종 리뷰 right-size — 단일 태스크 중복 제거 (경제성)** — `implementing-ko` 의 wave-loop 후 "최종 코드 리뷰어(전체 구현)"는 태스크 간 통합을 보는 단계인데, **태스크가 1개**면 "전체 구현"="그 1 태스크"라 이미 Phase C 가 리뷰한 것과 **literal 중복**이었다. 태스크 수==1 일 때만 최종 리뷰 skip(기계적 게이트, 품질 손실 0 — 동일 산출물의 두 번째 리뷰 제거). **멀티태스크 Phase B/C 는 무변경** — 그 리뷰가 실 Critical(RBAC 권한상승 등)을 잡는 품질의 원천이라 명시적 축소 금지 가드 추가. dispatch-log 투명성 기록(F-12 규약). teeth: test-gate-presence(mutation 3/3). ※ 경제성의 대부분은 이런 코드 레버가 아니라 "자기수리 나선 중단"(행동)에 있음 — 본 변경은 안전한 중복 제거 한 건으로 한정.
@@ -3912,7 +3932,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.10...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.11...HEAD
+[4.0.11]: https://github.com/andyko18/devFSD/compare/v4.0.10...v4.0.11
 [4.0.10]: https://github.com/andyko18/devFSD/compare/v4.0.9...v4.0.10
 [4.0.9]: https://github.com/andyko18/devFSD/compare/v4.0.8...v4.0.9
 [4.0.8]: https://github.com/andyko18/devFSD/compare/v4.0.7...v4.0.8

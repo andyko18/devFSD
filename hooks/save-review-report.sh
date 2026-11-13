@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# specops-ko save-review-report — SubagentStop 훅 (matcher: spec-reviewer-ko|code-reviewer-ko) + PreToolUse 훅 (matcher: SubagentHandback — 두 리뷰어만).
+# specops-ko save-review-report — SubagentStop 훅 (matcher: spec-reviewer-ko|code-reviewer-ko|design-reviewer-ko) + PreToolUse 훅 (matcher: SubagentHandback — 세 리뷰어만).
+#   design-reviewer-ko 는 init 모드 보고서만 .specops/.init-design/design-review.md 로 옮기고 끝난다(아래 `_save_design_review`) — 이하 설명은 두 리뷰어(B·C)의 것이다.
 # 리뷰어 최종 메시지의 <<<REVIEW …>>> ~ <<<END>>> 블록을 .specops/<FID>/reviews/<tid>-<phase>-report.md 로
 #   tid 별 저장하고(통과 판정이 아니면 -feedback.md 병기) exit 2 로 요약 재종료를 지시한다.
 #   반환 도구(PreToolUse) 경로는 같은 저장 뒤 exit 0 이다 — exit 2 는 반환 자체를 막으므로 요약 재종료를 지시하지 않는다.
@@ -23,12 +24,39 @@ input=$(cat 2>/dev/null || true)
 _j() { printf '%s' "$input" | jq -r "$1" 2>/dev/null || true; }
 cwd=$(_j '.cwd // empty')
 handback=0
+
+# 설계 리뷰(design-reviewer-ko)의 init 모드 보고서 — /init-project Phase 11 (20261113).
+#   왜: 종전엔 부모가 리뷰어 출력을 손으로 .specops/.init-design/design-review.md 에 옮겼다. 종결 커밋
+#   (init-finalize.sh)이 이 파일로 "설계 완료" 표지를 검증하므로, 옮기는 일을 부모의 기억에 두지 않는다.
+#   리뷰어가 첫머리에 `DESIGN-REVIEW-MODE: init` 을 적은 보고서만 저장한다 — batch 리뷰(/start-all Phase 2.5)는
+#   BATCH_ID 폴더에 부모가 저장하는 종전 경로 그대로다. 본문은 고치지 않고 옮긴다.
+#   언제나 조용히 끝난다(exit 0 · 출력 없음) — 요약 재종료를 지시하지 않으므로 전문이 그대로 부모에게 간다.
+#   .specops 가 없는 저장소(관할 밖)에는 아무것도 만들지 않는다.
+_is_design_reviewer() {
+  case "$1" in devfsd:design-reviewer-ko|specops-ko:design-reviewer-ko) return 0 ;; esac
+  return 1
+}
+_save_design_review() {  # <메시지>
+  local m="$1" d tmp
+  [ -n "$cwd" ] && [ -n "$m" ] || return 0
+  grep -q '^DESIGN-REVIEW-MODE: init[[:space:]]*$' <<<"$m" || return 0
+  grep -qE '^DESIGN-REVIEW-RESULT: (PASS|FAIL|SKIP)[[:space:]]*$' <<<"$m" || return 0
+  [ -d "$cwd/.specops" ] && [ ! -L "$cwd/.specops" ] || return 0
+  d="$cwd/.specops/.init-design"
+  [ ! -L "$d" ] || return 0
+  mkdir -p "$d" 2>/dev/null || return 0
+  if [ -e "$d/design-review.md" ] || [ -L "$d/design-review.md" ]; then [ -f "$d/design-review.md" ] && [ ! -L "$d/design-review.md" ] || return 0; fi
+  tmp="$d/.design-review.md.tmp.$$"
+  printf '%s\n' "$m" > "$tmp" 2>/dev/null && mv -f "$tmp" "$d/design-review.md" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+  return 0
+}
 if [ "$(_j '.hook_event_name // empty')" = "PreToolUse" ]; then
   # 반환 도구(SubagentHandback) 경로 — 반환 도구로 끝난 리뷰어는 보고서가 last_assistant_message 가 아니라
   #   이 도구의 tool_input.message 로 온다(공식 hooks 문서 SubagentStop 절). transcript 는 비동기 기록이라 읽지 않는다.
   #   matcher 가 도구 이름이라 모든 서브에이전트의 반환이 여기 온다 — 두 리뷰어가 아니거나 블록이 없으면 조용히 지나간다.
   #   저장 뒤에도 exit 0: PreToolUse 의 exit 2 는 반환 자체를 막는다(요약 재종료 지시 없음).
   [ "$(_j '.tool_name // empty')" = "SubagentHandback" ] || exit 0
+  if _is_design_reviewer "$(_j '.agent_type // empty')"; then _save_design_review "$(_j '.tool_input.message // empty')"; exit 0; fi
   case "$(_j '.agent_type // empty')" in
     devfsd:spec-reviewer-ko|devfsd:code-reviewer-ko|specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko) ;;   # 3.x 호환 — 4.0 에서 specops-ko 제거
     *) exit 0 ;;
@@ -39,6 +67,7 @@ if [ "$(_j '.hook_event_name // empty')" = "PreToolUse" ]; then
 else
   [ "$(_j '.stop_hook_active // false')" = "true" ] && exit 0
   msg=$(_j '.last_assistant_message // empty')
+  if _is_design_reviewer "$(_j '.agent_type // empty')"; then _save_design_review "$msg"; exit 0; fi
 fi
 { [ -n "$cwd" ] && [ -n "$msg" ]; } || exit 0
 

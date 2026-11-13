@@ -266,7 +266,7 @@ if want wiring; then
             "type": "command"
           }
         ],
-        "matcher": "devfsd:spec-reviewer-ko|devfsd:code-reviewer-ko|specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko"
+        "matcher": "devfsd:spec-reviewer-ko|devfsd:code-reviewer-ko|specops-ko:spec-reviewer-ko|specops-ko:code-reviewer-ko|devfsd:design-reviewer-ko"
       }
     ]
   }

@@ -32,7 +32,7 @@ fresh 시각으로 batch design-first 산출물(screens · api-spec · data-mode
 
 **리뷰 범위 (batch)**: 부모가 "이번 batch 가 만들거나 고친 화면·IF 행" 목록을 주면 판정 대상은 그것뿐이다. `/init-project` 에서 설계 완료된 재사용분(목적 칸 `init 설계 완료` · 문서 머리 `<!-- specops:init-designed: M1 -->`)은 대조 근거로만 읽고 이슈를 내지 않는다 — 단 대상과 **모순**되면 그 모순을 대상 쪽 이슈로 낸다. 목록을 받지 않았으면 전부가 대상이다(종전).
 
-**init 모드** (`/init-project` Phase 11 — 부모가 `init` 모드라고 적는다): `BATCH_ID`·FID·`spec.md` 가 없다. 위 1·2·5 대신 `.specops/memory/requirements.md` 의 M1 FR 목록과 M1 화면 목록을 받는다 — 표의 "전 FID spec §범위" 는 "M1 FR" 로, "담당 FR 범위" 는 "M1 FR 범위" 로 읽는다. 촬영 폴더는 `.specops/.init-design/shots/`, 부모의 저장 경로는 `.specops/.init-design/design-review.md` 다. foundation-baseline·foundation-shell·cross-FR 관점은 대상이 없으면 적용하지 않는다(init 은 셸 3종과 공통 IF 를 만들지 않는다 — 만들었으면 Important). `가정:` 으로 표시된 값은 미확정으로 세지 않는다. 판정 형식·기준은 같다.
+**init 모드** (`/init-project` Phase 11 — 부모가 `init` 모드라고 적는다): `BATCH_ID`·FID·`spec.md` 가 없다. 위 1·2·5 대신 `.specops/memory/requirements.md` 의 M1 FR 목록과 M1 화면 목록을 받는다 — 표의 "전 FID spec §범위" 는 "M1 FR" 로, "담당 FR 범위" 는 "M1 FR 범위" 로 읽는다. 촬영 폴더는 `.specops/.init-design/shots/` 다. **보고서 첫 줄에 `DESIGN-REVIEW-MODE: init` 을 적는다**(그 다음 줄부터 아래 판정 반환 포맷) — 저장 훅이 이 줄을 보고 보고서 전문을 `.specops/.init-design/design-review.md` 로 옮기고, 종결 커밋이 그 파일로 설계 완료 표지를 검증한다. 이 줄이 없으면 저장되지 않아 표지가 전부 내려간다. 이슈 줄에는 걸린 화면을 `screens/<name>.md` 경로로, 인터페이스는 `api-spec.md`·`data-model.md` 파일 이름으로 적는다(종결 커밋이 이 표기로 어느 표지를 내릴지 가른다). foundation-baseline·foundation-shell·cross-FR 관점은 대상이 없으면 적용하지 않는다(init 은 셸 3종과 공통 IF 를 만들지 않는다 — 만들었으면 Important). `가정:` 으로 표시된 값은 미확정으로 세지 않는다. 판정 형식·기준은 같다.
 
 ## 검증 절차
 

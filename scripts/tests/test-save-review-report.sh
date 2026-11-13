@@ -243,7 +243,7 @@ HJ="$PLUGIN/hooks/hooks.json"
 m=$(jq -r '.hooks.SubagentStop[0].matcher // empty' "$HJ")
 c=$(jq -r '.hooks.SubagentStop[0].hooks[0].command // empty' "$HJ")
 a=$(jq -r '.hooks.SubagentStop[0].hooks[0].async' "$HJ")
-if [ "$m" = "devfsd:spec-reviewer-ko|devfsd:code-reviewer-ko|$(printf 'specops-%s' ko):spec-reviewer-ko|$(printf 'specops-%s' ko):code-reviewer-ko" ]; then ok "T2.a AC-6 matcher = 네임스페이스 포함 두 리뷰어(새·옛 접두사 4항목 — 3.x 호환)"
+if [ "$m" = "devfsd:spec-reviewer-ko|devfsd:code-reviewer-ko|$(printf 'specops-%s' ko):spec-reviewer-ko|$(printf 'specops-%s' ko):code-reviewer-ko|devfsd:design-reviewer-ko" ]; then ok "T2.a AC-6 matcher = 네임스페이스 포함 두 리뷰어(새·옛 접두사 4항목 — 3.x 호환)"
 else nope "T2.a AC-6 matcher" "'$m'"; fi
 if printf '%s' "$c" | grep -qF '${CLAUDE_PLUGIN_ROOT}/hooks/save-review-report.sh'; then ok "T2.b AC-6 command 경로"
 else nope "T2.b AC-6 command" "'$c'"; fi
@@ -588,5 +588,46 @@ _reset
 json=$(jq -n --arg cwd "$TD" --arg m "$(_block T1 C READY_TO_MERGE '# nosrc')" '{hook_event_name:"SubagentStop",cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
 nerr=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE SPECOPS_CONFIG="$TD/none.yaml" bash "$NS/hooks/save-review-report.sh" 2>&1 >/dev/null); nrc=$?
 [ "$nrc" = 2 ] && [ "$(cat "$R/T1-C-report.md" 2>/dev/null)" = "# nosrc" ] && ok "T-wt.7 라이브러리 부재 → 종전 동작" || nope "T-wt.7" "rc=$nrc err=$nerr"
+
+# ── T-dr 설계 리뷰(design-reviewer-ko) init 모드 보고서 저장 (20261113) ──
+#   /init-project Phase 11 의 설계 리뷰 보고서를 훅이 .specops/.init-design/design-review.md 로 옮긴다 —
+#   종결 커밋(init-finalize.sh)이 이 파일로 설계 완료 표지를 검증한다. 언제나 exit 0 · 출력 없음(요약 재종료 지시 없음).
+DR="$TDROOT/dr"; mkdir -p "$DR/.specops"
+_dr() {  # $1=이벤트(stop|handback) $2=메시지 $3=cwd → DRC·DERR·DOUT
+  local json so
+  if [ "$1" = handback ]; then
+    json=$(jq -n --arg cwd "$3" --arg m "$2" '{hook_event_name:"PreToolUse",tool_name:"SubagentHandback",agent_type:"devfsd:design-reviewer-ko",cwd:$cwd,tool_input:{message:$m}}')
+  else
+    json=$(jq -n --arg cwd "$3" --arg m "$2" '{hook_event_name:"SubagentStop",agent_type:"devfsd:design-reviewer-ko",cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
+  fi
+  so=$(mktemp)
+  DERR=$(printf '%s' "$json" | env -u SPECOPS_GOVERNANCE_PROFILE SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" 2>&1 >"$so"); DRC=$?
+  DOUT=$(cat "$so"); rm -f "$so"
+}
+_DM=$(printf 'DESIGN-REVIEW-MODE: init\nDESIGN-REVIEW-RESULT: FAIL\nImportant: 1건\n\n- [Important] screens/booking.md: empty 미정의')
+_DF="$DR/.specops/.init-design/design-review.md"
+_dr stop "$_DM" "$DR"
+[ "$DRC" = 0 ] && [ -z "$DERR" ] && [ -z "$DOUT" ] && [ "$(cat "$_DF" 2>/dev/null)" = "$_DM" ] \
+  && ok "T-dr.1 SubagentStop · init 모드 보고서 → design-review.md 에 전문 저장 · exit 0 · 출력 없음" || nope "T-dr.1" "rc=$DRC err=$DERR"
+rm -rf "$DR/.specops/.init-design"; _dr handback "$_DM" "$DR"
+[ "$DRC" = 0 ] && [ -z "$DERR$DOUT" ] && [ "$(cat "$_DF" 2>/dev/null)" = "$_DM" ] \
+  && ok "T-dr.2 반환 도구(SubagentHandback) 경로도 같은 파일에 저장" || nope "T-dr.2" "rc=$DRC err=$DERR"
+# 덮어쓰기 — 재시도 리뷰의 판정이 앞 판정을 대체한다
+_dr stop "$(printf 'DESIGN-REVIEW-MODE: init\nDESIGN-REVIEW-RESULT: PASS')" "$DR"
+grep -q '^DESIGN-REVIEW-RESULT: PASS' "$_DF" && ! grep -q FAIL "$_DF" && ok "T-dr.3 다시 받은 보고서가 앞 보고서를 대체" || nope "T-dr.3"
+# 모드 줄이 없으면(batch 리뷰 — 부모가 BATCH_ID 폴더에 저장) · 판정 줄이 없으면 쓰지 않는다
+rm -rf "$DR/.specops/.init-design"
+_dr stop "$(printf 'DESIGN-REVIEW-RESULT: PASS\nCritical: 0건')" "$DR"; _a=$([ -e "$DR/.specops/.init-design" ] && echo y || echo n)
+_dr stop "$(printf 'DESIGN-REVIEW-MODE: init\n판정 없음')" "$DR"; _b=$([ -e "$DR/.specops/.init-design" ] && echo y || echo n)
+[ "$_a$_b" = "nn" ] && [ "$DRC" = 0 ] && ok "T-dr.4 모드 줄 없음(batch)·판정 줄 없음 → 저장 안 함" || nope "T-dr.4" "batch=$_a noverdict=$_b"
+# .specops 가 없는 저장소(관할 밖)에는 아무것도 만들지 않는다 · 대상이 심링크면 쓰지 않는다
+NJ="$TDROOT/nj"; mkdir -p "$NJ"; _dr stop "$_DM" "$NJ"
+_a=$([ -e "$NJ/.specops" ] && echo y || echo n)
+mkdir -p "$DR/.specops/.init-design"; printf 'KEEP\n' > "$TDROOT/outside.md"; ln -s "$TDROOT/outside.md" "$_DF"
+_dr stop "$_DM" "$DR"
+[ "$_a" = n ] && [ "$(cat "$TDROOT/outside.md")" = "KEEP" ] && ok "T-dr.5 .specops 없는 저장소 → 미생성 · 심링크 대상은 건드리지 않음" || nope "T-dr.5" "jur=$_a outside=$(cat "$TDROOT/outside.md")"
+rm -f "$_DF"
+# 리뷰어 문서가 init 모드 표기를 요구한다(훅과 문서가 어긋나면 표지가 전부 내려간다)
+grep -q 'DESIGN-REVIEW-MODE: init' "$PLUGIN/agents/design-reviewer-ko.md" && ok "T-dr.6 design-reviewer-ko 가 init 모드 줄을 요구" || nope "T-dr.6" "에이전트 문서에 모드 줄 규칙 없음"
 
 finish

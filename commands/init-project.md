@@ -19,6 +19,8 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 
 ## Process
 
+**단계 표시** (소요 측정 — 각 단계가 끝날 때 한 줄): `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-project.sh --mark <이름>`. 이름은 `phase0`(명령 시작 직후) · `answers`(답변 파일을 다 쓴 뒤) · `interview`(Phase 11.5 끝) · `enrich`(보강 끝) · `review`(전문가·설계 리뷰 끝) · `approved`(승인 `y` 직후). bash 단계의 시작·끝은 스크립트가 스스로 남긴다. 종결 커밋이 구간별 소요를 출력한다 — 그 줄을 사용자에게 그대로 전한다. `.specops/` 가 아직 없으면 아무것도 남지 않는다(정상).
+
 0. **PRD 6필드 초안 합성** (bash 호출 전 — LLM 레이어). 근거 문서 탐색은 4단 우선순위:
    - **0-a. 명시 경로** — args 에 파일 경로가 포함되면(`/init-project 쇼핑몰 docs/기획서.md`) 그 문서가 최우선 근거.
    - **0-b. 브레인스토밍 메모** — `ls -t .specops/memory/brainstorming-*.md 2>/dev/null | head -1` 존재 시 사용.
@@ -81,7 +83,7 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 **깊게** (원칙: bash 생성분 · 해당 KIND만 — 예외: `screens/<name>.md` 는 bash 비생성분이라 보강이 아니라 **새로 만든다**. `process-design.md` 는 bash 가 골격을 만들며 KIND 조건이 붙지 않는다):
 - `PRD.md` — **§1~2 는 Phase 4 확정분이라 건드리지 않는다**(사용자 응답 덮어쓰기 금지). 보강 대상은 `<TODO>` 가 남는 **§목적·성공 판정 · NFR · 리스크 · 기술 스택**뿐. e2e V21 이 `PRD.md` 를 스캔 대상으로 **지정**하므로 담당이 비면 게이트가 검사만 하고 채우는 주체가 없다(20260806 실측: 부트스트랩 직후 원시 `<TODO>` 10곳 잔존).
 - `requirements.md` — M1 FR 세부 분해(must) + M2/M3 시점 명시(should)
-- `api-spec.md` · `data-model.md` — PRD에서 도출된 실 엔드포인트·엔티티. M1 범위는 §M1 설계 완료 규약까지 간다. **`<!-- specops:example:start -->`…`:end -->` 예시 블록은 마커째 삭제**한다(전자상거래 샘플 — 남기면 유령 스키마가 설계 계약이 되고 `scan-enrich-placeholders.sh` 가 미채움 판정).
+- `api-spec.md` · `data-model.md` — PRD에서 도출된 실 엔드포인트·엔티티. M1 범위는 §M1 설계 완료 규약까지 간다. **`<!-- specops:example:start -->`…`:end -->` 예시 블록은 마커째 삭제**한다(전자상거래 샘플 — ERD·엔티티 표·인덱스 표·오류 형식 예·방식별 스키마 예. 남기면 유령 스키마가 설계 계약이 되고 **종결 커밋이 멈춘다**).
 - `frontend-architecture.md` · `backend-architecture.md` — 스택 표 실값
 - `screens/<name>.md` + `screens/<name>.html` — **UI KIND일 때만**. 입력은 `screens-overview.md` fence 안 화면 이름 목록. 상세는 아래 §화면 보강 규약 · M1 범위 화면은 §M1 설계 완료 규약
 - `process-design.md` — 업무 프로세스 설계. `templates/process-design.md` 기반으로 `.specops/memory/process-design.md` 를 **채운다** — 골격은 bash Phase 8i 가 만든다(정본 14종 편입, 20261008). 골격이 없으면(`--enrich` 로 들어온 구 프로젝트) 같은 템플릿으로 새로 만든다. **KIND 무관 항상 산출**(CLI 도 `사용자 → 명령 → 처리 → 출력` 흐름을 갖는다). 프로세스마다 트리거·행위자·화면·API·테이블·결과·예외
@@ -90,6 +92,8 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 
 **얕게/스킵** (골격·placeholder 유지 허용):
 - `constitution.md` · `test-strategy.md` · `architecture.md` · `CLAUDE.md` · `README.md`
+- **예외 — `architecture.md` 의 예시 블록**: §1~§3 표·§5 구성도·§6 매핑은 예시(Cache·MQ·CDN 등)다. 이 프로젝트의 실제 구성으로 바꾸고 마커째 지운다 — 쓰지 않는 구성요소를 남기지 않는다. 근거가 없는 칸은 미확정 마커다. 예시 블록이 남으면 종결 커밋이 멈춘다.
+- `test-strategy.md` 의 커버리지 임계값·`CLAUDE.md` 의 테스트 명령(`<TEST_COMMAND>`)은 미리 적혀 있지 않다 — 사용자가 정했거나 근거 문서에 있으면 채우고, 없으면 자리표시자로 둔다(지어내지 않는다).
 - `screens-overview.md` — 골격 유지. **예외: 화면을 보강한 행의 목적 칸만** 갱신(아래 §화면 보강 규약). 표의 나머지(이름·제목·링크)는 Phase 7 bash 소유라 건드리지 않는다
 - **헌법이 skip 으로 남았으면**(`constitution.md` 의 원칙 이름이 자리표시자 · `CLAUDE.md` 의 원칙 줄이 미확정 마커) 승인 게이트 요약에 "헌법 원칙 미작성" 을 한 줄로 알린다 — 사용자가 원칙 5개를 주면 `constitution.md` 와 `CLAUDE.md` 원칙 줄을 함께 채운다. 원칙을 지어내지 않는다
 
@@ -120,11 +124,12 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
 - **인터페이스 (api-spec·data-model 이 있는 KIND)**: M1 화면의 `## Interactions` 를 우선해 엔드포인트·테이블을 도출한다(화면이 없으면 M1 FR 에서). `api-spec.md` 채택 정의방식 섹션에 메서드·경로·요청/응답·인증·오류를, `data-model.md` 에 엔티티 표·ERD·인덱스를 채운다. **정합**: 서버를 부르는 Interaction 마다 대응 엔드포인트 행이, 화면의 데이터 소스·필드마다 대응 엔티티·컬럼이 있어야 한다. 가정 규칙은 화면과 같다.
 - **화면 전문가 1회 → 설계 리뷰 1회** (M1 화면 또는 M1 인터페이스를 하나라도 만들었을 때):
   1. M1 화면이 있으면 `Agent` 도구 `subagent_type: "devfsd:ui-designer-ko"` 1회 — 입력은 경로만(M1 `screens/<name>.md`·`.html` · 촬영 폴더 `.specops/.init-design/shots/` · `requirements.md` · `DESIGN.md`), 산출은 `.specops/.init-design/experts/ui.md`(산출 경로의 `<FID>` 자리에 `.init-design` 을 쓰고 spec·AC 대신 `requirements.md` 의 M1 FR 을 본다고 프롬프트에 적는다). 지적은 반영하거나 기각해 그 파일 끝 `## 반영` 에 1줄씩 적고, `## 확인 필요` 질문은 승인 게이트에서 함께 묻는다.
-  2. `Agent` 도구 `subagent_type: "devfsd:design-reviewer-ko"` 1회 — 컨텍스트는 `init` 모드(BATCH_ID·FID 없음) · M1 FR 목록(`requirements.md`) · M1 화면 목록 · 촬영 폴더 · `api-spec.md` · `data-model.md`. 부모가 stdout 을 `.specops/.init-design/design-review.md` 에 저장한다. `FAIL` 이면 이슈를 고치고 **1회만** 다시 dispatch 한다. 지정 모델을 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 부른다(부모가 대신 리뷰하지 않는다).
+  2. `Agent` 도구 `subagent_type: "devfsd:design-reviewer-ko"` 1회 — 컨텍스트는 `init` 모드(BATCH_ID·FID 없음) · M1 FR 목록(`requirements.md`) · M1 화면 목록 · 촬영 폴더 · `api-spec.md` · `data-model.md`. 프롬프트에 "보고서 첫 줄에 `DESIGN-REVIEW-MODE: init`" 을 적는다 — 저장 훅이 그 줄을 보고 보고서 전문을 `.specops/.init-design/design-review.md` 로 옮긴다(부모가 옮겨 적지 않는다 · 리뷰 뒤 그 파일이 없으면 훅이 꺼진 환경이므로 그때만 부모가 리뷰어 출력을 그대로 저장하고 승인 요약에 "리뷰 보고서 수동 저장" 을 적는다). `FAIL` 이면 이슈를 고치고 **1회만** 다시 dispatch 한다. 지정 모델을 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 부른다(부모가 대신 리뷰하지 않는다).
   - `.specops/.init-design/` 은 `.specops/.gitignore` 의 `.init-*` 규칙으로 무시된다(커밋 대상이 아니다).
 - **설계 완료 표지 — 리뷰를 통과한 것에만 단다** (`/start-all` Phase 2.5 가 이 표지를 보고 건너뛴다):
   - 화면: `screens-overview.md` 그 행의 목적 칸을 `init 설계 완료 (미확정 <N>)` 으로 쓴다. 판독은 `check-screens-overview.sh designed`.
   - 인터페이스: `api-spec.md`·`data-model.md` 머리(제목 줄 아래)에 `<!-- specops:init-designed: M1 -->` 한 줄을 넣는다.
+  - **종결 커밋이 표지를 검증한다** — 이번에 새로 단 표지를 `.specops/.init-design/design-review.md` 와 대조해, 보고서가 없거나 `SKIP` 이면 전부, `FAIL` 이면 Critical·Important 이슈 줄이 가리키는 화면(`screens/<name>.md` 표기)·인터페이스(`api-spec`·`data-model` 표기)의 표지를 `init 보강` 으로 내리고 알린다.
   - 재시도 뒤에도 `FAIL` 이면 남은 이슈가 걸린 화면에는 표지를 달지 않고(`init 보강` 으로 둔다) 이슈가 인터페이스에 걸렸으면 머리 주석도 넣지 않는다 — 남은 이슈는 승인 요약에 싣고, 표지 없는 것은 `/start-all` Phase 2.5 가 종전대로 설계·리뷰한다. 리뷰를 돌리지 못했으면 아무 표지도 달지 않는다.
 - **graceful skip**: 비UI KIND 는 화면 축을, `api-spec.md`·`data-model.md` 가 둘 다 없는 KIND(CLI·라이브러리 등)는 인터페이스 축을 건너뛴다. 두 축이 다 없으면 이 규약 전체를 건너뛴다(FAIL 아님 · 전문가·리뷰 dispatch 없음).
 
@@ -168,6 +173,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 이 스크립트가 **정본 산출물 목록을 소유**한다(`ARTIFACTS_ROOT[@]`·`ARTIFACTS_MEMORY[@]`) — 파일 목록을 직접 나열하지 말 것. enrich 수정분 재-add·단일 커밋·진행기록 append 를 함께 수행한다.
 
 **제목과 출력이 남은 미채움을 말한다** — 커밋한 문서에 자리표시자·예시 블록이 없으면 제목이 `부트스트랩+enrich (N종)`, 남아 있으면 `부트스트랩 (N종 · 미채움 M건 · 예시 블록 E건)`(해당하는 것만) 이고 출력에 문서별 건수가 나온다(막지는 않는다). 스캔하지 못했으면 제목은 `부트스트랩 (N종)` 이다. 이 출력을 사용자에게 그대로 전한다 — 예시 블록이 남았다는 고지는 보강이 빠졌다는 신호다.
+
+**보강이 끝나지 않았으면 커밋하지 않는다 (rc=1)** — 이번 부트스트랩이 쓴 문서에 예시 블록이 남았거나, 깊게 대상 문서(`PRD`·`DESIGN`·`requirements`·`api-spec`·`data-model`·`frontend-architecture`·`backend-architecture`·`process-design`)에 원시 자리표시자가 남았을 때다. 출력이 파일별 건수를 알려 준다 — 그 문서를 보강한 뒤 같은 명령을 다시 실행한다(우회 변수 `SPECOPS_INIT_ALLOW_UNFILLED=1` 은 사용자가 골격만 커밋하겠다고 했을 때만 쓴다). 기존 문서·`--enrich` 대상처럼 init 이 이번에 쓰지 않은 문서는 종전대로 건수만 알린다. FR 이 마일스톤 시드 3행 그대로면 경고 한 줄이 나온다 — M1 FR 분해를 확인한다.
 
 **커밋 범위는 init 산출물뿐이다** — 루트 4종 · `.specops/memory/` · 화면 목록에 있는 `screens/<name>.{md,html}` · `.specops/.gitignore` · `session-progress.md`. 그 밖은 커밋하지 않고 **출력으로 알린다**(사용자에게 그대로 전달할 것):
 - 미리 stage 돼 있던 무관한 파일 → 인덱스에 그대로 남는다.

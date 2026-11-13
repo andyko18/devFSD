@@ -380,6 +380,128 @@ else
   nope "F24" "rc=$rc subj=[$subj] out=$(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
 fi
 
+# ── F25~F27 — 보강 누락 차단 (20261113): 이번 부트스트랩이 쓴 문서에만 ──
+#   종전엔 미채움을 알리기만 해, 보강(Phase 11)을 건너뛴 골격·예시가 기준 문서로 커밋됐다. 막는 범위는
+#   .init-written 에 적힌(=init 이 쓴) 아직 HEAD 에 없는 문서뿐이다 — 위 F21·F23 처럼 기록이 없는 문서는 종전대로다.
+# F25 — init 이 쓴 깊게 대상 문서에 자리표시자 → rc 1 · 커밋 0 · staged 보존 · 파일·건수·우회 안내
+R="$TMP/f25"; _mkstaged "$R"
+cp "$PLUGIN/templates/PRD.md" PRD.md; git add PRD.md
+printf 'PRD.md\n' > .specops/.init-written
+n_staged=$(git diff --cached --name-only | wc -l | tr -d ' ')
+out=$(bash "$FIN" 2>&1); rc=$?
+if [ "$rc" -eq 1 ] && [ "$(git rev-list --count HEAD 2>/dev/null || echo 0)" = "0" ] \
+   && [ "$(git diff --cached --name-only | wc -l | tr -d ' ')" = "$n_staged" ] \
+   && printf '%s' "$out" | grep -q '보강이 끝나지 않았습니다' && printf '%s' "$out" | grep -qE 'PRD\.md: 자리표시자 [1-9]' \
+   && printf '%s' "$out" | grep -q 'SPECOPS_INIT_ALLOW_UNFILLED=1' && [ ! -e .specops/session-progress.md ]; then
+  ok "F25 init 이 쓴 깊게 대상 문서에 자리표시자 → rc1 · 커밋 0 · staged 보존 · 진행 기록 없음 · 우회 안내"
+else
+  nope "F25" "rc=$rc commits=$(git rev-list --count HEAD 2>/dev/null) out=$(printf '%s' "$out" | tr '\n' '|' | cut -c1-240)"
+fi
+# F25b — 같은 상태에서 SPECOPS_INIT_ALLOW_UNFILLED=1 → 종전대로 커밋하고 제목이 건수를 말한다
+out=$(SPECOPS_INIT_ALLOW_UNFILLED=1 bash "$FIN" 2>&1); rc=$?
+subj=$(git log -1 --format=%s 2>/dev/null)
+[ "$rc" -eq 0 ] && printf '%s' "$subj" | grep -q '미채움' && [ ! -e .specops/.init-written ] \
+  && ok "F25b SPECOPS_INIT_ALLOW_UNFILLED=1 → 커밋 · 제목에 미채움 건수" || nope "F25b" "rc=$rc subj=[$subj]"
+# F26 — 얕게 두는 문서의 자리표시자는 막지 않고, 예시 블록은 어느 문서든 막는다
+R="$TMP/f26"; _mkstaged "$R"
+printf -- '- 단위: <Jest / Vitest>\n' > .specops/memory/test-strategy.md; git add -A
+printf '.specops/memory/test-strategy.md\n' > .specops/.init-written
+out=$(bash "$FIN" 2>&1); rc=$?
+_a=$rc
+R="$TMP/f26b"; _mkstaged "$R"
+printf '# 구조\n\n<!-- specops:example:start -->\n| Cache | Redis |\n<!-- specops:example:end -->\n' > .specops/memory/architecture.md; git add -A
+printf '.specops/memory/architecture.md\n' > .specops/.init-written
+out=$(bash "$FIN" 2>&1); rc=$?
+if [ "$_a" -eq 0 ] && [ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'architecture\.md: 예시 블록 1건'; then
+  ok "F26 얕게 두는 문서의 자리표시자 → 통과 · 예시 블록은 얕은 문서(architecture)에서도 rc1"
+else
+  nope "F26" "얕은 자리표시자 rc=$_a · 예시 블록 rc=$rc out=$(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+fi
+# F27 — HEAD 에 이미 있는 문서(손으로 커밋한 뒤·소급 보강)는 기록이 있어도 막지 않는다
+R="$TMP/f27"; _mkstaged "$R"
+git commit -q -m base
+cp "$PLUGIN/templates/PRD.md" PRD.md
+printf 'PRD.md\n' > .specops/.init-written
+out=$(bash "$FIN" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && git show --name-only --format= HEAD | grep -qx 'PRD.md' \
+  && ok "F27 HEAD 에 있는 문서의 자리표시자 → 막지 않음(종전대로 알리기만)" || nope "F27" "rc=$rc out=$(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+
+# ── F28 — 설계 완료 표지는 리뷰 보고서로 검증한다 (20261113) ──
+#   표지(`init 설계 완료` · `<!-- specops:init-designed: M1 -->`)는 /start-all Phase 2.5 의 설계·리뷰를 건너뛰게 한다.
+#   모델이 직접 쓰므로, 이번 커밋이 새로 다는 표지만 .specops/.init-design/design-review.md 의 판정과 대조한다.
+_mkdesigned() {   # <repo> — 화면 home·booking 에 표지 · api-spec 머리 주석
+  _mkstaged "$1"
+  printf '# 화면\n\n<!-- screens-table:start -->\n| name | 제목 | 목적 | md | html |\n|---|---|---|---|---|\n| home | 홈 | init 설계 완료 (미확정 0) | a | b |\n| booking | 예약 | init 설계 완료 (미확정 1) | a | b |\n| stats | 통계 | init 보강 (미확정 3) | a | b |\n<!-- screens-table:end -->\n' > .specops/memory/screens-overview.md
+  printf '# api\n<!-- specops:init-designed: M1 -->\n\n본문\n' > .specops/memory/api-spec.md
+  git add -A
+}
+_marks() { grep -c 'init 설계 완료' .specops/memory/screens-overview.md | tr -d ' '; }
+_ifmark() { grep -c '^<!-- specops:init-designed: ' .specops/memory/api-spec.md | tr -d ' '; }
+# F28.a 리뷰 보고서 없음 → 전부 내린다 · 내린 내용이 같은 커밋에 들어간다 · 고지
+R="$TMP/f28a"; _mkdesigned "$R"
+out=$(bash "$FIN" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && [ "$(_marks)" = "0" ] && [ "$(_ifmark)" = "0" ] && [ -z "$(git status --porcelain)" ] \
+   && git show HEAD:.specops/memory/screens-overview.md | grep -q '| booking | 예약 | init 보강 (미확정 1) |' \
+   && printf '%s' "$out" | grep -q '설계 완료 표지를 내렸습니다' && printf '%s' "$out" | grep -q 'home booking api-spec.md'; then
+  ok "F28.a 리뷰 보고서 없음 → 표지 전부 내림(미확정 수 보존) · 같은 커밋 · clean · 고지"
+else
+  nope "F28.a" "rc=$rc marks=$(_marks) if=$(_ifmark) st=[$(git status --porcelain | tr '\n' '|')] out=$(printf '%s' "$out" | tr '\n' '|' | cut -c1-200)"
+fi
+# F28.b PASS → 그대로
+R="$TMP/f28b"; _mkdesigned "$R"; mkdir -p .specops/.init-design
+printf 'DESIGN-REVIEW-MODE: init\nDESIGN-REVIEW-RESULT: PASS\nCritical: 0건\n' > .specops/.init-design/design-review.md
+printf '.init-*\n' > .specops/.gitignore; git add .specops/.gitignore
+out=$(bash "$FIN" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(_marks)" = "2" ] && [ "$(_ifmark)" = "1" ] && ! printf '%s' "$out" | grep -q '표지를 내렸습니다' \
+  && ok "F28.b 리뷰 PASS → 표지 유지 · 고지 없음" || nope "F28.b" "rc=$rc marks=$(_marks) if=$(_ifmark)"
+# F28.c FAIL → 이슈 줄(Critical·Important)이 가리키는 화면만 내린다 · Minor 는 내리지 않는다 · 인터페이스는 이슈가 없으면 유지
+R="$TMP/f28c"; _mkdesigned "$R"; mkdir -p .specops/.init-design
+printf 'DESIGN-REVIEW-MODE: init\nDESIGN-REVIEW-RESULT: FAIL\nCritical: 0건\nImportant: 1건\n\n- [Important] screens/booking.md §States: empty 미정의\n- [Minor] screens/home.md: 순서\n' > .specops/.init-design/design-review.md
+printf '.init-*\n' > .specops/.gitignore; git add .specops/.gitignore
+out=$(bash "$FIN" 2>&1); rc=$?
+if [ "$rc" -eq 0 ] && grep -q '| home | 홈 | init 설계 완료' .specops/memory/screens-overview.md \
+   && grep -q '| booking | 예약 | init 보강' .specops/memory/screens-overview.md && [ "$(_ifmark)" = "1" ] \
+   && printf '%s' "$out" | grep -q '표지를 내렸습니다.*— booking\.'; then
+  ok "F28.c 리뷰 FAIL → 이슈가 걸린 화면(booking)만 내림 · Minor 뿐인 화면·이슈 없는 인터페이스는 유지"
+else
+  nope "F28.c" "rc=$rc ov=$(grep -c 'init 설계 완료' .specops/memory/screens-overview.md) if=$(_ifmark) out=$(printf '%s' "$out" | grep 표지 | cut -c1-160)"
+fi
+# F28.d HEAD 에 이미 있는 표지는 보고서가 없어도 건드리지 않는다 (앞선 부트스트랩이 승인받은 것 — 보고서는 커밋되지 않는다)
+R="$TMP/f28d"; _mkdesigned "$R"; git commit -q -m base
+printf '\n추가 문단\n' >> PRD.md
+out=$(bash "$FIN" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(_marks)" = "2" ] && [ "$(_ifmark)" = "1" ] \
+  && ok "F28.d HEAD 에 있던 표지 → 보고서 없어도 유지" || nope "F28.d" "rc=$rc marks=$(_marks) if=$(_ifmark)"
+
+# F29 — FR 이 마일스톤 시드 3행 그대로면 알린다(막지 않는다) · 분해했으면 조용하다
+R="$TMP/f29"; _mkstaged "$R"
+printf '# 요구\n<!-- seed-fr: FR-1,FR-2,FR-3 -->\n| ID | 요구사항 |\n|---|---|\n| FR-1 | 가 |\n| FR-2 | 나 |\n| FR-3 | 다 |\n' > .specops/memory/requirements.md; git add -A
+out=$(bash "$FIN" 2>&1); rc=$?
+_a="$rc:$(printf '%s' "$out" | grep -c '마일스톤 시드 3행')"
+R="$TMP/f29b"; _mkstaged "$R"
+printf '# 요구\n<!-- seed-fr: FR-1,FR-2,FR-3 -->\n| ID | 요구사항 |\n|---|---|\n| FR-1 | 가 |\n| FR-2 | 나 |\n| FR-3 | 다 |\n| FR-4 | 라 |\n' > .specops/memory/requirements.md; git add -A
+out=$(bash "$FIN" 2>&1); rc=$?
+[ "$_a" = "0:1" ] && [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -q '마일스톤 시드 3행' \
+  && ok "F29 FR 시드 3행 그대로 → 경고 1줄(rc0) · FR 을 분해했으면 경고 없음" || nope "F29" "seed=$_a split_rc=$rc"
+
+# F30 — 단계별 소요: 표시(--mark)가 있으면 종결이 구간별 소요를 출력하고 기록을 지운다 · 이름 형식이 아니면 rc 2
+R="$TMP/f30"; _mkstaged "$R"
+bash "$PLUGIN/scripts/_internal/init-project.sh" --mark phase0; _m1=$?
+bash "$PLUGIN/scripts/_internal/init-project.sh" --mark enrich; _m2=$?
+bash "$PLUGIN/scripts/_internal/init-project.sh" --mark 'Bad Name' >/dev/null 2>&1; _m3=$?
+_lines=$(grep -c . .specops/.init-timing 2>/dev/null || true)
+out=$(bash "$FIN" 2>&1); rc=$?
+if [ "$_m1$_m2$_m3" = "002" ] && [ "$_lines" = "2" ] && [ "$rc" -eq 0 ] \
+   && printf '%s' "$out" | grep -qE '단계별 소요 — enrich [0-9]+m[0-9]{2}s · finalize [0-9]+m[0-9]{2}s \(합계 ' && [ ! -e .specops/.init-timing ]; then
+  ok "F30 --mark 2회 → 종결이 구간별 소요 출력 · 기록 회수 · 형식 밖 이름은 rc2"
+else
+  nope "F30" "mark=$_m1$_m2$_m3 lines=$_lines rc=$rc out=$(printf '%s' "$out" | grep 소요)"
+fi
+# F30b — .specops 가 없는 저장소에는 표시를 남기지 않는다(관할을 열지 않는다)
+R="$TMP/f30b"; mkdir -p "$R"; cd "$R" || exit 1; git init -q
+bash "$PLUGIN/scripts/_internal/init-project.sh" --mark phase0; rc=$?
+[ "$rc" -eq 0 ] && [ ! -e .specops ] && ok "F30b .specops 없는 저장소 → 표시 안 남김 · .specops 미생성" || nope "F30b" "rc=$rc $(ls -A | tr '\n' ' ')"
+
 DOC="$PLUGIN/scripts/doctor.sh"
 
 # F6 — 미커밋 부트스트랩 → bootstrap warn · exit 0 / 커밋 후 → ok

@@ -82,6 +82,21 @@ for t in api-spec data-model; do
     || nope "T5.$t" "마커 내부 표 행 ${n}건 — 위장 마커"
 done
 
+# T5b (20261113): 마커 **밖**에 예시가 남지 않는다 — 자리표시자를 다 채워도 스캔을 통과해 설계 계약으로 남던 것들
+#   (쇼핑몰 ERD·인덱스 표·제약의 테이블 이름 · 구성도의 Cache·MQ·Worker · OpenAPI·GraphQL·RPC 의 User 스키마 · 미리 적힌 수치).
+#   실험(20261113): 풀스택 골격에서 마커 블록을 지우고 `<…>` 를 전부 채워도 스캔 rc 0 인데 예시가 data-model 19건·architecture 18건 남았다.
+_outside() { awk '/specops:example:start/{f=1;next} /specops:example:end/{f=0;next} !f' "$1" | grep -v '^> ⚠️' ; }
+_o=$(_outside "$PLUGIN/templates/data-model.md" | grep -cE 'erDiagram|ORDER|idx_users|order_items|total_amount|password_hash|RPO < |30 일' || true)
+[ "${_o:-0}" = "0" ] && ok "T5b.data-model 마커 밖 예시·사전 기입 수치 0" || nope "T5b.data-model" "마커 밖 ${_o}줄"
+_o=$(_outside "$PLUGIN/templates/architecture.md" | grep -cE 'Cache|MQ|Worker|CDN|Multi-AZ|WAF|docker-compose' || true)
+[ "${_o:-0}" = "0" ] && ok "T5b.architecture 마커 밖 예시 구성요소 0" || nope "T5b.architecture" "마커 밖 ${_o}줄"
+_o=$(_outside "$PLUGIN/templates/api-spec.md" | grep -cE '/v1/users|/users/\{id\}|UserConnection|userSchema|6 개월' || true)
+[ "${_o:-0}" = "0" ] && ok "T5b.api-spec 마커 밖 예시 스키마·사전 기입 기간 0" || nope "T5b.api-spec" "마커 밖 ${_o}줄"
+_o=$(grep -cE '(coverage|커버리지)[^<]*[0-9]+ ?%' "$PLUGIN/templates/test-strategy.md" || true)
+[ "${_o:-0}" = "0" ] && ok "T5b.test-strategy 커버리지 임계값을 미리 적지 않는다(프로젝트가 정한다)" || nope "T5b.test-strategy" "사전 기입 ${_o}줄"
+grep -q 'specops:example:start' "$PLUGIN/templates/architecture.md" && grep -qE '예시.*삭제|삭제.*예시|블록째 삭제' "$PLUGIN/templates/architecture.md" \
+  && ok "T5b.architecture 마커·삭제 지침 존재" || nope "T5b.architecture 마커" "마커 또는 삭제 지침 부재"
+
 # T6: 템플릿에 삭제 지침 명시 (모델이 지워야 할 것임을 안다)
 for t in api-spec data-model; do
   grep -qE '예시.*삭제|삭제.*예시' "$PLUGIN/templates/$t.md" \

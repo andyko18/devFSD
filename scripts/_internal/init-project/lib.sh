@@ -238,6 +238,35 @@ _append_screen_rows() {
 #   루트 4종 · .specops/memory/ · 화면 목록에 있는 screens/<name>.{md,html} · .specops/.gitignore · session-progress.md.
 INIT_HOLD_FILE=".specops/.init-hold"
 INIT_WRITTEN_FILE=".specops/.init-written"
+INIT_TIMING_FILE=".specops/.init-timing"
+
+# 단계가 끝난 시각을 적는다 — `<epoch>\t<단계 이름>` 한 줄(20261113).
+#   왜: /init-project 는 종결 때 진행 기록 한 줄만 남겨, 어느 단계(질문 왕복·보강·설계 리뷰)에서 시간이 가는지
+#   잴 수 없었다. 무시 규칙 `.init-*` 에 걸리는 로컬 파일이고, 종결 커밋이 요약을 출력한 뒤 지운다.
+#   rc 1 = 이름 형식이 아니다. .specops 가 없으면 만들지 않는다(관할은 여는 쪽만 연다) — 그때도 rc 0.
+_init_mark_time() {
+  printf '%s' "$1" | grep -qxE '[a-z0-9-]{1,32}' || return 1
+  [ -d .specops ] && [ ! -L .specops ] || return 0
+  [ ! -L "$INIT_TIMING_FILE" ] || return 0
+  printf '%s\t%s\n' "$(date +%s)" "$1" >> "$INIT_TIMING_FILE" 2>/dev/null
+  return 0
+}
+# 기록을 `<단계> <분>m<초>s` 의 나열로 낸다 — 각 값은 **앞 표시부터 그 표시까지** 걸린 시간이다. 표시가 2개 미만이면 빈 출력.
+_init_timing_summary() {
+  [ -f "$INIT_TIMING_FILE" ] || return 0
+  NOW="$(date +%s)" awk -F'\t' '
+    $1 ~ /^[0-9]+$/ && $2 != "" { n++; t[n] = $1; l[n] = $2 }
+    END {
+      if (n < 1) exit
+      n++; t[n] = ENVIRON["NOW"]; l[n] = "finalize"
+      for (i = 2; i <= n; i++) {
+        d = t[i] - t[i-1]; if (d < 0) d = 0
+        printf "%s%s %dm%02ds", (i > 2 ? " · " : ""), l[i], int(d / 60), d % 60
+      }
+      d = t[n] - t[1]; if (d < 0) d = 0
+      printf " (합계 %dm%02ds)\n", int(d / 60), d % 60
+    }' "$INIT_TIMING_FILE"
+}
 
 # init 이 **이번 부트스트랩에서 쓴** 파일의 기록 — `_should_skip` 이 "쓴다" 로 판정할 때 남긴다.
 #   왜 필요한가: git 상태만으로는 "이전 실행이 만든 골격"과 "사용자가 만든 미커밋 파일"이 구분되지 않는다

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.5] — 2026-11-13
+
 ### Changed
 
 - **`/init-project` 의 종결 커밋이 보강 안 된 골격·예시와 리뷰 없는 설계 완료 표지를 커밋하지 않는다.** 산출물은 이후 모든 FID 의 기준 문서인데 품질을 지키는 장치가 산문 지시뿐이었다. `init-finalize.sh` 가 ① 이번 커밋이 새로 다는 `init 설계 완료` 표지를 리뷰 보고서(`.specops/.init-design/design-review.md`)와 대조한다 — 보고서가 없거나 `SKIP` 이면 전부, `FAIL` 이면 Critical·Important 이슈가 가리키는 것만 `init 보강` 으로 내리고 알린다(HEAD 에 이미 있는 표지는 건드리지 않는다). ② 이번 부트스트랩이 쓴 문서에 예시 블록이 남았거나 깊게 보강하는 문서(`PRD`·`DESIGN`·`requirements`·`api-spec`·`data-model`·`frontend-architecture`·`backend-architecture`·`process-design`)에 자리표시자가 남으면 rc 1 로 커밋하지 않는다(우회 `SPECOPS_INIT_ALLOW_UNFILLED=1` — 기존 문서·`--enrich` 대상은 종전대로 건수만 알린다). ③ FR 이 마일스톤 시드 3행 그대로면 경고한다. **행동 변경**: 20261009 의 "막지 않는다" 결정을 이번 부트스트랩이 쓴 문서에 한해 뒤집는다.
@@ -3845,7 +3847,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.4...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.5...HEAD
+[4.0.5]: https://github.com/andyko18/devFSD/compare/v4.0.4...v4.0.5
 [4.0.4]: https://github.com/andyko18/devFSD/compare/v4.0.3...v4.0.4
 [4.0.3]: https://github.com/andyko18/devFSD/compare/v4.0.2...v4.0.3
 [4.0.2]: https://github.com/andyko18/devFSD/compare/v4.0.1...v4.0.2

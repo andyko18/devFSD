@@ -528,5 +528,61 @@ _o=$(cd "$_wr" && bash "$SCRIPT" 20261024-z /plan 완료 "n" 2>&1); _rc=$?
   && ok "T-wr.e2 메모 안 '## FID' 문자열 → 새 섹션 · 줄 기록" || nope "T-wr.e2" "rc=$_rc out=$_o"
 rm -rf "$_wr"
 
+# ── F1~F5: /freework 줄은 활성 FID 를 바꾸지 않는다 (20261114-freework-active-fid) ──
+#   사고: 자유작업 기록(/freework)이 섹션을 만들거나 줄을 붙일 때마다 그 FID 가 활성이 돼, 이후 커밋 게이트(R-1)가 그 FID 의 검증 기록을 요구했다.
+#   성공 기준은 기록 스크립트의 출력이 아니라 **기록 전후로 detect_fid 의 답이 같은가**다 — 소비자(hooks/governance-lib.sh)를 그대로 부른다.
+_gl="$PLUGIN/hooks/governance-lib.sh"
+_active() { ( cd "$1" && SPECOPS_PLUGIN_ROOT="$PLUGIN" bash -c '. "$1" >/dev/null 2>&1; detect_fid' _ "$_gl" 2>/dev/null ); }
+_fw_repo() {  # $1=이름 $2=마커 FID(빈값=마커 없음) → 활성 FID 가 20260301-active 인 진행 기록
+  local d="$TMP_ROOT_F/$1"; mkdir -p "$d/.specops"
+  {
+    [ -n "$2" ] && echo "<!-- active-fid: $2 -->"
+    printf '# Session Progress\n\n---\n\n## 20260301-active\n\n- 2026-03-01 10:00 /implement 진행\n\n---\n\n## 20260201-old\n\n- 2026-02-01 10:00 /verify PASS\n\n---\n'
+  } > "$d/.specops/session-progress.md"
+  printf '%s' "$d"
+}
+TMP_ROOT_F=$(mktemp -d)
+# F1 마커 있음 · 새 섹션(NEW 경로) — 맨 위에 붙어도 활성이 그대로
+_f1=$(_fw_repo f1 20260301-active); _b=$(_active "$_f1")
+( cd "$_f1" && bash "$SCRIPT" 20260401-freework-1200 /freework 완료 "자유작업 요약" >/dev/null 2>&1 )
+_a=$(_active "$_f1")
+[ -n "$_b" ] && [ "$_b" = "$_a" ] && [ "$_a" = "20260301-active" ] && grep -q '^## 20260401-freework-1200' "$_f1/.specops/session-progress.md" \
+  && ok "F1 ★ 마커 있음 + /freework 새 섹션 → 활성 FID 불변(섹션은 기록됨)" || nope "F1" "전=$_b 후=$_a"
+# F2 마커 있음 · 기존 섹션에 줄 붙임(ATTACH 경로) — 마커가 그 섹션으로 옮겨 가지 않는다
+_f2=$(_fw_repo f2 20260301-active); _b=$(_active "$_f2")
+( cd "$_f2" && bash "$SCRIPT" 20260201-old /freework 완료 "옛 작업에 귀속" >/dev/null 2>&1 )
+_a=$(_active "$_f2")
+[ "$_b" = "$_a" ] && [ "$_a" = "20260301-active" ] && grep -q '/freework 완료' "$_f2/.specops/session-progress.md" \
+  && ok "F2 ★ 마커 있음 + /freework 기존 섹션에 붙임 → 활성 FID 불변" || nope "F2" "전=$_b 후=$_a"
+# F3 마커 없음 · 새 섹션 — 첫 ## 헤더가 활성이던 파일에서, 새 섹션이 맨 위에 붙어도 활성이 그대로(기록이 이전 활성을 마커로 못박는다)
+_f3=$(_fw_repo f3 ""); _b=$(_active "$_f3")
+( cd "$_f3" && bash "$SCRIPT" 20260401-freework-1300 /freework 완료 "자유작업" >/dev/null 2>&1 )
+_a=$(_active "$_f3")
+[ -n "$_b" ] && [ "$_b" = "$_a" ] && ok "F3 ★ 마커 없음 + /freework 새 섹션 → 활성 FID 불변(이전 활성을 못박음)" || nope "F3" "전=$_b 후=$_a"
+# F4 /freework 가 아닌 명령은 종전대로 활성을 옮긴다 — 회귀 방지(마커 생산자 계약 M1~M8 불변)
+_f4=$(_fw_repo f4 20260301-active)
+( cd "$_f4" && bash "$SCRIPT" 20260401-real-work /implement 진행 "실작업" >/dev/null 2>&1 )
+_a=$(_active "$_f4")
+[ "$_a" = "20260401-real-work" ] && ok "F4 /implement 는 종전대로 활성 FID 를 옮긴다" || nope "F4" "후=$_a"
+# F5 마커도 헤더도 없는 빈 파일에 /freework 만 기록 — 죽지 않고 기록은 남는다
+_f5="$TMP_ROOT_F/f5"; mkdir -p "$_f5/.specops"; printf '# Session Progress\n\n---\n' > "$_f5/.specops/session-progress.md"
+( cd "$_f5" && bash "$SCRIPT" 20260401-freework-1400 /freework 완료 "첫 기록" >/dev/null 2>&1 ); _rc=$?
+[ "$_rc" -eq 0 ] && grep -q '/freework 완료' "$_f5/.specops/session-progress.md" && ok "F5 헤더 없는 파일에 /freework → rc 0 · 기록됨" || nope "F5" "rc=$_rc"
+# F6 마커 없음 · 첫 ## 헤더가 fixture FID — detect_fid 는 fixture 를 건너뛰고 다음 헤더를 활성으로 고른다. 못박기도 같아야 한다(리뷰 지적)
+_f6="$TMP_ROOT_F/f6"; mkdir -p "$_f6/.specops/20260501-fixture-e2e" "$_f6/.specops/20260301-active"; : > "$_f6/.specops/20260501-fixture-e2e/.fixture"
+printf '# Session Progress\n\n---\n\n## 20260501-fixture-e2e\n\n- 2026-05-01 10:00 /specify 완료\n\n---\n\n## 20260301-active\n\n- 2026-03-01 10:00 /implement 진행\n\n---\n' > "$_f6/.specops/session-progress.md"
+_b=$(_active "$_f6")
+( cd "$_f6" && bash "$SCRIPT" 20260601-freework-1500 /freework 완료 "자유작업" >/dev/null 2>&1 )
+_a=$(_active "$_f6")
+[ "$_b" = "20260301-active" ] && [ "$_a" = "$_b" ] && ok "F6 ★ 첫 헤더가 fixture 여도 활성 FID 불변(fixture 를 건너뛰고 못박음)" || nope "F6" "전=$_b 후=$_a"
+# F7 FID 없는 깨진 마커는 마커가 아니다 — 소비자(detect_fid)가 2순위로 떨어지므로 못박기가 건너뛰면 안 된다(리뷰 지적)
+_f7="$TMP_ROOT_F/f7"; mkdir -p "$_f7/.specops"
+printf '<!-- active-fid: -->\n# Session Progress\n\n---\n\n## 20260301-active\n\n- 2026-03-01 10:00 /implement 진행\n\n---\n' > "$_f7/.specops/session-progress.md"
+_b=$(_active "$_f7")
+( cd "$_f7" && bash "$SCRIPT" 20260601-freework-1600 /freework 완료 "자유작업" >/dev/null 2>&1 )
+_a=$(_active "$_f7")
+[ "$_b" = "20260301-active" ] && [ "$_a" = "$_b" ] && ok "F7 FID 없는 깨진 마커 → 못박기를 건너뛰지 않는다(활성 FID 불변)" || nope "F7" "전=$_b 후=$_a"
+rm -rf "$TMP_ROOT_F"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

@@ -8,11 +8,11 @@
 {"skill":"e2e-test-ko","bytes":37023,"lines":823}
 {"skill":"finishing-a-development-branch-ko","bytes":6998,"lines":168}
 {"skill":"gbrain-ko","bytes":5598,"lines":142}
-{"skill":"implementing-ko","bytes":47289,"lines":506}
+{"skill":"implementing-ko","bytes":47548,"lines":506}
 {"skill":"improve-codebase-architecture-ko","bytes":5186,"lines":156}
 {"skill":"integration-test-ko","bytes":14026,"lines":258}
 {"skill":"karpathy-ko","bytes":4473,"lines":112}
-{"skill":"performance-test-ko","bytes":17513,"lines":374}
+{"skill":"performance-test-ko","bytes":18038,"lines":382}
 {"skill":"planning-ko","bytes":51220,"lines":452}
 {"skill":"receiving-code-review-ko","bytes":9088,"lines":246}
 {"skill":"release-ko","bytes":4351,"lines":81}
@@ -24,4 +24,4 @@
 {"skill":"using-git-worktrees-ko","bytes":10571,"lines":295}
 {"skill":"using-specops-ko","bytes":4968,"lines":67}
 {"skill":"verifying-evidence-ko","bytes":32804,"lines":358}
-{"chain_bytes":313340,"chain_lines":4001}
+{"chain_bytes":314124,"chain_lines":4009}

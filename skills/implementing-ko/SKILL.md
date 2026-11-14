@@ -364,7 +364,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 5. whitelist 외 파일을 수정해야 task 완수 가능 — 부모에 컨텍스트 보강 요청
 6. worktree 경로 존재 안 함 또는 git worktree 가 아님
 
-부모 검증: dispatch 직전 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh .specops/<FID>/dispatch/<task-id>-context.md` 실행 — exit 1 시 dispatch 보류. 표준 포맷: `templates/dispatch-context.md`.
+부모 검증: dispatch 직전 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh .specops/<FID>/dispatch/<task-id>-context.md` 실행 — exit 1 시 dispatch 보류. 표준 포맷: `templates/dispatch-context.md`. 구현자는 태스크 본문을 emit-context 가 잘라 둔 `dispatch/<task-id>-task.md` 로 읽는다 — 구현자 프롬프트에 tasks.md 전체를 읽으라고 쓰지 않는다(그 파일이 없을 때만 구현자가 tasks.md 에서 절을 찾는다).
 
 > **[스코프 이관 규약]** (트리거 5 = whitelist 외 파일 수정 필요 — verify-exec-gate 잔여 backlog): 이관은 **tasks.md 가 SoT** 다. dispatch context 파일만 수기 보강하는 것을 **금지**한다 — ① tasks.md 와 drift ② emit-context 재실행 시 수기 보강 증발 ③ 후속 wave 의 outputs-disjoint 병렬 판정이 **낡은 outputs 로 계산**되어 두 leaf 가 같은 파일을 병렬 편집(R11 git race). 처리 순서:
 > 1. `.specops/<FID>/tasks.md` YAML 의 해당 task `outputs`(필요시 `inputs`)를 먼저 갱신 — 이관 사유 1줄 주석

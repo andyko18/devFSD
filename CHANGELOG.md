@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.14] — 2026-11-14
+
 ### Changed
 
 - **풀 경로 구현 구간이 태스크 커밋마다 전체 스위트를 돌리지 않는다**(`skills/implementing-ko/SKILL.md` 「전체 스위트 병행」 · `scripts/split-session.sh` 자식 세션 프롬프트). 태스크 커밋은 receipt 로 열리는데, 실측 1건에서 자식 세션이 커밋마다 전체 스위트를 앞단에서 돌려 3태스크에 4회 27분을 썼다. 전체 스위트는 마지막 태스크 뒤 백그라운드 1회와 수정 라운드 뒤 1회뿐이라고 적었다.
@@ -3949,7 +3951,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.13...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.14...HEAD
+[4.0.14]: https://github.com/andyko18/devFSD/compare/v4.0.13...v4.0.14
 [4.0.13]: https://github.com/andyko18/devFSD/compare/v4.0.12...v4.0.13
 [4.0.12]: https://github.com/andyko18/devFSD/compare/v4.0.11...v4.0.12
 [4.0.11]: https://github.com/andyko18/devFSD/compare/v4.0.10...v4.0.11

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.15] — 2026-11-14
+
 ### Changed
 
 - **`/start`·`/maintain` 통합 절차 — 위험 신호는 갈래가 아니라 켤 단계를 정한다**(`scripts/basic-path.sh` · `commands/basic.md`). 종전에는 위험 신호가 하나라도 있으면 풀 경로(실측 약 150분 · 12단계)로 갔다. 이제 가벼운 신호(인증·권한 · DB 스키마 · API 계약 등)는 기본 경로 안에서 단계를 켠다 — 유지보수면 분석 문서(`analysis.md`), 결정만 적은 계획(`plan.md` — 태스크 2개 이상이거나 신호가 있을 때), 걸린 신호의 전문가 1종. 풀 경로로 가는 것은 무거운 신호(데이터 삭제·이관 · 되돌릴 수 없는 외부 작업 · 결제·개인정보 · 파일 삭제·배포·인프라) · 태스크 4개 이상 · `--full` · `--step` 이다. 새 하위 명령 `basic-path.sh plan <FID> <태스크 수>` 가 켤 단계를 판정해 기록하고, 봉인이 그 기록과 대조한다(계획 때 없던 신호가 구현에서 나오면 풀로 올림 · 지금 spec 의 신호가 요구하는 전문가의 보고서와 그 `## 반영` 절이 없으면 거부 · 계획의 태스크 칸이 4개 이상이면 풀로 올림). 전문가 보고서는 파일로만 확인한다 — 리뷰 보고서처럼 훅이 저장하는 증거는 아니다. 끄는 스위치: `.specops/config.yaml` 의 `unified_path: false` 또는 `SPECOPS_UNIFIED_PATH=0`. 풀 경로 skill chain·훅·검증 러너는 고치지 않았다. **효과는 미측정**이다 — 계획 리뷰·이해 검사·통합·성능·시연 없이 가는 작업이 늘어나므로 발행 뒤 끝 리뷰 지적 수를 본다.
@@ -3957,7 +3959,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.14...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.15...HEAD
+[4.0.15]: https://github.com/andyko18/devFSD/compare/v4.0.14...v4.0.15
 [4.0.14]: https://github.com/andyko18/devFSD/compare/v4.0.13...v4.0.14
 [4.0.13]: https://github.com/andyko18/devFSD/compare/v4.0.12...v4.0.13
 [4.0.12]: https://github.com/andyko18/devFSD/compare/v4.0.11...v4.0.12

@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **에이전트 계약을 부르는 쪽·받는 쪽·템플릿이 같은 말로 맞췄다**(소스 검토 20261114 — 전부 소스에서 확인). **행동 변경 둘**:
+  - **스펙 리뷰어는 `must` 수용 기준만으로 PASS 를 정한다**(`agents/spec-reviewer-ko.md`). 종전엔 정의에 `must`·`should` 낱말이 없어 "있으면 좋은"(`nice-to-have`) 기준 하나의 미충족도 `NEEDS_FIX` 가 돼 수정 라운드(구현자 재dispatch)를 불렀다 — 템플릿 §우선순위 규약("nice-to-have: 미충족 시 BLOCK 없음")과 정면 충돌이었다. 이제 `should`·`nice-to-have` 미충족은 PASS 이고 보고서 표에 우선순위와 함께 남으며, 부모(`basic.md` 6번 · `implementing-ko` 「수정 라운드」 0번)가 `dev-decision.sh add <FID> backlog` 로 옮겨 PR 본문 "넘긴 것"에 실린다. `**우선순위**` 줄이 없는 옛 AC 문서는 모두 `must` 로 본다(`AC-R-*` 는 항상 `must`).
+  - **종합 판정이 고정 한 줄이다** — 보고서 `## 종합 판정` 첫 줄이 `판정: PASS` 또는 `판정: NEEDS_FIX`. 종전엔 보고서 틀이 `✅ PASS / ⚠️ PARTIAL / ❌ FAIL`, 반환이 `PASS / NEEDS_FIX / NEEDS_CONTEXT`, 템플릿이 `verdict = BLOCK`(어느 에이전트도 내지 않는 값) 으로 한 정의 안에서도 세 벌이었다. 훅이 읽는 `verdict=<PASS|NEEDS_FIX>` 는 그대로다. 이 줄이 생겨 다음 단계에서 봉인이 판정을 읽을 수 있다(지금 봉인은 보고서 파일 유무만 본다 — 별도 작업).
+- **기본 경로가 리뷰어에게 줄 입력이 정의됐다.** `commands/basic.md` 6번은 dispatch 컨텍스트 파일 없이 리뷰어를 부르는데 두 리뷰어 정의는 5 컨텍스트 누락 시 `NEEDS_CONTEXT` 를 반환하라고 했고(코드 리뷰어만 `quick 경로: yes` 예외), `<base>` 는 정의가 없어 실행마다 달랐다. 두 정의에 `기본 경로: yes` 규약(AC 는 `acceptance-criteria.md` 전체 · test 명령은 변경된 테스트에서 스스로 골라 부모의 실행 상한 안에서)을 더했고, `basic-path.sh review` 가 `BASE: <sha>`(기본 브랜치 origin/HEAD → main → master 와의 merge-base · 못 찾으면 `BASE: none`)를 낸다.
+- **구현자는 whitelist 밖 파일을 쓰지 않는다**(`agents/implementer-ko.md`). 정의가 `tasks.md` 체크(`- [ ]` → `- [x]`)와 `session-progress` 줄을 쓰라고 하면서 whitelist 밖은 `NEEDS_CONTEXT` 라고도 했고, 부모는 `record-task-done.sh` 로 같은 줄을 따로 써 중복·병렬 충돌 여지가 있었다. 체크 표시를 읽는 곳은 구현자 정의 자신뿐이었다(소스 전수 확인). 대신 **기존 동작만 고정하는 태스크는 변이로 RED 를 대신한다**(부모·계획이 약속했는데 받는 에이전트가 없던 "되돌려-관찰" — whitelist 안에서만 · `git diff` 로 원복 확인).
+- **`/security-scan --self-config` 가 감사 3종을 sonnet 으로 부른다**(`commands/security-scan.md`). 에이전트 정의의 `model: inherit`(README 에 "세션 모델 계승"으로 적힌 의도된 설계)는 그대로 두고, 호출 때 낮춘다 — 세션이 상위 모델이면 감사 3종이 그대로 따라가던 것을 막는다.
+
 ### Security
 
 - **작업 폴더의 `yaml.py` 가 훅에서 실행되던 것**(`scripts/_internal/is-hook-enabled.sh`). pyyaml 유무를 보는 탐침 `python3 -c "import yaml"` 이 현재 폴더를 import 경로에 둔 채 돌았다 — `.specops/config.yaml` 이 있는 저장소를 열면 그 저장소의 `yaml.py` 가 Bash 호출마다·세션 시작마다 실행됐다(파싱 단계는 이미 현재 폴더를 뺐고 탐침만 빠져 있었다). 탐침과 파싱 모두 현재 폴더(빈 문자열·`.`·절대경로)를 뺀다.

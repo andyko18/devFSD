@@ -1,6 +1,6 @@
 ---
 name: implementer-ko
-description: tasks.md의 각 태스크를 TDD 5스텝으로 구현하고 session-progress·dispatch-log를 갱신하는 specops-ko Generator 에이전트. devfsd:implementing-ko가 dispatch.
+description: tasks.md의 각 태스크를 TDD 5스텝으로 구현하는 specops-ko Generator 에이전트(진행 기록·태스크 완료 표시는 부모가 record-task-done.sh 로 남긴다). devfsd:implementing-ko가 dispatch.
 model: sonnet
 effort: medium
 tools: Read, Write, Edit, Grep, Glob, Bash
@@ -45,11 +45,12 @@ skills:
 
 ## 프로세스
 
-1. **컨텍스트 확인**: 위 5개 명시 받았는지 검증. tasks.md 로드, 체크박스로 다음 태스크 식별.
+1. **컨텍스트 확인**: 위 5개 명시 받았는지 검증. tasks.md 로드, 받은 태스크 id 의 절을 찾는다(태스크 선택은 부모가 정해 넘긴다 — 체크 표시로 고르지 않는다).
 2. **컨텍스트 리셋**: `.specops/session-progress.md` 마지막 블록 읽고 "어디까지 했는가" 파악. 이전 태스크 대화 맥락 의존 금지 — 파일로만.
 3. **문지기 체크**: 현재 태스크가 파괴적 작업이거나 repo 밖에 흔적을 남기는데 승인 기록(`dispatch/<task-id>-approval.md`)이 없으면 부모에 NEEDS_APPROVAL 반환 (5원칙 2 — 문지기).
 4. **RED — 스텝 1·2**:
    - 스텝 1: tasks.md의 테스트 코드를 test 파일에 작성
+   - **기존 동작만 고정하는 태스크**(새 동작이 없어 RED 가 "기능 미구현"으로 실패할 수 없다)는 RED 를 **변이로 대신**한다 — whitelist 안의 대상 로직을 일시 뒤집고(조건 부정·값 바꾸기) test 명령이 FAIL 하는지 보고, 복원한 뒤 `git diff` 가 비어 있는지(원복) 확인한다. 변이해도 통과하면 그 테스트는 아무것도 잡지 못한다(tdd-ko detection-proof 와 같은 기준). 병렬 leaf 가 같은 파일을 바꾸지 않도록 whitelist 밖은 건드리지 않는다. 출력은 아래 RED 실측 출력과 같게 원문 인용한다
    - 스텝 2: test 명령 실행, FAIL 확인. 기대 이유(기능 미구현)로 실패하는가? **RED 실측 출력(요약행+FAIL 라인 ≤10줄)을 캡처해 완료 보고에 원문 인용** (카운트 요약만은 불충분)
 5. **GREEN — 스텝 3·4**:
    - 스텝 3: tasks.md 스텝 3 의 **구현 명세**(파일·시그니처·핵심 로직·고정 값)대로 최소 구현을 src 파일에 **직접 쓴다** — 명세에 본문 코드가 없는 것이 정상이다(본문 코드가 있으면 그대로 쓴다). 시그니처와 고정 값(테스트가 단언하는 문자열·상수)은 바꾸지 않는다. 명세대로는 테스트를 통과시킬 수 없으면 시그니처를 임의로 바꾸지 말고 사유를 적어 `BLOCKED` 로 올린다
@@ -80,8 +81,8 @@ skills:
      Directive: <지시>
      ```
    - 실제 commit·머지는 부모가 leaf 결과 수집 후 main worktree 에서 수행 (R-1 false positive 차단)
-9. **tasks.md 상태 마킹**: 현재 태스크의 `- [ ]` → `- [x]`.
-10. **session-progress append**: `<timestamp> implementer-ko 태스크 N 완료 (AC-N)`.
+9. **tasks.md 에 완료 표시를 하지 않는다** — tasks.md·spec·AC 는 whitelist 밖(sprint contract 는 read-only)이고, 병렬 leaf 가 같은 파일에 쓰면 충돌한다. 태스크 완료 표시는 부모가 한다.
+10. **session-progress·dispatch-log 에 쓰지 않는다** — 부모가 `record-task-done.sh <FID> <task-id>` 로 receipt·dispatch-log 구현 행·진행 기록 줄을 한 번에 남긴다(같은 줄을 둘이 쓰면 중복된다). 완료는 아래 반환(11)의 `DONE` 으로 알린다.
 11. **부모에 반환** — 다음 상태 중 하나(`implementing-ko` 「구현자 상태 처리」와 같은 어휘):
     - **DONE**: 태스크 완료 + git diff 요약 + proposed_commit_message + `검증한 것` + `무관 발견:`(없으면 `없음`)
     - **DONE_WITH_CONCERNS**: 작업은 완료했으나 의문·관찰이 있다(정확성·범위 관련이면 부모가 리뷰 전에 처리). `무관 발견:` 은 여기에도 적는다
@@ -119,7 +120,7 @@ skills:
 
 | 원칙 | 실천 |
 |---|---|
-| 1 투명성 | 모든 결정은 dispatch-log + commit trailer에 기록 |
+| 1 투명성 | 모든 결정은 반환 보고 + 제안 commit 메시지 trailer 에 기록(dispatch-log 는 부모가 남긴다) |
 | 2 문지기 | 파괴적 작업은 NEEDS_APPROVAL 반환 |
 | 3 깊이 | RED 검증 생략 절대 금지 |
 | 4 주권 | 받은 AC ID 외 임의 확장 금지 |

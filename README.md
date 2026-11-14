@@ -265,7 +265,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | security-designer-ko (보안 설계 전문가) | opus · high | 인가·신뢰 경계 결함은 코드 뒤 스캐너가 못 잡는다 — 인증·인가·입력 경계·개인정보를 다루는 계획만 집중 검토 |
 | test-designer-ko (테스트 설계 전문가) | opus · high | 계획 리뷰를 통과한 테스트가 틀린 구현도 통과시킨다 — 테스트를 만들거나 고치는 계획의 검증력을 집중 검토 |
 | comprehension-reviewer-ko (이해 검사 리뷰어) | sonnet · high | 문서만 읽는 처음 보는 독자의 재진술은 깊은 추론보다 역할 격리가 핵심이다 — plan 1회차에서 경고(Minor)만 낸다 |
-| red-team-ko · blue-team-ko · auditor-ko | 세션 모델 계승 | 드문 self-config 감사 |
+| red-team-ko · blue-team-ko · auditor-ko | 세션 모델 계승 — 단 `/security-scan --self-config` 가 호출할 때 sonnet 으로 낮춘다 | 드문 self-config 감사 |
 
 외부 critic(`scripts/critic-ask.sh`)도 기본 opus, fallback sonnet 이다(`CRITIC_CLAUDE_MODEL`·`CRITIC_CLAUDE_FALLBACK` 로 변경).
 

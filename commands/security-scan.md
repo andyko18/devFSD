@@ -24,9 +24,9 @@ reference_upstream: specops-ko 독자 추가
 0. **FID 결정** — self-config 는 lifecycle 밖 온디맨드라 진행 중 FID 가 없다. `FID = <YYYYMMDD>-self-config-audit` 로 고정 생성(`mkdir -p .specops/<FID>`) — 임의 슬러그·무관 FID 귀속 금지(같은 날 재실행은 동일 FID 재사용 — 감사 산출물 갱신).
 1. **토큰 경고**: `self-config 적대감사는 red/blue/auditor 3 서브에이전트를 dispatch합니다 — 토큰 비용이 큽니다. 진행? [y/N]`
 2. **번들**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/self-config-collect.sh . > .specops/<FID>/self-config-bundle.md` (collect 는 stdout 출력만 — redirect 로 번들 저장 필수. 이 파일이 red dispatch 입력)
-3. **red dispatch**: `agents/red-team-ko` (입력: 번들)
-4. **blue dispatch**: `agents/blue-team-ko` (입력: 번들 + red 발견)
-5. **auditor dispatch**: `agents/auditor-ko` (입력: red + blue) → `.specops/<FID>/self-config-audit-report.md`
+3. **red dispatch**: `agents/red-team-ko` (입력: 번들 · Agent 도구 `model: "sonnet"`)
+4. **blue dispatch**: `agents/blue-team-ko` (입력: 번들 + red 발견 · `model: "sonnet"`)
+5. **auditor dispatch**: `agents/auditor-ko` (입력: red + blue · `model: "sonnet"`) → `.specops/<FID>/self-config-audit-report.md`
 6. **종합**: risk 등급(A~F) 출력. critical(F) 시 경고만 — chain 차단 없음.
 
 > 기존 `/security-scan`(무인자)·`/security-scan <URL>` 동작은 무변경. self-config 는 독립 모드.

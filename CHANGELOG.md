@@ -10,6 +10,7 @@
 
 ### Changed
 
+- **계획 단계 에이전트 8종에 「읽기 상한」 절을 더했다**(`plan-reviewer`·`test-designer`·`req`·`ui`·`db`·`arch`·`api`·`security` 설계 전문가). 하류 실측(20261114 — 한 프로젝트의 작업 10건): 계획 리뷰어·테스트 전문가 1회가 맥락 최대 약 484K·493K 토큰까지 갔고, 같은 `plan.md`(최대 100KB)를 통째로 여러 번 읽었다(계획 리뷰어 Read 결과 중앙 150K자 · 범위 지정 Read 비율 35%). 실행 상한("긴 명령 2회")은 부모 프롬프트에만 있고 에이전트 정의에는 없었으며, 기본 경로의 전문가 호출에는 그 문장 자체가 없었다. 이제 정의가 직접 말한다 — 큰 문서는 `grep -n '^#'` 로 절 범위를 찾아 offset/limit 로 읽고 · **한 번은 끝까지 읽되**(리뷰 범위를 줄이지 않는다) 같은 파일을 통째로 두 번 읽지 않으며 · 긴 명령 2회 이내 · 전체 스위트 금지. `commands/basic.md` 의 전문가 호출은 프롬프트마다 이 상한을 숫자로 적게 하고, `planning-ko` 의 실행 예산도 읽기 규칙을 싣게 한다. **효과(토큰 감소)는 아직 재지 않았다** — 다음 하류 주행의 계획 단계에서 서브에이전트 최대 맥락으로 확인한다. 문구 지침의 효과는 재현되지 않을 수 있다(좁은 폭 지침 선례).
 - **에이전트 계약을 부르는 쪽·받는 쪽·템플릿이 같은 말로 맞췄다**(소스 검토 20261114 — 전부 소스에서 확인). **행동 변경 둘**:
   - **스펙 리뷰어는 `must` 수용 기준만으로 PASS 를 정한다**(`agents/spec-reviewer-ko.md`). 종전엔 정의에 `must`·`should` 낱말이 없어 "있으면 좋은"(`nice-to-have`) 기준 하나의 미충족도 `NEEDS_FIX` 가 돼 수정 라운드(구현자 재dispatch)를 불렀다 — 템플릿 §우선순위 규약("nice-to-have: 미충족 시 BLOCK 없음")과 정면 충돌이었다. 이제 `should`·`nice-to-have` 미충족은 PASS 이고 보고서 표에 우선순위와 함께 남으며, 부모(`basic.md` 6번 · `implementing-ko` 「수정 라운드」 0번)가 `dev-decision.sh add <FID> backlog` 로 옮겨 PR 본문 "넘긴 것"에 실린다. `**우선순위**` 줄이 없는 옛 AC 문서는 모두 `must` 로 본다(`AC-R-*` 는 항상 `must`).
   - **종합 판정이 고정 한 줄이다** — 보고서 `## 종합 판정` 첫 줄이 `판정: PASS` 또는 `판정: NEEDS_FIX`. 종전엔 보고서 틀이 `✅ PASS / ⚠️ PARTIAL / ❌ FAIL`, 반환이 `PASS / NEEDS_FIX / NEEDS_CONTEXT`, 템플릿이 `verdict = BLOCK`(어느 에이전트도 내지 않는 값) 으로 한 정의 안에서도 세 벌이었다. 훅이 읽는 `verdict=<PASS|NEEDS_FIX>` 는 그대로다. 이 줄이 생겨 다음 단계에서 봉인이 판정을 읽을 수 있다(지금 봉인은 보고서 파일 유무만 본다 — 별도 작업).
@@ -36,6 +37,7 @@
 
 - **관련 스위트 러너가 가끔 "목록에 없는 경로"로 실패하던 것**(`scripts/tests/run-related.sh`). `printf … | grep -q` 에서 grep 이 첫 일치로 끝나면 printf 가 SIGPIPE 를 받고, `set -o pipefail` 아래에서 그 실패가 "목록에 없다"(exit 2)로 읽혔다 — 타이밍에 따라 나는 흔들림이다(리눅스 CI 1회 · `test-run-related` X22). here-string 으로 넘긴다.
 - `test-basic-path.sh` V1~V6 — NEEDS_FIX + feedback 없음 거부 · feedback 있으면 정상 봉인 + 기존 리뷰 감사 PASS · PASS 대조 · 옛 형식 하위 호환 · 줄 전체 일치(본문 인용·`NEEDS_FIX 아님` 은 판정이 아님).
+- `test-agent-reading-caps.sh` 신설(13건 — 먼저 실패 13건 확인): 8개 정의가 같은 절을 갖고(핵심 문장이 글자까지 같다 — drift 방지) · 빈 출력 규칙 앞에 있고 · 기본 경로 호출과 계획 skill 이 상한을 싣게 하는지 · 상한이 리뷰 범위를 줄이지 않는다는 문구(`한 번은 끝까지`)가 8곳 모두에 있는지.
 - `test-pretool.sh` T37b~e · T-cq.a~e · T-ev(4형태) · `test-is-hook-enabled.sh` T7 · T8 · T8b — 먼저 실패를 확인했다(13건). 대조군: 주석 따옴표 사이에 커밋이 없으면 통과 · 인용 문자열 안의 `#` 는 주석이 아님 · 낱말 중간의 `#`(`${x#y}`·`$#`·`a#b`)는 주석이 아님 · 정상 구조의 `enabled: false` 는 그대로 끔.
 - `test-pr-gate.sh` G3.k~n · G1.c·d · **G6.e**(승인 → 기록 1줄 → 판정기 auto 를 실제로 돌려 본다 — 종전 G6.a 는 문자열이 파일에 있는지만 봐서 기록 호출을 지워도 통과했다) · `test-split-session.sh` D7b~e · `test-design-screen.sh` T6.c·d · `test-gate-presence.sh` 통합 게이트 문구.
 

@@ -171,9 +171,9 @@ for k in 'templates/frontend-design-guide.md' 'templates/screen-design-guide.md'
   [ "$(_t15 "${_sa_A//"$k"/}" "$_sa_A2" "$_sa_D")" = " [A:$k]" ] || _k15bad="$_k15bad [$k]"
 done
 [ -z "$_k15bad" ] && ok "T15.e 음성 — A 절 키 8개를 하나씩 지우면 그 키만 FAIL" || nope "T15.e" "진단 불일치:$_k15bad"
-if ! command -v node >/dev/null 2>&1; then echo "SKIP T16.0 (node 없음 — 규칙 ID 대조 생략)"; _RID="L-CLIP-X L-OVERLAP"; else
+if ! command -v node >/dev/null 2>&1; then echo "SKIP T16.0 (node 없음 — 규칙 ID 대조 생략)"; _RID="L-CLIP-X L-OVERLAP L-WRAP-CHIP L-SCROLL-X L-FIXED-COVER"; else
 _RID=$(node "$PLUGIN/scripts/_internal/ui-probe.cjs" --rules 2>/dev/null | sed -n 's/^| \(L-[A-Z-]*\) |.*/\1/p' | tr '\n' ' ' | sed 's/ $//'); fi
-[ "$_RID" = "L-CLIP-X L-OVERLAP" ] && ok "T16.0 배치 규칙 ID 는 ui-probe --rules 에서 읽는다(정의 한 곳)" || nope "T16.0" "읽은 ID: [$_RID]"
+[ "$_RID" = "L-CLIP-X L-OVERLAP L-WRAP-CHIP L-SCROLL-X L-FIXED-COVER" ] && ok "T16.0 배치 규칙 ID 는 ui-probe --rules 에서 읽는다(정의 한 곳)" || nope "T16.0" "읽은 ID: [$_RID]"
 _K16="@1280.png|@390.png|위계|정렬|390 폭에서의 잘림·겹침|촬영 이미지 없음|.probe.txt|$(printf '%s' "$_RID" | sed 's/ /|/g')|계측 못 함"   # 규칙 ID 는 읽은 값에서 조립한다
 _K16UD='계측 오탐 의심|`[시각]` 접두의 **Minor**(증명 줄 불필요)|인용할 것 없이 이미지에서 받은 인상뿐이면|문제를 못 본 화면에는 `[시각]` 줄을 쓰지 않는다|그 규칙 ID 와 줄을 인용해 **Important**|계측 결과가 없거나 적중이 없으면 이 예외는 없다|0건으로 읽지 않는다|목적 문장 ↔ Layout·목업'
 _K16AG='계측 오탐 의심|`배치 경고 0건` 은 계측이 재는 범위|`[시각]` 접두의 **Minor 로만**|그 줄을 인용해 **Important** 로 낸다|위반 없음으로 쓰지 않는다|리뷰어는 계측을 직접 돌리지 않는다'
@@ -200,10 +200,16 @@ _fm() { awk 'NR==1&&/^---/{f=1;next} f&&/^---/{exit} f' "$1" | grep -E '^(model|
   && ok "T16.c ui-designer-ko frontmatter 불변(model·effort·tools)" || nope "T16.c" "$(_fm "$UD")"
 _m17=$(_t16 "$_ag" "$_K16|$_K16AG")
 _row=$(printf '%s\n' "$_ag" | grep -E '^\| 배치\(렌더 계측\) \|')
-_t17row() {  # $1=표 행 → 규칙 ID 가 Important 칸에만 있는가
-  local m="" id imp rest
-  imp=$(printf '%s' "$1" | awk -F'|' '{print $4}'); rest=$(printf '%s' "$1" | awk -F'|' '{print $3 $5}')
-  for id in $_RID; do { printf '%s' "$imp" | grep -qF "$id" && ! printf '%s' "$rest" | grep -qF "$id"; } || m="$m [표:$id]"; done
+_RID_MIN="L-WRAP-CHIP L-SCROLL-X L-FIXED-COVER"   # 좁은 폭 어림 규칙 — Minor 칸에만 (20261114)
+_t17row() {  # $1=표 행 → 잘림·겹침 ID 는 Important 칸에만, 좁은 폭 어림 규칙 ID 는 Minor 칸에만 있는가
+  local m="" id imp min crit
+  crit=$(printf '%s' "$1" | awk -F'|' '{print $3}'); imp=$(printf '%s' "$1" | awk -F'|' '{print $4}'); min=$(printf '%s' "$1" | awk -F'|' '{print $5}')
+  for id in $_RID; do
+    case " $_RID_MIN " in
+      *" $id "*) { printf '%s' "$min" | grep -qF "$id" && ! printf '%s%s' "$crit" "$imp" | grep -qF "$id"; } || m="$m [표:$id]" ;;
+      *) { printf '%s' "$imp" | grep -qF "$id" && ! printf '%s%s' "$crit" "$min" | grep -qF "$id"; } || m="$m [표:$id]" ;;
+    esac
+  done
   printf '%s' "$m"
 }
 _m17="$_m17$(_t17row "$_row")"

@@ -61,6 +61,40 @@ R=$(mk k8 '**§일괄**: true'); printf -- '- 손으로 쓴 줄 [approval] PR �
 run "$R"; ck "G3.i 기록 스크립트 형식(시각 + [approval])이 아닌 줄은 동의로 치지 않는다 → ask" "${OUT%% (*}" "PR-GATE: ask"
 R=$(mk k9 '**§일괄**: true'); printf -- '- 2026-11-14T00:00:00Z [backlog] PR 생성 포함 여부 검토\n' >> "$R/$F/dev-decisions.md"
 run "$R"; ck "G3.j approval 이 아닌 종류의 줄에 같은 말이 있어도 동의가 아니다 → ask" "${OUT%% (*}" "PR-GATE: ask"
+# G3.k~m 동의 문구는 기록의 **결정 칸 끝**이어야 한다 (20261114 재현 — "PR 생성 포함은 거절" 도 동의로 읽혔다).
+#   dev-decision.sh 는 `- <시각> [approval] <결정>[ — <근거>]` 로 쓴다 → "PR 생성 포함" 뒤에는 줄 끝이나 " — " 만 온다.
+R=$(mk k10 '**§기본**: true'); approve "$R" '승인했다 · PR 생성 포함은 거절 — 직접 만든다'
+run "$R"; ck "G3.k ★ 'PR 생성 포함은 거절' 은 동의가 아니다 → ask" "${OUT%% (*}" "PR-GATE: ask"
+R=$(mk k11 '**§기본**: true'); approve "$R" '승인 · PR 생성 포함하지 않음'
+run "$R"; ck "G3.l 'PR 생성 포함하지 않음' → ask" "${OUT%% (*}" "PR-GATE: ask"
+R=$(mk k12 '**§기본**: true'); approve "$R" '승인 묶음 승인 — 근거에 PR 생성 포함 이라는 말이 있다'
+run "$R"; ck "G3.m 근거 칸(— 뒤)에만 있는 말은 동의가 아니다 → ask" "${OUT%% (*}" "PR-GATE: ask"
+R=$(mk a3 '**§기본**: true'); approve "$R" 'spec 1장 승인 · PR 생성 포함 — /basic 승인 1회'
+run "$R"; ck "G1.c 대조: 기록 스크립트가 쓰는 형태(결정 · PR 생성 포함 — 근거) → auto" "$OUT" "PR-GATE: auto"
+R=$(mk a4 '**§일괄**: true'); approve "$R" '화면은 고치지 않는다는 조건으로 승인 묶음을 승인했다 · PR 생성 포함 — 근거도 길게 쓴다'
+run "$R"; ck "G1.d 결정 칸에 여러 바이트 글자(는·다·—와 끝 바이트가 겹치는 글자)가 있어도 → auto" "$OUT" "PR-GATE: auto"
+R=$(mk k13 '**§기본**: true'); approve "$R" '승인 · 이번엔PR 생성 포함'
+run "$R"; ck "G3.n 낱말 중간에 붙은 말(…엔PR 생성 포함)은 동의 문구가 아니다 → ask" "${OUT%% (*}" "PR-GATE: ask"
+# G6.e 기록하는 쪽이 실제로 그 줄을 남기고 판정기가 읽는다 (문자열이 파일에 있는지가 아니라 동작으로 — 변이 실측: 기록 호출을 지워도 G6.a 가 통과했다)
+BP="$PLUGIN/scripts/basic-path.sh"; E="$SB/e2e"; mkdir -p "$E" && ( cd "$E" && git init -q -b work . && git -c user.name=t -c user.email=t@e.com -c commit.gpgsign=false commit -q --allow-empty -m init && mkdir .specops )
+( cd "$E" && bash "$BP" start "$F" "목록 화면 안내 문구를 고친다" >/dev/null 2>&1 )
+if [ -f "$E/.specops/$F/spec.md" ]; then
+  python3 - "$E/.specops/$F/spec.md" <<'PY'
+import re,sys
+p=sys.argv[1]; s=open(p,encoding='utf-8').read()
+s=re.sub(r'\{\{[^}]*\}\}','내용',s)
+if '### AC-1' not in s:
+    s=re.sub(r'(^## .*수용 기준.*$)', r'\1\n\n### AC-1: 안내 문구\n\n- **Given** 목록이 비어 있다\n- **When** 화면을 연다\n- **Then** 안내 문구가 보인다\n- **우선순위**: must\n', s, count=1, flags=re.M)
+open(p,'w',encoding='utf-8').write(s)
+PY
+  ( cd "$E" && bash "$BP" approve "$F" >"$SB/ap.out" 2>&1 ); APRC=$?
+  ( cd "$E" && bash "$BP" approve "$F" >/dev/null 2>&1 )
+  N=$(grep -cE '^- [0-9T:Z-]+ \[approval\] .*PR 생성 포함' "$E/.specops/$F/dev-decisions.md" 2>/dev/null)
+  OUT=$(cd "$E" && env -u SPECOPS_PR_GATE -u SPECOPS_ROOT bash "$PG" decide "$F" 2>/dev/null)
+  ck "G6.e ★ approve 가 승인 기록을 1줄 남기고(다시 실행해도 1줄) 판정기가 auto 를 낸다" "$APRC|${N:-0}|$OUT" "0|1|PR-GATE: auto"
+else
+  nope "G6.e" "픽스처: basic-path.sh start 가 spec 을 만들지 못했다"
+fi
 
 # ── 판정 불가는 묻는 쪽 · 사용 오류 ──
 mkdir -p "$SB/n1/$F"

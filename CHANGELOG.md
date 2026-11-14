@@ -26,9 +26,16 @@
   - 우회 표식의 위치: `SPECOPS_GOVERNANCE_BYPASS=1` 을 명령 원문에서 줄 단위로 찾아, heredoc 본문이나 여러 줄 커밋 메시지 안의 한 줄(우회 기능을 설명하는 메시지)로 게이트가 열리고 가짜 우회 기록이 쌓였다. 인용·heredoc 본문을 걷어 낸 문자열에서만 찾는다. 빈 사유(`SPECOPS_BYPASS_REASON=""`·`''`)는 사유로 받지 않는다.
   - 하류 실측이 아니라 소스 검토(20261114)에서 임시 저장소로 재현한 것이다. 정직한 사용에서 드물게 나는 형태지만 흔적 없이 열렸다.
 
+- **판정이 틀리거나 통과로 잘못 적히던 것 넷**(소스 검토 20261114 — 전부 실행으로 재현).
+  - PR 판정기(`scripts/pr-gate.sh`)가 "PR 생성 포함은 거절" 같은 기록도 동의로 읽었다. 승인 기록의 **결정 칸이 `PR 생성 포함` 으로 끝날 때만** 동의다(근거 칸에만 있는 말·"포함하지 않음"은 아니다). v5.1.0 에서 들어간 결함이다.
+  - 세션 분리 끄기(`scripts/split-session.sh`)가 `enabled: False`·`OFF`·`No` 와 한 줄 형태 `session_split: {enabled: false}` 를 끄기로 읽지 못했다.
+  - 화면 스크립트(`scripts/_internal/design-screen.sh`)가 `.md` 만 보고 충돌을 판정해, `.html` 만 있으면 사용자가 다듬은 목업을 `--force` 없이 템플릿으로 덮었다. `.md`·`.html` 을 둘 다 본다. **행동 변경**: `.html` 만 있는 화면 이름으로 부르면 이제 `--force` 없이는 거부한다.
+  - 통합 게이트(`skills/integration-test-ko`)가 "exit 0, skip 있음 → PASS" 라서 DB·서버가 없어 전부 skip 된 실행도 통과로 적혔다. 전부 skip 이거나 실행 0건이면 PASS 로 적지 않고 환경 질문으로 돌아간다.
+
 ### Tests/CI
 
 - `test-pretool.sh` T37b~e · T-cq.a~e · T-ev(4형태) · `test-is-hook-enabled.sh` T7 · T8 · T8b — 먼저 실패를 확인했다(13건). 대조군: 주석 따옴표 사이에 커밋이 없으면 통과 · 인용 문자열 안의 `#` 는 주석이 아님 · 낱말 중간의 `#`(`${x#y}`·`$#`·`a#b`)는 주석이 아님 · 정상 구조의 `enabled: false` 는 그대로 끔.
+- `test-pr-gate.sh` G3.k~n · G1.c·d · **G6.e**(승인 → 기록 1줄 → 판정기 auto 를 실제로 돌려 본다 — 종전 G6.a 는 문자열이 파일에 있는지만 봐서 기록 호출을 지워도 통과했다) · `test-split-session.sh` D7b~e · `test-design-screen.sh` T6.c·d · `test-gate-presence.sh` 통합 게이트 문구.
 
 ## [5.1.0] — 2026-11-14
 

@@ -132,7 +132,7 @@ go test ./tests/integration/... -v
 | 결과 | 처리 |
 |---|---|
 | exit 0, 전 항목 PASS | `INTEGRATION: PASS — <테스트 수> tests, 0 failures` → evidence.md append → `## 다음 skill` |
-| exit 0, skip 있음 | PASS로 간주. skip 이유를 evidence.md에 부기 |
+| exit 0, skip 있음 | 1건 이상 실행됐으면 PASS(skip 이유를 evidence.md에 부기). **전부 skip 이거나 실행된 테스트가 0건이면 PASS 로 적지 않는다** — Step 2 의 환경 질문으로 돌아간다 |
 | exit 1, FAIL 존재 | → **FAIL 분기** (아래) |
 | 실행 자체 실패 (명령 없음 등) | → 사용자에게 "통합 테스트 명령을 찾을 수 없습니다" 보고 + 해결 후 재시도 |
 

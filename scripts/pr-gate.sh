@@ -13,7 +13,9 @@
 # 판단이 서지 않으면 ask 다(자동 쪽으로 틀리는 길을 두지 않는다):
 #   설정 pr_gate: ask · SPECOPS_PR_GATE=ask · spec 없음 · §batch(오케스트레이터 소관) · §auto(무인 — 가정 다이제스트를 사람이 본다)
 #   · §일괄·§기본 이 아님(--step 단계별 확인) · 승인 기록에 "PR 생성 포함"이 없음(이 버전 전에 승인한 작업 포함).
-# 동의 기록: dev-decision.sh 가 쓴 형식의 줄(시각 + [approval])에 "PR 생성 포함" 이 있어야 한다 — 손으로 쓴 줄·다른 종류는 치지 않는다.
+# 동의 기록: dev-decision.sh 가 쓴 형식의 줄(시각 + [approval])의 **결정 칸이 "PR 생성 포함" 으로 끝나야** 한다 —
+#   그 스크립트는 `- <시각> [approval] <결정>[ — <근거>]` 로 쓰므로 그 말 뒤에는 줄 끝이나 " — " 만 온다.
+#   "PR 생성 포함은 거절"·"포함하지 않음"·근거 칸에만 있는 말은 동의가 아니다(20261114 재현). 손으로 쓴 줄·다른 종류도 치지 않는다.
 # 데모: evidence.md 의 **마지막** `## /demo` 절의 `**확인 필요**:` 가 no 로 시작하면 auto, 그 밖(yes·빈 값·모르는 값)은 auto-draft.
 #   데모 절이 없으면(기본 경로) auto — 화면을 건드린 기본 경로 작업은 브라우저 점검 결과를 PR 본문에 싣는다.
 set -u
@@ -41,8 +43,18 @@ fi
 grep -qE '^\*\*§batch\*\*:' "$SPEC" && ask "batch — 오케스트레이터가 batch PR 을 맡는다"
 grep -qE '^\*\*§auto\*\*:[[:space:]]*true' "$SPEC" && ask "무인 — 가정 다이제스트를 확인한다"
 grep -qE '^\*\*§(일괄|기본)\*\*:[[:space:]]*true' "$SPEC" || ask "단계별 확인(--step)"
-grep -qE '^- [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9:]+Z \[approval\] .*PR 생성 포함' "$D/dev-decisions.md" 2>/dev/null \
-  || ask "승인 기록에 PR 생성 포함이 없다"
+# 결정 칸 = 접두를 뗀 뒤 첫 " — " 앞까지. 정규식의 글자 묶음이 아니라 문자열 연산으로 자른다 — LC_ALL=C 에서
+#   한글·" — " 는 여러 바이트라 `[^—]` 같은 묶음은 바이트 단위로 어긋난다("는"의 끝 바이트가 "—" 의 끝 바이트와 같다).
+consent=$(awk '
+  /^- [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9:]+Z \[approval\] / {
+    d = $0; sub(/^- [^ ]+ \[approval\] /, "", d)
+    k = index(d, " — "); if (k > 0) d = substr(d, 1, k - 1)
+    sub(/[[:space:]]+$/, "", d)
+    want = "PR 생성 포함"; n = length(d); m = length(want)
+    if (n == m && d == want) { print 1; exit }
+    if (n > m && substr(d, n - m + 1) == want && substr(d, n - m, 1) == " ") { print 1; exit }
+  }' "$D/dev-decisions.md" 2>/dev/null)
+[ "$consent" = 1 ] || ask "승인 기록에 PR 생성 포함이 없다"
 
 if [ -f "$D/evidence.md" ] && grep -qE '^## /demo' "$D/evidence.md"; then
   need=$(awk '/^## \/demo/ { v = ""; f = 1; next } f && /^## / { f = 0 } f && /^\*\*확인 필요\*\*:/ { v = $0 } END { print v }' "$D/evidence.md" \

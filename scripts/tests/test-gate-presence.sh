@@ -1013,4 +1013,14 @@ else
   nope "planning-ko 1회차 동시 dispatch" "위치(ts=$_l_ts9 cc=$_l_cc pr=$_l_pr9) 또는 없음:$_miss"
 fi
 
+# 통합 게이트 — 전부 skip 은 통과가 아니다 (20261114 소스 검토: "exit 0, skip 있음 → PASS 로 간주" 가 DB·서버가 없어
+#   통합 테스트가 전부 skip 된 실행도 PASS 로 적게 했다. verifying-evidence-ko 의 "0건 실행은 NOT_RUN" 과 모순이었다)
+_it="$PLUGIN/skills/integration-test-ko/SKILL.md"
+if grep -qF '전부 skip 이거나 실행된 테스트가 0건이면 PASS 로 적지 않는다' "$_it" \
+   && ! grep -qE '^\| exit 0, skip 있음 \| PASS로 간주\.' "$_it"; then
+  ok "integration-test-ko — 전부 skip·0건 실행은 PASS 가 아니다"
+else
+  nope "integration-test-ko 전부 skip" "문구 없음 또는 옛 'PASS로 간주' 줄 잔존"
+fi
+
 finish

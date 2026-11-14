@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **기본 경로 봉인이 NEEDS_FIX 를 "B PASS" 로 적던 것**(`scripts/basic-path.sh seal`). 저장 훅이 `T1-B-feedback.md` 를 만드는 것은 스펙 리뷰 판정이 `NEEDS_FIX` 일 때뿐인데, 훅이 안 돈 실행(부모 fallback 저장)에서는 그 파일이 없어 봉인이 감사 행(`BC-PAR-CHECK:T1`)에 `B PASS` 를 적었다 — 감사(`check-review-audit.sh`)도 feedback 유무만 교차 검사해 위장이 통과했다(소스 검토 20261114에서 확인, 재현은 새 테스트 V1·V3). 이제 B 보고서 `## 종합 판정` 절의 고정 판정 줄(`판정: NEEDS_FIX` — 줄 전체 일치)을 읽고, feedback 이 없으면 **봉인하지 않는다**(rc 4 — 보고서가 없을 때와 같은 "리뷰 단계로 돌아가라"). **판정 줄이 없는 이전 형식 보고서는 종전대로 feedback 유무로 본다**(하위 호환). 판정 줄은 스펙 리뷰어 정의가 새로 고정한 형식(에이전트 계약 정합 변경)이라 그 변경과 함께 효과가 난다.
+
+### Tests/CI
+
+- `test-basic-path.sh` V1~V6 — NEEDS_FIX + feedback 없음 거부 · feedback 있으면 정상 봉인 + 기존 리뷰 감사 PASS · PASS 대조 · 옛 형식 하위 호환 · 줄 전체 일치(본문 인용·`NEEDS_FIX 아님` 은 판정이 아님).
+
 ### Security
 
 - **작업 폴더의 `yaml.py` 가 훅에서 실행되던 것**(`scripts/_internal/is-hook-enabled.sh`). pyyaml 유무를 보는 탐침 `python3 -c "import yaml"` 이 현재 폴더를 import 경로에 둔 채 돌았다 — `.specops/config.yaml` 이 있는 저장소를 열면 그 저장소의 `yaml.py` 가 Bash 호출마다·세션 시작마다 실행됐다(파싱 단계는 이미 현재 폴더를 뺐고 탐침만 빠져 있었다). 탐침과 파싱 모두 현재 폴더(빈 문자열·`.`·절대경로)를 뺀다.

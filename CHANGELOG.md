@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.13] — 2026-11-14
+
 ### Added
 
 - **좁은 폭 결함 3종을 계측이 잡는다**(`scripts/_internal/ui-probe-layout.cjs`). `L-WRAP-CHIP`(칩·배지·버튼의 짧은 글자 한 덩어리가 두 줄로 꺾임 — 아이콘과 라벨을 쌓은 타일은 세지 않는다) · `L-SCROLL-X`(탭 줄·차트가 가로 스크롤 상자 안에 24px 넘게 숨음 — 표·코드 블록 래퍼, 격자, 넘겨 보는 상자, 세로 패널은 세지 않는다) · `L-FIXED-COVER`(아래 고정 막대 높이만큼의 아래 여백이 없어 끝까지 내려도 마지막 입력이 가림 — 문서 스크롤과 안쪽 상자 스크롤 모두 · 토스트는 세지 않는다). 브라우저 점검과 촬영 계측(`probe.txt`)에 `배치 경고` 줄로 나오고, 있을 때만 요약에 ` · 줄바꿈 N · 스크롤 숨음 N · 고정 가림 N` 이 붙는다. **경고이고 판정(PASS·FAIL)·rc 는 그대로다.** 3회 재생성 실측에서 지침 문장(좁은 폭 규칙)은 효과가 재현되지 않았고 계측(대비)은 9화면 전부 재현됐다 — 그래서 같은 규칙을 기계가 보게 했다. 실측 12화면 대조: 평가자가 지적한 칩 줄바꿈·차트 잘림·탭 잘림을 7건 잡았다. 독립 리뷰가 조각 28개로 찾은 오탐 3종(쌓은 타일·큰 아이콘·앱 셸)과 미탐 5종(flex 자식 칩·인라인 칩·oklch 배경·기본 버튼·떠 있는 막대)을 대조 조각으로 잠갔다. 남는 오탐: 칸반 같은 의도한 가로 스크롤, 닫으면 사라지는 동의 막대. 화면 전문가·설계 리뷰어는 이 줄을 Minor 로 인용한다(어림 규칙).
@@ -3942,7 +3944,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.12...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.13...HEAD
+[4.0.13]: https://github.com/andyko18/devFSD/compare/v4.0.12...v4.0.13
 [4.0.12]: https://github.com/andyko18/devFSD/compare/v4.0.11...v4.0.12
 [4.0.11]: https://github.com/andyko18/devFSD/compare/v4.0.10...v4.0.11
 [4.0.10]: https://github.com/andyko18/devFSD/compare/v4.0.9...v4.0.10

@@ -270,5 +270,27 @@ NG=$(mktemp -d "$SB/nogit.XXXXXX"); mkdir -p "$NG/.specops"; cp "$R12/.specops/s
 N_OUT=$(cd "$NG" && env -u SPECOPS_ROOT GIT_CEILING_DIRECTORIES="$SB" bash "$ST" 2>/dev/null); N_RC=$?
 ck "T12.c git 저장소가 아니면 안내 없이 종전대로(rc 0)" "$N_RC|$(printf '%s\n' "$N_OUT" | grep -c '^참고: 읽은 원장')" "0|0"
 
+# ══ 다른 worktree 의 원장 합치기 (20261114) — 하류 실측: 11월 FID 10건의 기록이 본 폴더가 아니라 worktree 사본 2곳에만 있어 "FID 3개"로 집계됐다 ══
+#   사본은 만들 때의 메인 원장을 그대로 들고 시작한다 — 같은 FID·같은 줄은 한 번만 센다.
+R13="$SB/r13"; mkdir -p "$R13" && (cd "$R13" && git init -q && git -c user.name=t -c user.email=t@e.com -c commit.gpgsign=false commit -q --allow-empty -m init && git worktree add -q "$SB/r13-wa" -b wa 2>/dev/null && git worktree add -q "$SB/r13-wb" -b wb 2>/dev/null)
+mkdir -p "$R13/.specops" "$SB/r13-wa/.specops" "$SB/r13-wb/.specops"
+printf '## 20261001-aaa · A\n\n- 2026-10-01 10:05 /plan 완료 (x)\n- 2026-10-01 10:00 /specify 완료 (x)\n' > "$R13/.specops/session-progress.md"
+# wa: 메인 사본(aaa 2줄) + 새 FID bbb 2줄(9분)   wb: 메인 사본 + aaa 의 뒤이은 줄(/tasks · 10:20 → 15분) + 새 FID ccc 1줄
+printf '## 20261002-bbb · B\n\n- 2026-10-02 09:09 /plan 완료 (x)\n- 2026-10-02 09:00 /specify 완료 (x)\n\n## 20261001-aaa · A\n\n- 2026-10-01 10:05 /plan 완료 (x)\n- 2026-10-01 10:00 /specify 완료 (x)\n' > "$SB/r13-wa/.specops/session-progress.md"
+printf '## 20261003-ccc · C\n\n- 2026-10-03 08:00 /specify 완료 (x)\n\n## 20261001-aaa · A\n\n- 2026-10-01 10:20 /tasks 완료 (x)\n- 2026-10-01 10:05 /plan 완료 (x)\n- 2026-10-01 10:00 /specify 완료 (x)\n' > "$SB/r13-wb/.specops/session-progress.md"
+P_OUT=$(cd "$R13" && env -u SPECOPS_ROOT bash "$ST" 2>/dev/null)
+A_OUT=$(cd "$R13" && env -u SPECOPS_ROOT bash "$ST" --all-worktrees 2>/dev/null); A_RC=$?
+ck "T13.a 옵션 없으면 자기 원장만(FID 1개) + 다른 worktree 원장 2곳 안내 한 줄" "$(printf '%s\n' "$P_OUT" | grep -c 'FID 1개')|$(printf '%s\n' "$P_OUT" | grep -c '^참고: 다른 worktree 2곳에 원장이 있습니다 — 합쳐 보려면 --all-worktrees')" "1|1"
+ck "T13.b --all-worktrees: FID 3개 · 원장 줄에 합친 곳 수" "$A_RC|$(printf '%s\n' "$A_OUT" | grep -c 'FID 3개')|$(printf '%s\n' "$A_OUT" | grep -c '^원장: .* (+ worktree 2곳)')" "0|1|1"
+ck "T13.c ★ 사본에 겹친 줄은 한 번만 — /plan 완료 n=2(aaa 5분 · bbb 9분 · 합 14), 겹친 줄을 또 세면 n=4·0분 구간이 생긴다" "$(printf '%s\n' "$A_OUT" | grep -E ' /plan 완료$' | awk '{print $1, $3}')" "14 2"
+ck "T13.d 다른 worktree 에만 있는 뒤이은 줄이 같은 FID 시간선에 붙는다 — /tasks 완료 15분 1건" "$(printf '%s\n' "$A_OUT" | grep -E ' /tasks 완료$' | awk '{print $1, $3}')" "15 1"
+ck "T13.e 합쳐 보면 안내 줄은 없다" "$(printf '%s\n' "$A_OUT" | grep -c '^참고: 다른 worktree')" "0"
+W13=$(cd "$SB/r13-wa" && env -u SPECOPS_ROOT bash "$ST" --all-worktrees 2>/dev/null)
+ck "T13.f 링크 worktree 에서 불러도 같은 합집합(FID 3개 · /tasks 15분)" "$(printf '%s\n' "$W13" | grep -c 'FID 3개')|$(printf '%s\n' "$W13" | grep -E ' /tasks 완료$' | awk '{print $1}')" "1|15"
+N13=$(cd "$NG" && env -u SPECOPS_ROOT GIT_CEILING_DIRECTORIES="$SB" bash "$ST" --all-worktrees 2>/dev/null); N13_RC=$?
+ck "T13.g git 저장소가 아니면 --all-worktrees 는 자기 원장만으로 집계(rc 0 · 합친 곳 표기 없음)" "$N13_RC|$(printf '%s\n' "$N13" | grep -c '(+ worktree')|$(printf '%s\n' "$N13" | grep -c 'FID 1개')" "0|0|1"
+S13=$(SPECOPS_ROOT="$R13/.specops" bash "$ST" --all-worktrees 2>"$SB/err13"); S13_RC=$?
+ck "T13.h SPECOPS_ROOT 를 직접 정했으면 --all-worktrees 를 거부한다(rc 2 — 어느 저장소의 worktree 인지 정할 수 없다)" "$S13_RC|$(grep -c 'SPECOPS_ROOT' "$SB/err13")" "2|1"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

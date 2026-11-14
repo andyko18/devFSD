@@ -526,6 +526,7 @@ bash scripts/stage-timing.sh --since 20260901
 bash scripts/stage-timing.sh --split --since 20260902      # transcript 범위 안만 — 어느 단계에서 사람·백그라운드 대기가 큰가
 bash scripts/stage-timing.sh --by-agent --since 20260902   # 어느 역할(구현자·리뷰어·플랜 리뷰어)의 서브에이전트 시간이 큰가
 bash scripts/stage-timing.sh --split --transcript-dir A --transcript-dir B   # 지정은 반복 가능 · 지정 없으면 git worktree 전부의 projects 디렉토리 합집합
+bash scripts/stage-timing.sh --all-worktrees --since 20261101   # 다른 worktree 의 원장도 합친다 — 겹친 줄은 한 번만 · 없으면 자기 원장만 읽고 안내 한 줄
 ```
 
 ## prompt-kinds.sh — 무정보 프롬프트 종류 집계 (관측 전용)

@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # stage-timing.sh — session-progress 원장을 FID 간 단계별 소요로 집계한다 (읽기 전용 관측)
-# Usage: bash scripts/stage-timing.sh [--since YYYYMMDD] [--gap-cap-min N] [--min-n N] [--split | --by-agent] [--transcript-dir DIR]
+# Usage: bash scripts/stage-timing.sh [--since YYYYMMDD] [--gap-cap-min N] [--min-n N] [--split | --by-agent] [--transcript-dir DIR] [--all-worktrees]
 # rc: 0 = 집계 성공(구간 0건이어도 그 사실을 표시) · 2 = 원장 부재·읽기 불가·잘못된 인자
 #
 # 원장 규약: "## FID" 섹션 아래 "- YYYY-MM-DD HH:MM /cmd 상태 (...)" 행 (시각 = 로컬 · 분 해상도 — session-progress-append.sh).
 # FID 단위 단계 소요는 show-fid-status.sh(/status)가 이미 낸다 — 이 스크립트는 FID 간 분포만 더한다.
 # 행 단위 루프에서 외부 프로세스를 띄우지 않는다 — sort 1회 + awk 2회(일수 산술)로 끝낸다.
 #
+# --all-worktrees: 같은 저장소의 다른 worktree 에 있는 원장(.specops/session-progress.md)도 합쳐 집계한다. worktree 사본은 만들 때의
+#   메인 원장을 들고 시작하므로 같은 FID·같은 줄은 한 번만 센다. 옵션이 없으면 자기 원장만 읽고, 다른 worktree 에 자기 원장에 없는
+#   줄이 있으면 끝에 안내 한 줄을 낸다(하류 실측 20261114: 11월 FID 10건이 worktree 사본 2곳에만 있어 "FID 3개"로 집계됐다).
+#   SPECOPS_ROOT 를 직접 정했으면 쓸 수 없다(rc 2 — 어느 저장소의 worktree 인지 정할 수 없다).
 # --split: Claude Code transcript 의 구조 필드(turn_duration·origin.kind — turn_duration 이 없는 파일은 턴 끝 표지 stop_hook_summary 와 어시스턴트 기록 시각)로 각 구간을 작업·사람·백그라운드·기타로 쪼갠다.
 #   transcript 본문은 읽지 않는다 — 읽는 일은 scripts/_internal/transcript-turns.sh(프라이버시 경계) 한 곳이 맡는다.
 # --by-agent: --split 을 내포하고, 서브에이전트 transcript(세션폴더/subagents/agent-ID.jsonl + .meta.json)의 구조 필드로
@@ -24,7 +28,7 @@ USER_ROOT="${SPECOPS_ROOT:-}"   # 사용자가 원장 위치를 정했는지 —
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 LEDGER="$SPECOPS/session-progress.md"
 SELF_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-SINCE=0; CAP=720; MINN=1; SPLIT=0; BYAGENT=0; TDIR=""; TDIRS=(); TDIR_MISS=0
+SINCE=0; CAP=720; MINN=1; SPLIT=0; BYAGENT=0; TDIR=""; TDIRS=(); TDIR_MISS=0; ALLWT=0; MERGED=""
 
 die() { echo "stage-timing: $1" >&2; exit 2; }
 need_val() { [ "$#" -ge 2 ] && [ -n "${2:-}" ] || die "$1 값 필요"; }
@@ -45,12 +49,50 @@ while [ "$#" -gt 0 ]; do
       MINN="$2"; shift 2 ;;
     --split) SPLIT=1; shift ;;
     --by-agent) BYAGENT=1; SPLIT=1; shift ;;
+    --all-worktrees) ALLWT=1; shift ;;
     --transcript-dir) need_val "$@"; TDIRS+=("$2"); shift 2 ;;
     *) die "알 수 없는 옵션: $1" ;;
   esac
 done
 
 { [ -f "$LEDGER" ] && [ -r "$LEDGER" ]; } || die "원장 없음 또는 읽기 불가: $LEDGER"
+{ [ "$ALLWT" = 1 ] && [ -n "$USER_ROOT" ]; } && die "--all-worktrees 는 SPECOPS_ROOT 를 직접 정했을 때 쓸 수 없습니다 — 어느 저장소의 worktree 인지 정할 수 없습니다"
+
+# 다른 worktree 의 원장 가운데 읽는 원장에 없는 줄(유효 FID 섹션의 "- " 행)을 가진 것만 고른다 — 추적되는 원장은 worktree 마다
+#   같은 사본이 체크아웃돼 있어, 파일이 있다는 것만으로 세면 안내가 늘 뜬다. git 저장소가 아니면 0곳이다(자기 원장만).
+LEDGER_READ="$LEDGER"; LEDGER_LABEL="$LEDGER"; EXTRA_LEDGERS=()
+if [ -z "$USER_ROOT" ]; then
+  SELF_REAL=$(cd "$(dirname "$LEDGER")" 2>/dev/null && pwd -P) || SELF_REAL=""
+  # worktree 수만큼만 돈다(원장 행 단위 루프가 아니다). 경로의 공백은 줄바꿈 IFS 로, 글롭 글자는 set -f 로 지킨다.
+  _OIFS=$IFS; IFS='
+'; set -f
+  for _wt in $(git -C "$(dirname "$LEDGER")" worktree list --porcelain 2>/dev/null | sed -n 's/^worktree //p'); do
+    IFS=$_OIFS; set +f
+    [ -n "$_wt" ] || continue
+    _f="$_wt/.specops/session-progress.md"
+    { [ -f "$_f" ] && [ -r "$_f" ]; } || continue
+    _r=$(cd "$_wt/.specops" 2>/dev/null && pwd -P) || continue
+    [ "$_r" != "$SELF_REAL" ] || continue
+    awk 'function key() { return fid SUBSEP $0 }
+         /^## / { fid = ($2 ~ /^[0-9]+-[a-z0-9-]+$/) ? $2 : ""; next }
+         /^- / { if (fid == "") next; if (FNR == NR) seen[key()] = 1; else if (!(key() in seen)) { found = 1; exit } }
+         END { exit found ? 0 : 1 }' "$LEDGER" "$_f" 2>/dev/null && EXTRA_LEDGERS+=("$_f")
+  done
+  IFS=$_OIFS; set +f
+fi
+if [ "$ALLWT" = 1 ] && [ "${#EXTRA_LEDGERS[@]}" -gt 0 ]; then
+  MERGED=$(mktemp "${TMPDIR:-/tmp}/stage-timing.XXXXXX" 2>/dev/null) || die "임시 파일을 만들 수 없음"
+  # 자기 원장은 그대로 두고, 다른 원장에서는 아직 없는 (FID·줄)만 그 FID 섹션으로 덧붙인다 — 아래 집계가 같은 FID 의 여러 섹션을 한 시간선으로 합친다.
+  { cat "$LEDGER"; printf '\n'
+    awk 'function key() { return fid SUBSEP $0 }
+         FNR == 1 { fid = "" }
+         /^## / { fid = ($2 ~ /^[0-9]+-[a-z0-9-]+$/) ? $2 : ""; next }
+         /^- / { if (fid == "") next
+                 if (FILENAME == ARGV[1]) { seen[key()] = 1; next }
+                 if (!(key() in seen)) { seen[key()] = 1; printf "## %s\n%s\n", fid, $0 } }' "$LEDGER" "${EXTRA_LEDGERS[@]}"
+  } > "$MERGED" || die "원장을 합칠 수 없음"
+  LEDGER_READ="$MERGED"; LEDGER_LABEL="$LEDGER (+ worktree ${#EXTRA_LEDGERS[@]}곳)"
+fi
 if [ "${#TDIRS[@]}" -gt 0 ]; then
   [ "$SPLIT" = 1 ] || die "--transcript-dir 는 --split 과 함께만 쓸 수 있습니다"
   for TDIR in "${TDIRS[@]}"; do [ -d "$TDIR" ] || die "--transcript-dir 가 디렉토리가 아닙니다: $TDIR"; done
@@ -111,7 +153,7 @@ $CP
     fi
     if [ -z "$SPLIT_NA" ]; then
       # 원장 최초 행 날짜 이후에 수정된 세션만 읽는다(그 전에 끝난 세션은 구간과 겹칠 수 없다).
-      MINDATE=$(awk '/^- [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9] \//{ if (min == "" || $2 < min) min = $2 } END { print min }' "$LEDGER")
+      MINDATE=$(awk '/^- [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9] \//{ if (min == "" || $2 < min) min = $2 } END { print min }' "$LEDGER_READ")
       if [ -z "$MINDATE" ]; then
         SPLIT_NA="원장에 시각이 있는 행이 없음"
       else
@@ -172,7 +214,7 @@ seg_stream() (   # 서브셸 + pipefail — 헬퍼가 실패(읽을 수 없는 �
 )
 
 SEG_OK=0; SEGTMP=""; AGTMP=""; BGTMP=""
-trap 'rm -f "$SEGTMP" "$AGTMP" "$BGTMP"' EXIT
+trap 'rm -f "$SEGTMP" "$AGTMP" "$BGTMP" "$MERGED"' EXIT
 
 # 서브에이전트(--by-agent): 세션폴더/subagents/agent-*.jsonl 을 찾아 헬퍼로 에이전트당 1줄(시작·끝·wall·간격·역할)을 임시 파일에 낸다.
 #   273MB 를 파싱해 약 4초가 걸려 세그먼트 생성과 병렬로 돌린다(wait 은 아래). --split 이 측정 불가면 그 사유를 그대로 따른다.
@@ -239,9 +281,9 @@ function dn(y, m, d,   yy, mm) {
   if (D[2] + 0 < 1 || D[2] + 0 > 12 || D[3] + 0 < 1 || D[3] + 0 > 31 || T[1] + 0 > 23 || T[2] + 0 > 59) { bad++; next }
   printf "%s\t%d\t%d\t%s\t%s%s%s\n", fid, dn(D[1] + 0, D[2] + 0, D[3] + 0) * 1440 + (T[1] + 0) * 60 + (T[2] + 0), NR, $4 " " $5, D[1], D[2], D[3]
 }
-END { printf "\t%d\n", bad + 0 }' "$LEDGER" \
+END { printf "\t%d\n", bad + 0 }' "$LEDGER_READ" \
 | sort -t "$TAB" -k1,1 -k2,2n -k3,3nr \
-| STAGE_TIMING_LEDGER="$LEDGER" STAGE_TIMING_CAP="$CAP" STAGE_TIMING_TDIRNOTE="${TDIR_NOTE:-}" STAGE_TIMING_NFILES="${#SEG_FILES[@]}" STAGE_TIMING_SEGFILE="$SEGTMP" STAGE_TIMING_BGFILE="$BGTMP" awk -v since="$SINCE" -v cap="$CAP" -v minn="$MINN" -v seg_ok="$SEG_OK" '
+| STAGE_TIMING_LEDGER="$LEDGER_LABEL" STAGE_TIMING_CAP="$CAP" STAGE_TIMING_TDIRNOTE="${TDIR_NOTE:-}" STAGE_TIMING_NFILES="${#SEG_FILES[@]}" STAGE_TIMING_SEGFILE="$SEGTMP" STAGE_TIMING_BGFILE="$BGTMP" awk -v since="$SINCE" -v cap="$CAP" -v minn="$MINN" -v seg_ok="$SEG_OK" '
 # 표시용 원장 경로·방치 상한은 ENVIRON 으로 받아 원문 그대로 쓴다 — awk -v 는 역슬래시 이스케이프를 해석하고,
 # 거대 정수는 awk 구현마다 %d 표기가 갈린다. 비교용 숫자(cap·since·minn)는 -v 로 받는다.
 function dn(y, m, d,   yy, mm) {
@@ -470,4 +512,8 @@ if [ -z "$USER_ROOT" ]; then
       printf '참고: 읽은 원장은 이 worktree 의 것입니다 — 메인 worktree 원장으로 집계하려면 SPECOPS_ROOT=%s 를 지정하세요\n' "$MAIN_REAL"
     fi
   fi
+fi
+# 다른 worktree 원장 안내: 합쳐 보지 않았고 다른 worktree 에 자기 원장에 없는 줄이 있으면 한 줄로 알린다(읽는 원장은 바꾸지 않는다).
+if [ "$ALLWT" != 1 ] && [ "${#EXTRA_LEDGERS[@]}" -gt 0 ]; then
+  printf '참고: 다른 worktree %d곳에 원장이 있습니다 — 합쳐 보려면 --all-worktrees\n' "${#EXTRA_LEDGERS[@]}"
 fi

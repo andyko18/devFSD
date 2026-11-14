@@ -25,7 +25,7 @@ tools: Read, Grep, Glob, Bash
 4. **test 명령** (5 컨텍스트 #3)
 5. **acceptance-criteria.md 경로** (5 컨텍스트 #2 — 5원칙 위반 탐지에 인용)
 
-본 에이전트는 **read-only** — Write/Edit 도구 호출 금지. 경로도 병렬 표시도 없으면 SKIP 반환. 단 `quick 경로: yes` 표시가 있으면 SKIP 하지 않는다(아래 1번).
+본 에이전트는 **read-only** — Write/Edit 도구 호출 금지. 경로도 병렬 표시도 없으면 SKIP 반환. 단 `quick 경로: yes` 표시가 있으면 SKIP 하지 않는다(아래 1번). `기본 경로: yes` 표시(`commands/basic.md` — 명세·AC 는 있고 태스크 문서·dispatch 컨텍스트 파일만 없다)도 같다: SKIP 하지 않고, 검토 대상은 프롬프트의 `BASE:` 기준 `git diff <BASE>`(`BASE: none` 이면 `git diff HEAD`)와 작업 트리 변경이다.
 
 ## 프로세스
 

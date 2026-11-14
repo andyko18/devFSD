@@ -461,6 +461,16 @@ case "$ACTION" in
     [ ! -f "$SPECOPS/$FID/plan.md" ] || bash "$APPEND" "$FID" /plan 완료 "계획·전문가 반영 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     bash "$APPEND" "$FID" /implement 완료 "주 세션 직접 구현 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     bash "$APPEND" "$FID" /review 진행 "스펙·코드 리뷰 + 보안 스캔 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
+    # 리뷰어가 볼 diff 기준 — 기본 브랜치와의 merge-base (20261114). 종전엔 리뷰어 프롬프트의 `<base>` 를 정의 없이 모델이
+    #   정해 실행마다 달랐다. 기본 브랜치 후보: origin/HEAD → main → master. 못 찾으면 none(리뷰를 막지 않는다).
+    _bp_base=""
+    for _bp_b in "$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)" main master; do
+      [ -n "$_bp_b" ] || continue
+      git rev-parse --verify -q "${_bp_b}^{commit}" >/dev/null 2>&1 || continue
+      _bp_base=$(git merge-base HEAD "$_bp_b" 2>/dev/null) && [ -n "$_bp_base" ] && break
+      _bp_base=""
+    done
+    if [ -n "$_bp_base" ]; then echo "BASE: $_bp_base"; else echo "BASE: none — 기본 브랜치(origin/HEAD·main·master)를 찾지 못했다 · git diff HEAD 로 작업 트리 변경만 본다"; fi
     echo "BASIC: REVIEWING $FID"
     ;;
 

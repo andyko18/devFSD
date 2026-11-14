@@ -69,13 +69,13 @@ FID 는 `YYYYMMDD-<kebab-slug>` 다 — 오늘 날짜 + 요청에서 뽑은 **�
    - `EXPERTS: <에이전트…>` 가 `none` 이 아니면 그 에이전트들을 **한 메시지에서 동시에** 호출한다(`Agent` 도구 `subagent_type` 에 그 이름 그대로). 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · 분석 문서(있으면) · `.specops/memory/` 의 계약 문서(있으면). 프롬프트마다 **실행·읽기 상한을 숫자로 적는다** — 긴 명령(테스트 스위트·빌드·서버 기동) 실행 2회 이내 · 전체 스위트 금지 · `plan.md` 는 절 단위로 읽고 같은 문서를 통째로 두 번 읽지 않는다(각 전문가 정의의 「읽기 상한」). 산출은 `.specops/<FID>/experts/<db|security|api|arch>.md`. 지적은 계획에 반영하거나 근거를 적어 기각하고 그 파일 끝 `## 반영` 에 1줄씩 남긴다. `## 확인 필요` 질문은 추천안으로 정해 spec 에 `(ASSUMED)` 로 적는다(되돌릴 수 없는 결정이면 멈추고 묻는다). 전문가가 `api-spec.md`·`data-model.md` 를 고쳐야 한다고 하면 그 파일을 고치지 말고 풀 경로로 올린다. 봉인은 이 보고서가 없으면 받지 않는다.
 5. **직접 구현** — 주 세션이 구현한다(서브에이전트에게 구현을 맡기지 않는다). 계획이 있으면 그 태스크 순서대로 한다. 수용 기준마다 **실패하는 테스트를 먼저** 쓰고 실패를 확인한 뒤 고친다(`devfsd:tdd-ko`). 구현 중에는 **관련 테스트만** 돌린다. 통과를 확인한 명령은 그 뒤로 파일을 바꾸지 않았으면 다시 돌리지 않는다(앞선 출력을 쓴다). 커밋은 7번 뒤에 한다.
    - **화면을 건드리면 — 목업 CSS 이식이 첫 일이다**: 고치는 화면에 `screens/<name>.html` 목업이 있으면 화면 코드를 쓰기 전에 **목업 CSS 이식**부터 한다 — 목업 `<style>` 의 토큰(`:root` 변수)과 공통 컴포넌트 클래스(카드·버튼·입력·표·배지·내비 등)를 앱 전역 CSS(또는 공통 컴포넌트)로 옮기고, 화면 코드는 그 클래스·토큰을 쓴다. 이미 옮겨져 있으면 빠진 것만 더한다. Tailwind 앱이면 클래스 대신 토큰을 tailwind 설정으로 옮긴다. 화면 CSS 는 목업이 기준이다 — 최소 구현(YAGNI)으로 줄이지 않는다(풀 경로 `planning-ko` 「화면 FID — 목업 CSS 이식」과 같은 규칙. 근거: 하류 4개 앱 20261114 재실측 생존율 8%·33%·90%).
-6. **리뷰 1회 (동시)** — 먼저 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh review <FID>` 로 진행 기록(구현 완료 · 리뷰 진행)을 남긴다(관제판 단계 표시용 — 판정은 없다). 그다음 한 메시지에서 함께 보낸다:
-   - `devfsd:spec-reviewer-ko` — FID · tid `T1` · `spec.md`·`acceptance-criteria.md` 경로 · 리뷰 대상 `git diff <base>...HEAD` + 작업 트리 변경.
-   - `devfsd:code-reviewer-ko` — 같은 대상 · `병렬 dispatch: yes (B 판정 대기)`.
+6. **리뷰 1회 (동시)** — 먼저 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh review <FID>` 로 진행 기록(구현 완료 · 리뷰 진행)을 남긴다(관제판 단계 표시용 — 판정은 없다). 이 명령이 `BASE: <sha>` 줄을 낸다(기본 브랜치와의 merge-base — 못 찾으면 `BASE: none`). 그다음 한 메시지에서 함께 보낸다:
+   - `devfsd:spec-reviewer-ko` — FID · tid `T1` · `기본 경로: yes` · `spec.md`·`acceptance-criteria.md` 경로 · 리뷰 대상 `git diff <BASE 줄의 값>`(`BASE: none` 이면 `git diff HEAD`) — 커밋한 변경과 작업 트리 변경을 함께 본다. 태스크 문서·dispatch 컨텍스트 파일은 없다(리뷰어 정의의 「기본 경로」 규약).
+   - `devfsd:code-reviewer-ko` — 같은 대상 · `기본 경로: yes` · `병렬 dispatch: yes (B 판정 대기)`.
    - 보안 스캔 — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/security-scan.sh <변경 파일…>` 을 백그라운드(Bash `run_in_background`)로.
    - 두 리뷰어 프롬프트에 `<<<REVIEW fid=<FID> tid=T1 phase=<B|C> verdict=…>>>` 보고 형식(`skills/implementing-ko/SKILL.md` 「부모 dispatch 프롬프트 규약」)과 실행 상한(대상 테스트 실행 B 2회·C 3회 이내 · 전체 스위트 실행 금지 · 되돌려-관찰은 임시 복사본에서)을 적는다. 저장 훅이 `.specops/<FID>/reviews/T1-B-report.md`·`T1-C-report.md` 로 옮긴다.
    - 리뷰어가 도는 동안 주 세션은 **PR 본문을 준비**한다(기다리기만 하지 않는다).
-   - **지적 처리**: 스펙 미충족·Critical(`[기존]` 라벨이 붙어도 같다)·보안 Critical/High 는 주 세션이 고치고 **관련 테스트를 다시 돌린다 — 재리뷰는 없다**. Important 는 이번 변경이 만든 결함이면 고치고 아니면(리뷰어의 `[기존]` 라벨) PR 본문 "넘긴 것" 에 적는다. 고칠 수 없는 Critical 이나 `NEEDS_DISCUSSION` 은 멈추고 사용자에게 묻는다.
+   - **지적 처리**: B 보고서의 `should`·`nice-to-have` 미충족은 판정이 PASS 다 — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <FID> backlog "<AC 번호·요지>"` 로 남긴다(PR 본문 "넘긴 것"에 싣는다). 스펙 미충족(`must`)·Critical(`[기존]` 라벨이 붙어도 같다)·보안 Critical/High 는 주 세션이 고치고 **관련 테스트를 다시 돌린다 — 재리뷰는 없다**. Important 는 이번 변경이 만든 결함이면 고치고 아니면(리뷰어의 `[기존]` 라벨) PR 본문 "넘긴 것" 에 적는다. 고칠 수 없는 Critical 이나 `NEEDS_DISCUSSION` 은 멈추고 사용자에게 묻는다.
 7. **봉인과 검증 1회**
    - **화면 점검 (화면을 건드렸을 때 — 봉인 전 1회)**: 통합 게이트는 돌리지 않지만 화면은 실제 브라우저로 한 번 연다.
      ```bash

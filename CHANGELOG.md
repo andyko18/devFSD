@@ -4,17 +4,19 @@
 
 ## [Unreleased]
 
-### Changed
-
-- **계획 단계 에이전트 8종에 「읽기 상한」 절을 더했다**(`plan-reviewer`·`test-designer`·`req`·`ui`·`db`·`arch`·`api`·`security` 설계 전문가). 하류 실측(20261114 — 한 프로젝트의 작업 10건): 계획 리뷰어·테스트 전문가 1회가 맥락 최대 약 484K·493K 토큰까지 갔고, 같은 `plan.md`(최대 100KB)를 통째로 여러 번 읽었다(계획 리뷰어 Read 결과 중앙 150K자 · 범위 지정 Read 비율 35%). 실행 상한("긴 명령 2회")은 부모 프롬프트에만 있고 에이전트 정의에는 없었으며, 기본 경로의 전문가 호출에는 그 문장 자체가 없었다. 이제 정의가 직접 말한다 — 큰 문서는 `grep -n '^#'` 로 절 범위를 찾아 offset/limit 로 읽고 · **한 번은 끝까지 읽되**(리뷰 범위를 줄이지 않는다) 같은 파일을 통째로 두 번 읽지 않으며 · 긴 명령 2회 이내 · 전체 스위트 금지. `commands/basic.md` 의 전문가 호출은 프롬프트마다 이 상한을 숫자로 적게 하고, `planning-ko` 의 실행 예산도 읽기 규칙을 싣게 한다. **효과(토큰 감소)는 아직 재지 않았다** — 다음 하류 주행의 계획 단계에서 서브에이전트 최대 맥락으로 확인한다. 문구 지침의 효과는 재현되지 않을 수 있다(좁은 폭 지침 선례).
-
-### Tests/CI
-
-- `test-agent-reading-caps.sh` 신설(13건 — 먼저 실패 13건 확인): 8개 정의가 같은 절을 갖고(핵심 문장이 글자까지 같다 — drift 방지) · 빈 출력 규칙 앞에 있고 · 기본 경로 호출과 계획 skill 이 상한을 싣게 하는지 · 상한이 리뷰 범위를 줄이지 않는다는 문구(`한 번은 끝까지`)가 8곳 모두에 있는지.
-
 ### Security
 
 - **작업 폴더의 `yaml.py` 가 훅에서 실행되던 것**(`scripts/_internal/is-hook-enabled.sh`). pyyaml 유무를 보는 탐침 `python3 -c "import yaml"` 이 현재 폴더를 import 경로에 둔 채 돌았다 — `.specops/config.yaml` 이 있는 저장소를 열면 그 저장소의 `yaml.py` 가 Bash 호출마다·세션 시작마다 실행됐다(파싱 단계는 이미 현재 폴더를 뺐고 탐침만 빠져 있었다). 탐침과 파싱 모두 현재 폴더(빈 문자열·`.`·절대경로)를 뺀다.
+
+### Changed
+
+- **계획 단계 에이전트 8종에 「읽기 상한」 절을 더했다**(`plan-reviewer`·`test-designer`·`req`·`ui`·`db`·`arch`·`api`·`security` 설계 전문가). 하류 실측(20261114 — 한 프로젝트의 작업 10건): 계획 리뷰어·테스트 전문가 1회가 맥락 최대 약 484K·493K 토큰까지 갔고, 같은 `plan.md`(최대 100KB)를 통째로 여러 번 읽었다(계획 리뷰어 Read 결과 중앙 150K자 · 범위 지정 Read 비율 35%). 실행 상한("긴 명령 2회")은 부모 프롬프트에만 있고 에이전트 정의에는 없었으며, 기본 경로의 전문가 호출에는 그 문장 자체가 없었다. 이제 정의가 직접 말한다 — 큰 문서는 `grep -n '^#'` 로 절 범위를 찾아 offset/limit 로 읽고 · **한 번은 끝까지 읽되**(리뷰 범위를 줄이지 않는다) 같은 파일을 통째로 두 번 읽지 않으며 · 긴 명령 2회 이내 · 전체 스위트 금지. `commands/basic.md` 의 전문가 호출은 프롬프트마다 이 상한을 숫자로 적게 하고, `planning-ko` 의 실행 예산도 읽기 규칙을 싣게 한다. **효과(토큰 감소)는 아직 재지 않았다** — 다음 하류 주행의 계획 단계에서 서브에이전트 최대 맥락으로 확인한다. 문구 지침의 효과는 재현되지 않을 수 있다(좁은 폭 지침 선례).
+- **에이전트 계약을 부르는 쪽·받는 쪽·템플릿이 같은 말로 맞췄다**(소스 검토 20261114 — 전부 소스에서 확인). **행동 변경 둘**:
+  - **스펙 리뷰어는 `must` 수용 기준만으로 PASS 를 정한다**(`agents/spec-reviewer-ko.md`). 종전엔 정의에 `must`·`should` 낱말이 없어 "있으면 좋은"(`nice-to-have`) 기준 하나의 미충족도 `NEEDS_FIX` 가 돼 수정 라운드(구현자 재dispatch)를 불렀다 — 템플릿 §우선순위 규약("nice-to-have: 미충족 시 BLOCK 없음")과 정면 충돌이었다. 이제 `should`·`nice-to-have` 미충족은 PASS 이고 보고서 표에 우선순위와 함께 남으며, 부모(`basic.md` 6번 · `implementing-ko` 「수정 라운드」 0번)가 `dev-decision.sh add <FID> backlog` 로 옮겨 PR 본문 "넘긴 것"에 실린다. `**우선순위**` 줄이 없는 옛 AC 문서는 모두 `must` 로 본다(`AC-R-*` 는 항상 `must`).
+  - **종합 판정이 고정 한 줄이다** — 보고서 `## 종합 판정` 첫 줄이 `판정: PASS` 또는 `판정: NEEDS_FIX`. 종전엔 보고서 틀이 `✅ PASS / ⚠️ PARTIAL / ❌ FAIL`, 반환이 `PASS / NEEDS_FIX / NEEDS_CONTEXT`, 템플릿이 `verdict = BLOCK`(어느 에이전트도 내지 않는 값) 으로 한 정의 안에서도 세 벌이었다. 훅이 읽는 `verdict=<PASS|NEEDS_FIX>` 는 그대로다. 이 줄이 생겨 다음 단계에서 봉인이 판정을 읽을 수 있다(지금 봉인은 보고서 파일 유무만 본다 — 별도 작업).
+- **기본 경로가 리뷰어에게 줄 입력이 정의됐다.** `commands/basic.md` 6번은 dispatch 컨텍스트 파일 없이 리뷰어를 부르는데 두 리뷰어 정의는 5 컨텍스트 누락 시 `NEEDS_CONTEXT` 를 반환하라고 했고(코드 리뷰어만 `quick 경로: yes` 예외), `<base>` 는 정의가 없어 실행마다 달랐다. 두 정의에 `기본 경로: yes` 규약(AC 는 `acceptance-criteria.md` 전체 · test 명령은 변경된 테스트에서 스스로 골라 부모의 실행 상한 안에서)을 더했고, `basic-path.sh review` 가 `BASE: <sha>`(기본 브랜치 origin/HEAD → main → master 와의 merge-base · 못 찾으면 `BASE: none`)를 낸다.
+- **구현자는 whitelist 밖 파일을 쓰지 않는다**(`agents/implementer-ko.md`). 정의가 `tasks.md` 체크(`- [ ]` → `- [x]`)와 `session-progress` 줄을 쓰라고 하면서 whitelist 밖은 `NEEDS_CONTEXT` 라고도 했고, 부모는 `record-task-done.sh` 로 같은 줄을 따로 써 중복·병렬 충돌 여지가 있었다. 체크 표시를 읽는 곳은 구현자 정의 자신뿐이었다(소스 전수 확인). 대신 **기존 동작만 고정하는 태스크는 변이로 RED 를 대신한다**(부모·계획이 약속했는데 받는 에이전트가 없던 "되돌려-관찰" — whitelist 안에서만 · `git diff` 로 원복 확인).
+- **`/security-scan --self-config` 가 감사 3종을 sonnet 으로 부른다**(`commands/security-scan.md`). 에이전트 정의의 `model: inherit`(README 에 "세션 모델 계승"으로 적힌 의도된 설계)는 그대로 두고, 호출 때 낮춘다 — 세션이 상위 모델이면 감사 3종이 그대로 따라가던 것을 막는다.
 
 ### Fixed
 
@@ -24,7 +26,6 @@
   - 값이 빈 env 접두: `FOO= git commit` · `GIT_EDITOR= git commit` · `env FOO= git commit` 이 접두로 인식되지 않아 트리거가 빗나갔다. 빈 값을 접두로 인정한다.
   - 우회 표식의 위치: `SPECOPS_GOVERNANCE_BYPASS=1` 을 명령 원문에서 줄 단위로 찾아, heredoc 본문이나 여러 줄 커밋 메시지 안의 한 줄(우회 기능을 설명하는 메시지)로 게이트가 열리고 가짜 우회 기록이 쌓였다. 인용·heredoc 본문을 걷어 낸 문자열에서만 찾는다. 빈 사유(`SPECOPS_BYPASS_REASON=""`·`''`)는 사유로 받지 않는다.
   - 하류 실측이 아니라 소스 검토(20261114)에서 임시 저장소로 재현한 것이다. 정직한 사용에서 드물게 나는 형태지만 흔적 없이 열렸다.
-
 - **판정이 틀리거나 통과로 잘못 적히던 것 넷**(소스 검토 20261114 — 전부 실행으로 재현).
   - PR 판정기(`scripts/pr-gate.sh`)가 "PR 생성 포함은 거절" 같은 기록도 동의로 읽었다. 승인 기록의 **결정 칸이 `PR 생성 포함` 으로 끝날 때만** 동의다(근거 칸에만 있는 말·"포함하지 않음"은 아니다). v5.1.0 에서 들어간 결함이다.
   - 세션 분리 끄기(`scripts/split-session.sh`)가 `enabled: False`·`OFF`·`No` 와 한 줄 형태 `session_split: {enabled: false}` 를 끄기로 읽지 못했다.
@@ -33,6 +34,7 @@
 
 ### Tests/CI
 
+- `test-agent-reading-caps.sh` 신설(13건 — 먼저 실패 13건 확인): 8개 정의가 같은 절을 갖고(핵심 문장이 글자까지 같다 — drift 방지) · 빈 출력 규칙 앞에 있고 · 기본 경로 호출과 계획 skill 이 상한을 싣게 하는지 · 상한이 리뷰 범위를 줄이지 않는다는 문구(`한 번은 끝까지`)가 8곳 모두에 있는지.
 - `test-pretool.sh` T37b~e · T-cq.a~e · T-ev(4형태) · `test-is-hook-enabled.sh` T7 · T8 · T8b — 먼저 실패를 확인했다(13건). 대조군: 주석 따옴표 사이에 커밋이 없으면 통과 · 인용 문자열 안의 `#` 는 주석이 아님 · 낱말 중간의 `#`(`${x#y}`·`$#`·`a#b`)는 주석이 아님 · 정상 구조의 `enabled: false` 는 그대로 끔.
 - `test-pr-gate.sh` G3.k~n · G1.c·d · **G6.e**(승인 → 기록 1줄 → 판정기 auto 를 실제로 돌려 본다 — 종전 G6.a 는 문자열이 파일에 있는지만 봐서 기록 호출을 지워도 통과했다) · `test-split-session.sh` D7b~e · `test-design-screen.sh` T6.c·d · `test-gate-presence.sh` 통합 게이트 문구.
 

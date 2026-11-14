@@ -69,4 +69,4 @@ reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미
 
 ---
 
-*specops-ko v2.6.0 · 2026-04-27 · 유지보수 진입 슬래시 (자연어 진입과 동등)*
+*specops-ko v4.0.15 · 2026-04-27 · 유지보수 진입 슬래시 (자연어 진입과 동등)*

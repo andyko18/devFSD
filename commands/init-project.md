@@ -262,4 +262,4 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-finalize.sh
 
 ---
 
-*specops-ko v4.0.6 · 2026-11-13 · 답변 파일 · Light enrich · M1 설계 완료 · 원장 · Phase7 목록만 · 커밋1*
+*specops-ko v4.0.14 · 2026-11-13 · 답변 파일 · Light enrich · M1 설계 완료 · 원장 · Phase7 목록만 · 커밋1*

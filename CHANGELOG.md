@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.16] — 2026-11-14
+
 ### Changed
 
 - **관제판이 경로에 따라 단계를 다르게 보여 준다**(`hooks/progress-pane.tsx` · `hooks/console.tsx`). 기본 경로는 머리 줄에 `기본 경로` 를 붙이고, 통합 절차에서 분석·계획이 켜진 작업은 `기본 경로+` 와 함께 그 단계를 막대에 끼워 보인다(`분석 → 명세 → 계획 → 구현 → 리뷰 → 검증 → PR` — 켜지지 않은 단계는 보이지 않는다). `/start-all` 의 FR 은 `일괄 <끝난 FR>/<전체 FR>` 과 FR 단위 단계만(명세·명확화·설계·분해·구현·검증) 보인다 — 보안·통합·성능·데모·PR 은 묶음에서 한 번 도는 단계라 FR 막대에서 뺐다. 풀 경로 표시는 종전 그대로다. `basic-path.sh review` 가 계획이 있던 작업에 `/plan 완료` 를 남긴다.
@@ -3963,7 +3965,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.15...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.16...HEAD
+[4.0.16]: https://github.com/andyko18/devFSD/compare/v4.0.15...v4.0.16
 [4.0.15]: https://github.com/andyko18/devFSD/compare/v4.0.14...v4.0.15
 [4.0.14]: https://github.com/andyko18/devFSD/compare/v4.0.13...v4.0.14
 [4.0.13]: https://github.com/andyko18/devFSD/compare/v4.0.12...v4.0.13

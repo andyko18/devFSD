@@ -16,7 +16,8 @@
 #
 # 갈래: 풀 = 인증·권한 변경 · DB 스키마 변경 · 데이터 삭제·이관 · 기존 API 응답 형태 변경 · 되돌릴 수 없는 외부 작업.
 #   기존 판정기(risk-profile.sh 의 rp::detect_strict_signals — 영문 낱말·경로)를 그대로 쓰고, 그것이 못 잡는 한글 낱말만 여기서 더한다.
-#   **애매하면 무거운 쪽이다** — 신호가 하나라도 보이면 풀이다. spec 의 "범위 밖" 절은 판정에서 뺀다(하지 않는 일을 적은 곳).
+#   **애매하면 무거운 쪽이다** — 신호가 하나라도 보이면 풀이다. spec 은 무엇을 바꾸는지 적는 절(목표·범위)만 본다 — "범위 밖"·"현재 동작" 절과
+#   수용 기준·비기능 요구의 낱말은 판정에서 뺀다(_spec_corpus). 적지 않은 변경은 seal 이 바뀐 파일 경로로 잡는다(경로 이름에 한함).
 # 강제는 여기가 아니라 기존 훅이 한다: 이 경로의 FID 는 spec.md + tasks.md 를 가진 **정식 FID** 다 — 커밋(R-1)·PR(R-2)은
 #   run-verification.sh 의 `VERIFY: PASS` 실행 출력과 진행 기록이 있어야 열린다. 훅·검증 러너는 고치지 않았다.
 set -u
@@ -52,15 +53,51 @@ _ko_signals() {  # <말뭉치>
   printf '%s' "$s"
 }
 
-# spec 에서 "범위 밖"·"제외" 절을 뺀 본문 — 하지 않는 일을 적은 낱말로 풀 판정이 나지 않게 한다.
+# spec 에서 **무엇을 바꾸는지 적는 절(목표·범위)** 만 꺼낸다 — 갈래는 낱말이 나왔는가가 아니라 그 일을 하는가로 정한다.
+#   수용 기준의 전제("로그인한 사용자가…")·현재 동작 설명·비기능 요구에 나온 낱말은 바꾸는 일이 아니다
+#   (20261114 실측: 하류 앱 spec 144건을 전문으로 보면 기본 15% · 목표·범위 절만 보면 43%).
+#   그 안에서도 "범위 밖"·"제외"·"현재 동작" 절은 뺀다(하지 않는 일 · 지금 코드의 설명). 가림은 그 절에서 끝난다.
+#   목표·범위 절이 하나도 없는 문서(골격이 다른 spec)는 종전대로 전문을 본다 — 모르면 무거운 쪽이다.
+#   안전망: seal 이 **바뀐 파일 경로**로 한 번 더 판정한다(_path_signals — 경로 이름에 한한다. 파일 내용은 보지 않으므로
+#   평범한 이름의 파일 안에서 한 위험 변경은 여기서 걸리지 않는다 — 그것은 범위 절에 적는 규칙과 리뷰·보안 스캔이 받는다).
 _spec_corpus() {  # <spec.md>
   [ -f "$1" ] || return 0
   awk '
     function lvl(s,  n) { n = 0; while (substr(s, n + 1, 1) == "#") n++; return n }
-    /^#+ / { if (skip && lvl($0) <= depth) skip = 0
-             if (!skip && $0 ~ /(범위 밖|제외|하지 않는)/) { skip = 1; depth = lvl($0); next } }
-    !skip { print }
+    # 제목으로 치는 것은 코드 펜스 밖의 2단계 이상뿐이다 — 1단계 제목(문서 제목)과 펜스 안 `# 주석` 이 가림을 열면 문서 끝까지 닫히지 않는다.
+    function head(s) { return (!fence && s ~ /^##+ /) }
+    { all[++na] = $0 }
+    /^(```|~~~)/ { fence = !fence }
+    head($0) { d = lvl($0)
+               if (skip && d <= depth) skip = 0
+               # 2단계: 목표·범위 절만 남긴다. 제목에 "제외" 같은 말이 붙어도 그 절은 본다("## 2. 범위 (인증 제외)") — "범위 밖" 절만 뺀다.
+               if (d == 2) { keep = ($0 ~ /(목표|범위)/ && $0 !~ /범위 밖/); if (keep) found = 1 }
+               else if (!skip && $0 ~ /(범위 밖|제외|하지 않는|현재 동작)/) { skip = 1; depth = d; next } }
+    keep && !skip { out[++no] = $0 }
+    END {
+      if (found) { for (i = 1; i <= no; i++) print out[i]; exit }
+      skip = 0; fence = 0
+      for (i = 1; i <= na; i++) {
+        l = all[i]
+        if (l ~ /^(```|~~~)/) fence = !fence
+        if (head(l)) { if (skip && lvl(l) <= depth) skip = 0
+                       if (!skip && l ~ /(범위 밖|제외|하지 않는)/) { skip = 1; depth = lvl(l); continue } }
+        if (!skip) print l
+      }
+    }
   ' "$1"
+}
+
+# 바뀐 파일 경로의 위험 신호 — rp::detect_strict_signals 의 경로 패턴이 못 잡는 것만(봉인 단계의 안전망).
+#   경로만 본다(파일 내용은 보지 않는다): 스키마 정의·ORM 모델 파일 → DB 스키마, 인증·세션 이름이 든 경로 → 인증.
+#   새 화면·새 라우트 파일은 신호가 아니다(풀 신호는 "기존 API 응답 형태 변경"이고 경로로는 알 수 없다 — 그것은 범위 절과 리뷰가 받는다).
+_path_signals() {  # <변경 파일 목록(줄 단위)>
+  local f="$1" s=""
+  [ -n "$f" ] || return 0
+  printf '%s\n' "$f" | grep -qiE '(^|/)schema\.[a-z]+$|\.sql$|(^|/)(models|entities|entity)(/|\.py$)|\.entity\.[a-z]+$|(^|/)models\.py$' && s="$s db_schema"
+  # `author`(글쓴이)·`session-progress` 같은 이름은 인증이 아니다 — auth 뒤에 o 가 오면 빼고, session 은 그 이름의 파일·폴더만 친다.
+  printf '%s\n' "$f" | grep -qiE 'auth([^o]|$)|login|(^|/)sessions?(\.|/|$)|permission|password|passwd|guard|rbac' && s="$s auth"
+  printf '%s' "$s"
 }
 
 # 갈래 판정 — stdout `LANE: basic` 또는 `LANE: full <신호…>` · rc 0 = basic, 3 = full, 1 = 판정기 로드 불가(막는다)
@@ -72,7 +109,7 @@ _lane() {  # <요청 문장> [<FID>] [<변경 파일 목록>]
   corpus="$text"
   [ -n "$fid" ] && corpus="$corpus
 $(_spec_corpus "$SPECOPS/$fid/spec.md")"
-  sig="$(rp::detect_strict_signals "$corpus" "$files") $(_ko_signals "$corpus")"
+  sig="$(rp::detect_strict_signals "$corpus" "$files") $(_ko_signals "$corpus") $(_path_signals "$files")"
   sig=$(printf '%s' "$sig" | xargs -n1 2>/dev/null | sort -u | xargs)
   if [ -n "$sig" ]; then echo "LANE: full $sig"; return 3; fi
   echo "LANE: basic"; return 0

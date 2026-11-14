@@ -422,6 +422,62 @@ awk 'f && $0 == "없음" { print "로그인 화면의 권한 안내 문구를 �
 out=$(_bp "$g" approve "$FID"); rc=$?
 [ "$rc" = 3 ] && [ ! -e "$g/.specops/$FID/acceptance-criteria.md" ] && ok "K1 ★ '범위 밖' 뒤 같은 깊이 절의 위험 낱말 → rc 3 (가림은 그 절에서 끝난다)" || no "K1" "rc=$rc $out"
 
+# ── C 판정 대상 절 (20261114) — 무엇을 바꾸는지 적는 절(목표·범위)만 본다 ──
+c=$(_repo corpus); _bp "$c" start "$FID" "줄 수 세기 명령에 옵션 추가" maintain >/dev/null
+_cspec() {  # <awk 치환 프로그램> — 기본 spec 을 채운 뒤 한 줄을 바꾼다
+  _fill_spec "$c"
+  awk '/^### 범위 밖/ { print "### 현재 동작과 영향\n\n- scripts/count.sh 는 빈 줄도 센다.\n" } /^## 4\. / { print "### AC-R-1: 종전대로 센다\n\n**우선순위**: must\n**Given** 파일\n**When** 옵션 없이 실행한다\n**Then** 전체 줄 수를 출력한다\n**검증 방법**: bash scripts/tests/test-count.sh\n" } { print }' "$c/.specops/$FID/spec.md" \
+    | sed 's/^\*\*§기본\*\*: true$/**§기본**: true\n**§유형**: 유지보수/' | awk "$1" > "$c/.specops/$FID/spec.new" && mv "$c/.specops/$FID/spec.new" "$c/.specops/$FID/spec.md"
+  rm -f "$c/.specops/$FID/acceptance-criteria.md"
+}
+_cspec '{ sub(/^\*\*Given\*\* 빈 줄 2개/, "**Given** 로그인한 관리자 권한 사용자가 빈 줄 2개"); print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 0 ] && ok "C1 ★ 수용 기준의 전제에 나온 낱말(로그인·권한)은 신호가 아니다 → 승인" || no "C1" "rc=$rc $out"
+_cspec '{ sub(/^- scripts\/count.sh 는 빈 줄도 센다\./, "- scripts/count.sh 는 인증 토큰 검사 뒤에 불리고 테이블 추가 마이그레이션과는 무관하다."); print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 0 ] && ok "C2 ★ '현재 동작과 영향' 절의 낱말은 신호가 아니다 → 승인" || no "C2" "rc=$rc $out"
+_cspec 'f && $0 == "없음" { print "응답 형태와 하위 호환은 해당 없다"; f = 0; next } /^## 4\. / { f = 1 } { print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 0 ] && ok "C3 ★ 비기능 요구 절의 낱말은 신호가 아니다 → 승인" || no "C3" "rc=$rc $out"
+_cspec '{ sub(/^줄 수 세기 명령에 빈 줄 제외 옵션을 더한다\./, "줄 수 세기 명령의 권한 검사를 고친다."); print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C4 ★ 목표 절의 풀 신호 → rc 3 (변이: 목표 절을 판정에서 빼면 통과한다)" || no "C4" "rc=$rc $out"
+_cspec '{ print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 0 ] || no "C5.pre" "rc=$rc $out"
+( cd "$c" && mkdir -p src/auth && printf 'x\n' > src/auth/guard.sh && git add src/auth/guard.sh )
+out=$(_bp "$c" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 3 ] && ok "C5 ★ 목표·범위에 적지 않은 변경은 봉인이 바뀐 파일로 잡는다 → rc 3" || no "C5" "rc=$rc $out"
+# C6 목표·범위 절이 없는 문서는 전문을 본다 — 모르면 무거운 쪽 (변이: found 폴백 삭제 → basic)
+printf '# x\n\n## 개요\n\n로그인 권한 검사를 고친다.\n' > "$c/.specops/$FID/spec.md"
+out=$(_bp "$c" lane "x" "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C6 ★ 목표·범위 절이 없는 spec 은 전문으로 판정 → full" || no "C6" "rc=$rc $out"
+
+# C7~C9 가림이 목표·범위 절을 통째로 지우지 않는다 (코드 리뷰 실측 — 셋 다 고치기 전에는 basic 이었다)
+_cspec '{ sub(/^줄 수 세기 명령에 빈 줄 제외 옵션을 더한다\./, "줄 수 세기 명령의 권한 검사를 고친다."); sub(/^## 1\. 목표$/, "## 1. 목표 (현재 동작 개선 · 일부 제외)"); print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C7 ★ 2단계 제목에 제외 낱말이 붙어도 목표 절은 본다 → rc 3" || no "C7" "rc=$rc $out"
+_cspec '{ sub(/^줄 수 세기 명령에 빈 줄 제외 옵션을 더한다\./, "줄 수 세기 명령의 권한 검사를 고친다."); sub(/^# .*spec \(기본 경로\)$/, "# 빈 줄 제외 옵션 — spec (기본 경로)"); print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C8 ★ 1단계 제목의 제외 낱말은 가림을 열지 않는다 → rc 3" || no "C8" "rc=$rc $out"
+_cspec '/^- scripts\/count.sh 에 옵션을 더한다/ { print "```bash"; print "# 빈 줄 제외 예시"; print "```"; print "- 로그인 권한 검사를 고친다"; next } { print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C9 ★ 코드 펜스 안 # 줄은 제목이 아니다 — 뒤따르는 범위 줄의 풀 신호 → rc 3" || no "C9" "rc=$rc $out"
+# C10 봉인의 경로 신호 — 인증·스키마 이름이 든 경로는 풀, 평범한 경로는 기본
+_cspec '{ print }'; _bp "$c" approve "$FID" >/dev/null
+for pth in prisma/schema.prisma db/schema.sql src/models/user.py src/lib/session.ts src/AuthService.ts src/middleware/guard.ts; do
+  ( cd "$c" && git reset -q && git clean -fdq -e .specops && mkdir -p "$(dirname "$pth")" && printf 'x\n' > "$pth" && git add "$pth" )
+  out=$(_bp "$c" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+  [ "$rc" = 3 ] && ok "C10 ★ 봉인: $pth → rc 3" || no "C10 $pth" "rc=$rc $out"
+done
+( cd "$c" && git reset -q && git clean -fdq -e .specops && mkdir -p src/routes scripts && printf 'x\n' > src/routes/orders.ts && printf 'x\n' > scripts/count.sh && git add src scripts )
+out=$(cd "$c" && bash "$BP" lane "x" "$FID" 2>&1); rc=$?
+[ "$rc" = 0 ] && ok "C11 평범한 spec 은 lane basic (경로 신호는 봉인에서만 본다)" || no "C11" "rc=$rc $out"
+# C12 경로 신호의 오탐 방지 — 글쓴이(author)·session-progress·새 라우트 파일은 인증·스키마가 아니다
+( cd "$c" && git reset -q && git clean -fdq -e .specops && mkdir -p src/routes scripts && printf 'x\n' > src/routes/authors.ts && printf 'x\n' > scripts/session-progress-append.sh && git add src scripts )
+out=$(_bp "$c" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" != 3 ] && ok "C12 ★ 봉인: authors.ts · session-progress-append.sh 는 풀 신호가 아니다" || no "C12" "rc=$rc $out"
+
 # K2 판정기를 읽을 수 없으면 가벼운 쪽으로 열리지 않는다 — route 는 풀, lane 은 rc 1 (변이: 판정 불가 가지 삭제)
 mkdir -p "$TMP/plug/scripts"; cp "$BP" "$TMP/plug/scripts/basic-path.sh"
 out=$( cd "$g" && bash "$TMP/plug/scripts/basic-path.sh" route start "목록 화면에 정렬 버튼 추가" 2>&1 ); rc=$?

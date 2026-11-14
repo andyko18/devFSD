@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.2.0] — 2026-11-14
+
 ### Security
 
 - **작업 폴더의 `yaml.py` 가 훅에서 실행되던 것**(`scripts/_internal/is-hook-enabled.sh`). pyyaml 유무를 보는 탐침 `python3 -c "import yaml"` 이 현재 폴더를 import 경로에 둔 채 돌았다 — `.specops/config.yaml` 이 있는 저장소를 열면 그 저장소의 `yaml.py` 가 Bash 호출마다·세션 시작마다 실행됐다(파싱 단계는 이미 현재 폴더를 뺐고 탐침만 빠져 있었다). 탐침과 파싱 모두 현재 폴더(빈 문자열·`.`·절대경로)를 뺀다.
@@ -4051,7 +4053,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.1.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.2.0...HEAD
+[5.2.0]: https://github.com/andyko18/devFSD/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/andyko18/devFSD/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/andyko18/devFSD/compare/v4.0.17...v5.0.0
 [4.0.17]: https://github.com/andyko18/devFSD/compare/v4.0.16...v4.0.17

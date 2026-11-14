@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [4.0.17] — 2026-11-14
+
 ### Fixed
 
 - **통합 절차의 빈틈 넷**(20261114 프로세스 점검 — 가짜 프로젝트 주행으로 찾았다).
@@ -3979,7 +3981,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.16...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.17...HEAD
+[4.0.17]: https://github.com/andyko18/devFSD/compare/v4.0.16...v4.0.17
 [4.0.16]: https://github.com/andyko18/devFSD/compare/v4.0.15...v4.0.16
 [4.0.15]: https://github.com/andyko18/devFSD/compare/v4.0.14...v4.0.15
 [4.0.14]: https://github.com/andyko18/devFSD/compare/v4.0.13...v4.0.14

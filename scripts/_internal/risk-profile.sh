@@ -300,7 +300,7 @@ rp::detect_strict_signals() {
     '(api-spec\.md|/api/|openapi|public api|엔드포인트)' \
     && signals="${signals} public_api"
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
-    '(\.github/workflows|Dockerfile|terraform|kubernetes|k8s|helm|deploy)' \
+    '(\.github/workflows|Dockerfile|terraform|kubernetes|k8s|helm|(^|[^a-z0-9_])deploy)' \
     && signals="${signals} infra"
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
     '(subprocess|child_process|os\.system|exec\(|bash -c|Runtime\.exec)' \

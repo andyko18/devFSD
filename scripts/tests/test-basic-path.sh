@@ -650,6 +650,56 @@ for q in "오래된 데이터 삭제 배치" "결제 취소 시 환불 호출" "
   i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
   [ "$rc" = 3 ] && printf '%s' "$out" | grep -q '^LANE: full ' && ok "N2.$i ★ 무거운 신호 → full (rc 3): $q" || no "N2.$i" "rc=$rc $out"
 done
+# N2b~N2d 갈래 낱말 — 기본값(통합 절차)에서의 미탐·오탐 표 (20261114 소스 검토 · 과거 작업 327건 대조)
+#   종전 K5 표는 옛 규칙(SPECOPS_UNIFIED_PATH=0)에서만 "신호 → 풀" 을 봐서, 기본값에서 위험한 요청이 기본으로 남는 것과
+#   평범한 요청이 무겁게 가는 것을 어느 행도 보지 않았다.
+#   ① 미탐: 위험한 요청인데 신호가 없었다 → 이제 무거운 신호(풀). 추가한 형태는 과거 기본 판정 302건에서 오발 0건으로 확인한 것만이다.
+i=0
+while IFS='|' read -r want q; do
+  [ -n "$q" ] || continue
+  i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
+  [ "$rc" = 3 ] && printf '%s' "$out" | grep -qE "^LANE: full( .*)? $want( |$)" && ok "N2b.$i ★ 미탐 → full($want): $q" || no "N2b.$i" "want=$want rc=$rc $out"
+done <<'ROWS'
+irreversible_ext|운영 서버에 배포한다
+irreversible_ext|프로덕션에 배포한다
+irreversible_ext|Deploy to production
+data_move|사용자 계정을 삭제한다
+data_move|주문 내역을 전부 삭제한다
+data_move|Delete all users from the database
+data_move|Drop the orders table
+data_move|DROP TABLE users
+payment_pii|카드번호 저장 필드 추가
+payment_pii|계좌번호 입력 폼을 만든다
+payment_pii|주민번호 마스킹 처리
+payment_pii|외부 서버로 사용자 데이터를 전송한다
+irreversible_ext|Refund the order
+irreversible_ext|Charge the customer's card
+irreversible_ext|Send emails to all customers
+irreversible_ext|모든 회원에게 이메일을 발송한다
+destructive_fs|git push --force 를 실행하는 스크립트
+ROWS
+# ② 가벼운 신호(기본 경로 + 단계 켬)로 잡혀야 하는데 아무 신호도 없던 것
+i=0
+while IFS='|' read -r want q; do
+  [ -n "$q" ] || continue
+  i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
+  [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -qE "^SIGNALS:( .*)? $want( |$)" && ok "N2c.$i 미탐 → 가벼운 신호($want): $q" || no "N2c.$i" "want=$want rc=$rc $out"
+done <<'ROWS'
+auth|Remove the password check
+auth|admin 체크를 우회하게 한다
+ROWS
+# ③ 오탐: 낱말이 식별자 일부일 뿐인 것 → 무거운 신호가 아니다(과거 실측: expiredTruncated 4건 · isPkcs12DeployType · is_backfill)
+i=0
+for q in "expiredTruncated 카운트를 응답에 더한다" "isPkcs12DeployType 판정 함수를 고친다" "runDeployCycle 의 로그 문구를 바꾼다" "is_backfill 플래그 이름을 바꾼다"; do
+  i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
+  [ "$rc" = 0 ] && ok "N2d.$i ★ 식별자 일부의 낱말은 무거운 신호가 아니다: $q" || no "N2d.$i" "rc=$rc $out"
+done
+# 대조: 진짜 무거운 것은 그대로 무겁다(낱말 경계를 좁혀 정탐을 잃지 않았다)
+i=0
+for q in "jobs/backfill_candles.py 로 일봉을 백필한다" "scripts/deploy.sh 의 대상 서버를 바꾼다" "truncate orders" "orders backfill" "운영 반영 절차를 실행한다"; do
+  i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
+  [ "$rc" = 3 ] && ok "N2e.$i 대조: 정탐은 그대로 full: $q" || no "N2e.$i" "rc=$rc $out"
+done
 out=$(_bp "$n" route maintain "로그인 권한 검사를 바꾼다")
 printf '%s\n' "$out" | grep -q '^ROUTE: basic — 위험 신호(인증·권한)' && printf '%s\n' "$out" | grep -q '^NOTICE: .*계획과 전문가 검토를 켠다' && printf '%s\n' "$out" | grep -q '^PROCEDURE: ' \
   && ok "N3 ★ route — 가벼운 신호는 기본 경로 + 켤 단계 고지" || no "N3" "$out"

@@ -10,6 +10,7 @@
 
 ### Tests/CI
 
+- **관련 스위트 러너가 가끔 "목록에 없는 경로"로 실패하던 것**(`scripts/tests/run-related.sh`). `printf … | grep -q` 에서 grep 이 첫 일치로 끝나면 printf 가 SIGPIPE 를 받고, `set -o pipefail` 아래에서 그 실패가 "목록에 없다"(exit 2)로 읽혔다 — 타이밍에 따라 나는 흔들림이다(리눅스 CI 1회 · `test-run-related` X22). here-string 으로 넘긴다.
 - `test-basic-path.sh` V1~V6 — NEEDS_FIX + feedback 없음 거부 · feedback 있으면 정상 봉인 + 기존 리뷰 감사 PASS · PASS 대조 · 옛 형식 하위 호환 · 줄 전체 일치(본문 인용·`NEEDS_FIX 아님` 은 판정이 아님).
 
 ### Security

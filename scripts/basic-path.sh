@@ -321,6 +321,13 @@ case "$ACTION" in
         ' "$SPECOPS/$FID/spec.md" > "$SPECOPS/$FID/spec.md.tmp" && mv "$SPECOPS/$FID/spec.md.tmp" "$SPECOPS/$FID/spec.md" || _die "유지보수 골격을 쓸 수 없다"
       fi
     fi
+    # 데이터 보존 수용 기준 — DB 스키마 신호가 걸리면 골격에 AC-R-2 를 넣는다(풀 경로가 스키마 변경에 요구하던 기준 — approve 가 검사한다).
+    case " $soft " in *" db_schema "*|*" db_migration "*)
+      if ! grep -q '^### AC-R-2' "$SPECOPS/$FID/spec.md"; then
+        awk '/^## 4\. / { print "### AC-R-2: 데이터 보존 — {{지켜야 할 기존 데이터}}\n\n**우선순위**: must\n**Given** {{변경 전 데이터 상태(행 수·대표 값) — 기존 데이터가 없으면 그 근거}}\n**When** {{스키마 변경을 적용한다}}\n**Then** {{기존 데이터가 그대로 읽히고, 되돌리는 방법이 있다}}\n**검증 방법**: {{적용 전후 대조 명령 또는 테스트}}\n" } { print }' \
+          "$SPECOPS/$FID/spec.md" > "$SPECOPS/$FID/spec.md.tmp" && mv "$SPECOPS/$FID/spec.md.tmp" "$SPECOPS/$FID/spec.md" || _die "AC-R-2 골격을 쓸 수 없다"
+      fi ;;
+    esac
     # 분석 문서 — 위험 신호가 걸린 유지보수만. spec 의 "현재 동작과 영향" 절(신호 없는 유지보수는 그 절로 충분하다)보다 먼저, 따로 쓴다.
     if [ "$MODE" = maintain ] && [ -n "$soft" ] && [ ! -f "$SPECOPS/$FID/analysis.md" ]; then
       {
@@ -361,6 +368,11 @@ case "$ACTION" in
     printf '%s\n' "$lo"
     [ "$rc" = 0 ] || { _full_msg "$FID"; exit 3; }
     soft=$(printf '%s\n' "$lo" | sed -n 's/^SIGNALS: //p')
+    # DB 스키마를 바꾸는 작업은 데이터 보존 수용 기준(AC-R-2)이 있어야 한다 — 풀 경로의 check-regression-ac 가 스키마 변경에
+    #   요구하던 것이다(통합 절차로 스키마 변경이 이 경로에 남으면서 빠졌다 — 20261114 점검).
+    case " $soft " in *" db_schema "*|*" db_migration "*)
+      grep -qE '^### AC-R-2' "$SPEC" || _die "DB 스키마 신호가 있는데 데이터 보존 수용 기준(### AC-R-2)이 없다 — spec 의 수용 기준 절에 '### AC-R-2: 데이터 보존 — <지켜야 할 기존 데이터>' 블록(우선순위 must · Given 변경 전 데이터 상태 · When 스키마 변경 적용 · Then 기존 데이터가 그대로 읽히고 되돌리는 방법이 있다 · 검증 방법)을 더한다(기존 데이터가 없으면 Given 에 그 근거를 적는다)" ;;
+    esac
     # 수용 기준 절을 acceptance-criteria.md 로 옮긴다 — 검증 러너와 스펙 리뷰어가 읽는 계약 파일이다(사용자가 보는 것은 spec 1장).
     {
       printf '# 수용 기준 — %s\n\n> `/basic` 경로: spec.md 의 수용 기준 절에서 도출했다(basic-path.sh approve). 고칠 때는 spec.md 를 고치고 approve 를 다시 실행한다.\n\n' "$FID"
@@ -399,7 +411,17 @@ case "$ACTION" in
     ex=$(_experts_of "$soft")
     # 판정 기록 — seal 이 이 줄들로 "계획 때 없던 신호"와 "전문가 보고서 유무"를 본다(모델의 기억이 아니라 파일).
     printf 'tasks=%s\nsignals=%s\nexperts=%s\n' "$N" "$soft" "$ex" > "$D/steps.txt" || _die "판정 기록을 쓸 수 없다"
-    if [ "$N" -ge 2 ] || [ -n "$soft" ]; then
+    # 다시 실행했을 때 — 손대지 않은 골격(자리표시가 남은 plan.md)은 새 수로 다시 만들고, 이미 채운 계획은 건드리지 않고 칸 수만 알린다.
+    #   지우지 않고 plan.md.prev 로 옮긴다 — 절반쯤 채운 계획이나 `${{ … }}` 를 적은 계획을 잃지 않게(코드 리뷰).
+    if [ -f "$D/plan.md" ] && grep -q '{{' "$D/plan.md"; then
+      mv -f "$D/plan.md" "$D/plan.md.prev" || _die "이전 계획을 옮길 수 없다"
+      echo "PLAN-NOTE: 자리표시가 남은 이전 plan.md 를 plan.md.prev 로 옮겼다 — 적어 둔 내용이 있으면 거기서 가져온다"
+    fi
+    if [ -f "$D/plan.md" ]; then
+      have=$(grep -cE '^### Task ' "$D/plan.md")
+      [ "$have" = "$N" ] || echo "PLAN-NOTE: plan.md 의 태스크 칸은 ${have}개인데 ${N}개로 실행했다 — 계획을 직접 고쳐 맞춘다(채운 계획은 다시 만들지 않는다)"
+    fi
+    if [ "$N" -ge 2 ] || [ -n "$soft" ] || [ -f "$D/plan.md" ]; then
       if [ ! -f "$D/plan.md" ]; then
         {
           printf '# %s — plan (기본 경로)\n\n' "$FID"
@@ -472,6 +494,8 @@ case "$ACTION" in
         [ -s "$D/experts/$r.md" ] || _die "전문가 보고서가 없다: experts/$r.md — $a 를 호출해 계획을 검토받은 뒤 다시 실행한다(commands/basic.md 4-1번)"
         grep -qE '^## .*반영' "$D/experts/$r.md" || _die "experts/$r.md 에 '## 반영' 절이 없다 — 지적마다 반영·기각을 1줄씩 적은 뒤 다시 실행한다"
       done
+      # 채우지 않은 계획으로는 봉인하지 않는다 — review 를 건너뛰면 그 검사를 지나칠 수 있었다(20261114 주행 실측).
+      [ ! -f "$D/plan.md" ] || ! grep -q '{{' "$D/plan.md" || _die "plan.md 에 채우지 않은 자리표시({{…}})가 남아 있다 — 계획을 끝낸 뒤 다시 실행한다"
       # 계획의 태스크 칸 수가 상한 이상이면 풀 경로다 — plan 에 작은 수를 주고 계획에 태스크를 더 적는 길을 막는다.
       if [ -f "$D/plan.md" ]; then
         tn=$(grep -cE '^### Task ' "$D/plan.md")

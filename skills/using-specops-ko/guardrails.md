@@ -59,8 +59,8 @@ CLAUDE.md가 "TDD 쓰지 말 것"이고 skill이 "항상 TDD"라면 → 사용�
 신호 감지?
     ↓ YES                              ↓ NO
 maintenance flag 분류 (Phase D 추가)        일반 응답
-    ├─ false (신규)  → specifying-ko 직행 (args 그대로)
-    └─ true (유지보수) → analyzing-ko 먼저 (★ HARD GATE) → specifying-ko (args 첫 줄 "<!-- entry: maintain -->" prepend)
+    ├─ false (신규)  → [풀 경로일 때] specifying-ko 직행 (args 그대로)
+    └─ true (유지보수) → [풀 경로일 때] analyzing-ko 먼저 (★ HARD GATE) → specifying-ko (args 첫 줄 "<!-- entry: maintain -->" prepend)
     ↓
 spec.md + acceptance-criteria.md 작성
     ↓
@@ -83,8 +83,8 @@ devfsd:clarifying-ko (skill 본문이 다음 chain 명시)
 
 | flag | chain 진입 | args 합성 |
 |---|---|---|
-| `false` (신규) | specifying-ko 직행 | 원본 args 그대로 |
-| `true` (유지보수) | **analyzing-ko 먼저** → specifying-ko (Phase C 적용 후) | args 첫 줄에 `<!-- entry: maintain -->` HTML 주석 prepend → 줄바꿈 후 원본 args |
+| `false` (신규) | (갈래 판정이 풀일 때) specifying-ko 직행 | 원본 args 그대로 |
+| `true` (유지보수) | (갈래 판정이 풀일 때) **analyzing-ko 먼저** → specifying-ko (Phase C 적용 후) | args 첫 줄에 `<!-- entry: maintain -->` HTML 주석 prepend → 줄바꿈 후 원본 args |
 
 **Phase C chain 재배선** (analyzing-ko 신설 후):
 - maintenance flag = `true` → **analyzing-ko 호출** (★ HARD GATE) → analyzing-ko 가 specifying-ko 로 chain (args 그대로 전달, 첫 줄 약속어 유지)

@@ -14,7 +14,7 @@ reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미
 
 ## 목적
 
-`/start` 와 동등한 진입 슬래시지만 maintenance flag 자동 세팅. 위험 신호가 없으면 기본 경로(유지보수 골격), 있으면 풀 경로 — analyzing-ko 선행 후 specifying-ko 유지보수 분기로 직행.
+`/start` 와 동등한 진입 슬래시지만 maintenance flag 자동 세팅. 무거운 위험 신호가 없으면 기본 경로(유지보수 골격 — 가벼운 신호가 걸리면 그 안에서 분석 문서·계획·전문가가 켜진다), 무거운 신호·태스크 4개 이상·`--full`·`--step` 이면 풀 경로 — analyzing-ko 선행 후 specifying-ko 유지보수 분기로 직행.
 
 ## Process
 

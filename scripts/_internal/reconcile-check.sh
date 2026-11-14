@@ -131,6 +131,40 @@ if [ -f "$PROGRESS" ] && grep -qE "^## $FID([[:space:]]|$)" "$PROGRESS"; then
   printf '%s' "$section" | grep -qE '/finishing|/lifecycle' && [ "$recorded" -lt 80 ] && recorded=80
 fi
 
+# ── 기본 경로 FID (20261114) — 단계가 다르다(명확화·분해가 없고 리뷰가 검증보다 앞선다). 아래 사다리로 재면
+#   spec.md 만으로 "clarify 부터 재개" 가 나온다(실측: 승인 직후·승격 직후 DESYNC 오보). `/basic` 기록이 있고
+#   `/full 승격` 이 없으면 기본 경로다 — 가장 최근 단계 줄로 다음 할 일만 말한다(commands/basic.md 번호).
+#   한계: --hook 에서는 기본 경로 FID 의 DESYNC(기록이 실제보다 뒤처짐)를 내지 않는다 — 오보를 막는 대신 진짜 지연도 알리지 않는다.
+basic_next=""
+if [ -n "${section:-}" ] && printf '%s' "$section" | grep -qE '^- [^ ]+ [^ ]+ /basic ' && ! printf '%s' "$section" | grep -qE '^- [^ ]+ [^ ]+ /full '; then
+  # 가장 최근 단계 줄(기록은 최신이 위)로 정한다 — 줄 머리(`- 날짜 시각 /명령`)에 고정해 메모 속 글자를 읽지 않는다
+  #   (`/basic 시작` 의 메모는 사용자 요청 원문이라 "/verify PASS 표시를 고친다" 같은 말이 들어온다 — 코드 리뷰 실측).
+  #   검증 뒤 코드를 고쳐 다시 봉인했으면 그 봉인 줄이 위에 있으므로 7번 검증을 가리킨다.
+  _top=$(printf '%s\n' "$section" | grep -m1 -E '^- [^ ]+ [^ ]+ /(lifecycle|verify|review|implement|plan|approve|basic) ' | sed -E 's/^- [^ ]+ [^ ]+ (\/[a-z-]+ [^ ]+).*/\1/')
+  case "$_top" in
+    "/lifecycle "*)      basic_next="없음 — 끝난 작업이다" ;;
+    "/verify PASS")      basic_next="8번 커밋 · PR" ;;
+    "/verify "*)         basic_next="7번 — 검증이 통과하지 않았다(고치고 다시 seal → 검증)" ;;
+    "/review 완료")      basic_next="7번 검증(run-verification.sh)" ;;
+    "/review "*|"/implement "*) basic_next="6번 리뷰 → 7번 봉인" ;;
+    "/plan "*)           basic_next="4-1번 계획·전문가 반영 → 5번 구현" ;;
+    "/approve "*)        basic_next="4-1번 켤 단계 판정(basic-path.sh plan)" ;;
+    *)                   basic_next="2번 spec → 4번 승인" ;;
+  esac
+fi
+if [ -n "$basic_next" ]; then
+  if [ "$MODE" = "--hook" ]; then
+    [ -n "$merged_into" ] && { _merged_line ''; exit 0; }
+    _emit_completeness_warnings "$FID_DIR" ''
+    exit 0
+  fi
+  printf '\n## 실제 진행 대조 (reconcile)\n\n'
+  [ -n "$merged_into" ] && _merged_line '  '
+  printf '  기본 경로 — 다음: %s (commands/basic.md)\n' "$basic_next"
+  _emit_completeness_warnings "$FID_DIR" '  '
+  exit 0
+fi
+
 # 증거 frontier — 파일시스템 산출물 + git 브랜치 커밋
 evidence=0
 { [ -f "$FID_DIR/current-state.md" ] || [ -f "$FID_DIR/impact-analysis.md" ]; } && evidence=5

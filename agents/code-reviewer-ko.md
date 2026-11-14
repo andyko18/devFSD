@@ -16,7 +16,7 @@ tools: Read, Grep, Glob, Bash
 ## 받는 컨텍스트 (v0.4a W2 표준 — file-based)
 
 부모가 dispatch 직전 `.specops/<FID>/dispatch/<task-id>-context.md` 파일 작성 + 경로만 전달.
-표준 포맷: `templates/dispatch-context.md`. spec-reviewer-ko Phase B PASS 보고서는 **경로로** 전달 — context.md 의 "Phase B PASS 보고서" 항목에 `.specops/<FID>/reviews/<task-id>-B-report.md` 경로 명시 (본문 첨부 금지, file-based-communication-ko).
+표준 포맷: `templates/dispatch-context.md`. spec-reviewer-ko Phase B PASS 보고서는 **경로로** 전달 — context.md 의 "Phase B PASS 보고서" 항목에 `.specops/<FID>/reviews/<task-id>-B-report.md` 경로 명시 (본문 첨부 금지, 「파일 기반 전달」(docs/harness-principles.md)).
 
 받는 컨텍스트:
 1. **검토 대상 commit SHA 또는 range** (5 컨텍스트 #5 worktree 경로에서 추출)

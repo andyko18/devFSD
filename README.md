@@ -97,7 +97,6 @@ claude plugin install devfsd@devfsd
 | `/start-foundation` | 공통부(라우팅·인증·레이아웃·공통 스키마) 먼저 개발 (1회) |
 | `/start-all` · `/start-all-auto` | `requirements.md` FR 표 전체 일괄 구현 (`-auto` 는 무인 — 가역 게이트 자동 통과, batch PR만 확인). 갈래 자동 고르기는 적용하지 않는다(종전 풀 경로) |
 | `/basic` | 기본 경로를 직접 지정(`/start`·`/maintain` 이 자동으로 고르는 그 경로). 진행 중 위험 신호가 나오면 만든 spec·코드를 들고 풀 경로로 올라간다 |
-| `/start-lite` · `/maintain-lite` | `/start`·`/maintain` 의 별칭 — **다음 메이저에서 제거**(실행하면 그 고지가 나온다) |
 | `/brainstorming` | (선택) 구현 전 아이디어 탐색 |
 | `/design-screen(s)` · `/design-interface(s)` | lifecycle 밖 화면·인터페이스 단발 설계 |
 
@@ -196,7 +195,7 @@ flowchart LR
 
 - 발동하지 않으면 부르지 않는다.
 - 지적은 반영 또는 기각을 `experts/<분야>.md` 끝에 1줄씩 적는다.
-- `§lite`·trivial 은 부르지 않는다.
+- trivial 은 부르지 않는다.
 - `/start-all`(batch) 에서는 계획 단계 5종이 돌지 않고 화면 전문가만 Phase 2.5 에서 batch 당 1회 돈다. 요구사항 전문가는 batch·promote·foundation 에서도 부르지 않는다.
 
 **측정의 한계** — 실제 하류 프로젝트의 계획·명세 2건 × 3회, 결함 없는 대조군 3회, 에이전트 본문만 주입해 잰 소표본이다. DB 는 시간 초과 1회를 빼 5회 분모이고, 대조군은 결함을 채워 보강한 뒤 2/3 통과했다. 수치의 출처는 `CHANGELOG.md` 의 각 전문가 항목이다.
@@ -302,7 +301,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 - **`jq` 가 없으면 훅이 전면 fail-open** — 에러 없이 R-1~R-5 차단·감사가 꺼진다. 설치 직후 `/doctor` 의 `deps` 항목으로 확인한다.
 - **기본 설치(`user` 범위)는 모든 repo 의 세션 시작에 메타 스킬을 주입한다** — 일부 repo 에서만 쓰려면 `claude plugin install devfsd@devfsd --scope project`(또는 `local`)로 설치한다.
 - **산출물은 기본적으로 로컬이다** — `intent.md` 만 커밋되고 spec·plan·evidence·리뷰는 저장소에 올라가지 않아 PR 리뷰어가 볼 수 없다.
-- **풀 경로는 구현 구간을 새 세션에서 돌린다** — `/start`·`/maintain` 은 태스크 분해 뒤 구현~성능 게이트를 대화 맥락이 빈 자식 세션(`claude -p`)에 맡기고 결과만 받아 PR 게이트로 간다(사용자 동작 없음 · 진행은 `bash scripts/split-session.sh status <FID>`). 자식은 사용자의 권한 설정을 그대로 따르고 권한 건너뛰기 옵션은 쓰지 않는다 — 기본 권한 모드가 auto 가 아니면 나누지 않고 종전대로 한 세션에서 한다. 끄기: `--no-split` · `.specops/config.yaml` 의 `session_split.enabled: false`. `/basic`·`-lite`·`/quick-fix`·`/start-all` 은 나누지 않는다.
+- **풀 경로는 구현 구간을 새 세션에서 돌린다** — `/start`·`/maintain` 은 태스크 분해 뒤 구현~성능 게이트를 대화 맥락이 빈 자식 세션(`claude -p`)에 맡기고 결과만 받아 PR 게이트로 간다(사용자 동작 없음 · 진행은 `bash scripts/split-session.sh status <FID>`). 자식은 사용자의 권한 설정을 그대로 따르고 권한 건너뛰기 옵션은 쓰지 않는다 — 기본 권한 모드가 auto 가 아니면 나누지 않고 종전대로 한 세션에서 한다. 끄기: `--no-split` · `.specops/config.yaml` 의 `session_split.enabled: false`. `/basic`·`/quick-fix`·`/start-all` 은 나누지 않는다.
 - **한 건에 걸리는 시간** — FID 1건(spec → verify) 중앙값 약 2시간, p90 약 7.6시간 — **속도 개선(v2.32~2.36: 승인 1회·리뷰 병렬·전문가 동시 실행) 전** 측정이다. 개선 뒤 수치는 아직 재지 않았다.
 
 ---
@@ -333,11 +332,11 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 ```
 devFSD/
 ├── .claude-plugin/     plugin.json · marketplace.json
-├── commands/           슬래시 진입로 26건
+├── commands/           슬래시 진입로 24건
 ├── hooks/              SessionStart · PreToolUse · PostToolUse · Stop · Notification
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
-├── skills/             flat: skills/<name>/SKILL.md × 31
-│                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 Harness(원칙)
+├── skills/             flat: skills/<name>/SKILL.md × 26
+│                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 E2E (원칙 5종은 docs/harness-principles.md)
 ├── agents/             ← 16건  implementer · req-designer · ui-designer · db-designer · arch-designer · api-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
 │                              design-reviewer · comprehension-reviewer · red-team · blue-team · auditor
 ├── templates/          ← 41건 (lifecycle 21 + /init-project 산출 14 + 기타 6)

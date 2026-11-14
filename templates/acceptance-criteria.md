@@ -62,7 +62,7 @@
 
 ## 회귀 방지 AC (유지보수 FID 필수)
 
-`spec.md §개요` 의 `**§유형**` 라벨이 `유지보수` 인 경우, 본 섹션에 `AC-R-N` 회귀 must AC 를 **최소 1 개 이상** 작성한다. sprint-contracts-ko evaluator 가 회귀 AC 누락 시 `verdict = BLOCK` 판정.
+`spec.md §개요` 의 `**§유형**` 라벨이 `유지보수` 인 경우, 본 섹션에 `AC-R-N` 회귀 must AC 를 **최소 1 개 이상** 작성한다. 「스프린트 계약」(docs/harness-principles.md) evaluator 가 회귀 AC 누락 시 `verdict = BLOCK` 판정.
 
 > **판정 SoT = `scripts/_internal/check-regression-ac.sh`** (20260806 기계화 — `emit-context.sh` 가 구현 직전 자동 호출). 유지보수인데 AC-R-1 이 없거나 아래 대괄호 placeholder 를 그대로 두면 dispatch 가 열리지 않는다. 스키마 override(current-state.md §1 마커) 시 AC-R-2 는 §유형 무관 강제.
 
@@ -100,7 +100,7 @@
 
 ## 참조
 
-- `skills/sprint-contracts-ko/SKILL.md` — 계약서 운용 규약
+- `docs/harness-principles.md` 「스프린트 계약」 — 계약서 운용 규약
 - `templates/analysis.md`, `templates/session-progress.md` — 판정 기록 포맷
 
 ---

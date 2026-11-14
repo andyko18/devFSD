@@ -306,7 +306,7 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 비-batch 에서 plan-reviewer **1회차**를 부를 때마다 — 테스트 전문가 패스가 발동했든 아니든 — 같은 메시지의 `Agent` 호출에 `devfsd:comprehension-reviewer-ko` 를 **하나 더** 넣는다(순차 추가 금지 — 이해 검사가 plan 시간을 늘리지 않게 한다). 출처: google/elephant-goldfish-model@67353fc4 의 Comprehension 리뷰어(문서만 읽고 자기 말로 다시 쓰기).
 
 - **입력**: 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `plan.md`. 코드·memory·intent 는 주지 않는다.
-- **제외**: `§batch`(plan-reviewer DEFER)·`§lite`·`§유형: trivial`·promote(`promote-fid`)·foundation 은 부르지 않고 기록 행도 남기지 않는다. 2회차에는 부르지 않는다.
+- **제외**: `§batch`(plan-reviewer DEFER)·`§유형: trivial`·promote(`promote-fid`)·foundation 은 부르지 않고 기록 행도 남기지 않는다. 2회차에는 부르지 않는다.
 - **판정 불변**: 지적은 모두 Minor 경고다. `PLAN-REVIEW-RESULT`·cap 계산·외부 critic 입력에 넣지 않는다.
 - **저장·반영**: 돌아온 보고 전문을 부모가 `.specops/<FID>/experts/comprehension.md` 로 저장하고, plan-reviewer 지적과 한 번에 반영한다. 지적마다 같은 파일 끝 `## 반영` 에 `반영(plan §/Task N)` · `이월(spec·AC 는 읽기 전용 — 사용자 확인 필요)` · `기각(근거)` 중 1줄을 적는다. `[이해 불가]`·`[오독 위험]` 은 문서를 고쳐 반영하고, "작성자는 안다"·"맥락상 명확하다" 는 기각 사유가 될 수 없다. 이 반영만으로는 plan-reviewer 2회차를 부르지 않는다(2회차는 위 「1회차 동시 dispatch」 3번 — 1회차 Critical 이 있을 때만).
 - **모델 불가·산출 없음**: sonnet 을 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). 보고가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | comprehension | comprehension-reviewer-ko | 산출 없음 | - |` 를 남기고 진행한다.
@@ -400,7 +400,7 @@ plan.md 작성 시 `templates/plan.md` 구조를 **정확히** 따른다. 특히
 
 - `templates/plan.md` — 작성 포맷 (**정확히 따를 것**, 특히 §8 Advisor 협의 기록 섹션)
 - `templates/tasks.md` — 태스크 분해 포맷
-- `skills/structured-artifacts-ko/SKILL.md` — .specops/<FID>/ 아티팩트 경로 규약
+- `docs/harness-principles.md` 「아티팩트 구조 규약」 — .specops/<FID>/ 아티팩트 경로 규약
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 
 ## 공유 유틸 창발 중복 경고 (P2 — 20260718 test2 회고)
@@ -437,7 +437,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /plan 완�
 
 ## Handoff 기록 (다음 skill 진입 직전 필수)
 
-`decomposing-ko` 호출 직전 `.specops/<FID>/handoffs/planning.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining).
+`decomposing-ko` 호출 직전 `.specops/<FID>/handoffs/planning.md` 작성 (「아티팩트 구조 규약」 규약 4필드: Decided/Rejected/Risks/Remaining).
 
 ## 다음 skill
 

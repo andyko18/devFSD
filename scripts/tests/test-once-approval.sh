@@ -31,12 +31,11 @@ _has "O2.h Step 6 §일괄 라벨 (AC-2)" "$(_sec "$SP" '^6\. \*\*설계 문서 
 _g=$(_sec "$SP" '^### 사용자 검토 게이트' '^## ')
 _has "O2.f 스펙 검토 게이트 §일괄 — 위치 lite·trivial = 여기 · 정상 = clarifying 끝 (AC-4)" "$_g" '**[§일괄 모드]**' '승인 묶음은 clarifying-ko 끝에서' '정상 경로는 묻지 않고 clarifying-ko 를 호출한다' '아래 기존 동작은 `--step`(`<!-- step: true -->`)일 때만 적용한다' '위 trivial 통합 규칙(설계 승인 + 축약 승인 2회 전제)은 `§일괄` 에 적용하지 않는다' '**[§auto·trivial 이외 모드]** (기존 동작)'
 printf '%s\n' "$_g" | grep -F '**[§auto 모드]**' -A3 | grep -q '§lite' && nope "O2.k 검토 게이트 [§auto 모드] 에 §lite 단축 경로 잔존 (20261024)" || ok "O2.k 검토 게이트 [§auto 모드] 에 §lite 언급 없음 (20261024)"
-_has "O2.i lite 승인·스펙 검토·슬러그 줄 (AC-4)" "$(cat "$SP")" '(**§일괄**: 여기서 묻지 않는다 — 이 1회는 Step 8 자리의 승인 묶음으로' '(**§일괄**: `### 사용자 검토 게이트` 의 [§일괄 모드])' '#   args 의 주석 줄(`<!-- step: true -->` 등)은 슬러그에서 뺀다'
+_has "O2.i 스펙 검토·슬러그 줄 (AC-4)" "$(cat "$SP")" '(**§일괄**: `### 사용자 검토 게이트` 의 [§일괄 모드])' '#   args 의 주석 줄(`<!-- step: true -->` 등)은 슬러그에서 뺀다'
 _l1=$(printf '%s\n' "$_g" | grep -nF '**[§일괄 모드]**' | head -1 | cut -d: -f1); _l2=$(printf '%s\n' "$_g" | grep -nF '**[§auto·trivial 이외 모드]** (기존 동작)' | head -1 | cut -d: -f1)
 { [ -n "$_l1" ] && [ -n "$_l2" ] && [ "$_l1" -lt "$_l2" ]; } && ok "O2.g §일괄 문단이 기존 동작 앞 (AC-4)" || nope "O2.g" "l1=$_l1 l2=$_l2"
 AN="$SK/analyzing-ko/SKILL.md"
 _has "O3.a analyzing Step 7 §일괄 (AC-4)" "$(_sec "$AN" '^### Step 7' '^### Step 8')" '**[§일괄]**' '분석 검토는 승인 묶음으로 넘깁니다(§일괄)' 'once-approval.md' '[y/n] 을 묻지 않고 Step 8 로 간다' '아래는 `--step` 일 때의 동작이다'
-_has "O3.b analyzing lite-mini §일괄 (AC-4)" "$(_sec "$AN" '^## \[lite-mini 분기\]' '^## 체크리스트')" '**§일괄** 이면 Step 7' '묻지 않고 지난다' '`<!-- step: true -->` 줄도 뺀다'
 _has "O3.c analyzing Step 0 step 표지 제거 (AC-1)" "$(_sec "$AN" '^### Step 0' '^### Step 1')" '`<!-- step: true -->` 줄도 함께 뺀다'
 CL="$SK/clarifying-ko/SKILL.md"
 _has "O4.a clarifying §일괄 절 (AC-4)" "$(_sec "$CL" '^## §일괄 모드' '^## ')" '질문 묶음 2회째' '많아야 4개' 'once-approval.md' '승인 전에는 planning-ko 를 호출하지 않는다' '`status: ASSUMED`'
@@ -50,7 +49,7 @@ _has "O5.a planning 실행 전환 §일괄 (AC-5)" "$_pe" '**[§일괄 모드]**
 _l1=$(printf '%s\n' "$_pe" | grep -nF '**[§일괄 모드]**' | head -1 | cut -d: -f1); _l2=$(printf '%s\n' "$_pe" | grep -nF '어느 쪽으로 할까요?' | head -1 | cut -d: -f1)
 { [ -n "$_l1" ] && [ -n "$_l2" ] && [ "$_l1" -lt "$_l2" ]; } && ok "O5.f §일괄 문단이 실행 방식 질문 앞 (AC-5)" || nope "O5.f" "l1=$_l1 l2=$_l2"
 _has "O5.b worktree 동의 표 §일괄 행 (AC-5)" "$(_sec "$SK/using-git-worktrees-ko/SKILL.md" '^## 생성 동의 게이트' '^## ')" '| §일괄 | 승인 묶음이 동의' '§auto/batch/§일괄 면 해당 행 적용' '`§일괄` 은 `^\*\*§일괄\*\*:[[:space:]]*true`'
-_has "O5.c decomposing 규모 초과 §일괄 승격 (AC-5)" "$(_sec "$SK/decomposing-ko/SKILL.md" '^## trivial / §lite 단축 분기' '^## 체크리스트')" '**`§일괄`** 도 묻지 않고' 'dev-decision.sh add <FID> order' '정상 경로(clarify → plan)에 올리고'
+_has "O5.c decomposing 규모 초과 §일괄 승격 (AC-5)" "$(_sec "$SK/decomposing-ko/SKILL.md" '^## trivial 단축 분기' '^## 체크리스트')" '**`§일괄`** 도 묻지 않고' 'dev-decision.sh add <FID> order' '정상 경로(clarify → plan)에 올리고'
 _has "O5.d verify 상한 §일괄 (AC-5)" "$(_sec "$SK/verifying-evidence-ko/SKILL.md" '^### \[§auto 모드\] fix_loop cap 초과 처리' '^### ')" '**`§일괄`**' '사용자에게 보이고 판단을 받는다' '`§auto` 또는 `§일괄` 로 읽는다' '전역 재시도 뒤에도 남으면'
 _has "O5.e PR 게이트 §일괄 ASSUMED (AC-5)" "$(_sec "$SK/performance-test-ko/SKILL.md" '^### 2\. 끝 보고' '^### 3\. ')" '`§일괄` 이면' "grep -n 'ASSUMED'" 'auto-state.md'
 [ "$(grep -cF 'PR을 생성하시겠습니까? [y/n]' "$SK/performance-test-ko/SKILL.md")" = 2 ] && ok "O9.b PR 게이트 문구 2곳 보존 (AC-R-1)" || nope "O9.b" "$(grep -cF 'PR을 생성하시겠습니까? [y/n]' "$SK/performance-test-ko/SKILL.md")"

@@ -69,7 +69,7 @@ specops-ko 한국어 자율 Lifecycle의 **단일 진입 슬래시**. 자연어 
 - `skills/using-specops-ko/SKILL.md` — 메타 skill (자동 활성)
 - `commands/basic.md` · `scripts/basic-path.sh` — 기본 경로와 갈래 판정(`route`)·승격(`promote`)
 - `skills/specifying-ko/SKILL.md` — 풀 경로의 첫 Lifecycle 단계
-- `skills/structured-artifacts-ko/SKILL.md` — `.specops/<FID>/` 경로 규약
+- `docs/harness-principles.md` 「아티팩트 구조 규약」 — `.specops/<FID>/` 경로 규약
 - 설계 근거: specops-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15.5` (진입 흐름)
 - 참조: affaan-m/everything-claude-code@1.2.0 commands/orchestrate.md
 

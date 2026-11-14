@@ -231,7 +231,7 @@ if has templates/dispatch-context.md '## 7\. 실행 모드'; then ok "fable-tips
 #   (실측 `/context`: specops skill 행 54→32, ~870 tok 절감 — `claude plugin details` 투영값은 이 플래그를 반영하지 않는다).
 #   모델이 부를 수 있어야 하는 init-project(메타 skill 이 y 응답 시 호출)·status(재개 조회)는 켜 두지 않는다.
 _dmi_ok=ok; _dmi_n=0
-for c in brainstorming design-interface design-interfaces design-screen design-screens doctor e2e-test gbrain improve-arch log maintain-lite maintain promote release security-scan start-all-auto start-all start-foundation start-lite start statusline-install; do
+for c in brainstorming design-interface design-interfaces design-screen design-screens doctor e2e-test gbrain improve-arch log maintain promote release security-scan start-all-auto start-all start-foundation start statusline-install; do
   _dmi_n=$((_dmi_n+1))
   awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$PLUGIN/commands/$c.md" | grep -qx 'disable-model-invocation: true' || { _dmi_ok=no; echo "  (플래그 누락: commands/$c.md)"; }
 done
@@ -240,7 +240,7 @@ for c in init-project status; do
 done
 [ "$_dmi_ok" = ok ] && ok "dmi: 사용자 전용 command ${_dmi_n}종 disable-model-invocation · init-project·status 는 제외" || nope "dmi: command 플래그 계약 위반"
 # 비활성 command 를 skill 호출 문법(devfsd:<cmd>)으로 부르는 본문이 없다 — 있으면 모델이 못 불러 체인이 끊긴다
-_dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'devfsd:(brainstorming|design-interfaces?|design-screens?|doctor|e2e-test|gbrain|improve-arch|log|maintain-lite|maintain|promote|release|security-scan|start-all-auto|start-all|start-foundation|start-lite|start|statusline-install)([^-a-z]|$)' -- skills agents hooks 2>/dev/null | head -3)
+_dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'devfsd:(brainstorming|design-interfaces?|design-screens?|doctor|e2e-test|gbrain|improve-arch|log|maintain|promote|release|security-scan|start-all-auto|start-all|start-foundation|start|statusline-install)([^-a-z]|$)' -- skills agents hooks 2>/dev/null | head -3)
 [ -z "$_dmi_ref" ] && ok "dmi: 비활성 command 를 모델이 skill 로 호출하는 본문 0건" || nope "dmi: 비활성 command 호출 참조" "$_dmi_ref"
 
 # ── implementer-ko 가 karpathy-ko 를 프리로드한다 (공식 sub-agents: `skills` frontmatter = 시작 시 전체 내용 주입) ──
@@ -862,7 +862,7 @@ if [ -n "$_l_s6" ] && [ -n "$_s65_body" ] && [ "$_l_s6" -lt "$_l_s65" ] \
         'spec §8 열린 질문으로 옮긴다' \
         '`acceptance-criteria\.md` · `intent\.md`' '가용 모델 override 로 다시 dispatch' '부모가 대신 검토하지 않는다' \
         '\| req-expert \| req-designer-ko \| 반영 \|' '\| req-expert \| - \| SKIP \| 데이터 표면 없음 \|' '\| req-expert \| req-designer-ko \| 산출 없음 \|' \
-   && printf '%s\n' "$_s65_ex" | grep -qE '^   - \*\*제외\*\*: `§batch` · `§lite`.* · `§유형: trivial` · promote\(`promote-fid`\) · foundation 은 부르지 않는다' \
+   && printf '%s\n' "$_s65_ex" | grep -qE '^   - \*\*제외\*\*: `§batch` · `§유형: trivial` · promote\(`promote-fid`\) · foundation 은 부르지 않는다' \
    && printf '%s\n' "$_s65_ex" | grep -qF '유지보수 분기는 부른다' \
    && ! printf '%s\n' "$_s65_body" | grep -q '§auto' \
    && ! printf '%s\n' "$_s65_body" | grep -vE '^   - \*\*제외\*\*:' | grep -E '(§batch|§lite|trivial|promote|foundation)' | grep -q '부른다' \
@@ -885,7 +885,7 @@ if [ -n "$_l_s65" ] && [ -n "$_l_s66" ] && [ -n "$_l_s7" ] && [ "$_l_s65" -lt "$
         'spec §8 열린 질문으로 옮긴다' \
         '이번에 만든·고친 `screens/<name>\.md`·`\.html` · `\.specops/<FID>/spec\.md` · `acceptance-criteria\.md` · `DESIGN\.md`\(있으면\)' '가용 모델 override 로 다시 dispatch' '부모가 대신 검토하지 않는다' \
         '\| ui-expert \| ui-designer-ko \| 반영 \|' '\| ui-expert \| - \| SKIP \| 화면 변경 없음 \|' '\| ui-expert \| ui-designer-ko \| 산출 없음 \|' \
-   && printf '%s\n' "$_s66_ex" | grep -qE '^   - \*\*제외\*\*: `§batch`.*Phase 2\.5 A2.* · `§lite`.* · `§유형: trivial` · foundation 셸 화면\(`<!-- foundation-shell -->`\)만 바꾼 경우는 부르지 않는다' \
+   && printf '%s\n' "$_s66_ex" | grep -qE '^   - \*\*제외\*\*: `§batch`.*Phase 2\.5 A2.* · `§유형: trivial` · foundation 셸 화면\(`<!-- foundation-shell -->`\)만 바꾼 경우는 부르지 않는다' \
    && printf '%s\n' "$_s66_ex" | grep -qF '화면 변경이 없으면 부르지 않고 SKIP 행을 남긴다' \
    && printf '%s\n' "$_s66_ex" | grep -qF '유지보수 분기는 부른다' \
    && ! printf '%s\n' "$_s66_body" | grep -q '§auto' \

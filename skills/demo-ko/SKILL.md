@@ -24,7 +24,7 @@ else echo SINGLE; fi
 
 - **BATCH** → `BATCH-DEMO-SKIP: <FID>` 출력 + 근거 1줄(batch 오케스트레이터가 PR 을 소유) 후 **즉시 복귀**. evidence.md 에 `## /demo` 절을 `결과: SKIP — batch` 로 남긴다.
 - **AUTO**(무인) → 아래 1~2단계는 수행하고, 3단계 확인 대기는 하지 않는다. 확인 필요 항목은 PR 게이트의 가정 다이제스트에 `데모: 사용자 확인 대기` 로 올린다.
-- **SINGLE**(`§lite` 포함 — lite 라고 생략하지 않는다) → 1~4단계 전부.
+- **SINGLE** → 1~4단계 전부.
 
 ### batch 최종 호출 (`batch-final`)
 

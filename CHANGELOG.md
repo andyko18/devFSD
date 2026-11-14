@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Removed
+
+- **호환성 깨짐 — `/start-lite`·`/maintain-lite` 명령과 lite 진입 분기를 지웠다.** 두 명령은 v4.0.0 부터 `/start`·`/maintain` 의 별칭이었고 제거를 예고해 왔다 — 이제 `/start`·`/maintain` 을 쓴다(갈래는 스크립트가 고른다). 함께 지운 것: `specifying-ko` 의 `[lite 분기]`·`[maintain-lite 분기]`, `analyzing-ko` 의 `[lite-mini 분기]`, 약속어 `<!-- entry: lite -->`·`<!-- entry: maintain-lite -->`. 이 약속어를 내는 명령이 이미 없어 본문에 죽은 채 남아 있었다(본문 48곳). 범위 초과 안내와 `/improve-arch` 의 넘김 대상도 `/maintain` 으로 맞췄다. **남긴 것**: 위험 등급 `lite`(`risk-profile` 의 lite·standard·strict) · 명확화 경량 모드(`clarifications.md` 의 `mode: lite`) · 옛 spec 의 `**§lite**: true` 를 읽는 가드(`check-review-presence.sh` 리뷰 생략 차단 · `risk-profile.sh` `LITE-STRICT-GUARD` · `split-session.sh` · `decomposing-ko` 단축 분기) — 하류에 옛 `§lite` FID 가 남아 있어도 안전망이 그대로 돈다. 유지보수 spec 의 `AC-R-1`(동작 보존)·`AC-R-2`(데이터 보존) 요구는 `specifying-ko` 의 유지보수 라벨 절로 옮겨 적었다(종전엔 지운 분기에만 이름이 있었다). 명령 26 → 24.
+- **Harness 원칙 skill 5개를 문서 1장으로 합쳤다**(`docs/harness-principles.md`). `sprint-contracts-ko`·`structured-artifacts-ko`·`generator-evaluator-ko`·`context-resets-ko`·`file-based-communication-ko` 는 최근 30일 Skill 호출 0회였고(본문 직접 읽기도 한 개 4회뿐) 다른 본문이 이름만 인용했다. 내용은 옮기기 전과 같다 — 진행 기록 줄 순서 불변식 · 리뷰 보고서 저장 예외 · 에이전트 16종 명단 · handoff 4필드 같은 계약 문구를 테스트가 새 경로에서 그대로 잠근다. 인용하던 skill·에이전트·템플릿 18파일은 「원칙 이름」+ 문서 경로로 바꿨다. **행동 변경**: `devfsd:<위 5개>` 를 Skill 로 부를 수 없다. skill 31 → 26 · 상시 설명문 5줄 감소.
+
+### Tests/CI
+
+- `test-start-lite-doc.sh` → `test-lite-removed.sh`: 명령 파일·진입 약속어·분기 이름이 실행 본문과 README·CLAUDE.md 에 되살아나지 않는지, 옛 `§lite` spec 가드 3종이 남아 있는지 잠근다. 전파 규칙 `lite-clarify-plan-skip`·`lite-screen-if-keep` 삭제, `lite-bc-mandatory` 는 `implementing-ko` 의 「단축 경로 불변」 문장으로 옮김. 라우팅 기준선·skill 크기 기준선 재생성.
+
 ## [4.0.17] — 2026-11-14
 
 ### Fixed

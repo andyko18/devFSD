@@ -108,7 +108,7 @@ grep -q 'intent 추적' "$SPEC_SKILL" \
   && ok "T-15.z Step 7 자체검토 intent 추적" || nope "T-15.z" "Step 7 미갱신"
 grep -q 'intent\.md' "$PLUGIN/scripts/show-fid-status.sh" \
   && ok "T-art.a show-fid-status 아티팩트" || nope "T-art.a" "미포함"
-grep -q 'intent\.md' "$PLUGIN/skills/structured-artifacts-ko/SKILL.md" \
+grep -q 'intent\.md' "$PLUGIN/docs/harness-principles.md" \
   && ok "T-art.b structured-artifacts 트리" || nope "T-art.b" "미포함"
 
 # T-cons: 하류 소비 배선 (AC-8) — intent 를 읽는 6문서 + 집계기 정규식

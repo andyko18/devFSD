@@ -51,8 +51,8 @@
 
 ## 참조
 
-- `skills/context-resets-ko/SKILL.md` — 본 파일의 운용 규약
-- `skills/structured-artifacts-ko/SKILL.md` — FID 규약
+- `docs/harness-principles.md` 「컨텍스트 리셋」 — 본 파일의 운용 규약
+- `docs/harness-principles.md` 「아티팩트 구조 규약」 — FID 규약
 
 ---
 

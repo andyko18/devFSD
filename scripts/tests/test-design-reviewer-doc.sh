@@ -43,7 +43,7 @@ grep -qE '\^Critical:|Critical:\[\[:space:\]\]' "$SA" \
   || nope "T7" "Wave B Critical/Important 계약 부재"
 
 # ── 문서·일관성 P0 드리프트 락 (gen-eval agents 수 · CLAUDE foundation 5.5) ──
-GE="$PLUGIN/skills/generator-evaluator-ko/SKILL.md"
+GE="$PLUGIN/docs/harness-principles.md"
 CL="$PLUGIN/CLAUDE.md"
 [ -f "$GE" ] || { nope "T8 gen-eval 파일" "부재"; finish; }
 [ -f "$CL" ] || { nope "T11 CLAUDE.md" "부재"; finish; }

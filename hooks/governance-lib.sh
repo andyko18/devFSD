@@ -1052,6 +1052,14 @@ _strip_quoted_strings() {
         ch=substr(buf,i,1)
         if(mode==0){
           if(ch==BS){ out=out ch; i++; if(i<=n) out=out substr(buf,i,1) }   # \x → 2문자 verbatim
+          else if(ch=="#" && (i==1 || index(" \t\n;&|()", substr(buf,i-1,1))>0)){
+            # 낱말 머리의 # = 주석 — 줄 끝까지 그대로 옮기고 그 안의 따옴표는 인용으로 세지 않는다 (20261114).
+            #   종전엔 주석의 \047 가 인용을 열고 다른 주석의 \047 가 닫아, 사이의 실명령이 "인용 본문"으로 지워졌다
+            #   (# don\047t … git commit … # it\047s → 트리거에서 사라짐). 주석 글자는 지우지 않는다 — 지우는 쪽은
+            #   잘못 짚었을 때 실명령을 숨기지만, 남기는 쪽은 차단 우세다. 낱말 중간의 #(${x#y}·$#·a#b)는 주석이 아니다.
+            while(i<=n && substr(buf,i,1)!="\n"){ out=out substr(buf,i,1); i++ }
+            if(i<=n) out=out "\n"
+          }
           else if(ch==SQ){mode=1; out=out ch}
           else if(ch==DQ){mode=2; dbuf=""; out=out ch}
           else out=out ch

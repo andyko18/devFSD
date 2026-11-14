@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+### Security
+
+- **작업 폴더의 `yaml.py` 가 훅에서 실행되던 것**(`scripts/_internal/is-hook-enabled.sh`). pyyaml 유무를 보는 탐침 `python3 -c "import yaml"` 이 현재 폴더를 import 경로에 둔 채 돌았다 — `.specops/config.yaml` 이 있는 저장소를 열면 그 저장소의 `yaml.py` 가 Bash 호출마다·세션 시작마다 실행됐다(파싱 단계는 이미 현재 폴더를 뺐고 탐침만 빠져 있었다). 탐침과 파싱 모두 현재 폴더(빈 문자열·`.`·절대경로)를 뺀다.
+
+### Fixed
+
+- **`config.yaml` 구조가 예상과 다르면 훅 전체가 조용히 꺼지던 것**(`is-hook-enabled.sh`). 최상위가 목록·문자열·수이거나 `hooks`·`profiles` 가 매핑이 아니면 파이썬이 예외로 rc 1 을 냈고, 호출부는 rc 1 을 "비활성"으로 읽었다. 매핑이 아닌 값은 "설정 없음"으로 읽고, 끄는 것은 프로파일의 전체 끄기와 `enabled: false`(또는 `0`)뿐이다. **행동 변경**: 값을 비운 `enabled:` 는 더 이상 끄지 않는다(종전엔 빈 값도 꺼짐으로 읽혔다).
+- **검증 없이 커밋·PR 이 열리던 명령 형태 셋**(`hooks/governance-lib.sh` · `hooks/rules.jsonl` · `hooks/pretool-governance.sh`).
+  - 주석 속 작은따옴표: 주석의 `'` 가 인용을 열고 다른 주석의 `'` 가 닫아, 그 사이의 `git commit`·`gh pr create` 가 "인용 본문"으로 지워져 트리거에서 사라졌다(`# don't …` / 커밋 / `# it's …`). 낱말 머리의 `#` 뒤는 줄 끝까지 주석으로 보고 그 안의 따옴표를 인용으로 세지 않는다. 주석 글자는 지우지 않는다(차단 우세).
+  - 값이 빈 env 접두: `FOO= git commit` · `GIT_EDITOR= git commit` · `env FOO= git commit` 이 접두로 인식되지 않아 트리거가 빗나갔다. 빈 값을 접두로 인정한다.
+  - 우회 표식의 위치: `SPECOPS_GOVERNANCE_BYPASS=1` 을 명령 원문에서 줄 단위로 찾아, heredoc 본문이나 여러 줄 커밋 메시지 안의 한 줄(우회 기능을 설명하는 메시지)로 게이트가 열리고 가짜 우회 기록이 쌓였다. 인용·heredoc 본문을 걷어 낸 문자열에서만 찾는다. 빈 사유(`SPECOPS_BYPASS_REASON=""`·`''`)는 사유로 받지 않는다.
+  - 하류 실측이 아니라 소스 검토(20261114)에서 임시 저장소로 재현한 것이다. 정직한 사용에서 드물게 나는 형태지만 흔적 없이 열렸다.
+
+### Tests/CI
+
+- `test-pretool.sh` T37b~e · T-cq.a~e · T-ev(4형태) · `test-is-hook-enabled.sh` T7 · T8 · T8b — 먼저 실패를 확인했다(13건). 대조군: 주석 따옴표 사이에 커밋이 없으면 통과 · 인용 문자열 안의 `#` 는 주석이 아님 · 낱말 중간의 `#`(`${x#y}`·`$#`·`a#b`)는 주석이 아님 · 정상 구조의 `enabled: false` 는 그대로 끔.
+
 ## [5.1.0] — 2026-11-14
 
 ### Added

@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **구현자가 태스크 문서 전체 대신 자기 태스크 절만 읽는다**(`scripts/dag/emit-context.sh` · `agents/implementer-ko.md` · `templates/dispatch-context.md` · `skills/implementing-ko/SKILL.md`). 행동 변경. `emit-context.sh` 가 문맥 파일을 쓸 때 `tasks.md` 의 `## Task N`(또는 `### Task N` · `## 태스크 N`) 절을 잘라 `dispatch/<task-id>-task.md` 로 함께 쓰고, 문맥 파일 §2 에 `태스크 본문:` 경로 1줄을 싣는다. 구현자 정의는 그 파일을 읽고 `tasks.md` 전체는 읽지 않게 바뀌었다. 절 판정은 `check-foundation-reuse.sh` 와 같은 규칙(2~3단 제목 · 코드 펜스 밖)이고, 절은 다음 2단 이하 제목 또는 번호가 다른 태스크 제목 직전까지다(같은 번호의 `### Task N — 둘째 사이클` 은 같은 절). task id 와 절 번호의 대응도 같다 — 절 번호가 id 에 없으면(번호 어긋남) 어느 것도 자르지 않는다. 절을 못 찾거나 같은 번호 절이 둘이면 그 태스크는 파일을 만들지 않고(재실행 때 옛 파일은 지운다) 표준 오류에 `emit-context: NOTE` 1줄 — **emit 은 실패하지 않고**, 구현자는 종전대로 `tasks.md` 에서 절을 찾는다. `tasks.md` 형식과 `decomposing-ko` 의 "태스크마다 테스트 코드·시그니처를 다시 적는다" 규칙은 그대로다(자른 절이 혼자 읽히는 전제).
+  - 왜: 이 저장소 최근 12건에서 `tasks.md` 는 5~65KB 이고 구현자는 자기 절을 찾으려고 문서 전체를 읽었다(태스크 7개 65KB 면 구현자 7명이 합 455KB). 실물 4건에 돌려 보면 65KB 문서가 절 2~24KB 로 잘린다.
+  - 기대 효과(**추정 · 아직 재지 않았다**): 전체 비용의 약 2~3%(구현자 몫 약 6.6% 의 절반 안팎 — 설계안 20261115 추정치).
+- **작업을 마치면 다음 작업은 새 세션에서 하라고 1줄 알리고, 시작 고지는 이미 끝난 작업이 있는 대화에서만 낸다**(`scripts/split-session.sh` · `skills/performance-test-ko/SKILL.md` · `commands/basic.md` · `commands/start.md` · `commands/maintain.md`). 행동 변경. 새 서브명령 `finish-note` 가 `SESSION-NEXT: 지금 대화가 약 NK 토큰입니다 — 다음 작업은 새 세션에서 시작하면 호출마다 다시 읽는 양이 줄어듭니다.` 1줄을 낸다(크기를 읽지 못하면 무출력 · 항상 rc 0). 풀 경로는 `performance-test-ko` PR 생성 뒤 §5, 기본 경로는 `/basic` 9번 마무리에서 부르고 끝 보고 마지막 줄로 싣는다 — 질문을 늘리지 않는다. 시작 고지(`warn-size`)는 고정 150K 초과가 아니라 **transcript 에 이 대화의 끝난 작업 흔적**(주 세션 Bash 호출 가운데 명령 위치의 `gh pr create` · `finish-note` · `/lifecycle DONE` · `basic-path.sh done` 이 성공한 것 — 인자 속 문자열·heredoc 본문·서브에이전트 호출 제외)이 있을 때 낸다. 판정할 수 없으면(`jq` 없음) 종전 150K 기준. `session_split.warn_context_tokens`·`SPECOPS_SPLIT_WARN_TOKENS` 는 계속 듣는다(0 이면 두 고지 모두 끔).
+  - 왜: 하류 한 프로젝트 작업 10건에서 비용의 약 51% 가 주 세션이 커진 대화를 호출마다 다시 읽는 것이었고, 한 세션에서 작업 4건을 하자 맥락이 107K 에서 964K 로 커졌다. 종전 시작 고지는 새 세션이 이미 100~141K 라 거의 늘 뜨거나 이미 이어서 일하는 중이었고, 끊기 가장 좋은 지점(PR 생성 직후)에는 안내가 없었다.
+  - 기대 효과(**추정 · 아직 재지 않았다** · 사용자가 새 세션을 열 때만 난다): 한 세션에 4건이면 호출당 읽는 양 중앙 432~558K, 작업마다 새 세션이면 150~250K 안팎(설계안 20261115 추정치).
+  - 테스트: 새 스위트 `scripts/tests/dag/test-emit-task-slice.sh`(16) · `test-split-session.sh` W·N·K7·K8. `test-split-session.sh` K6 은 "`/basic` 은 `split-session.sh` 를 부르지 않는다"에서 "분리(`decide`·`run`)를 부르지 않는다"로 좁혔다 — 종결 고지는 분리가 아니다.
+
 ## [5.2.1] — 2026-11-15
 
 ### Fixed

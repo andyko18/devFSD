@@ -196,9 +196,10 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 - `decide <FID>` — `SPLIT: yes|no (<사유>)` · rc 0/1. `no` 가 되는 경우: `§batch` · `§lite` · trivial · `plan.md` 없음 · spec 의 `**§분리**: off`(`--no-split`) · `session_split.enabled: false` · `SPECOPS_NO_SPLIT=1` · 이미 자식 세션 안 · `claude`·`jq` 없음 · 권한 모드 미충족.
 - `run <FID> [--resume "<전달문>"]` — `claude -p` 자식 세션을 띄워 끝날 때까지 기다린다(주 세션은 백그라운드로 부른다). 자식은 `devfsd:implementing-ko` 부터 성능 게이트 판정까지 하고 PR 게이트 앞에서 멈춘다. 마지막 줄 `SPLIT-RESULT: DONE|HELD|FAILED|TIMEOUT fid=… session=… turns=… cost_usd=… minutes=…` · rc 0/10/1/124. 기록은 `.specops/<FID>/split/`(`child.jsonl` · `result.json` · `session-id` · 보류 시 `held.md`).
 - `status <FID>` — 결과 또는 실행 중 표시 + 진행 기록 끝 5줄 + 자식의 최근 도구 호출.
-- `warn-size [<transcript>]` — 현재 대화의 맥락 크기(마지막 응답의 usage — 읽지 못하면 파일 크기 근사)가 기준을 넘으면 `CONTEXT-LARGE:` 1줄. 차단하지 않는다(항상 rc 0).
+- `warn-size [<transcript>]` — `/start`·`/maintain` 0-2 가 부른다. **이 대화에서 이미 끝난 작업이 있으면** `CONTEXT-LARGE:` 1줄(현재 맥락 크기 — 마지막 응답의 usage, 읽지 못하면 파일 크기 근사). 끝난 작업의 흔적은 transcript 의 주 세션 Bash 호출 가운데 명령 위치에서 부른 `gh pr create` · `split-session.sh finish-note` · 종결 진행 기록(`session-progress-append.sh <FID> /lifecycle DONE` · `basic-path.sh done`)이 성공한 것이다(인자 속 문자열·heredoc 본문·서브에이전트 호출은 세지 않는다). 새 세션의 첫 작업에는 뜨지 않는다. 판정할 수 없으면(`jq` 없음) 종전대로 기준(`warn_context_tokens`) 초과일 때만. 차단하지 않는다(항상 rc 0).
+- `finish-note [<transcript>]` — 작업을 마친 시점에 부른다(풀 경로 `performance-test-ko` PR 생성 뒤 §5 · 기본 경로 `/basic` 9번). `SESSION-NEXT: 지금 대화가 약 NK 토큰입니다 — 다음 작업은 새 세션에서 시작하면 호출마다 다시 읽는 양이 줄어듭니다.` 1줄. 크기를 읽지 못하면(transcript 없음) 무출력. 묻지 않고 막지 않는다(항상 rc 0).
 
-설정은 `.specops/config.yaml` 의 `session_split:` 블록(환경변수 우선): `enabled` · `permission_mode`(`inherit` 기본 — 권한 옵션을 넘기지 않고 사용자 settings 를 따른다 · `auto` · `acceptEdits` · `bypassPermissions` 는 거절) · `model` · `timeout_min`(기본 180) · `max_budget_usd` · `warn_context_tokens`(기본 150000 — 새 세션 첫 호출이 48~52K 였던 실측 기준 · 0 이면 끔).
+설정은 `.specops/config.yaml` 의 `session_split:` 블록(환경변수 우선): `enabled` · `permission_mode`(`inherit` 기본 — 권한 옵션을 넘기지 않고 사용자 settings 를 따른다 · `auto` · `acceptEdits` · `bypassPermissions` 는 거절) · `model` · `timeout_min`(기본 180) · `max_budget_usd` · `warn_context_tokens`(0 이면 `warn-size`·`finish-note` 를 끈다 · 기본 150000 은 끝난 작업을 판정할 수 없을 때의 시작 고지 기준 — 새 세션 첫 호출이 48~52K 였던 실측).
 
 ## batch-state.sh · record-batch-gate.sh — `/start-all` 끝단 판정
 

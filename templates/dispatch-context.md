@@ -22,7 +22,10 @@
 > spec.md 의 해당 task와 직결된 섹션 경로 + 라인 범위.
 
 - `.specops/<FID>/spec.md` §<N> <섹션 제목> (line <start>-<end>)
+- 태스크 본문: `.specops/<FID>/dispatch/<task-id>-task.md` (tasks.md 의 이 태스크 절 — tasks.md 전체는 읽지 않는다)
 - `.specops/<FID>/acceptance-criteria.md` AC-N, AC-N
+
+> `태스크 본문:` 줄은 `emit-context.sh` 가 tasks.md 의 `## Task N` 절을 잘라 `dispatch/<task-id>-task.md` 로 쓰고 싣는다. 절을 잘라내지 못한 태스크(제목 형식이 다른 옛 문서·번호 어긋남)는 파일이 없고 이 줄이 `tasks.md` 에서 절을 찾으라고 안내한다.
 
 ## 3. 테스트 명령
 

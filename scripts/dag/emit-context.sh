@@ -9,6 +9,7 @@
 #     - test_command 비-빈
 #   1건이라도 실패 → stderr 출력 + exit 1 + 디스크 작성 0
 #   2단계 실제 작성: 모두 통과 시 dispatch/<task-id>-context.md × N 일괄 작성
+#              + tasks.md 에서 그 태스크 절을 잘라 dispatch/<task-id>-task.md (못 찾으면 만들지 않고 stderr NOTE — 실패 아님)
 #   출력: stdout "EMIT: N files" + exit 0
 set -euo pipefail
 
@@ -271,7 +272,7 @@ fi
 
 # 2단계 실제 작성
 mkdir -p "$DISPATCH"
-YAML_IN="$yaml" AC_PATH="$AC" SPEC_PATH="$SPEC" FID="$FID" DISPATCH_DIR="$DISPATCH" FND_DECLS="$_fnd_decls" CR_STATE="$_cr_state" CR_RULES="$_cr_rules" CR_WHY="$_cr_why" CR_PATH="$_cr_path" python3 - << 'PYEOF'
+YAML_IN="$yaml" AC_PATH="$AC" SPEC_PATH="$SPEC" TASKS_PATH="$TASKS" FID="$FID" DISPATCH_DIR="$DISPATCH" FND_DECLS="$_fnd_decls" CR_STATE="$_cr_state" CR_RULES="$_cr_rules" CR_WHY="$_cr_why" CR_PATH="$_cr_path" python3 - << 'PYEOF'
 import os, re, sys
 sys.path[:] = [p for p in sys.path if p not in ("", ".")]
 import yaml
@@ -403,9 +404,107 @@ elif cr_state in ("violation", "unknown"):
         "> 확인: `bash \"${CLAUDE_PLUGIN_ROOT}\"/scripts/_internal/check-constitution-rules.sh`\n"
     )
 
+# 태스크 절 분리 (20261115-token-task-slice) — 구현자가 tasks.md 전체(실측 5~65KB)를 읽지 않도록 자기 절만 잘라 둔다.
+#   절 판정은 check-foundation-reuse.sh 와 같은 규칙이다: 2~3단 `Task|태스크 N` 제목 · 코드 펜스 밖(닫는 펜스는 같은 문자로 여는 길이 이상 ·
+#   여는 줄 나머지에 백틱이 있으면 인라인 코드). 절은 제목부터 다음 2단 이하 제목 또는 번호가 다른 태스크 제목 직전까지다
+#   (`## Task 3` 아래 `### Task 3 — 둘째 사이클` 은 같은 절이다). 대응은 절 번호 ↔ task id 의 숫자(foundation 선언과 같다).
+#   절 번호에 없는 id 가 있으면(T1·T2 인데 절은 2·3 — 번호가 어긋남) 어느 것도 대응시키지 않는다 — 남의 절을 주는 것보다 tasks.md 로 돌려보내는 편이 낫다.
+#   **막지 않는다**: 못 찾은 태스크는 파일을 만들지 않고(옛 파일은 지운다) 표준 오류 1줄 — 구현자는 tasks.md 에서 절을 찾는다(fallback).
+_HEAD_RE = re.compile(r"^(#{1,6})[ \t]+(.*)$")
+_TASK_RE = re.compile(r"^(?:Task|태스크)[ \t]+([0-9]+)")
+def task_sections(path):
+    try:
+        lines = open(path, encoding="utf-8").read().split("\n")
+    except (OSError, UnicodeDecodeError):
+        return {}, set()
+    fence_n, fence_c = 0, ""
+    heads = []   # (행 번호, 단계, 태스크 번호|None)
+    for i, raw in enumerate(lines):
+        ln = raw.rstrip("\r")
+        st = ln.lstrip(" \t")
+        m = re.match(r"^(`{3,}|~{3,})(.*)$", st)
+        if m:
+            c, n, rest = m.group(1)[0], len(m.group(1)), m.group(2)
+            if fence_n == 0:
+                if not (c == "`" and "`" in rest):
+                    fence_n, fence_c = n, c
+                continue
+            if c == fence_c and n >= fence_n and not rest.strip():
+                fence_n, fence_c = 0, ""
+            continue
+        if fence_n:
+            continue
+        h = _HEAD_RE.match(ln)
+        if not h:
+            continue
+        lvl = len(h.group(1))
+        tm = _TASK_RE.match(h.group(2)) if lvl in (2, 3) else None
+        heads.append((i, lvl, int(tm.group(1)) if tm else None))
+    secs = {}
+    dup = set()
+    cur = None   # 지금 열린 절의 (번호, 단계)
+    for k, (i, lvl, num) in enumerate(heads):
+        if num is None:
+            if lvl <= 2:
+                cur = None
+            continue
+        # 같은 번호의 더 깊은 제목(`## Task 3` 아래 `### Task 3 — …`)은 그 절의 일부다 — 새 절로 세지 않는다
+        if cur is not None and cur[0] == num and lvl > cur[1]:
+            continue
+        cur = (num, lvl)
+        end = len(lines)
+        for (j, l2, n2) in heads[k + 1:]:
+            if l2 <= 2 or (n2 is not None and n2 != num) or (n2 is not None and l2 <= lvl):
+                end = j
+                break
+        if num in secs:
+            dup.add(num)
+        secs[num] = (i, end)
+    for d in dup:
+        secs.pop(d, None)
+    out = {}
+    for num, (a, b) in secs.items():
+        body = lines[a:b]
+        while body and not body[-1].strip():
+            body.pop()
+        out[num] = (a + 1, a + len(body), "\n".join(body) + "\n")
+    return out, dup
+
+def _tnum(tid):
+    s = re.sub(r"\D", "", str(tid)).lstrip("0")
+    return int(s) if s else None
+
+tasks_path = os.environ["TASKS_PATH"]
+_secs, _dups = task_sections(tasks_path)
+_id_nums = {_tnum(t["id"]) for t in tasks}
+_offset = bool(_secs) and any(n not in _id_nums for n in _secs)
+if _offset:
+    print(f"emit-context: NOTE 태스크 절 번호({','.join(map(str, sorted(_secs)))})가 task id 번호와 어긋나 태스크 절을 자르지 않았다 — 구현자는 tasks.md 에서 자기 절을 찾는다", file=sys.stderr)
+task_file = {}
+for t in tasks:
+    tid = t["id"]
+    tp = os.path.join(disp, f"{tid}-task.md")
+    n = _tnum(tid)
+    sec = None if _offset else _secs.get(n)
+    if sec is None:
+        if os.path.exists(tp):
+            os.remove(tp)   # 옛 실행의 절이 남아 있으면 구현자가 낡은 절을 읽는다
+        if not _offset:
+            why = "같은 번호의 절이 둘" if n in _dups else "제목 `## Task N` 을 찾지 못함"
+            print(f"emit-context: NOTE {tid} 태스크 절을 tasks.md 에서 잘라내지 못했다({why}) — {tid}-task.md 를 만들지 않는다(구현자는 tasks.md 에서 자기 절을 찾는다)", file=sys.stderr)
+        continue
+    a, b, text = sec
+    with open(tp, "w", encoding="utf-8") as fh:
+        fh.write(f"<!-- emit-context.sh 자동 산출 — {tasks_path} {a}-{b}행의 {tid} 절. 고치려면 tasks.md 를 고치고 emit-context 를 다시 돌린다 -->\n\n{text}")
+    task_file[tid] = f".specops/{fid}/dispatch/{tid}-task.md"
+
 count = 0
 for t in tasks:
     tid = t["id"]
+    if tid in task_file:
+        task_line = f"- 태스크 본문: `{task_file[tid]}` (tasks.md 의 이 태스크 절 — tasks.md 전체는 읽지 않는다)"
+    else:
+        task_line = f"- 태스크 본문: `.specops/{fid}/tasks.md` 에서 {tid} 의 절을 찾는다 (절을 잘라내지 못했다)"
     tc = t["test_command"]
     inputs = t.get("inputs", []) or []
     outputs = t.get("outputs", []) or []
@@ -455,6 +554,7 @@ for t in tasks:
 ## 2. 관련 spec.md 섹션
 
 - `.specops/{fid}/spec.md`
+{task_line}
 {inputs_lines}
 
 ## 3. 테스트 명령

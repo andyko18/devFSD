@@ -320,6 +320,14 @@ EOF
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /lifecycle DONE "PR 생성 완료"
 ```
 
+### 5. 새 세션 안내 (고지만 — 묻지 않는다)
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/split-session.sh finish-note
+```
+
+`SESSION-NEXT:` 줄이 나오면 아래 「학습 추출」까지 마친 뒤 끝 보고의 마지막 줄로 그대로 싣는다(출력이 없으면 아무 말도 하지 않는다). 작업을 마친 지금이 대화를 끊기 가장 좋은 지점이다 — 같은 대화에서 다음 작업을 이어 가면 커진 대화를 호출마다 다시 읽는다. 질문을 붙이지 않는다.
+
 ---
 
 ## 5원칙 주입 (specops-ko 고유)

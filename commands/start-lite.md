@@ -1,7 +1,7 @@
 ---
 name: start-lite
 disable-model-invocation: true
-description: "[단일·별칭] `/start` 의 별칭 — 다음 메이저에서 제거. `/start` 가 위험 신호가 없으면 기본 경로를 자동으로 고른다"
+description: "[단일·별칭] `/start` 의 별칭 — 다음 메이저에서 제거. `/start` 가 무거운 위험 신호가 없으면 기본 경로를 자동으로 고른다"
 triggers:
   - "/start-lite"
 mode: ask

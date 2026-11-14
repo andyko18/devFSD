@@ -1,7 +1,7 @@
 ---
 name: maintain-lite
 disable-model-invocation: true
-description: "[유지보수·별칭] `/maintain` 의 별칭 — 다음 메이저에서 제거. `/maintain` 가 위험 신호가 없으면 기본 경로를 자동으로 고른다"
+description: "[유지보수·별칭] `/maintain` 의 별칭 — 다음 메이저에서 제거. `/maintain` 가 무거운 위험 신호가 없으면 기본 경로를 자동으로 고른다"
 triggers:
   - "/maintain-lite"
 mode: ask

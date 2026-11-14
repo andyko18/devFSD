@@ -623,11 +623,25 @@ export SPECOPS_UNIFIED_PATH=1
 n=$(_repo uni)
 out=$(_bp "$n" lane "로그인 권한 검사를 바꾼다"); rc=$?
 [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -qx 'LANE: basic' && printf '%s\n' "$out" | grep -q '^SIGNALS: .*auth' && ok "N1 ★ 가벼운 신호(인증) → basic + SIGNALS 줄 (rc 0)" || no "N1" "rc=$rc $out"
+_r2() {  # <repo> — spec 에 데이터 보존 수용 기준(AC-R-2)을 더한다
+  awk '/^## 4\. / { print "### AC-R-2: 데이터 보존 — 주문 행\n\n**우선순위**: must\n**Given** 주문 3행\n**When** 컬럼을 더한다\n**Then** 3행이 그대로 읽힌다\n**검증 방법**: bash scripts/tests/test-count.sh\n" } { print }' "$1/.specops/$FID/spec.md" > "$1/.specops/$FID/spec.new" && mv "$1/.specops/$FID/spec.new" "$1/.specops/$FID/spec.md"
+}
+# 데이터 보존 기준 (20261114 점검) — DB 스키마 신호면 AC-R-2 가 있어야 승인된다
+nr=$(_repo unir2); out=$(_bp "$nr" start "$FID" "주문 테이블 컬럼 추가"); rc=$?
+[ "$rc" = 0 ] && grep -q '^### AC-R-2: 데이터 보존' "$nr/.specops/$FID/spec.md" && ok "N1c ★ 스키마 신호로 시작하면 골격에 AC-R-2(데이터 보존)가 들어간다" || no "N1c" "rc=$rc $out"
+_fill_spec "$nr" "주문 테이블 컬럼 추가"; out=$(_bp "$nr" approve "$FID"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'AC-R-2' && [ ! -e "$nr/.specops/$FID/acceptance-criteria.md" ] && ok "N1d ★ 스키마 신호인데 AC-R-2 가 없으면 approve rc 1" || no "N1d" "rc=$rc $out"
+_r2 "$nr"; out=$(_bp "$nr" approve "$FID"); rc=$?
+[ "$rc" = 0 ] && grep -q '^### AC-R-2' "$nr/.specops/$FID/acceptance-criteria.md" && ok "N1e AC-R-2 를 적으면 승인 · 수용 기준 파일에 옮겨진다" || no "N1e" "rc=$rc $out"
+n0=$(_repo unir0); _bp "$n0" start "$FID" "로그인 권한 검사를 바꾼다" >/dev/null
+grep -q 'AC-R-2' "$n0/.specops/$FID/spec.md" && no "N1f" "스키마 신호가 아닌데 AC-R-2 골격" || ok "N1f 스키마 신호가 아니면 AC-R-2 를 요구하지 않는다"
 # 신호 → 전문가 매핑 (변이: 매핑 가지를 비우면 전문가 없이 지나간다)
 nm=$(_repo unimap); i=0
 for pair in "주문 테이블 컬럼 추가|devfsd:db-designer-ko" "주문 조회 응답 형식을 바꾼다|devfsd:api-designer-ko" "add kafka consumer|devfsd:arch-designer-ko" "run child_process for lint|devfsd:security-designer-ko"; do
   i=$((i+1)); q="${pair%%|*}"; want="${pair##*|}"
-  _bp "$nm" start "$FID" "$q" >/dev/null; _fill_spec "$nm" "$q"; out=$(_bp "$nm" approve "$FID"); rc=$?
+  _bp "$nm" start "$FID" "$q" >/dev/null; _fill_spec "$nm" "$q"
+  case "$want" in *db-designer*) _r2 "$nm" ;; esac
+  out=$(_bp "$nm" approve "$FID"); rc=$?
   [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q "^EXPERTS: .*$want" && ok "N1b.$i ★ 신호 → 전문가: $q → $want" || no "N1b.$i" "rc=$rc $out"
   rm -rf "$nm/.specops/$FID"
 done
@@ -687,6 +701,13 @@ out=$(_bp "$n3" plan "$FID" 1); rc=$?
 [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^PLAN: skip' && printf '%s\n' "$out" | grep -qx 'EXPERTS: none' && [ ! -e "$n3/.specops/$FID/plan.md" ] && [ -f "$n3/.specops/$FID/steps.txt" ] \
   && ok "N7d ★ 태스크 1개 · 신호 없음 → 계획 건너뜀 · 전문가 없음" || no "N7d" "rc=$rc $out"
 rm -f "$n3/.specops/$FID/steps.txt"; out=$(_bp "$n3" plan "$FID" 2); rc=$?
+# 다시 실행 (20261114 주행 실측) — 손대지 않은 골격은 새 수로 다시 만들고, 건너뜀이면 지운다
+out3=$(_bp "$n3" plan "$FID" 3); [ "$(grep -c '^### Task ' "$n3/.specops/$FID/plan.md")" = 3 ] && [ "$(grep -c '^### Task ' "$n3/.specops/$FID/plan.md.prev")" = 2 ] && printf '%s' "$out3" | grep -q 'plan.md.prev 로 옮겼다' && ok "N7f ★ plan 재실행 — 자리표시가 남은 계획은 plan.md.prev 로 옮기고(지우지 않는다) 새 태스크 수로 다시 만든다" || no "N7f" "$out3"
+out1=$(_bp "$n3" plan "$FID" 1); printf '%s\n' "$out1" | grep -q '^PLAN: skip' && [ ! -e "$n3/.specops/$FID/plan.md" ] && ok "N7g ★ plan 재실행으로 건너뜀이 되면 남은 골격을 지운다(뒤에서 막히지 않는다)" || no "N7g" "$out1"
+_bp "$n3" plan "$FID" 2 >/dev/null; sed 's/{{[^}]*}}/x/g' "$n3/.specops/$FID/plan.md" > "$n3/.specops/$FID/plan.t" && mv "$n3/.specops/$FID/plan.t" "$n3/.specops/$FID/plan.md"
+out3=$(_bp "$n3" plan "$FID" 3); printf '%s\n' "$out3" | grep -q '^PLAN-NOTE: plan.md 의 태스크 칸은 2개인데 3개' && [ "$(grep -c '^### Task ' "$n3/.specops/$FID/plan.md")" = 2 ] \
+  && ok "N7h ★ 이미 채운 계획은 다시 만들지 않고 칸 수 차이만 알린다" || no "N7h" "$out3"
+rm -f "$n3/.specops/$FID/plan.md" "$n3/.specops/$FID/steps.txt"; out=$(_bp "$n3" plan "$FID" 2); rc=$?
 [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^PLAN: yes ' && [ "$(grep -c '^### Task ' "$n3/.specops/$FID/plan.md")" = 2 ] && ok "N7d2 ★ 경계 — 태스크 2개면 신호 없어도 계획" || no "N7d2" "rc=$rc $out"
 rm -f "$n3/.specops/$FID/plan.md"
 out=$(_bp "$n3" plan "$FID" 3); rc=$?
@@ -694,6 +715,14 @@ out=$(_bp "$n3" plan "$FID" 3); rc=$?
   && ok "N7e 태스크 3개 · 신호 없음 → 계획(태스크 3칸 · 신호 절 없음)" || no "N7e" "rc=$rc $out"
 
 # seal 안전망
+# 채우지 않은 계획으로 review 를 건너뛰고 봉인해도 막힌다 (20261114 주행 실측 — 종전에는 통과했다)
+printf '#!/usr/bin/env bash\nexit 0\n' > "$n/scripts/tests/test-count.sh"; chmod +x "$n/scripts/tests/test-count.sh"; printf 'x\n' > "$n/scripts/count.sh"
+mkdir -p "$n/.specops/$FID/reviews" "$n/.specops/$FID/experts"
+printf '# B\n**판정**: PASS\n' > "$n/.specops/$FID/reviews/T1-B-report.md"; printf '# C\n**Phase B 상태**: PENDING(병렬 dispatch)\n**판정**: READY_TO_MERGE\n' > "$n/.specops/$FID/reviews/T1-C-report.md"
+printf '# 보안\n## 반영\n- 반영\n' > "$n/.specops/$FID/experts/security.md"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'plan.md 에 채우지 않은' && [ ! -e "$n/.specops/$FID/tasks.md" ] && ok "N8a ★ 채우지 않은 계획은 seal 도 막는다 (rc 1)" || no "N8a" "rc=$rc $out"
+rm -rf "$n/.specops/$FID/reviews" "$n/.specops/$FID/experts"
 sed 's/{{[^}]*}}/x/g' "$P" > "$P.t" && mv "$P.t" "$P"
 printf '#!/usr/bin/env bash\ngrep -c . "$1"\n' > "$n/scripts/count.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$n/scripts/tests/test-count.sh"; chmod +x "$n/scripts/count.sh" "$n/scripts/tests/test-count.sh"

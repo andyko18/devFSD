@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **통합 절차의 빈틈 넷**(20261114 프로세스 점검 — 가짜 프로젝트 주행으로 찾았다).
+  - 세션을 재개하면 기본 경로 작업에 "clarify 부터 재개" 라는 풀 경로용 안내가 주입되던 것(`scripts/_internal/reconcile-check.sh` — `/basic` 기록이 있는 FID 는 기본 경로의 다음 단계를 말한다).
+  - 채우지 않은 계획 문서로 `review` 를 건너뛰고 봉인하면 통과하던 것(`basic-path.sh seal` 도 자리표시를 검사한다).
+  - 기본 경로 본문에 FID 짓는 규칙이 없던 것(`commands/basic.md` — 영문 소문자·숫자·하이픈, 한글 요청은 영어로 옮긴다).
+  - `basic-path.sh plan` 을 태스크 수를 바꿔 다시 실행하면 계획 문서와 어긋나던 것(손대지 않은 골격은 다시 만들고, 채운 계획은 `PLAN-NOTE:` 로 칸 수 차이만 알린다).
+- **기본 경로에서 올린 FID 가 이미 한 분석·전문가 검토를 다시 하던 것**(`skills/specifying-ko/basic-promote.md`) — 보존 폴더의 분석 문서·계획·전문가 보고서를 입력으로 읽고, 분석은 `current-state.md` 의 시드로, 전문가는 달라진 부분만 다시 받는다.
+
+### Changed
+
+- **DB 스키마를 바꾸는 작업은 기본 경로에서도 데이터 보존 수용 기준(`AC-R-2`)이 있어야 승인된다**(`basic-path.sh start`·`approve`). 풀 경로가 스키마 변경에 요구하던 기준인데, 통합 절차로 스키마 변경이 기본 경로에 남으면서 빠져 있었다. 스키마 신호로 시작하면 spec 골격에 `AC-R-2` 칸이 들어간다.
+- 옛 갈래 설명("위험 신호가 있으면 풀 경로")을 현행 규칙으로 고쳤다 — `commands/basic.md`·`maintain.md`·별칭 2개 · `docs/architecture.md` · 메타 skill 보조 문서(`guardrails.md`).
+
 ## [4.0.16] — 2026-11-14
 
 ### Changed

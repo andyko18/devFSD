@@ -54,11 +54,24 @@ _ko_signals() {  # <말뭉치>
     -e 's/(실행-근거|출력|입력|캐시|판정|PASS|FAIL|LLM|모델|프롬프트|컨텍스트) ?토큰//g' \
     -e 's/토큰 ?(비용|사용량|소비|소진|절감|경제|예산|한도)//g' \
     -e 's/[0-9][0-9.,]*([KMkm]|만|천)? ?토큰//g')
-  { printf '%s\n' "$c" | grep -qE '인증|인가|권한|로그인|비밀번호' || printf '%s\n' "$t" | grep -q '토큰'; } && s="$s auth"
+  { printf '%s\n' "$c" | grep -qE '인증|인가|권한|로그인|비밀번호' || printf '%s\n' "$t" | grep -q '토큰' \
+    || printf '%s\n' "$c" | grep -qiE '(^|[^a-z])passw(or)?d' \
+    || printf '%s\n' "$c" | grep -qiE '(체크|검사|check|권한|auth).{0,24}(우회|bypass)|(우회|bypass).{0,24}(체크|검사|check|권한|auth)'; } && s="$s auth"
   printf '%s\n' "$c" | grep -qE '스키마|마이그레이션|컬럼|테이블 ?(추가|변경|삭제|생성)|인덱스 ?(추가|삭제)' && s="$s db_schema"
-  printf '%s\n' "$c" | grep -qiE '데이터 ?(삭제|이관|이전|정리)|일괄 ?삭제|백필|backfill|truncate|purge' && s="$s data_move"
+  # 영문 낱말은 낱말 경계로만 — 식별자 일부(`expiredTruncated`·`is_backfill`)는 신호가 아니다(20261114 과거 작업 327건 실측: 풀 판정 25건 중 5건이 이것).
+  #   레코드 삭제·영문 삭제 형태는 과거 기본 판정 302건에서 오발 0건으로 확인한 것만 더했다(20261114).
+  printf '%s\n' "$c" | grep -qiE '데이터 ?(삭제|이관|이전|정리)|일괄 ?삭제|백필|(^|[^a-z0-9_])(backfill|truncate|purge)' && s="$s data_move"
+  printf '%s\n' "$c" | grep -qiE '(계정|사용자|회원|고객|주문|레코드|데이터베이스|DB)( ?(내역|정보|목록|데이터|기록))?[^[:space:]]{0,9} ?(전부 |모두 |일괄 |전체 )?(삭제|제거)' && s="$s data_move"
+  printf '%s\n' "$c" | grep -qiE '(^|[^a-z])(delete (all|from|every)|drop (the )?[a-z_]+ table|drop table|truncate table)' && s="$s data_move"
   printf '%s\n' "$c" | grep -qiE '응답 ?(형태|형식|구조|필드|스키마)|하위 ?호환|breaking|API ?(변경|수정|삭제)' && s="$s api_shape"
   printf '%s\n' "$c" | grep -qE '운영 ?(배포|반영)|결제|과금|환불|(메일|문자|푸시|알림) ?발송|되돌릴 수 없' && s="$s irreversible_ext"
+  # 운영 대상 배포·대량 발송·청구의 다른 표현 (20261114 — "운영 서버에 배포한다"·"이메일을 발송한다" 가 신호 없이 기본으로 갔다)
+  printf '%s\n' "$c" | grep -qiE '(프로덕션|실서버|운영 ?서버|운영 ?환경)[^[:space:]]{0,9} ?(배포|반영|릴리즈)|(deploy|release|ship)[a-z]* (it )?(to|into|on) (prod|production)|production (deploy|release)' && s="$s irreversible_ext"
+  printf '%s\n' "$c" | grep -qiE '(메일|문자|푸시|알림)[^[:space:]]{0,9} ?(일괄 |전체 |모두 )?(발송|전송)|send (emails?|push|sms|notifications?|messages?) to|(^|[^a-z])(refund|charge (the|a|an|their) )' && s="$s irreversible_ext"
+  # 금융·주민 식별 번호, 사용자 데이터의 외부 전송 — 개인정보
+  printf '%s\n' "$c" | grep -qE '카드 ?번호|계좌 ?번호|주민 ?(등록 ?)?번호|외부.{0,30}(사용자|개인|고객|회원) ?(데이터|정보).{0,12}(전송|보낸|보내|제공)' && s="$s payment_pii"
+  # 강제 푸시 — 원격 이력을 덮는다
+  printf '%s\n' "$c" | grep -qiE 'push (--force|-f)([^a-z-]|$)|force[- ]push' && s="$s destructive_fs"
   printf '%s' "$s"
 }
 

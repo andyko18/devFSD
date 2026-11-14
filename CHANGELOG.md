@@ -4,28 +4,28 @@
 
 ## [Unreleased]
 
-### Fixed
-
-- **기본 경로 봉인이 NEEDS_FIX 를 "B PASS" 로 적던 것**(`scripts/basic-path.sh seal`). 저장 훅이 `T1-B-feedback.md` 를 만드는 것은 스펙 리뷰 판정이 `NEEDS_FIX` 일 때뿐인데, 훅이 안 돈 실행(부모 fallback 저장)에서는 그 파일이 없어 봉인이 감사 행(`BC-PAR-CHECK:T1`)에 `B PASS` 를 적었다 — 감사(`check-review-audit.sh`)도 feedback 유무만 교차 검사해 위장이 통과했다(소스 검토 20261114에서 확인, 재현은 새 테스트 V1·V3). 이제 B 보고서 `## 종합 판정` 절의 고정 판정 줄(`판정: NEEDS_FIX` — 줄 전체 일치)을 읽고, feedback 이 없으면 **봉인하지 않는다**(rc 4 — 보고서가 없을 때와 같은 "리뷰 단계로 돌아가라"). **판정 줄이 없는 이전 형식 보고서는 종전대로 feedback 유무로 본다**(하위 호환). 판정 줄은 스펙 리뷰어 정의가 새로 고정한 형식(에이전트 계약 정합 변경)이라 그 변경과 함께 효과가 난다.
-
-### Tests/CI
-
-- **관련 스위트 러너가 가끔 "목록에 없는 경로"로 실패하던 것**(`scripts/tests/run-related.sh`). `printf … | grep -q` 에서 grep 이 첫 일치로 끝나면 printf 가 SIGPIPE 를 받고, `set -o pipefail` 아래에서 그 실패가 "목록에 없다"(exit 2)로 읽혔다 — 타이밍에 따라 나는 흔들림이다(리눅스 CI 1회 · `test-run-related` X22). here-string 으로 넘긴다.
-- `test-basic-path.sh` V1~V6 — NEEDS_FIX + feedback 없음 거부 · feedback 있으면 정상 봉인 + 기존 리뷰 감사 PASS · PASS 대조 · 옛 형식 하위 호환 · 줄 전체 일치(본문 인용·`NEEDS_FIX 아님` 은 판정이 아님).
-
 ### Security
 
 - **작업 폴더의 `yaml.py` 가 훅에서 실행되던 것**(`scripts/_internal/is-hook-enabled.sh`). pyyaml 유무를 보는 탐침 `python3 -c "import yaml"` 이 현재 폴더를 import 경로에 둔 채 돌았다 — `.specops/config.yaml` 이 있는 저장소를 열면 그 저장소의 `yaml.py` 가 Bash 호출마다·세션 시작마다 실행됐다(파싱 단계는 이미 현재 폴더를 뺐고 탐침만 빠져 있었다). 탐침과 파싱 모두 현재 폴더(빈 문자열·`.`·절대경로)를 뺀다.
 
+### Changed
+
+- **에이전트 계약을 부르는 쪽·받는 쪽·템플릿이 같은 말로 맞췄다**(소스 검토 20261114 — 전부 소스에서 확인). **행동 변경 둘**:
+  - **스펙 리뷰어는 `must` 수용 기준만으로 PASS 를 정한다**(`agents/spec-reviewer-ko.md`). 종전엔 정의에 `must`·`should` 낱말이 없어 "있으면 좋은"(`nice-to-have`) 기준 하나의 미충족도 `NEEDS_FIX` 가 돼 수정 라운드(구현자 재dispatch)를 불렀다 — 템플릿 §우선순위 규약("nice-to-have: 미충족 시 BLOCK 없음")과 정면 충돌이었다. 이제 `should`·`nice-to-have` 미충족은 PASS 이고 보고서 표에 우선순위와 함께 남으며, 부모(`basic.md` 6번 · `implementing-ko` 「수정 라운드」 0번)가 `dev-decision.sh add <FID> backlog` 로 옮겨 PR 본문 "넘긴 것"에 실린다. `**우선순위**` 줄이 없는 옛 AC 문서는 모두 `must` 로 본다(`AC-R-*` 는 항상 `must`).
+  - **종합 판정이 고정 한 줄이다** — 보고서 `## 종합 판정` 첫 줄이 `판정: PASS` 또는 `판정: NEEDS_FIX`. 종전엔 보고서 틀이 `✅ PASS / ⚠️ PARTIAL / ❌ FAIL`, 반환이 `PASS / NEEDS_FIX / NEEDS_CONTEXT`, 템플릿이 `verdict = BLOCK`(어느 에이전트도 내지 않는 값) 으로 한 정의 안에서도 세 벌이었다. 훅이 읽는 `verdict=<PASS|NEEDS_FIX>` 는 그대로다. 이 줄이 생겨 다음 단계에서 봉인이 판정을 읽을 수 있다(지금 봉인은 보고서 파일 유무만 본다 — 별도 작업).
+- **기본 경로가 리뷰어에게 줄 입력이 정의됐다.** `commands/basic.md` 6번은 dispatch 컨텍스트 파일 없이 리뷰어를 부르는데 두 리뷰어 정의는 5 컨텍스트 누락 시 `NEEDS_CONTEXT` 를 반환하라고 했고(코드 리뷰어만 `quick 경로: yes` 예외), `<base>` 는 정의가 없어 실행마다 달랐다. 두 정의에 `기본 경로: yes` 규약(AC 는 `acceptance-criteria.md` 전체 · test 명령은 변경된 테스트에서 스스로 골라 부모의 실행 상한 안에서)을 더했고, `basic-path.sh review` 가 `BASE: <sha>`(기본 브랜치 origin/HEAD → main → master 와의 merge-base · 못 찾으면 `BASE: none`)를 낸다.
+- **구현자는 whitelist 밖 파일을 쓰지 않는다**(`agents/implementer-ko.md`). 정의가 `tasks.md` 체크(`- [ ]` → `- [x]`)와 `session-progress` 줄을 쓰라고 하면서 whitelist 밖은 `NEEDS_CONTEXT` 라고도 했고, 부모는 `record-task-done.sh` 로 같은 줄을 따로 써 중복·병렬 충돌 여지가 있었다. 체크 표시를 읽는 곳은 구현자 정의 자신뿐이었다(소스 전수 확인). 대신 **기존 동작만 고정하는 태스크는 변이로 RED 를 대신한다**(부모·계획이 약속했는데 받는 에이전트가 없던 "되돌려-관찰" — whitelist 안에서만 · `git diff` 로 원복 확인).
+- **`/security-scan --self-config` 가 감사 3종을 sonnet 으로 부른다**(`commands/security-scan.md`). 에이전트 정의의 `model: inherit`(README 에 "세션 모델 계승"으로 적힌 의도된 설계)는 그대로 두고, 호출 때 낮춘다 — 세션이 상위 모델이면 감사 3종이 그대로 따라가던 것을 막는다.
+
 ### Fixed
 
+- **기본 경로 봉인이 NEEDS_FIX 를 "B PASS" 로 적던 것**(`scripts/basic-path.sh seal`). 저장 훅이 `T1-B-feedback.md` 를 만드는 것은 스펙 리뷰 판정이 `NEEDS_FIX` 일 때뿐인데, 훅이 안 돈 실행(부모 fallback 저장)에서는 그 파일이 없어 봉인이 감사 행(`BC-PAR-CHECK:T1`)에 `B PASS` 를 적었다 — 감사(`check-review-audit.sh`)도 feedback 유무만 교차 검사해 위장이 통과했다(소스 검토 20261114에서 확인, 재현은 새 테스트 V1·V3). 이제 B 보고서 `## 종합 판정` 절의 고정 판정 줄(`판정: NEEDS_FIX` — 줄 전체 일치)을 읽고, feedback 이 없으면 **봉인하지 않는다**(rc 4 — 보고서가 없을 때와 같은 "리뷰 단계로 돌아가라"). **판정 줄이 없는 이전 형식 보고서는 종전대로 feedback 유무로 본다**(하위 호환). 판정 줄은 스펙 리뷰어 정의가 새로 고정한 형식(에이전트 계약 정합 변경)이라 그 변경과 함께 효과가 난다.
 - **`config.yaml` 구조가 예상과 다르면 훅 전체가 조용히 꺼지던 것**(`is-hook-enabled.sh`). 최상위가 목록·문자열·수이거나 `hooks`·`profiles` 가 매핑이 아니면 파이썬이 예외로 rc 1 을 냈고, 호출부는 rc 1 을 "비활성"으로 읽었다. 매핑이 아닌 값은 "설정 없음"으로 읽고, 끄는 것은 프로파일의 전체 끄기와 `enabled: false`(또는 `0`)뿐이다. **행동 변경**: 값을 비운 `enabled:` 는 더 이상 끄지 않는다(종전엔 빈 값도 꺼짐으로 읽혔다).
 - **검증 없이 커밋·PR 이 열리던 명령 형태 셋**(`hooks/governance-lib.sh` · `hooks/rules.jsonl` · `hooks/pretool-governance.sh`).
   - 주석 속 작은따옴표: 주석의 `'` 가 인용을 열고 다른 주석의 `'` 가 닫아, 그 사이의 `git commit`·`gh pr create` 가 "인용 본문"으로 지워져 트리거에서 사라졌다(`# don't …` / 커밋 / `# it's …`). 낱말 머리의 `#` 뒤는 줄 끝까지 주석으로 보고 그 안의 따옴표를 인용으로 세지 않는다. 주석 글자는 지우지 않는다(차단 우세).
   - 값이 빈 env 접두: `FOO= git commit` · `GIT_EDITOR= git commit` · `env FOO= git commit` 이 접두로 인식되지 않아 트리거가 빗나갔다. 빈 값을 접두로 인정한다.
   - 우회 표식의 위치: `SPECOPS_GOVERNANCE_BYPASS=1` 을 명령 원문에서 줄 단위로 찾아, heredoc 본문이나 여러 줄 커밋 메시지 안의 한 줄(우회 기능을 설명하는 메시지)로 게이트가 열리고 가짜 우회 기록이 쌓였다. 인용·heredoc 본문을 걷어 낸 문자열에서만 찾는다. 빈 사유(`SPECOPS_BYPASS_REASON=""`·`''`)는 사유로 받지 않는다.
   - 하류 실측이 아니라 소스 검토(20261114)에서 임시 저장소로 재현한 것이다. 정직한 사용에서 드물게 나는 형태지만 흔적 없이 열렸다.
-
 - **판정이 틀리거나 통과로 잘못 적히던 것 넷**(소스 검토 20261114 — 전부 실행으로 재현).
   - PR 판정기(`scripts/pr-gate.sh`)가 "PR 생성 포함은 거절" 같은 기록도 동의로 읽었다. 승인 기록의 **결정 칸이 `PR 생성 포함` 으로 끝날 때만** 동의다(근거 칸에만 있는 말·"포함하지 않음"은 아니다). v5.1.0 에서 들어간 결함이다.
   - 세션 분리 끄기(`scripts/split-session.sh`)가 `enabled: False`·`OFF`·`No` 와 한 줄 형태 `session_split: {enabled: false}` 를 끄기로 읽지 못했다.
@@ -34,6 +34,8 @@
 
 ### Tests/CI
 
+- **관련 스위트 러너가 가끔 "목록에 없는 경로"로 실패하던 것**(`scripts/tests/run-related.sh`). `printf … | grep -q` 에서 grep 이 첫 일치로 끝나면 printf 가 SIGPIPE 를 받고, `set -o pipefail` 아래에서 그 실패가 "목록에 없다"(exit 2)로 읽혔다 — 타이밍에 따라 나는 흔들림이다(리눅스 CI 1회 · `test-run-related` X22). here-string 으로 넘긴다.
+- `test-basic-path.sh` V1~V6 — NEEDS_FIX + feedback 없음 거부 · feedback 있으면 정상 봉인 + 기존 리뷰 감사 PASS · PASS 대조 · 옛 형식 하위 호환 · 줄 전체 일치(본문 인용·`NEEDS_FIX 아님` 은 판정이 아님).
 - `test-pretool.sh` T37b~e · T-cq.a~e · T-ev(4형태) · `test-is-hook-enabled.sh` T7 · T8 · T8b — 먼저 실패를 확인했다(13건). 대조군: 주석 따옴표 사이에 커밋이 없으면 통과 · 인용 문자열 안의 `#` 는 주석이 아님 · 낱말 중간의 `#`(`${x#y}`·`$#`·`a#b`)는 주석이 아님 · 정상 구조의 `enabled: false` 는 그대로 끔.
 - `test-pr-gate.sh` G3.k~n · G1.c·d · **G6.e**(승인 → 기록 1줄 → 판정기 auto 를 실제로 돌려 본다 — 종전 G6.a 는 문자열이 파일에 있는지만 봐서 기록 호출을 지워도 통과했다) · `test-split-session.sh` D7b~e · `test-design-screen.sh` T6.c·d · `test-gate-presence.sh` 통합 게이트 문구.
 

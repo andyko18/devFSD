@@ -208,6 +208,7 @@ Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스�
 
 end-loaded(기본)에서 최초 B·C 가 지적을 내면 **수정 라운드 1회**로 끝낸다 — 고친 뒤 B·C 를 다시 부르지 않는다.
 
+0. B 보고서의 `should`·`nice-to-have` 미충족은 판정이 PASS 라 수정 라운드 대상이 아니다 — `dev-decision.sh add <FID> backlog "<AC 번호·요지>"` 로 남긴다(PR 본문 "넘긴 것").
 1. B FAIL·C `NEEDS_FIX` 의 feedback 과 계약 안 Important(`dev-autonomy.md` §2)를 **한 번에 모아** 영향받은 tid 의 `devfsd:implementer-ko` 를 재dispatch 한다(feedback **경로만** · 아래 상향 규칙). 서로 outputs 가 겹치지 않는 tid 는 한 메시지에서 동시에 보낸다.
 2. 구현자가 `DONE` 이고 그 태스크의 관련 테스트가 통과하면 dispatch-log 에 tid 마다 `| <N> | <ISO-8601> | REVIEW-FIX:<tid> | implementer-ko | FIXED | reviews/<tid>-<B|C>-feedback.md |` 1행을 남기고 **재리뷰 없이** `verifying-evidence-ko` 로 간다. 고친 코드의 검증은 verify(AC 대조·전체 스위트·fix_loop)가 맡는다.
 3. 구현자가 고치지 못하면(`BLOCKED` · 관련 테스트 FAIL · Critical 지적을 반영하지 않은 `DONE_WITH_CONCERNS`) **Critical 미해결**이다 — 아래 「cap 초과 처리」(전역 재시도 1회 → HARD GATE)를 그대로 탄다. verify 로 넘기지 않는다.

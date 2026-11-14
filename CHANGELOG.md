@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.2.1] — 2026-11-15
+
 ### Fixed
 
 - **갈래 판정이 위험한 요청을 기본 경로로 보내던 것과, 식별자 일부의 낱말로 풀 경로에 올리던 것**(`scripts/basic-path.sh` · `scripts/_internal/risk-profile.sh`). 소스 검토(20261114)에서 "운영 서버에 배포한다"·"사용자 계정을 삭제한다"·"카드번호 저장 필드 추가"·"Delete all users from the database"·"외부 서버로 사용자 데이터를 전송한다" 가 **신호 없이** 기본 경로로 갔다. 고치기 전에 과거 작업 327건(이 저장소 + 하류 앱 6곳 · worktree 사본 포함)에 현행 판정을 적용해 쟀다:
@@ -4065,7 +4067,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.2.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.2.1...HEAD
+[5.2.1]: https://github.com/andyko18/devFSD/compare/v5.2.0...v5.2.1
 [5.2.0]: https://github.com/andyko18/devFSD/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/andyko18/devFSD/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/andyko18/devFSD/compare/v4.0.17...v5.0.0

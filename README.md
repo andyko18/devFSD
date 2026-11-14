@@ -26,7 +26,7 @@ LLM 에이전트에게 개발을 맡길 때 반복되는 실패를, 프롬프트
 | 🧠 세션이 끊기면 맥락이 사라진다 | 📁 **파일이 기억한다** — 모든 산출물은 `.specops/<FID>/` 에 남는다. 세션이 끊겨도 파일만 읽고 이어간다 |
 | 🙈 검증하지 않고 "다 됐다"고 말한다 | ✅ **주장은 증거로만** — verify 없이 `git commit`·`gh pr create` 하면 훅이 실행 전에 차단한다 (`.specops/` 가 있는 repo 에서) |
 | 🔍 한 사람(한 리뷰어)이 모든 분야를 놓치지 않고 보기 어렵다 | 🧑‍🔬 **분야 전문가 7종** — 요구사항·화면·DB·구조·API·보안·테스트를 그 분야만 보는 별도 패스가 다시 본다. [전문가 패스](#전문가-패스) 참조 |
-| 🙋 확인 요청이 너무 잦다 | 🗳️ **질문 묶음 최대 2회 + 승인 1회** — 설계가 끝나면 한 번에 승인받고 PR 직전까지 멈추지 않는다(만든 결과는 PR 질문 앞에 화면·실행 출력으로 보여 준다 — 따로 멈추지 않는다). 단계마다 확인하려면 `--step` 을 붙인다 |
+| 🙋 확인 요청이 너무 잦다 | 🗳️ **질문 묶음 최대 2회 + 승인 1회** — 설계가 끝나면 한 번에 승인받고 **PR 생성까지** 멈추지 않는다(만든 결과는 PR 앞에 화면·실행 출력으로 보여 준다 · 사용자가 보는 결과가 바뀐 작업은 초안 PR 로 만들고 확인을 청한다 · 머지는 자동으로 하지 않는다). 단계마다 확인하려면 `--step` 을 붙인다 |
 
 ```mermaid
 flowchart LR
@@ -34,7 +34,7 @@ flowchart LR
     B --> C["명세 → 명확화 → 계획<br/>질문 묶음 최대 2회 · 승인 1회"]
     C --> D["분해 → TDD 구현<br/>태스크별 fresh 서브에이전트"]
     D --> E["검증 → 리뷰 → 보안·통합·성능"]
-    E --> F["★ PR 생성? y/n"]
+    E --> F["PR 생성 (승인에 포함)<br/>★ 머지는 사용자가"]
     classDef gate fill:#ddf4ff,stroke:#0969da,color:#0b3d91
     class C,F gate
 ```
@@ -102,7 +102,7 @@ claude plugin install devfsd@devfsd
 
 **갈래 자동 고르기**: `/start`·`/maintain` 과 자연어 진입("X 만들어줘"·"Y 고쳐줘")은 같은 스크립트 판정(`scripts/basic-path.sh route`)을 거친다 — 모델이 "가벼워 보인다"로 고르지 않는다. 애매하면 풀이고, `--step` 을 붙여도 풀이다. 실측(20261112 · 기계 시간): 기본 경로 42분(원인 조사 15분 포함)·12분, 풀 경로 149~157분 — 표본은 기본 2건이고 자동 분기·승격의 실제 주행은 아직 재지 않았다.
 
-**풀 경로의 기본 동작**: `/start`·`/maintain` 과 자연어 진입은 질문을 최대 2회 묶음으로 받고 intent·설계·스펙·화면·IF·답변을 **한 번에 승인**받은 뒤 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 은 그대로 멈춘다). 지금까지처럼 단계마다 확인하려면 `--step` 을 붙인다 — 예: `/start --step CSV 줄 수 세기 CLI`. `/start-all` 도 같다 — 질문은 체인 전·Phase 1 끝 묶음 2회, 승인은 설계 승인(2.5-E) 1회(`/start-all --step` 은 지금처럼).
+**풀 경로의 기본 동작**: `/start`·`/maintain` 과 자연어 진입은 질문을 최대 2회 묶음으로 받고 intent·설계·스펙·화면·IF·답변을 **한 번에 승인**받은 뒤 PR 생성까지 멈추지 않는다 — 승인 묶음이 PR 생성을 싣는다(머지는 자동으로 하지 않는다 · 예전처럼 PR 앞에서 묻게 하려면 `.specops/config.yaml` 에 `pr_gate: ask`)(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 은 그대로 멈춘다). 지금까지처럼 단계마다 확인하려면 `--step` 을 붙인다 — 예: `/start --step CSV 줄 수 세기 CLI`. `/start-all` 도 같다 — 질문은 체인 전·Phase 1 끝 묶음 2회, 승인은 설계 승인(2.5-E) 1회(`/start-all --step` 은 지금처럼).
 
 **어느 걸 고를까**
 
@@ -143,11 +143,11 @@ flowchart TD
     DEC --> IMP["implementing-ko (구현)<br/>태스크별 fresh dispatch · DAG 병렬<br/>Phase B spec-reviewer-ko · Phase C code-reviewer-ko"]
     IMP --> VER["verifying-evidence-ko (검증)<br/>evidence.md"]
     VER --> SEC["게이트 사전 판정 → security-review-ko → integration-test-ko → performance-test-ko<br/>해당 표면 없으면 skill 을 부르지 않고 SKIP 기록"]
-    SEC --> PR["PR 생성? y/n → finishing-a-development-branch-ko"]:::gate
+    SEC --> PR["데모 → PR 생성 (승인에 포함)<br/>머지는 사용자가 → finishing-a-development-branch-ko"]:::gate
     classDef gate fill:#ddf4ff,stroke:#0969da,color:#0b3d91
 ```
 
-사람이 개입하는 곳은 질문 묶음(최대 2회)·승인 묶음(1회)·PR 이다. `--step` 이면 단계마다 확인한다.
+사람이 개입하는 곳은 질문 묶음(최대 2회)·승인 묶음(1회)·머지다(무인 `/start-all-auto` 와 `--step` 은 PR 앞에서도 묻는다). `--step` 이면 단계마다 확인한다.
 
 **전체 흐름에서 그래도 멈추는 곳**
 

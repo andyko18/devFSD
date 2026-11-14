@@ -385,6 +385,11 @@ case "$ACTION" in
     [ "$rc" = 0 ] || { printf '%s\n' "$out" >&2; rm -f "$SPECOPS/$FID/acceptance-criteria.md"; _die "기존 동작 유지 수용 기준(AC-R-1)이 채워지지 않았다 — spec.md 를 고친 뒤 다시 실행한다"; }
     [ ! -f "$SPECOPS/$FID/analysis.md" ] || bash "$APPEND" "$FID" /analyze 완료 "analysis.md (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     bash "$APPEND" "$FID" /approve 완료 "spec 1장 승인 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
+    # 승인에 PR 생성까지가 들어 있다(commands/basic.md 4번 문구) — PR 단계의 판정기(scripts/pr-gate.sh)가 이 줄을 읽어 다시 묻지 않는다.
+    #   다시 실행해도(spec 수정 뒤 재승인) 한 줄만 둔다.
+    grep -qE '\[approval\] .*PR 생성 포함' "$SPECOPS/$FID/dev-decisions.md" 2>/dev/null \
+      || SPECOPS_ROOT="$SPECOPS" bash "$BP_ROOT/scripts/dev-decision.sh" add "$FID" approval "spec 1장 승인 · PR 생성 포함" "/basic 승인 1회" >/dev/null \
+      || _die "승인 기록을 남길 수 없다"
     ex=$(_experts_of "$soft")
     echo "EXPERTS: ${ex:-none}"
     echo "BASIC: APPROVED $FID — 다음: basic-path.sh plan $FID <태스크 수>"

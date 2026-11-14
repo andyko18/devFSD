@@ -211,6 +211,18 @@ bash scripts/_internal/record-batch-gate.sh <batch-dir> status   # 읽기 전용
 
 queue 의 FID 칸은 `queue-set-status.sh <queue.md> <FR-ID> <STATUS> [FID]` 가 채웁니다 — 게이트가 그 칸으로 FR 의 산출물을 찾으므로, FID 칸이 빈 행은 `IMPL_DONE` 이 될 수 없고 `batch-state.sh` 는 그런 완료 행을 `[FID 미기재]` 로 차단합니다. FR 표는 `check-fr-table.sh` 가 읽습니다(굵게·백틱으로 감싼 ID 와 접미 ID 도 FR · 못 읽은 FR 꼴 행은 `UNPARSED` 로 알림). `batch-state.sh` 는 `SKIP` 행(시드·공통부)과 requirements 의 placeholder FR 을 batch 대상에서 빼고 `[제외]` 로 밝힙니다 — 미완·드리프트로 세지 않습니다(`HELD`·`BLOCKED` 는 미완). 빼는 기준은 queue 의 SKIP 글자가 아니라 `check-fr-table.sh --classify` 입니다: 분류기가 적격이라는 FR 을 SKIP 으로 둔 행은 미완이고, 분류기를 못 돌리면 아무것도 빼지 않습니다. `record-batch-gate.sh` 는 batch 레벨 게이트 판정을 전 IMPL_DONE FID 의 evidence.md 로 전파합니다. SKIP 근거는 spec 섹션명+줄 번호 인용이 없으면 거부하고(RELEASE_READY 가 인용 없는 SKIP 을 차단하므로), 이미 기록된 인용 없는 SKIP 은 인용 있는 근거로 다시 부르면 보완합니다. `status` 는 FID·게이트별 현황(`PASS`·`SKIP`·`SKIP(BARE)`·`MISSING`)을 내고 빠진 것이 있으면 rc 1 입니다 — batch PR 게이트는 `gh pr create` 에서만 돌아, PR 없이 닫는 batch 는 이 명령이 유일한 확인 수단입니다.
 
+## pr-gate.sh — PR 생성 단계에서 물을지 판정 (읽기 전용)
+
+```bash
+bash scripts/pr-gate.sh decide <FID>   # PR-GATE: auto | auto-draft (<사유>) | ask (<사유>) — 1줄 · rc 0(사용 오류만 2)
+```
+
+- `auto` = 묻지 않고 PR 생성 · `auto-draft` = 묻지 않고 **초안** PR(데모가 `확인 필요: yes` — 사용자가 보는 결과가 바뀌었고 확인 전) · `ask` = 종전대로 묻는다.
+- `auto` 조건(전부): spec 에 `§일괄` 또는 `§기본` · `dev-decisions.md` 에 기록 스크립트 형식의 `[approval] … PR 생성 포함` 줄(풀 경로 승인 묶음 · 기본 경로 `basic-path.sh approve` 가 남긴다).
+- `ask` 가 되는 경우: `.specops/config.yaml` 의 `pr_gate: ask` · `SPECOPS_PR_GATE=ask` · spec 없음 · `§batch` · `§auto`(무인 — 가정 다이제스트를 사람이 본다) · `--step` · 승인 기록에 PR 생성 포함이 없음(이 버전 전에 승인한 작업 포함). 판단이 서지 않으면 `ask` 다.
+- **머지는 판정 대상이 아니다** — 어느 답이어도 PR 을 만든 뒤 멈춘다.
+- 소비자: `skills/performance-test-ko/SKILL.md` 「끝 보고 + 사용자 확인」 · `commands/basic.md` 8번.
+
 ## dev-decision.sh — 개발 구간에서 묻지 않고 정한 결정의 기록·끝 보고
 
 ```bash

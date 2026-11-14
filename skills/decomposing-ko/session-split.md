@@ -48,7 +48,7 @@ R-2(PR 전 verify)의 실행 증거는 **이 세션의 기록**에 있어야 열
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/run-verification.sh <FID>
 ```
 
-- `VERIFY: PASS` → `Skill: devfsd:performance-test-ko` 를 호출한다. 그 skill 의 「분리 복귀」가 판정을 다시 하지 않고 `## PR 생성 게이트`(데모 → PR 질문)부터 진행한다.
+- `VERIFY: PASS` → `Skill: devfsd:performance-test-ko` 를 호출한다. 그 skill 의 「분리 복귀」가 판정을 다시 하지 않고 `## PR 생성 게이트`(데모 → 끝 보고 → `pr-gate.sh decide` 의 답대로 PR)부터 진행한다.
 - 그 밖(`FAIL`·`PARTIAL`) → 자식이 통과시킨 검증이 이 트리에서 재현되지 않은 것이다. PR 게이트로 가지 않고 출력을 사용자에게 보인 뒤 `… run <FID> --resume "주 세션 재검증 실패: <출력 요지>. 원인을 고치고 verify 부터 다시 진행하라."` 로 자식에게 돌려보낸다(1회 — 다시 실패하면 멈추고 사용자에게 알린다).
 
 PR 본문에는 `split/result.json` 의 자식 세션 소요(분·호출 수·비용)를 1줄 넣는다.
@@ -57,4 +57,4 @@ PR 본문에는 `split/result.json` 의 자식 세션 소요(분·호출 수·�
 
 - `--dangerously-skip-permissions` · `bypassPermissions` 로 자식을 띄우지 않는다. 자식은 사용자의 권한 설정을 그대로 따른다(기본 모드가 auto 가 아니면 판정기가 `no` 를 낸다 — 그때는 종전대로 이 세션에서 구현한다).
 - 자식 세션 안에서 다시 나누지 않는다(판정기가 `SPECOPS_SPLIT_CHILD=1` 을 보고 `no`).
-- 자식이 PR 을 만들지 않는다 — 데모와 PR 생성 여부는 사용자가 이 세션에서 본다.
+- 자식이 PR 을 만들지 않는다 — 데모와 끝 보고는 사용자가 있는 이 세션에서 보이고 PR 도 여기서 만든다.

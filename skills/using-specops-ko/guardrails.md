@@ -70,7 +70,7 @@ devfsd:clarifying-ko (skill 본문이 다음 chain 명시)
     ↓
 ... → planning-ko → decomposing-ko → implementing-ko (subagent dispatch) → verifying-evidence-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
     ↓
-"PR 생성? [y/n]"
+"PR 생성? [y/n]"   (--step 일 때만 — 기본은 승인 묶음이 PR 생성을 싣고 묻지 않는다)
 ```
 
 > **기본 동작 `§일괄`**: 질문 묶음 → 승인 1회 → PR 까지 무정지. 위 단계별 확인은 `--step` — 슬래시로만(자연어 추론 금지).

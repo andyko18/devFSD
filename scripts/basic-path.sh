@@ -536,6 +536,14 @@ case "$ACTION" in
     [ "$rc" = 0 ] || _die "test_command 를 검증 러너가 받지 않는다: '$ARG' — 실행할 테스트 명령을 준다(bash scripts|tests/….sh · pytest · npm|pnpm|yarn test · go test · cargo test · npx <bin>). related 가 none 이면 프로젝트의 테스트 명령 전체를 쓴다."
     [ -f "$D/reviews/T1-B-report.md" ] && [ -f "$D/reviews/T1-C-report.md" ] \
       || { echo "basic-path: 리뷰 보고서가 없다 — spec-reviewer-ko·code-reviewer-ko 를 tid=T1 로 호출한 뒤 다시 실행한다" >&2; exit 4; }
+    # B 보고서의 종합 판정을 읽는다 (20261114). 저장 훅이 T1-B-feedback.md 를 만드는 것은 판정이 NEEDS_FIX 일 때뿐인데, 훅이 안 돈 실행
+    #   (부모 fallback 저장)에서는 그 파일이 없어 NEEDS_FIX 도 아래 감사 행에 "B PASS" 로 적혔다 — 감사(check-review-audit)도 feedback 유무만
+    #   보므로 위장이 통과했다. 보고서 `## 종합 판정` 절의 고정 판정 줄(agents/spec-reviewer-ko.md — `판정: PASS|NEEDS_FIX`, 줄 전체 일치)이
+    #   NEEDS_FIX 인데 feedback 이 없으면 봉인하지 않는다. 판정 줄이 없는 보고서(이전 형식)는 종전대로 feedback 유무로 본다(하위 호환).
+    _bv=$(awk '/^## 종합 판정/ { f = 1; next } f && /^## / { exit } f && /^판정: (PASS|NEEDS_FIX)$/ { print $2; exit }' "$D/reviews/T1-B-report.md" 2>/dev/null)
+    if [ "$_bv" = NEEDS_FIX ] && [ ! -f "$D/reviews/T1-B-feedback.md" ]; then
+      echo "basic-path: B 보고서의 종합 판정이 NEEDS_FIX 인데 reviews/T1-B-feedback.md 가 없다 — 저장 훅이 돌지 않았다. 보고서 전문을 reviews/T1-B-feedback.md 로 저장하고 지적을 처리한(6번 지적 처리) 뒤 다시 실행한다" >&2; exit 4
+    fi
     acs=$(grep -oE '^#{2,3} AC-[A-Za-z0-9-]+' "$D/acceptance-criteria.md" | sed -E 's/^#+ //' | sort -u | paste -sd, - | sed 's/,/, /g')
     {
       printf '# tasks — %s (/basic)\n\n' "$FID"

@@ -776,5 +776,43 @@ out=$(_bp "$n2" lane "로그인 권한 검사를 바꾼다"); rc=$?
 out=$(cd "$n2" && SPECOPS_UNIFIED_PATH=1 bash "$BP" lane "로그인 권한 검사를 바꾼다" 2>&1); rc=$?
 [ "$rc" = 0 ] && ok "N10c 환경 변수가 config 보다 앞선다" || no "N10c" "rc=$rc $out"
 
+# ── V 봉인이 B 보고서의 판정 줄을 읽는다 (20261114 소스 검토) ──
+#   저장 훅이 -B-feedback.md 를 만드는 것은 판정이 NEEDS_FIX 일 때뿐이다. 훅이 안 돈 실행(부모 fallback 저장)에서는 그 파일이 없어
+#   NEEDS_FIX 도 감사 행에 "B PASS" 로 적혔다. 보고서의 고정 판정 줄(agents/spec-reviewer-ko.md `## 종합 판정` 첫 줄)이
+#   NEEDS_FIX 인데 feedback 이 없으면 봉인하지 않는다(rc 4 — 보고서가 없을 때와 같은 "리뷰 단계로 돌아가라").
+FID_V=20261114-bp-verdict
+rv=$(_repo vd); printf '#!/usr/bin/env bash\ngrep -c . "$1"\n' > "$rv/scripts/count.sh"; printf '#!/usr/bin/env bash\necho "PASS=1 FAIL=0"\n' > "$rv/scripts/tests/test-count.sh"
+( cd "$rv" && git add scripts && git -c user.name=t -c user.email=t@e.com commit -qm base && git branch -f main HEAD ) >/dev/null
+printf '#!/usr/bin/env bash\ngrep -c . "$1"  # 빈 줄 제외\n' > "$rv/scripts/count.sh"
+FID_KEEP2=$FID; FID=$FID_V
+_bp "$rv" start "$FID" "빈 줄 제외 옵션 추가" >/dev/null; _fill_spec "$rv"; _bp "$rv" approve "$FID" >/dev/null; _bp "$rv" plan "$FID" 1 >/dev/null
+mkdir -p "$rv/.specops/$FID/reviews"
+printf '# C\n**Phase B 상태**: PENDING(병렬 dispatch)\n**판정**: READY_TO_MERGE\n' > "$rv/.specops/$FID/reviews/T1-C-report.md"
+VCMD="bash scripts/tests/test-count.sh"
+printf '# 스펙 리뷰\n\n## 종합 판정\n\n판정: NEEDS_FIX\n\n- AC-1 UNMET\n' > "$rv/.specops/$FID/reviews/T1-B-report.md"
+out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
+[ "$rc" = 4 ] && [ ! -e "$rv/.specops/$FID/tasks.md" ] && printf '%s' "$out" | grep -q 'T1-B-feedback.md' \
+  && ok "V1 ★ 판정 줄이 NEEDS_FIX 인데 feedback 이 없다(훅이 안 돌았다) → seal rc 4 · 태스크 문서 없음 · feedback 저장 안내" || no "V1" "rc=$rc $out"
+printf '# 스펙 리뷰\n\n## 종합 판정\n\n판정: NEEDS_FIX\n' > "$rv/.specops/$FID/reviews/T1-B-feedback.md"
+out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
+[ "$rc" = 0 ] && grep -q 'BC-PAR-CHECK:T1 | - | C 폐기(B FAIL)' "$rv/.specops/$FID/dispatch-log.md" \
+  && ok "V2 NEEDS_FIX + feedback 있음 → 봉인 · 감사 행은 'C 폐기(B FAIL)'(훅이 돈 정상 경로 — 종전 동작)" || no "V2" "rc=$rc $out"
+( cd "$rv" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/check-review-audit.sh" "$FID" 2>&1 ) | grep -q '^REVIEW-AUDIT: PASS' \
+  && ok "V3 ★ 그 상태에서 기존 리뷰 감사(feedback ⇔ 폐기 교차 검사)도 PASS" || no "V3" "$(cd "$rv" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/check-review-audit.sh" "$FID" 2>&1 | head -3)"
+rm -f "$rv/.specops/$FID/reviews/T1-B-feedback.md" "$rv/.specops/$FID/tasks.md" "$rv/.specops/$FID/dispatch-log.md"
+printf '# 스펙 리뷰\n\n## 종합 판정\n\n판정: PASS\n' > "$rv/.specops/$FID/reviews/T1-B-report.md"
+out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
+[ "$rc" = 0 ] && grep -q 'BC-PAR-CHECK:T1 | - | B PASS' "$rv/.specops/$FID/dispatch-log.md" \
+  && ok "V4 대조: 판정 줄 PASS + feedback 없음 → 봉인 · 'B PASS'" || no "V4" "rc=$rc $out"
+rm -f "$rv/.specops/$FID/tasks.md" "$rv/.specops/$FID/dispatch-log.md"
+printf '# 스펙 리뷰\n\n- 판정: NEEDS_FIX 라고 본문에 인용만 했다\n\n## 종합 판정\n\n✅ PASS\n' > "$rv/.specops/$FID/reviews/T1-B-report.md"
+out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
+[ "$rc" = 0 ] && ok "V5 판정 줄이 없는 옛 형식 보고서는 종전대로 feedback 유무로 본다(본문 인용은 판정이 아니다 — 하위 호환)" || no "V5" "rc=$rc $out"
+rm -f "$rv/.specops/$FID/tasks.md" "$rv/.specops/$FID/dispatch-log.md"
+printf '# 스펙 리뷰\n\n## 종합 판정\n\n판정: NEEDS_FIX 아님\n' > "$rv/.specops/$FID/reviews/T1-B-report.md"
+out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
+[ "$rc" = 0 ] && ok "V6 판정 줄은 줄 전체가 정확히 일치해야 한다('판정: NEEDS_FIX 아님' 은 판정이 아니다)" || no "V6" "rc=$rc $out"
+FID=$FID_KEEP2
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

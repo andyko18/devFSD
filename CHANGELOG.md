@@ -34,6 +34,7 @@
 
 ### Fixed
 
+- **기본 경로 봉인이 NEEDS_FIX 를 "B PASS" 로 적던 것**(`scripts/basic-path.sh seal`). 저장 훅이 `T1-B-feedback.md` 를 만드는 것은 스펙 리뷰 판정이 `NEEDS_FIX` 일 때뿐인데, 훅이 안 돈 실행(부모 fallback 저장)에서는 그 파일이 없어 봉인이 감사 행(`BC-PAR-CHECK:T1`)에 `B PASS` 를 적었다 — 감사(`check-review-audit.sh`)도 feedback 유무만 교차 검사해 위장이 통과했다(소스 검토 20261114에서 확인, 재현은 새 테스트 V1·V3). 이제 B 보고서 `## 종합 판정` 절의 고정 판정 줄(`판정: NEEDS_FIX` — 줄 전체 일치)을 읽고, feedback 이 없으면 **봉인하지 않는다**(rc 4 — 보고서가 없을 때와 같은 "리뷰 단계로 돌아가라"). **판정 줄이 없는 이전 형식 보고서는 종전대로 feedback 유무로 본다**(하위 호환). 판정 줄은 스펙 리뷰어 정의가 새로 고정한 형식(에이전트 계약 정합 변경)이라 그 변경과 함께 효과가 난다.
 - **`config.yaml` 구조가 예상과 다르면 훅 전체가 조용히 꺼지던 것**(`is-hook-enabled.sh`). 최상위가 목록·문자열·수이거나 `hooks`·`profiles` 가 매핑이 아니면 파이썬이 예외로 rc 1 을 냈고, 호출부는 rc 1 을 "비활성"으로 읽었다. 매핑이 아닌 값은 "설정 없음"으로 읽고, 끄는 것은 프로파일의 전체 끄기와 `enabled: false`(또는 `0`)뿐이다. **행동 변경**: 값을 비운 `enabled:` 는 더 이상 끄지 않는다(종전엔 빈 값도 꺼짐으로 읽혔다).
 - **검증 없이 커밋·PR 이 열리던 명령 형태 셋**(`hooks/governance-lib.sh` · `hooks/rules.jsonl` · `hooks/pretool-governance.sh`).
   - 주석 속 작은따옴표: 주석의 `'` 가 인용을 열고 다른 주석의 `'` 가 닫아, 그 사이의 `git commit`·`gh pr create` 가 "인용 본문"으로 지워져 트리거에서 사라졌다(`# don't …` / 커밋 / `# it's …`). 낱말 머리의 `#` 뒤는 줄 끝까지 주석으로 보고 그 안의 따옴표를 인용으로 세지 않는다. 주석 글자는 지우지 않는다(차단 우세).
@@ -48,6 +49,8 @@
 
 ### Tests/CI
 
+- **관련 스위트 러너가 가끔 "목록에 없는 경로"로 실패하던 것**(`scripts/tests/run-related.sh`). `printf … | grep -q` 에서 grep 이 첫 일치로 끝나면 printf 가 SIGPIPE 를 받고, `set -o pipefail` 아래에서 그 실패가 "목록에 없다"(exit 2)로 읽혔다 — 타이밍에 따라 나는 흔들림이다(리눅스 CI 1회 · `test-run-related` X22). here-string 으로 넘긴다.
+- `test-basic-path.sh` V1~V6 — NEEDS_FIX + feedback 없음 거부 · feedback 있으면 정상 봉인 + 기존 리뷰 감사 PASS · PASS 대조 · 옛 형식 하위 호환 · 줄 전체 일치(본문 인용·`NEEDS_FIX 아님` 은 판정이 아님).
 - `test-agent-reading-caps.sh` 신설(13건 — 먼저 실패 13건 확인): 8개 정의가 같은 절을 갖고(핵심 문장이 글자까지 같다 — drift 방지) · 빈 출력 규칙 앞에 있고 · 기본 경로 호출과 계획 skill 이 상한을 싣게 하는지 · 상한이 리뷰 범위를 줄이지 않는다는 문구(`한 번은 끝까지`)가 8곳 모두에 있는지.
 - `test-pretool.sh` T37b~e · T-cq.a~e · T-ev(4형태) · `test-is-hook-enabled.sh` T7 · T8 · T8b — 먼저 실패를 확인했다(13건). 대조군: 주석 따옴표 사이에 커밋이 없으면 통과 · 인용 문자열 안의 `#` 는 주석이 아님 · 낱말 중간의 `#`(`${x#y}`·`$#`·`a#b`)는 주석이 아님 · 정상 구조의 `enabled: false` 는 그대로 끔.
 - `test-pr-gate.sh` G3.k~n · G1.c·d · **G6.e**(승인 → 기록 1줄 → 판정기 auto 를 실제로 돌려 본다 — 종전 G6.a 는 문자열이 파일에 있는지만 봐서 기록 호출을 지워도 통과했다) · `test-split-session.sh` D7b~e · `test-design-screen.sh` T6.c·d · `test-gate-presence.sh` 통합 게이트 문구.

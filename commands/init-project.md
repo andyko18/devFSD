@@ -4,7 +4,7 @@ description: devFSD 한국어 자율 Lifecycle 진입 — 한국 SI 표준 14종
 triggers:
   - "/init-project"
 mode: ask
-specops_version: 4.0.6
+specops_version: 4.0.14
 specops_layer: Lifecycle-Bootstrap
 reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
 ---

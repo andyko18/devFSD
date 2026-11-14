@@ -96,6 +96,29 @@ if [ "$PART" = engine ] || [ "$PART" = mod ]; then
   fi
 fi
 
+# ── mod: 일괄 진행 수 (scripts/_internal/batch-progress.sh — 관제판의 `일괄 n/m`) ────────────
+if want mod; then
+  BPG="$PLUGIN/scripts/_internal/batch-progress.sh"; bq="$WORK/bq"; BF=20261114-fr-a
+  _q() {  # <FR-7 의 FR-ID 칸> <FR-7 의 FID 칸> <FR-7 의 Status 칸> [<머리줄·행 끝에 붙일 칸>]
+    rm -rf "$bq"; mkdir -p "$bq/.specops/batch-20261114-0900"; : > "$bq/.specops/batch-20261114-0900/ACTIVE"
+    { printf '# 큐\n\n| FR-ID | FID | FR 설명(1줄) | Status |%s\n|---|---|---|---|\n' "${4:+ 비고 |}"
+      printf '| FR-1 | — | 공통 | SKIP |%s\n' "${4:+ x |}"
+      printf '|%s|%s| 가 |%s|%s\n' "$1" "$2" "$3" "${4:+ x |}"
+      printf '| FR-8 | 20261114-fr-b | 나 | PLAN_DONE |%s\n' "${4:+ x |}"
+      printf '| FR-9 | TBD | 다 | PENDING |%s\n' "${4:+ x |}"; } > "$bq/.specops/batch-20261114-0900/queue.md"
+  }
+  _bpg() { ( cd "$bq" && bash "$BPG" "${1:-$BF}" 2>&1 ); }
+  _q " FR-7 " " $BF " " IMPL_DONE ";            [ "$(_bpg)" = "batch-20261114-0900 1 3" ] && ok "BP-1 일괄 진행 수 — 끝난 1 / 전체 3 (SKIP 제외)" || ng "BP-1 [$(_bpg)]"
+  _q " FR-7 " " $BF " " **IMPL_DONE** ";        [ "$(_bpg)" = "batch-20261114-0900 1 3" ] && ok "BP-2 ★ 굵게 쓴 Status 도 끝난 것으로 센다(정규 파서)" || ng "BP-2 [$(_bpg)]"
+  _q " **FR-7** " " $BF " " IMPL_DONE ";        [ "$(_bpg)" = "batch-20261114-0900 1 3" ] && ok "BP-3 ★ 굵게 쓴 FR-ID 행도 전체에 든다" || ng "BP-3 [$(_bpg)]"
+  _q " FR-7 " " $BF " " IMPL_DONE " extra;      [ "$(_bpg)" = "batch-20261114-0900 1 3" ] && ok "BP-4 ★ Status 뒤에 칸이 더 있어도 Status 칸을 읽는다" || ng "BP-4 [$(_bpg)]"
+  _q " FR-7 " " $BF " " MERGED ";               [ "$(_bpg)" = "batch-20261114-0900 1 3" ] && ok "BP-5 MERGED 도 끝난 것" || ng "BP-5 [$(_bpg)]"
+  _q "FR-7" "$BF" "PLAN_DONE";                  [ "$(_bpg)" = "batch-20261114-0900 0 3" ] && ok "BP-6 ★ 칸에 공백이 없어도 FID 를 찾는다 · PLAN_DONE 은 끝난 것이 아니다" || ng "BP-6 [$(_bpg)]"
+  _q " FR-7 " " $BF " " IMPL_DONE ";            [ -z "$(_bpg 20261114-fr-zzz)" ] && ok "BP-7 큐에 없는 FID → 출력 없음" || ng "BP-7 [$(_bpg 20261114-fr-zzz)]"
+  rm -f "$bq/.specops/batch-20261114-0900/ACTIVE"; [ -z "$(_bpg)" ] && ok "BP-8 ★ 끝난 묶음(ACTIVE 없음) → 출력 없음" || ng "BP-8 [$(_bpg)]"
+  [ -z "$(_bpg 'x; rm -rf /')" ] && ok "BP-9 FID 형식이 아니면 아무것도 하지 않는다" || ng "BP-9"
+fi
+
 # ── mod: STAGE_NAMES ↔ skills ────────────────────────────────────────
 if want mod; then
   src="$PLUGIN/hooks/progress-pane.tsx"

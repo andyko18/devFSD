@@ -1,4 +1,4 @@
-// ui-probe-layout.cjs — 화면 배치 계측(가로 잘림·글자 겹침) (20261110-visual-severity-clip-overlap)
+// ui-probe-layout.cjs — 화면 배치 계측(가로 잘림·글자 겹침 + 좁은 폭 3종: 칩 줄바꿈·가로 스크롤에 숨음·고정 막대 가림) (20261110-visual-severity-clip-overlap · 20261114)
 // ui-probe.cjs 가 화면을 연 폭마다 measureLayout 을 브라우저 안에서 돌린다. 결과는 경고다 — 판정(PASS·FAIL)에 들어가지 않는다.
 // 왜: 문서 폭만 재던 '넘침' 은 overflow:hidden 상자 안에서 잘린 표와 포개진 글자를 0 으로 봤다(실측: 결함 목업 2개 모두 넘침 0).
 // 재는 범위: 화면을 연 시점의 상태 · 가로 방향 잘림만. 불투명한 층에 덮여 가려진 글자(열린 드롭다운·모달)는 겹침으로 세지 않는다.
@@ -8,6 +8,9 @@
 const RULES = {
   'L-CLIP-X': { label: '가로 잘림', def: '글자·컨트롤이 든 요소가 가로를 가리는 상자(overflow-x hidden·clip — 가로 스크롤 없음)의 가장자리에 걸쳐 일부만 보인다. 가로 방향만 잰다(세로 잘림은 재지 않는다). html·body 가 가로 스크롤을 막은 화면에서는 화면 가장자리가 그 상자다. 말줄임·낭독기 전용 숨김·숨긴 요소·가로 스크롤 영역 안·가림 상자 밖에 기준을 둔 absolute·fixed 자손은 뺀다.' },
   'L-OVERLAP': { label: '글자 겹침', def: '포함 관계가 아닌 두 요소의 보이는 글자가 4px 넘게 포개진다. 화면에 고정된 요소(fixed·sticky)와 불투명한 층에 덮여 가려진 글자는 뺀다(불투명한 배지가 라벨을 완전히 덮는 경우도 잡지 못한다 — 이미지로 본다).' },
+  'L-WRAP-CHIP': { label: '칩 줄바꿈', def: '짧은 글자(16자 이하)를 담은 칩·배지(배경이나 테두리가 있고 모서리가 둥근 상자)와 버튼에서 한 글자 덩어리가 두 줄 이상으로 꺾인다. 아이콘과 라벨을 위아래로 쌓은 타일, 평범한 문단·링크는 보지 않는다.' },
+  'L-SCROLL-X': { label: '가로 스크롤에 숨음', def: '가로 스크롤 상자(overflow-x auto·scroll) 안의 내용이 24px 넘게 화면 밖에 숨어 있다. 표·코드 블록을 감싼 상자, 격자(role grid), 넘겨 보는 상자(scroll-snap), 세로로 스크롤하는 패널은 뺀다. 탭 줄·차트가 대상이고, 칸반처럼 의도한 가로 스크롤도 걸린다(그렇다고 적는다).' },
+  'L-FIXED-COVER': { label: '고정 막대 가림', def: '화면 아래에 고정되거나 조금 떠 있는 막대(position fixed · 화면 폭의 60% 이상 · 높이 40% 이하 · 토스트 같은 알림 역할은 제외)가 있는데 그 높이만큼의 아래 여백이 없어, 끝까지 내려도 마지막 글자·입력이 막대 뒤에 가린다. 문서가 스크롤하든 안쪽 상자가 스크롤하든 본다. 닫으면 사라지는 동의 막대도 걸린다.' },
 };
 const MAX_LINES = 5;
 
@@ -119,7 +122,86 @@ function measureLayout() {
       overlap.push(`${name(A.el)} ↔ ${name(B.el)} — ${Math.round(w)}×${Math.round(h)}px 겹침`);
     }
   }
-  return { clip, overlap };
+  // 줄바꿈: 짧은 글자를 담은 칩·배지(배경이나 테두리가 있고 모서리가 둥근 상자)·버튼에서 **한 글자 덩어리**가 두 줄 이상으로 꺾임
+  //   display 는 보지 않는다 — flex·grid 의 자식이면 inline-flex 로 쓴 칩도 block·flex 로 계산된다(실측 미탐).
+  //   덩어리(텍스트 노드) 단위로 센다 — 아이콘 위·라벨 아래로 쌓은 타일, 큰 아이콘 옆 한 줄 글자는 덩어리마다 한 줄이라 꺾임이 아니다(실측 오탐).
+  const wrap = []; const wrapped = [];
+  const painted = (c) => Boolean(c) && c !== 'transparent' && !/^rgba\(\s*0,\s*0,\s*0,\s*0\s*\)$/.test(c) && !/\/\s*0\s*\)$/.test(c);   // rgb·oklch·color() 모두(투명만 뺀다)
+  for (const el of document.querySelectorAll('body *')) {
+    if (!shown(el) || wrapped.some((w) => w.contains(el))) continue;
+    const txt = (el.innerText || '').replace(/\s+/g, ' ').trim();
+    if (!txt || txt.length > 16 || el.children.length > 4) continue;
+    const cs = getComputedStyle(el);
+    const chip = (painted(cs.backgroundColor) || parseFloat(cs.borderTopWidth) > 0) && parseFloat(cs.borderTopLeftRadius) > 0;
+    if (!chip && el.tagName !== 'BUTTON') continue;
+    let most = 1;
+    const w2 = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let t;
+    while ((t = w2.nextNode())) {
+      if (!t.nodeValue.trim()) continue;
+      const rg = document.createRange(); rg.selectNodeContents(t);
+      const rs = [...rg.getClientRects()].filter((r) => r.width >= 1 && r.height >= 1).sort((x, y) => x.top - y.top);
+      let lines = rs.length ? 1 : 0;
+      for (let k = 1; k < rs.length; k++) if (rs[k].top - rs[k - 1].top > rs[k - 1].height / 2) lines++;
+      most = Math.max(most, lines);
+    }
+    if (most >= 2) { wrapped.push(el); wrap.push(`${name(el)} — ${most}줄로 꺾임`); }
+  }
+
+  // 가로 스크롤에 숨음: 표가 아닌 내용이 가로 스크롤 상자 안에서 화면 밖에 있다
+  //   뺀다: 표·코드 블록을 감싼 상자 · 격자(role grid·table) · 넘겨 보는 상자(scroll-snap — 캐러셀) · 세로로 스크롤하는 패널(overflow-y 만 줘도 overflow-x 가 auto 로 계산된다)
+  const scroll = [];
+  const HIDE_MIN = 24;
+  for (const box of document.querySelectorAll('body *')) {
+    const cs = getComputedStyle(box);
+    if (!/^(auto|scroll)$/.test(cs.overflowX) || !shown(box) || box.clientWidth <= 1) continue;
+    if (/^(PRE|CODE|TEXTAREA|SELECT|TABLE)$/.test(box.tagName) || box.querySelector('table, pre')) continue;
+    if (/^(grid|table|treegrid)$/.test(box.getAttribute('role') || '') || (cs.scrollSnapType && cs.scrollSnapType !== 'none')) continue;
+    if (box.scrollHeight > box.clientHeight + 1 && /^(auto|scroll)$/.test(cs.overflowY)) continue;
+    const hid = box.scrollWidth - box.clientWidth;
+    if (hid >= HIDE_MIN && hasContent(box)) scroll.push(`${name(box)} — 가로 스크롤 안에 ${Math.round(hid)}px 숨음`);
+  }
+
+  // 고정 막대 가림: 끝까지 내려도 마지막 글자·입력이 아래 고정 막대 뒤에 남는다
+  //   요소마다 '끝까지 스크롤했을 때의 아래 좌표' 를 구한다 — 스크롤하는 것이 문서일 수도, 안쪽 상자(앱 셸)일 수도 있다
+  const cover = [];
+  const vw = document.documentElement.clientWidth, vh = window.innerHeight;
+  const docMore = Math.max(0, document.documentElement.scrollHeight - vh - window.scrollY);   // 문서가 더 내려갈 수 있는 양
+  const scroller = (el) => {
+    for (let e = el.parentElement; e && e !== document.body && e !== document.documentElement; e = e.parentElement) {
+      if (/^(auto|scroll)$/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 1) return e;
+    }
+    return null;
+  };
+  const finalBottom = (el, r) => {
+    const sc = scroller(el);
+    if (!sc) return r.bottom - docMore;
+    const more = Math.max(0, sc.scrollHeight - sc.clientHeight - sc.scrollTop);
+    const b = sc.getBoundingClientRect();
+    return Math.min(r.bottom - more, b.top + sc.clientTop + sc.clientHeight) - docMore;   // 안쪽 상자 밖으로는 보이지 않는다
+  };
+  let endY = -Infinity;   // 고정되지 않은 글자·입력 가운데, 끝까지 내렸을 때 가장 아래(화면 좌표)
+  const tw2 = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let tn;
+  while ((tn = tw2.nextNode())) {
+    if (!tn.nodeValue.trim()) continue;
+    const el = tn.parentElement;
+    if (!el || /^(SCRIPT|STYLE|NOSCRIPT|OPTION|TITLE)$/.test(el.tagName) || !shown(el) || pinned(el)) continue;
+    const rg = document.createRange(); rg.selectNodeContents(tn);
+    for (const r of rg.getClientRects()) if (r.width >= 1 && r.height >= 1) endY = Math.max(endY, finalBottom(el, r));
+  }
+  for (const c of document.querySelectorAll('input, select, textarea, button')) {
+    if (!shown(c) || pinned(c)) continue;
+    const r = c.getBoundingClientRect(); if (r.width > 1 && r.height > 1) endY = Math.max(endY, finalBottom(c, r));
+  }
+  for (const bar of document.querySelectorAll('body *')) {
+    if (getComputedStyle(bar).position !== 'fixed' || !shown(bar)) continue;
+    const r = bar.getBoundingClientRect();
+    // 아래에 붙었거나 조금 떠 있는 막대(화면 아래 40px 안) · 화면 폭의 60% 이상 · 높이 40% 이하(모달 배경 제외) · 잠깐 떴다 사라지는 알림(토스트)은 뺀다
+    if (/^(status|alert|log)$/.test(bar.getAttribute('role') || '') || bar.hasAttribute('aria-live')) continue;
+    if (r.bottom > vh + 2 || r.bottom < vh - 40 || r.width < vw * 0.6 || r.height < 8 || r.height > vh * 0.4 || !hasContent(bar)) continue;
+    const hid = Math.min(endY, r.bottom) - r.top;
+    if (hid > MINPX) cover.push(`${name(bar)} — 끝까지 내려도 ${Math.round(hid)}px 가 고정 막대 뒤에 가린다(아래 여백 없음)`);
+  }
+  return { clip, overlap, wrap, scroll, cover };
 }
 
 const unmeasured = (reason) => ({ state: 'unmeasured', reason });
@@ -128,7 +210,10 @@ const unmeasured = (reason) => ({ state: 'unmeasured', reason });
 function normalize(m) {
   const strs = (a) => Array.isArray(a) && a.every((x) => typeof x === 'string');
   if (!m || typeof m !== 'object' || !strs(m.clip) || !strs(m.overlap)) return unmeasured('계측 결과를 읽지 못함');
-  return { state: 'ok', clip: m.clip, overlap: m.overlap };
+  // 좁은 폭 규칙 3칸은 없을 수 있다(없으면 0건) — 있는데 모양이 틀리면 0건으로 읽지 않는다
+  const opt = {};
+  for (const k of ['wrap', 'scroll', 'cover']) { if (m[k] === undefined) opt[k] = []; else if (strs(m[k])) opt[k] = m[k]; else return unmeasured('계측 결과를 읽지 못함'); }
+  return { state: 'ok', clip: m.clip, overlap: m.overlap, ...opt };
 }
 
 // 한 화면을 잰다 — 예외는 그 화면·폭의 '계측 못 함' 이 되고 호출자로 번지지 않는다
@@ -139,18 +224,22 @@ async function run(page) {
 
 // rows: [{ tag: '<화면>@<폭>', layout }] → 경고 줄들과 요약 줄 끝에 덧붙일 말(경고·못 잰 것이 모두 0 이면 '' — 종전 요약 줄 그대로)
 function summarize(rows) {
-  const lines = []; let clip = 0, overlap = 0, miss = 0;
+  const lines = []; let clip = 0, overlap = 0, wrap = 0, scroll = 0, cover = 0, miss = 0;
   for (const { tag, layout } of rows) {
     if (!layout || layout.state !== 'ok') { miss++; lines.push(`${tag} 배치 계측 못 함: ${(layout && layout.reason) || '계측하지 않음'}`); continue; }
-    for (const [id, list] of [['L-CLIP-X', layout.clip], ['L-OVERLAP', layout.overlap]]) {
+    const extraRules = [['L-WRAP-CHIP', layout.wrap || []], ['L-SCROLL-X', layout.scroll || []], ['L-FIXED-COVER', layout.cover || []]];
+    for (const [id, list] of [['L-CLIP-X', layout.clip], ['L-OVERLAP', layout.overlap], ...extraRules]) {
       const head = `${tag} 배치 경고 ${id}(${RULES[id].label}): `;
       for (const d of list.slice(0, MAX_LINES)) lines.push(head + d);
       if (list.length > MAX_LINES) lines.push(`${head}외 ${list.length - MAX_LINES}건`);
     }
     clip += layout.clip.length; overlap += layout.overlap.length;
+    wrap += extraRules[0][1].length; scroll += extraRules[1][1].length; cover += extraRules[2][1].length;
   }
-  const n = clip + overlap;
-  return { lines, note: `${n ? ` · 배치 경고 ${n}(잘림 ${clip} · 겹침 ${overlap})` : ''}${miss ? ` · 배치 계측 못 함 ${miss}` : ''}` };
+  const n = clip + overlap + wrap + scroll + cover;
+  // 좁은 폭 규칙은 0 이 아닐 때만 덧붙인다 — 없으면 종전 요약 줄 그대로다
+  const more = `${wrap ? ` · 줄바꿈 ${wrap}` : ''}${scroll ? ` · 스크롤 숨음 ${scroll}` : ''}${cover ? ` · 고정 가림 ${cover}` : ''}`;
+  return { lines, note: `${n ? ` · 배치 경고 ${n}(잘림 ${clip} · 겹침 ${overlap}${more})` : ''}${miss ? ` · 배치 계측 못 함 ${miss}` : ''}` };
 }
 
 function rulesTable() {

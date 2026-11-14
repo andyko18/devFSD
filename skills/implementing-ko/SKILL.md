@@ -29,7 +29,7 @@ grep -E '^review_mode:' .specops/<FID>/tasks.md
 
 `risk-profile`의 「Phase B/C 축소 금지」는 **리뷰 생략**을 금지한 것이다. end-loaded는 B·C를 **수행**하므로 allowlist 위반이 아니다.
 
-**§lite 불변** (`spec.md`에 `**§lite**: true` — `/start-lite`·`/maintain-lite`): clarify·plan만 축약된 FID다. **Phase B(`spec-reviewer-ko`)·Phase C(`code-reviewer-ko`) 생략 금지**. end-loaded B/C 각 1회 필수. 화면·IF 설계 계약을 §6으로 소비(해당 시).
+**단축 경로 불변** (`§유형: trivial` · 옛 `**§lite**: true` spec): clarify·plan만 축약된 FID다. **Phase B(`spec-reviewer-ko`)·Phase C(`code-reviewer-ko`) 생략 금지**. end-loaded B/C 각 1회 필수. 화면·IF 설계 계약을 §6으로 소비(해당 시).
 
 ## 개발 구간 무질문
 
@@ -252,7 +252,7 @@ auto_retry_count < 1?
             systematic-debugging 또는 사용자 개입 필요"
 ```
 
-**auto-state.md 경로**: `.specops/<FID>/auto-state.md` (structured-artifacts-ko 규약).
+**auto-state.md 경로**: `.specops/<FID>/auto-state.md` (「아티팩트 구조 규약」 규약).
 **카운터 공유**: implementing-ko와 verifying-evidence-ko가 동일 `auto_retry_count`를 공유 — per-FID 전역.
 
 ## pre-dispatch irreversible 게이트 (§auto 전용)
@@ -275,7 +275,7 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
   `n` 시 → Lifecycle 종료. `y` 시 → 진행.
 - 단일 모드 + `irreversible: true` → 사전 승인 기록(`dispatch/<task-id>-approval.md` — `dev-autonomy.md` §1)이 있으면 다시 묻지 않고 진행, 없으면 task 내부 Step 0
 
-**reviewer 출력 파일 경로 규약** (file-based-communication-ko 준수 — reviewer 는 read-only, SubagentStop 훅이 저장 · report 부재 시 부모 fallback 저장):
+**reviewer 출력 파일 경로 규약** (「파일 기반 전달」 준수 — reviewer 는 read-only, SubagentStop 훅이 저장 · report 부재 시 부모 fallback 저장):
 - `.specops/<FID>/reviews/<task-id>-B-report.md` — spec-reviewer-ko 판정 보고서(PASS/FAIL 무관). **SubagentStop 훅이 저장** — 부모는 fallback 조건(report 부재 · 반환에 훅 요약 없음)일 때만 저장 · `review-saved.sh check` rc 0 이면 저장하지 않는다
 - `.specops/<FID>/reviews/<task-id>-B-feedback.md` — FAIL 시 implementer-ko 재dispatch 용 (B-report 와 동일 내용이거나 이슈 발췌)
 - `.specops/<FID>/reviews/<task-id>-C-feedback.md` — code-reviewer-ko 출력. **SubagentStop 훅이 저장** — 부모는 같은 fallback 조건일 때만 저장
@@ -398,7 +398,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 - 리뷰 생략 (스펙 준수 OR 코드 품질)
 - **미해결 이슈를 두고 진행** (`backlog` 로 기록해 넘긴 계약 밖 항목은 미해결이 아니다 — `dev-autonomy.md` §2)
 - 구현 서브에이전트를 **상태 공유 시 병렬로** dispatch (충돌, R11). v0.4a 정정: outputs disjoint 한 독립 leaf 2+ 는 `dispatching-parallel-agents-ko` DAG-aware 모드로 자동 병렬 권장 — `dag::find_independent_batch` 가 자동 식별. **상태 공유 (같은 파일 수정) 시에만 병렬 금지**
-- 서브에이전트 프롬프트에 **파일 본문(payload)을 인라인 첨부** — `file-based-communication-ko` 위반. 경로만 전달하고 서브에이전트가 `.specops/<FID>/*.md`·`dispatch/<task-id>-context.md` 를 직접 read 해야 한다 (컨트롤러 컨텍스트 오염 방지)
+- 서브에이전트 프롬프트에 **파일 본문(payload)을 인라인 첨부** — 「파일 기반 전달」 위반. 경로만 전달하고 서브에이전트가 `.specops/<FID>/*.md`·`dispatch/<task-id>-context.md` 를 직접 read 해야 한다 (컨트롤러 컨텍스트 오염 방지)
 - 장면 설정 컨텍스트 생략 (서브에이전트는 태스크가 어디에 맞는지 이해해야 함)
 - 서브에이전트 질문 무시 (진행 전에 답하기)
 - "근접함"으로 스펙 준수 인정 (스펙 리뷰어가 이슈 발견 = 미완료)
@@ -479,13 +479,13 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 ## 참조
 
-- `skills/generator-evaluator-ko/SKILL.md` — 2단계 리뷰(스펙·품질) 분리 원칙
-- `skills/context-resets-ko/SKILL.md` — fresh 서브에이전트 세션 보장
+- `docs/harness-principles.md` 「생성·평가 분리」 — 2단계 리뷰(스펙·품질) 분리 원칙
+- `docs/harness-principles.md` 「컨텍스트 리셋」 — fresh 서브에이전트 세션 보장
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 
 ## Handoff 기록 (다음 skill 진입 직전 필수)
 
-`verifying-evidence-ko` 호출 직전 `.specops/<FID>/handoffs/implementing.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining). 특히 Remaining 섹션에 "검증이 필요한 AC story 목록" 명시.
+`verifying-evidence-ko` 호출 직전 `.specops/<FID>/handoffs/implementing.md` 작성 (「아티팩트 구조 규약」 규약 4필드: Decided/Rejected/Risks/Remaining). 특히 Remaining 섹션에 "검증이 필요한 AC story 목록" 명시.
 
 ## session-progress append (v0.4-pre P1 신설)
 

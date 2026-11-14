@@ -33,12 +33,12 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 **최소 태스크 게이트**: 각 task 에 rung 순서 질문 — 존재 필요(YAGNI)? · 기존 헬퍼·유틸 재사용? · stdlib? · 네이티브 기능? · 설치된 의존성? 과잉 task 제거 후 매핑 유지. 검증·에러·보안 절차 task 는 제거 대상 아님.
 </HARD-GATE>
 
-## trivial / §lite 단축 분기 (plan.md 부재)
+## trivial 단축 분기 (plan.md 부재)
 
-다음 중 하나이고 `plan.md` 가 **부재**하면 (clarify·plan SKIP — specifying trivial 또는 `/start-lite`·`/maintain-lite`) — 아래 경량 절차로 대체하고 정상 체크리스트를 건너뛴다:
+다음 중 하나이고 `plan.md` 가 **부재**하면 (clarify·plan SKIP — specifying trivial) — 아래 경량 절차로 대체하고 정상 체크리스트를 건너뛴다:
 
 - `**§유형**: trivial`
-- 또는 `**§lite**: true` (§유형이 `유지보수`여도 §lite면 본 분기)
+- 또는 `**§lite**: true` (옛 FID 호환 — 지금은 이 표지를 만드는 경로가 없다)
 
 1. **입력 확인** — `.specops/<FID>/spec.md` + `acceptance-criteria.md` 존재 (plan.md·clarifications.md 부재는 **정상** — SKIP 됨). 위 조건 재확인 (아니면 정상 체크리스트로 복귀).
 2. **단일 태스크 합성** — spec.md 설계 섹션 + AC(`must`, 유지보수면 AC-R-*) 를 근거로 **TDD 5스텝 단일 태스크** 를 `templates/tasks.md` 구조로 작성. 모든 `must` AC 가 이 1 태스크에 매핑. `review_mode: end-loaded` **필수**. 파일 구조는 spec.md §참조·설계 섹션에서 확정 (plan.md §파일구조 대체).
@@ -46,13 +46,13 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
 4. **DAG** — leaf 1개 YAML (`depends_on: []`). Step 10 자체 검증·Step 10b `emit-context.sh` 정상 수행.
 5. 이후 `## 다음 skill` (implementing-ko) 로 정상 진행.
 
-> **오판 안전망**: trivial/§lite 는 사용자가 명시(슬래시·승인)한 것이나, decompose 가 spec+AC 를 단일 태스크로 못 담을 만큼 복잡하면 (must AC ≥ 4 또는 **구현 파일 ≥ 2 — 테스트 파일 제외**) — "규모가 lite/trivial 을 넘습니다. 정식 plan 을 거칠까요?" 확인 후 정상 경로 복귀 가능. teeth 유지가 우선.
-> **`§일괄`** 도 묻지 않고 정상 경로(clarify → plan)에 올리고(유지보수면 `current-state.md`·`impact-analysis.md` 를 analyzing 풀 체크리스트(Step 1~6) 기준으로 이 자리에서 보강 — `analyzing-ko` 를 다시 호출하지 않는다) `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <FID> order "lite/trivial → 정상 경로 승격(규모 초과)" "<must AC 수·구현 파일 수>"` 를 남긴다 — clarifying 이 승인 묶음을 한 번 더 받는다(`../specifying-ko/once-approval.md` §3).
+> **오판 안전망**: trivial 은 사용자가 승인한 것이나, decompose 가 spec+AC 를 단일 태스크로 못 담을 만큼 복잡하면 (must AC ≥ 4 또는 **구현 파일 ≥ 2 — 테스트 파일 제외**) — "규모가 trivial 을 넘습니다. 정식 plan 을 거칠까요?" 확인 후 정상 경로 복귀 가능. teeth 유지가 우선.
+> **`§일괄`** 도 묻지 않고 정상 경로(clarify → plan)에 올리고(유지보수면 `current-state.md`·`impact-analysis.md` 를 analyzing 풀 체크리스트(Step 1~6) 기준으로 이 자리에서 보강 — `analyzing-ko` 를 다시 호출하지 않는다) `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <FID> order "trivial → 정상 경로 승격(규모 초과)" "<must AC 수·구현 파일 수>"` 를 남긴다 — clarifying 이 승인 묶음을 한 번 더 받는다(`../specifying-ko/once-approval.md` §3).
 > (기준 보정 근거 — 20260716 trivial dogfood 발견 #1: 구 기준 "AC ≥ 3 또는 파일 ≥ 2" 는 TDD 최소 구성에 **항상 걸리는 false-trigger** 였다. 실질 복잡도 신호는 비테스트 구현 파일 2개↑ 또는 AC 4건↑.)
 
 ## 체크리스트
 
-1. **입력 아티팩트 확인** — `.specops/<FID>/plan.md` + `.specops/<FID>/acceptance-criteria.md`. 없으면 planning-ko 선행 요청 후 **중단**. **예외**: 위 `## trivial / §lite 단축 분기` 조건이면 그 경량 절차를 따르고 본 체크리스트는 건너뛴다
+1. **입력 아티팩트 확인** — `.specops/<FID>/plan.md` + `.specops/<FID>/acceptance-criteria.md`. 없으면 planning-ko 선행 요청 후 **중단**. **예외**: 위 `## trivial 단축 분기` 조건이면 그 경량 절차를 따르고 본 체크리스트는 건너뛴다
 1a. **DAG 힌트 추출 (v0.4b 신규)** — spec.md §2 포함 섹션에서 의존 구조 사전 파악:
    - `(독립 — 병렬 구현 가능)` 표기 항목 2개 이상 → DAG leaf 후보 목록 초기화
    - `(의존: X)` 표기 항목 → 해당 태스크의 `depends_on` 초기값으로 설정
@@ -104,7 +104,7 @@ used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all 
     - `effective=lite` → `reductions_allowed: ["batch-review-skip"]` (그 외는 `[]`)
     - **allowlist 외 축소 금지** — TDD·verify·Phase B/C·receipt는 프로파일과 무관하게 유지. `batch-review-skip`만 batch 오케스트레이터가 requesting/receiving에 적용 가능. **`review_mode: end-loaded`는 Phase B/C 생략이 아님**(시점만 FID 말미로 통합) — allowlist와 무관하게 기본 동작
     - 사용자 상향만 허용: `--floor standard|strict` 또는 `SPECOPS_RISK_PROFILE_FLOOR`
-    - **★ rc=3 = `LITE-STRICT-GUARD` (HARD GATE — 20260806)**: `§lite` FID 인데 프로파일이 `strict` 면 compute 가 rc=3 을 낸다. lite 는 clarify·plan 을 **이미 건너뛴** 상태라 그대로 진행하면 고위험 변경이 설계 검토 없이 구현된다. **implementing-ko 로 진행 금지** — `devfsd:clarifying-ko` → `devfsd:planning-ko` 를 수행해 승격한 뒤 본 스킬 재진입(정상 체크리스트 경로). `plan.md` 가 생기면 가드는 자동 해제된다. 사용자 주권 우회는 env + 사유 병기(`SPECOPS_LITE_STRICT_OVERRIDE=1 SPECOPS_LITE_STRICT_REASON='<사유>'`)뿐 — 모델이 파일을 써서 열 수 없다.
+    - **★ rc=3 = `LITE-STRICT-GUARD` (HARD GATE — 20260806)**: 옛 `§lite` FID(지금은 만들지 않는다)인데 프로파일이 `strict` 면 compute 가 rc=3 을 낸다. 그런 FID 는 clarify·plan 을 **이미 건너뛴** 상태라 그대로 진행하면 고위험 변경이 설계 검토 없이 구현된다. **implementing-ko 로 진행 금지** — `devfsd:clarifying-ko` → `devfsd:planning-ko` 를 수행해 승격한 뒤 본 스킬 재진입(정상 체크리스트 경로). `plan.md` 가 생기면 가드는 자동 해제된다. 사용자 주권 우회는 env + 사유 병기(`SPECOPS_LITE_STRICT_OVERRIDE=1 SPECOPS_LITE_STRICT_REASON='<사유>'`)뿐 — 모델이 파일을 써서 열 수 없다.
 11. **session-progress append** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /tasks 완료 "tasks.md (N 태스크)"` 호출. `devfsd:implementing-ko` 다음 단계 안내
 12. **전환** — `devfsd:implementing-ko` 호출
 
@@ -344,12 +344,12 @@ tasks:
 - `templates/tasks.md` — 출력 포맷
 - upstream 근거: Spec-Kit `commands/tasks.md` (specops-ko 경유) + bite-sized 태스크 단위 규약
 - specops-ko 선례: `commands/tasks.md`, `templates/tasks.md`
-- `skills/structured-artifacts-ko/SKILL.md` — .specops/<FID>/ 아티팩트 경로 규약
+- `docs/harness-principles.md` 「아티팩트 구조 규약」 — .specops/<FID>/ 아티팩트 경로 규약
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 
 ## Handoff 기록 (다음 skill 진입 직전 필수)
 
-`implementing-ko` 호출 직전 `.specops/<FID>/handoffs/decomposing.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining).
+`implementing-ko` 호출 직전 `.specops/<FID>/handoffs/decomposing.md` 작성 (「아티팩트 구조 규약」 규약 4필드: Decided/Rejected/Risks/Remaining).
 
 ## 다음 skill
 
@@ -383,6 +383,6 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/split-session.sh decide <FID>
 ```
 
 - `SPLIT: yes` → 같은 디렉터리 `session-split.md` 를 Read 하고 그 절차를 따른다 — 구현~성능 게이트를 대화 맥락이 빈 자식 세션이 맡고(그 세션이 `devfsd:implementing-ko` 를 호출한다), 이 세션은 결과를 받아 PR 생성 게이트로 간다. 이 세션에서 implementing-ko 를 직접 호출하지 않는다.
-- `SPLIT: no (<사유>)` → 사유를 1줄 알리고 위 선언대로 이 세션에서 `devfsd:implementing-ko` 를 호출한다(lite·trivial·`--no-split`·설정으로 끔·권한 모드 미충족 등 — 판정기가 정한다. 사유를 보고 스스로 뒤집지 않는다).
+- `SPLIT: no (<사유>)` → 사유를 1줄 알리고 위 선언대로 이 세션에서 `devfsd:implementing-ko` 를 호출한다(trivial·`--no-split`·설정으로 끔·권한 모드 미충족 등 — 판정기가 정한다. 사유를 보고 스스로 뒤집지 않는다).
 
 implementing-ko가 각 태스크마다 fresh 서브에이전트를 dispatch한다. 본 decomposing-ko는 **batch halt 또는 implementing-ko 이외의 다음 스킬을 호출하지 않는다**.

@@ -39,7 +39,7 @@ grep -q '/clarify SKIP' "$SPEC" && grep -q '/plan SKIP' "$SPEC" \
   && ok "AC-5 정직한 SKIP 기록 지시 (clarify·plan SKIP)" || nope "AC-5" "SKIP 정직 기록 지시 소실"
 
 # ── tolerance: decomposing-ko 가 plan.md 부재를 trivial 로 허용 ────────
-grep -qE 'trivial 신규 단축 분기|trivial / §lite 단축 분기' "$DEC" \
+grep -qE 'trivial 신규 단축 분기|trivial 단축 분기' "$DEC" \
   && ok "AC-6 decomposing trivial tolerance 분기 존재" || nope "AC-6" "trivial tolerance 분기 소실"
 grep -q 'plan.md.*부재' "$DEC" \
   && ok "AC-6b plan.md 부재 허용 명시" || nope "AC-6b" "plan.md 부재 tolerance 소실"

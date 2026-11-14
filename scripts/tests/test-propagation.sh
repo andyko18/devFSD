@@ -15,7 +15,7 @@ CHK="$PLUGIN/scripts/_internal/check-propagation.sh"
 
 # P1: 매트릭스 스키마 — edge id + edges[].path/must_match
 ids=$(jq -rs '[.[].id] | sort | join(",")' "$MATRIX")
-expected="ac-format-switch,active-fid-producer,assumption-digest-deterministic,attempt-fingerprint,basic-related-verify,batch-gate-propagation,batch-id-active-resume,batch-queue-init,batch-review-skip,batch-tail-contract,bounded-run-watchdog,decisions-ledger-resolved,declared-testcmd-anchor,design-critical-cap,design-overview-view,dev-no-ask,doc-number-lock,doctor-readonly-always-zero,end-loaded-skip,fid-size-gate,file-class-sot,fingerprint-unhashable-consumers,foundation-before-batch,foundation-entry-if-scope,foundation-fr-boundary,foundation-if-baseline,foundation-manifest-gate,foundation-merged-before-batch,foundation-shell-baseline,friction-aggregate-default,friction-scope-class,full-suite-fresh-consumption,gbrain-confidence-example,implementer-needs-approval-receiver,intent-per-fid-gate,leaf-run-mode-contract,lite-bc-mandatory,lite-clarify-plan-skip,lite-screen-if-keep,lite-strict-guard,matrix-pattern-lint,overengineering-review,p2t-generator-wiring,p2t-must-ac-gate,plugin-root-paths,predispatch-check-wiring,process-design-rename,propagation-env-pin,queue-fid-cell,r1-docs-only-scope,receipt-mandatory,reconcile-review-skip,redact-capture-wiring,regression-ac-gate,related-suite-fresh-consumption,release-preflight-ci-reuse,release-push-recursion-guard,release-ready-hard,review-audit-structured,review-presence-warn,review-reentry-fresh,review-return-summary,review-skip-pass-fastpath,review-verdict-contract,runner-anchor-exec-evidence,runner-whitelist-prefix,screen-quality-consumption,screens-overview-consumption,skip-citation-sot,start-entry-design-first,task-id-gate,tdd-red-observation,template-example-detectable,token-metering,trigger-prefix-value-space,yaml-cwd-shadow"
+expected="ac-format-switch,active-fid-producer,assumption-digest-deterministic,attempt-fingerprint,basic-related-verify,batch-gate-propagation,batch-id-active-resume,batch-queue-init,batch-review-skip,batch-tail-contract,bounded-run-watchdog,decisions-ledger-resolved,declared-testcmd-anchor,design-critical-cap,design-overview-view,dev-no-ask,doc-number-lock,doctor-readonly-always-zero,end-loaded-skip,fid-size-gate,file-class-sot,fingerprint-unhashable-consumers,foundation-before-batch,foundation-entry-if-scope,foundation-fr-boundary,foundation-if-baseline,foundation-manifest-gate,foundation-merged-before-batch,foundation-shell-baseline,friction-aggregate-default,friction-scope-class,full-suite-fresh-consumption,gbrain-confidence-example,implementer-needs-approval-receiver,intent-per-fid-gate,leaf-run-mode-contract,lite-bc-mandatory,lite-strict-guard,matrix-pattern-lint,overengineering-review,p2t-generator-wiring,p2t-must-ac-gate,plugin-root-paths,predispatch-check-wiring,process-design-rename,propagation-env-pin,queue-fid-cell,r1-docs-only-scope,receipt-mandatory,reconcile-review-skip,redact-capture-wiring,regression-ac-gate,related-suite-fresh-consumption,release-preflight-ci-reuse,release-push-recursion-guard,release-ready-hard,review-audit-structured,review-presence-warn,review-reentry-fresh,review-return-summary,review-skip-pass-fastpath,review-verdict-contract,runner-anchor-exec-evidence,runner-whitelist-prefix,screen-quality-consumption,screens-overview-consumption,skip-citation-sot,start-entry-design-first,task-id-gate,tdd-red-observation,template-example-detectable,token-metering,trigger-prefix-value-space,yaml-cwd-shadow"
 if [ "$ids" = "$expected" ]; then
   ok "P1 matrix id 정렬 일치"
 else
@@ -147,13 +147,11 @@ _p11_check(){  # $1=record id  $2=술어 토큰 정규식
   fi
 }
 _p11_check design-critical-cap     '정지|자동통과 금지'
-_p11_check lite-clarify-plan-skip  '호출 금지|호출하지 않'
-_p11_check lite-screen-if-keep     '제외 금지'
 _p11_check lite-bc-mandatory       '생략 금지'   # 20261112: 명령(별칭) 쪽 '유지' 앵커를 빼고 implementing-ko 의 계약 문장으로 옮겼다
 _p11_check end-loaded-skip         '1회'
 _p11_check declared-testcmd-anchor '필수|게이트'
 if [ "$_p11_fail" -eq 0 ]; then
-  ok "P11 산문 계약 앵커 6건이 술어 토큰 유지 (키워드 회귀 차단)"
+  ok "P11 산문 계약 앵커 4건이 술어 토큰 유지 (키워드 회귀 차단)"
 else
   nope "P11" "앵커가 계약 술어를 잃었다 — 키워드로 되돌아갔는지 확인"
 fi

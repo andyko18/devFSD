@@ -249,7 +249,7 @@ doc_has(){ # $1=파일  $2=grep 패턴  $3=TEST ID  $4=설명
 }
 doc_has hooks/CLAUDE.md 'specops-ko-anchor' "T-ord.f" "hooks/CLAUDE.md 조립 순서 계약 기재"
 doc_has README.md '조립 순서' "T-ord.g" "README.md 조립 순서 요약 기재"
-doc_has skills/context-resets-ko/SKILL.md '최후미' "T-ord.h" "context-resets-ko rehydrate 최후미 서술"
+doc_has docs/harness-principles.md '최후미' "T-ord.h" "context-resets-ko rehydrate 최후미 서술"
 doc_has hooks/CLAUDE.md '문자 10,000' "T-ord.i" "hooks/CLAUDE.md 인라인 한도(문자 10,000) 서술"
 doc_has hooks/CLAUDE.md 'UTF-16 단위' "T-ord.j" "hooks/CLAUDE.md 한도 단위 한정어(UTF-16) — 코드포인트 오해 방지"
 

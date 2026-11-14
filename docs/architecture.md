@@ -163,8 +163,8 @@ PR 생성                                                   ★ 멈춤
 | 항목 | 값 |
 |---|---|
 | 버전 | `.claude-plugin/plugin.json` 의 `version` (여기에 숫자를 적지 않는다 — 낡는다) |
-| 슬래시 커맨드 | 26건 <!-- doc-lock: count:commands --> |
-| 스킬 | 31건 <!-- doc-lock: count:skills --> |
+| 슬래시 커맨드 | 24건 <!-- doc-lock: count:commands --> |
+| 스킬 | 26건 <!-- doc-lock: count:skills --> |
 | 서브에이전트 | 16건 <!-- doc-lock: count:agents --> |
 | 템플릿 | 39건 (`templates/*.md`) <!-- doc-lock: count:templates --> |
 | **테스트** | **225 스위트** (스위트 수는 run-all 수집 기준) <!-- doc-lock: suite-count --> |
@@ -223,7 +223,7 @@ bash scripts/tests/run-all.sh   # 진짜처럼 실행
 단계마다 서브에이전트를 띄우므로 "그냥 시키기"보다 비싸다. 완화 장치가 있다:
 
 - `review_mode: end-loaded` (기본) — 리뷰를 FID 단위 2회로 통합. 리뷰 비용 O(N) → **O(1)**
-- 기본 경로 — `/start`·`/maintain` 이 무거운 위험 신호가 없으면 자동으로 고른다(spec 1장 · 주 세션 구현 · 리뷰 1회 · 검증 1회 · 가벼운 신호가 걸리면 분석 문서·계획·신호별 전문가 1종이 켜진다). `/start-lite`·`/maintain-lite` 는 그 별칭(다음 메이저에서 제거)
+- 기본 경로 — `/start`·`/maintain` 이 무거운 위험 신호가 없으면 자동으로 고른다(spec 1장 · 주 세션 구현 · 리뷰 1회 · 검증 1회 · 가벼운 신호가 걸리면 분석 문서·계획·신호별 전문가 1종이 켜진다).
 - 서브에이전트에 파일 **경로만** 전달 — 계약 밖 첨부 1건당 5~11k 토큰(8~14%) 절감 실측
 
 ### 6-4. 큰 기능 1건보다 작은 기능 여러 건이 유리하다

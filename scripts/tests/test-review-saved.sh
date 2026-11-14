@@ -50,7 +50,7 @@ _s=$(awk '/^### end-loaded B\/C 산출물 규약/{f=1;next} f&&/^## /{exit} f' "
 grep -qF '반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장' "$IMP" && ok "R2.b 종전 fallback 문장 보존 (AC-R-1)" || nope "R2.b"
 printf '%s\n' "$_s" | awk '{i=index($0,"review-saved.sh check"); j=index($0,"반환에 훅 요약이 없으면"); if(i&&j&&i<j) f=1} END{exit !f}' \
   && ok "R2.d 새 확인이 종전 덮어쓰기 문장보다 앞 (AC-6)" || nope "R2.d" "순서"
-grep -qF 'review-saved.sh check' "$PLUGIN/skills/file-based-communication-ko/SKILL.md" && ok "R2.c file-based-communication-ko 도 같은 확인" || nope "R2.c"
+grep -qF 'review-saved.sh check' "$PLUGIN/docs/harness-principles.md" && ok "R2.c file-based-communication-ko 도 같은 확인" || nope "R2.c"
 { grep -F '옛 report 를 반환 전문으로 교체)' "$IMP" | grep -qF '단 `review-saved.sh check` rc 0 이면 다시 쓰지 않는다' \
   && grep -F '일 때만 저장' "$IMP" | grep -qF '`review-saved.sh check` rc 0 이면 저장하지 않는다' \
   && printf '%s' "$_s" | grep -qF 'rc 2(인자 오류·FID 디렉터리 없음)면 rc 1 처럼'; } \

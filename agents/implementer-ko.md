@@ -16,7 +16,7 @@ skills:
 
 ## 받는 컨텍스트 (AC injection contract — v0.4a W2 표준)
 
-부모(`devfsd:implementing-ko`)가 dispatch 직전 `.specops/<FID>/dispatch/<task-id>-context.md` 파일을 작성하고 **경로만 전달** (file-based-communication-ko 원칙).
+부모(`devfsd:implementing-ko`)가 dispatch 직전 `.specops/<FID>/dispatch/<task-id>-context.md` 파일을 작성하고 **경로만 전달** (「파일 기반 전달」(docs/harness-principles.md) 원칙).
 
 표준 포맷: `templates/dispatch-context.md` (5 컨텍스트 + 5원칙 주입 + NEEDS_CONTEXT 트리거).
 
@@ -108,7 +108,7 @@ skills:
 - 빈 출력만 보고 행동(재실행·삭제·재시도·"죽었다/없다" 선언)을 바꾸지 않는다 — 재확인이 먼저다.
 - 정본: `verifying-evidence-ko` 의 `## 빈 출력 규칙`.
 
-## 컨텍스트 리셋 (devfsd:context-resets-ko)
+## 컨텍스트 리셋 (`docs/harness-principles.md`)
 
 한 태스크 끝나면:
 - 이전 태스크의 시행착오·중간 메모는 **잊는다**
@@ -149,7 +149,7 @@ skills:
 ## 참조
 
 - `devfsd:tdd-ko` (TDD 5스텝)
-- `devfsd:context-resets-ko` (세션 격리)
-- `devfsd:file-based-communication-ko` (파일 경로만 받기)
+- 「컨텍스트 리셋」(`docs/harness-principles.md`) (세션 격리)
+- 「파일 기반 전달」(`docs/harness-principles.md`) (파일 경로만 받기)
 - 호출자: `devfsd:implementing-ko`
 - 짝: `agents/spec-reviewer-ko.md`, `agents/code-reviewer-ko.md`

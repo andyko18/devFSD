@@ -4,17 +4,14 @@ description: 유지보수 진입 시 specifying-ko 앞에서 호출 — 변경 �
 layer: 2
 reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패턴 분석 결과)
 specops_version: 2.14.0
-used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-lite, /promote (promote-fid 분기)
+used_by: using-specops-ko (maintenance flag = true 시), /maintain, /promote (promote-fid 분기)
 ---
 
 # Engine 스킬 — 분석 (analyzing)
 
 ## 개요
 
-유지보수 진입 (`<!-- entry: maintain -->` 또는 `<!-- entry: maintain-lite -->` args 첫 줄) 시 specifying-ko **앞에서** 호출. 기존 시스템 baseline 캡처 + 외부 영향 분석 → 두 산출물 + ★ HARD GATE → specifying-ko가 본 결과를 참조 (재분석 생략).
-
-- **`entry: maintain`** → 아래 **풀 체크리스트** (Step 0~8)
-- **`entry: maintain-lite`** → **[lite-mini 분기]** (토큰 절감 — 대상·호출자·회귀 요약만)
+유지보수 진입 (`<!-- entry: maintain -->` args 첫 줄) 시 specifying-ko **앞에서** 호출. 기존 시스템 baseline 캡처 + 외부 영향 분석 → 두 산출물 + ★ HARD GATE → specifying-ko가 본 결과를 참조 (재분석 생략).
 
 <HARD-GATE>
 두 산출물 (`current-state.md` + `impact-analysis.md`) 사용자 검토 통과 전 specifying-ko 호출 금지.
@@ -25,25 +22,6 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
 
 > 종전엔 둘 다 산문이라 유지보수 FID 가 **analyzing 산출물 0개로 구현까지** 갔다(실측). 2차 피해가 크다 — `check-regression-ac` 의 **스키마 override 판정이 `current-state.md` 를 읽으므로**, 파일이 없으면 파괴적 스키마 변경에도 **AC-R-2(데이터 보존)가 요구되지 않는다**(안전망 무음 해제). AC-R-1 도 baseline 없이는 "무엇을 보존하는지" 근거가 없다.
 </HARD-GATE>
-
-## [lite-mini 분기] (`<!-- entry: maintain-lite -->`)
-
-풀 Step 1~6 대신 아래만 수행한다. Step 0 FID 생성·브랜치는 동일.
-
-1. **args**: `<!-- entry: maintain-lite -->` 첫 줄 제거 후 대상 설명 추출 (`<!-- step: true -->` 줄도 뺀다) (FID slug 규칙은 Step 0과 동일).
-2. **★ strict 승격 가드**: auth·oauth·jwt·rbac·credential·migration·ALTER/DROP·결제/PII·파괴적 스키마·public API 등 strict 신호가 보이면 lite-mini **중단** — "`/maintain`으로 진행하세요" 안내 (강제 진행 금지).
-3. **current-state.md (mini)**:
-   - §1 변경 대상 파일·심볼·라인 범위(합산 명시) — grep/`wc -l` 실측
-   - §2 직접 호출자만(1-hop, `grep -rn` head 제한) — 광역 의존 맵 생략
-   - §3~§5: 기존 테스트 유무 1줄 + 관찰 동작 1~2줄 + 회귀 위험 1줄 (상세 표 생략 가능)
-4. **impact-analysis.md (mini)**:
-   - 회귀 영향·롤백·데이터 영향 **요약 각 3~5줄** (풀 5항목 루프 축소)
-   - 스키마/데이터 변경이면 expand-contract·데이터 보존 포인트를 **반드시** 1줄 이상
-   - `## 4. Advisor 협의 기록`: 불확실 없으면 `해당 없음 — lite-mini 분석 중 불확실 지점 없음` 1줄 (R-5)
-5. ★ HARD GATE: "lite-mini 분석 검토. 진행? [y/n]" — [n] 시 chain 중단 (**§일괄** 이면 Step 7 의 [§일괄] 과 같이 묻지 않고 지난다 — 요약은 specifying 끝의 승인 묶음에 실린다)
-6. session-progress append `/analyze 완료` 후 `devfsd:specifying-ko` — **args 그대로** (`<!-- entry: maintain-lite -->` 유지). specifying-ko **[maintain-lite 분기]**가 참조.
-
-> mini는 baseline·AC-R-1 근거를 남기기 위한 축소이지 analyzing **완전 skip이 아니다**.
 
 ## 체크리스트 (풀 `/maintain`)
 
@@ -59,7 +37,7 @@ used_by: using-specops-ko (maintenance flag = true 시), /maintain, /maintain-li
 
 **[승격 진입]**: args 주석 줄에 `<!-- promoted-from-basic: <FID> -->` 가 있으면(기본 경로에서 올라온 FID) 새 FID 를 만들지 않고 `skills/specifying-ko/basic-promote.md` 를 Read 해 따른다(`basic-path.sh promote` 의 `PROCEDURE:` 줄이 절대경로를 준다).
 
-args에서 `<!-- entry: maintain -->` 또는 `<!-- entry: maintain-lite -->` 첫 줄을 제거한 나머지 텍스트가 대상 설명이다. `<!-- step: true -->` 줄도 함께 뺀다(`--step` 표지 — 대상 설명·슬러그에 넣지 않는다). (`maintain-lite`면 위 **[lite-mini 분기]**로 — 본 풀 체크리스트를 돌리지 않는다.) 파일명·심볼명·핵심 명사를 우선 추출해 kebab-slug를 구성하고, `YYYYMMDD-<slug>` 형식으로 FID를 생성한다.
+args에서 `<!-- entry: maintain -->` 첫 줄을 제거한 나머지 텍스트가 대상 설명이다. `<!-- step: true -->` 줄도 함께 뺀다(`--step` 표지 — 대상 설명·슬러그에 넣지 않는다). 파일명·심볼명·핵심 명사를 우선 추출해 kebab-slug를 구성하고, `YYYYMMDD-<slug>` 형식으로 FID를 생성한다.
 
 **FID 생성 절차:**
 ```bash
@@ -287,7 +265,7 @@ git log --oneline --grep="<symbol>" -n 5
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /analyze 완료 "current-state.md, impact-analysis.md"
 ```
 
-이어서 즉시 `devfsd:specifying-ko` 호출. **args 그대로 전달** — `<!-- entry: maintain -->` 또는 `<!-- entry: maintain-lite -->` 첫 줄 유지 (AC-10).
+이어서 즉시 `devfsd:specifying-ko` 호출. **args 그대로 전달** — `<!-- entry: maintain -->` 첫 줄 유지 (AC-10).
 
 ---
 
@@ -299,17 +277,15 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /analyze �
 | 2 **문지기** | HARD GATE 전 specifying-ko 호출 절대 금지 |
 | 3 **깊이** | 정적 grep 한계 시 "동적 호출자 미식별" 명시 — 추측 금지. trivial 임계값(≤5줄) 적용 시 경계 판단 신중히 |
 | 4 **주권** | HARD GATE [n] 시 chain 즉시 중단, 사용자 재지시 대기 (AC-8) |
-| 5 **한계 고백** | 동적 호출자 미식별·gh 미가용·실행 불가 대상 → 명시 문구 포함 (AC-14). lite-mini는 축소 범위 명시 |
+| 5 **한계 고백** | 동적 호출자 미식별·gh 미가용·실행 불가 대상 → 명시 문구 포함 (AC-14) |
 
 ## 안티패턴
 
 - **변경 규모 평가 생략** — §1 라인 합산 명시 없으면 specifying-ko §유형 라벨 부정확
 - **gh 강제 사용** — gh 미가용 환경에서 HARD GATE 차단 금지. git log fallback 항상 준비 (AC-6)
 - **§4 플레이스홀더** — 실행 불가 시에도 관련 테스트·문서 기반 baseline 채움. 빈 표 금지 (AC-15)
-- **specifying-ko 본문 중복** — 본 skill은 분석만. specifying-ko [유지보수·maintain-lite 분기]가 산출물을 참조 (재분석 안 함)
+- **specifying-ko 본문 중복** — 본 skill은 분석만. specifying-ko [유지보수 분기]가 산출물을 참조 (재분석 안 함)
 - **FID 미확인 진행** — Step 0에서 FID 사용자에게 명시 후 진행
-- **maintain-lite에서 analyzing 완전 skip** — mini라도 두 산출물 + HARD GATE 필수
-- **strict를 lite-mini로 우회** — 승격 가드 무시 금지
 
 ## 다음 skill
 
@@ -317,4 +293,4 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /analyze �
 Skill: devfsd:specifying-ko
 ```
 
-args 그대로 전달. `entry: maintain` → specifying [유지보수 분기]. `entry: maintain-lite` → specifying [maintain-lite 분기].
+args 그대로 전달. `entry: maintain` → specifying [유지보수 분기].

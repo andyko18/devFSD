@@ -8,7 +8,7 @@
 
 > leaf subagent 가 받는 5 컨텍스트의 표준 포맷. 부모(implementing-ko)가 dispatch 직전 작성.
 > leaf 가 5개 중 누락 또는 모호하다고 판단하면 `NEEDS_CONTEXT: <누락 항목>` 반환 — 추측 금지.
-> 본 파일은 file-based-communication-ko 원칙 따라 leaf 에 **경로만** 전달, 본문은 leaf 가 직접 읽음.
+> 본 파일은 「파일 기반 전달」(docs/harness-principles.md) 원칙 따라 leaf 에 **경로만** 전달, 본문은 leaf 가 직접 읽음.
 
 ## 1. 담당 AC
 

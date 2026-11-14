@@ -5,7 +5,7 @@ description: "[단일·기본] 기본 경로 직접 지정 — spec 1장 승인 
 triggers:
   - "/basic"
 mode: ask
-specops_version: 4.0.10
+specops_version: 4.0.15
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (commands/start.md 와 commands/quick-fix.md 사이의 기본 경로)
 ---

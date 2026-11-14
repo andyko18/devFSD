@@ -430,6 +430,8 @@ case "$ACTION" in
     FID="${2:-}"; [ -n "$FID" ] || _die "usage: $0 review <FID>"; _fid_ok "$FID"
     [ -f "$SPECOPS/$FID/acceptance-criteria.md" ] || _die "acceptance-criteria.md 가 없다 — start → approve 를 먼저 실행한다"
     [ ! -f "$SPECOPS/$FID/plan.md" ] || ! grep -q '{{' "$SPECOPS/$FID/plan.md" || _die "plan.md 에 채우지 않은 자리표시({{…}})가 남아 있다 — 계획을 끝내고 구현한 뒤 다시 실행한다"
+    # 계획이 있었으면 여기서 끝났다고 남긴다 — 관제판이 계획 단계를 ✓ 로 바꾼다(없으면 그 단계는 보이지 않는다).
+    [ ! -f "$SPECOPS/$FID/plan.md" ] || bash "$APPEND" "$FID" /plan 완료 "계획·전문가 반영 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     bash "$APPEND" "$FID" /implement 완료 "주 세션 직접 구현 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     bash "$APPEND" "$FID" /review 진행 "스펙·코드 리뷰 + 보안 스캔 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     echo "BASIC: REVIEWING $FID"

@@ -5,7 +5,7 @@ description: "[유지보수·대화형] devFSD 한국어 자율 Lifecycle 유지
 triggers:
   - "/maintain"
 mode: ask
-specops_version: 2.6.0
+specops_version: 4.0.15
 specops_layer: Lifecycle
 reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
 ---

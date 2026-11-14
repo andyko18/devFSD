@@ -1275,7 +1275,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
           {b.fid ? (
             <Box justifyContent="space-between">
               <Text color={C.gate} bold wrap="truncate">
-                {`devFSD · ${b.fid}`}
+                {`devFSD · ${b.fid}${b.lane ? ` · ${b.lane}` : ''}`}
               </Text>
               {b.verify ? (
                 <Box flexShrink={0}>

@@ -5,7 +5,7 @@ description: "[단일·대화형] devFSD 한국어 자율 Lifecycle 단일 기�
 triggers:
   - "/start"
 mode: ask
-specops_version: 2.6.0
+specops_version: 4.0.15
 specops_layer: Lifecycle
 reference_upstream: obra/superpowers@v5.0.7 commands/brainstorm.md
 ---

@@ -698,6 +698,7 @@ sed 's/{{[^}]*}}/x/g' "$P" > "$P.t" && mv "$P.t" "$P"
 printf '#!/usr/bin/env bash\ngrep -c . "$1"\n' > "$n/scripts/count.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$n/scripts/tests/test-count.sh"; chmod +x "$n/scripts/count.sh" "$n/scripts/tests/test-count.sh"
 _bp "$n" review "$FID" >/dev/null
+grep -q '/plan 완료' "$n/.specops/session-progress.md" && ok "N8b 계획이 있으면 review 가 계획 완료를 남긴다(관제판 계획 칸)" || no "N8b"
 mkdir -p "$n/.specops/$FID/reviews"
 printf '# B\n**판정**: PASS\n' > "$n/.specops/$FID/reviews/T1-B-report.md"
 printf '# C\n**Phase B 상태**: PENDING(병렬 dispatch)\n**판정**: READY_TO_MERGE\n' > "$n/.specops/$FID/reviews/T1-C-report.md"

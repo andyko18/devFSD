@@ -94,6 +94,15 @@ const BASIC_STAGES: readonly StageDef[] = [
   { key: 'verify', cmds: ['/verify'], label: '검증' },
   { key: 'pr', cmds: ['/lifecycle'], label: 'PR' },
 ]
+// devFSD: 기본 경로에서 **켜졌을 때만** 보이는 단계(통합 절차 20261114) — 기록 줄이 있으면 그 자리에 끼운다.
+//   `/analyze` 는 approve 가(분석 문서가 있을 때), `/plan` 은 basic-path.sh plan(진행)·review(완료)가 남긴다.
+const BASIC_ANALYZE: StageDef = { key: 'analyze', cmds: ['/analyze'], label: '분석' }
+const BASIC_PLAN: StageDef = { key: 'plan', cmds: ['/plan'], label: '계획' }
+// devFSD: `/start-all` 의 FR 하나 — 보안·통합·성능·데모·PR 은 FR 마다가 아니라 묶음에서 한 번 돈다(commands/start-all.md).
+const BATCH_KEYS: readonly string[] = ['analyze', 'specify', 'clarify', 'plan', 'tasks', 'implement', 'verify']
+const BATCH_STAGES: readonly StageDef[] = STAGES.filter(s => BATCH_KEYS.includes(s.key))
+/** 일괄 묶음에서 이 FID 의 위치 — `id` 묶음 이름 · `done`/`total` 은 건너뛴 FR 을 뺀 수. */
+export type BatchInfo = { id: string; done: number; total: number }
 const VERIFY_WORDS = ['PASS', 'STALE', 'FAIL', 'PARTIAL', 'NOT_RUN', 'WAIVED']
 
 /** 활성 FID — active-fid 마커 우선, 없으면 FID 형식의 첫 `## ` 제목. */
@@ -159,17 +168,50 @@ function markOf(word: string): StageMark['mark'] {
 
 /** 기본 경로(`/basic`) FID 인가 — 그 FID 섹션에 `/basic` 기록 줄이 있다. */
 export function isBasicLane(progress: string, fid: string): boolean {
-  return stageDefsOf(recordsOf(progress, fid)) === BASIC_STAGES
+  return isBasicRecs(recordsOf(progress, fid))
 }
 
-function stageDefsOf(recs: readonly { cmd: string }[]): readonly StageDef[] {
-  return recs.some(r => r.cmd === BASIC_CMD) && !recs.some(r => r.cmd === PROMOTED_CMD) ? BASIC_STAGES : STAGES
+function isBasicRecs(recs: readonly { cmd: string }[]): boolean {
+  return recs.some(r => r.cmd === BASIC_CMD) && !recs.some(r => r.cmd === PROMOTED_CMD)
 }
 
-export function stagesOf(progress: string, fid: string): StageMark[] {
+/** 이 FID 가 보여 줄 단계 — 일괄의 FR · 기본 경로(켜진 분석·계획 포함) · 풀 경로. */
+function stageDefsOf(recs: readonly { cmd: string }[], isBatch = false): readonly StageDef[] {
+  if (isBatch) return BATCH_STAGES
+  if (!isBasicRecs(recs)) return STAGES
+  const has = (cmd: string) => recs.some(r => r.cmd === cmd)
+  if (!has('/analyze') && !has('/plan')) return BASIC_STAGES
+
+  return BASIC_STAGES.flatMap(s => {
+    if (s.key === 'specify') return [...(has('/analyze') ? [BASIC_ANALYZE] : []), s, ...(has('/plan') ? [BASIC_PLAN] : [])]
+
+    return [s]
+  })
+}
+
+const FULL_LANE = '풀 경로'
+/** 어느 경로인지 한마디 — 머리 줄에 붙인다(풀 경로는 표시부가 생략한다). */
+export function laneLabel(progress: string, fid: string, batch?: BatchInfo): string {
+  if (batch) return `일괄 ${batch.done}/${batch.total}`
   const recs = recordsOf(progress, fid)
-  const defs = stageDefsOf(recs)
-  const isBasic = defs === BASIC_STAGES
+  if (!isBasicRecs(recs)) return FULL_LANE
+
+  return recs.some(r => r.cmd === '/analyze' || r.cmd === '/plan') ? '기본 경로+' : '기본 경로'
+}
+
+/** `<묶음 이름> <끝난 FR 수> <전체 FR 수>` 한 줄(batch-progress.sh 의 출력) → BatchInfo. 그 밖은 undefined(일괄이 아니다). */
+export function batchOf(stdout: string): BatchInfo | undefined {
+  const m = stdout.trim().match(/^(batch-\S+) (\d+) (\d+)$/)
+  if (!m) return undefined
+  const total = Number(m[3])
+
+  return total > 0 ? { id: m[1] ?? '', done: Number(m[2]), total } : undefined
+}
+
+export function stagesOf(progress: string, fid: string, batch?: BatchInfo): StageMark[] {
+  const recs = recordsOf(progress, fid)
+  const defs = stageDefsOf(recs, batch !== undefined)
+  const isBasic = !batch && isBasicRecs(recs)
   const newestOf = (s: StageDef) => recs.find(r => s.cmds.includes(r.cmd))
   // 기본 경로는 스크립트가 순서를 강제한다(봉인은 승인·리뷰 보고서를, 검증은 봉인을 요구) —
   //   기록이 빠진 단계라도 뒤 단계에 기록이 있으면 지난 단계다.
@@ -185,10 +227,10 @@ export function stagesOf(progress: string, fid: string): StageMark[] {
 }
 
 /** devFSD: 지금 하는 단계 — 가장 최근 기록의 단계, 그 기록이 완료면 다음 미완 단계. lifecycle 완료면 null. */
-export function currentStageKey(progress: string, fid: string): string | null {
+export function currentStageKey(progress: string, fid: string, batch?: BatchInfo): string | null {
   if (isLifecycleDone(progress, fid)) return null
   const recs = recordsOf(progress, fid)
-  const defs = stageDefsOf(recs)
+  const defs = stageDefsOf(recs, batch !== undefined)
   const newest = recs.find(r => defs.some(s => s.cmds.includes(r.cmd)))
   if (!newest) return null
   const at = defs.findIndex(s => s.cmds.includes(newest.cmd))
@@ -314,6 +356,17 @@ async function verifyFor($: EngineInterface, cwd: string, fid: string, preferred
   return verifyWord(r)
 }
 
+/** 이 FID 가 진행 중인 일괄 묶음의 FR 인가 — 아니거나 판정 불가면 undefined(단계는 종전대로 표시). */
+async function batchFor($: EngineInterface, dir: string, fid: string): Promise<BatchInfo | undefined> {
+  // 일괄의 FR 은 spec 에 `**§batch**:` 라벨이 있다 — 그 라벨이 없으면 큐를 세는 명령을 돌리지 않는다.
+  const spec = await $.fs.read(`${dir}/.specops/${fid}/spec.md`).catch(() => '')
+  if (!/^\*\*§batch\*\*:/m.test(spec)) return undefined
+  // 큐 읽기는 스크립트 한 곳이 한다(scripts/_internal/batch-progress.sh — 큐의 정규 파서 queue-lib.sh 를 쓴다).
+  const r = await $.process.run(['bash', `${$.plugin.root}/scripts/_internal/batch-progress.sh`, fid], { cwd: dir, timeoutMs: 3_000 })
+
+  return r.exitCode === 0 ? batchOf(r.stdout) : undefined
+}
+
 type RefreshGate = { refreshing: boolean; again: boolean }
 
 /** 단계 막대·배지를 다시 계산한다. 겹치면 끝난 뒤 1회만 다시. 실패는 `?`. */
@@ -331,13 +384,17 @@ async function refreshStatus($: EngineInterface, cwd: string, gate: RefreshGate)
       const progress = record?.progress ?? ''
       const fid = activeFid(progress)
       if (!fid) {
-        await update($, board, b => ({ ...b, fid: undefined, stages: undefined, verify: undefined }))
+        await update($, board, b => ({ ...b, fid: undefined, stages: undefined, verify: undefined, lane: undefined }))
         continue
       }
-      const stages = stagesOf(progress, fid)
+      const batch = record ? await batchFor($, record.dir, fid).catch(() => undefined) : undefined
+      const stages = stagesOf(progress, fid, batch)
       const verify = isLifecycleDone(progress, fid) ? '완료' : await verifyFor($, cwd, fid, record?.dir).catch(() => '검증 ?')
-      const marked = withVerifyMark(stages, verify, currentStageKey(progress, fid))
-      await update($, board, b => ({ ...b, fid, stages: marked, verify }))
+      const marked = withVerifyMark(stages, verify, currentStageKey(progress, fid, batch))
+      // 경로 이름 — 풀 경로는 종전 표시 그대로 두고(이름을 붙이지 않는다) 기본 경로·일괄만 알린다.
+      const label = laneLabel(progress, fid, batch)
+      const lane = label === FULL_LANE ? undefined : label
+      await update($, board, b => ({ ...b, fid, stages: marked, verify, lane }))
     } while (gate.again)
   } catch {
     await safe(() => update($, board, b => ({ ...b, verify: '검증 ?' })))
@@ -600,7 +657,7 @@ export function registerProgress(on: Parameters<Register>[0]): void {
     const { Box, Text } = $.ui.resolve(e)
     const b = await read($, board)
     const at = await read($, now)
-    const head = ['devFSD', b.fid, b.stage].filter(Boolean).join(' · ')
+    const head = ['devFSD', b.fid, b.lane, b.stage].filter(Boolean).join(' · ')
 
     return (
       <Box flexDirection="column">

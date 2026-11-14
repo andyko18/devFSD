@@ -2,12 +2,14 @@ import { expect, mock, test } from 'claude-code/testing'
 
 import {
   activeFid,
+  batchOf,
   currentStageKey,
   elapsed,
   fidOf,
   isBasicLane,
   isLifecycleDone,
   isNewer,
+  laneLabel,
   latestStamp,
   notificationOf,
   projectRoot,
@@ -607,6 +609,8 @@ const verifyWorld = (on: PaneOn) => {
     toolDone: false,
     runs: [] as Run[],
     seen: [] as boolean[],
+    spec: undefined as string | undefined, // 그 FID 의 spec.md 본문 — 없으면 ENOENT(일괄 판정이 돌지 않는다)
+    batch: { exitCode: 0, stdout: '', stderr: '' },
   }
   on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
   on('clock.every', () => ({ value: undefined }))
@@ -615,6 +619,7 @@ const verifyWorld = (on: PaneOn) => {
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('fs.read', (_, e) => {
     if (w.readable && e.path === w.progressPath) return { value: w.progress }
+    if (w.spec !== undefined && e.path.endsWith('/spec.md')) return { value: w.spec }
     throw new Error('ENOENT')
   })
   on('fs.exists', (_, e) => ({
@@ -627,6 +632,7 @@ const verifyWorld = (on: PaneOn) => {
     const run = e as unknown as Run
     w.runs.push({ argv: [...run.argv], init: run.init })
     if (run.argv[0] === 'git') return { value: w.git }
+    if (String(run.argv[1]).endsWith('/scripts/_internal/batch-progress.sh')) return { value: w.batch }
     w.seen.push(w.toolDone)
     if (w.gate) await w.gate
     if (w.answer === 'reject') throw new Error('spawn failed')
@@ -1486,4 +1492,74 @@ test('verify looks in the chosen record folder first even when the worktree also
   const verify = runs.filter(r => r.argv[0] === 'bash')
   expect(verify.length).toBe(2)
   for (const run of verify) expect((run.init as { cwd?: string } | undefined)?.cwd).toBe('/repo')
+})
+
+// --- 경로별 단계 표시 (통합 절차 20261114) -----------------------------------------------
+
+test('devFSD: a /basic FID grows 분석 and 계획 stages only when those steps were turned on', () => {
+  const plain = basicAt(2)
+  expect(laneLabel(plain, '20261106-x')).toBe('기본 경로')
+  expect(stagesOf(plain, '20261106-x').map(s => s.key)).toEqual(['specify', 'implement', 'review', 'verify', 'pr'])
+  const ext = PROG_T2([
+    '- 2026-11-12 14:45 /plan 진행 (계획 2태스크 · 전문가 devfsd:security-designer-ko (/basic))',
+    '- 2026-11-12 14:41 /approve 완료 (spec 1장 승인 (/basic))',
+    '- 2026-11-12 14:41 /analyze 완료 (analysis.md (/basic))',
+    '- 2026-11-12 14:22 /basic 시작 (요청)',
+  ])
+  expect(laneLabel(ext, '20261106-x')).toBe('기본 경로+')
+  expect(isBasicLane(ext, '20261106-x')).toBe(true)
+  expect(bar(ext)).toBe('분석✓ 명세✓ 계획● 구현○ 리뷰○ 검증○ PR○')
+  expect(currentStageKey(ext, '20261106-x')).toBe('plan')
+  const planDone = PROG_T2(['- 2026-11-12 14:55 /implement 완료 (x)', '- 2026-11-12 14:55 /plan 완료 (x)', '- 2026-11-12 14:45 /plan 진행 (x)', '- 2026-11-12 14:41 /approve 완료 (x)', '- 2026-11-12 14:22 /basic 시작 (요청)'])
+  expect(bar(planDone)).toBe('명세✓ 계획✓ 구현✓ 리뷰○ 검증○ PR○') // 분석 기록이 없으면 분석 칸도 없다
+})
+
+test('devFSD: a full-path FID and a promoted one are labelled 풀 경로', () => {
+  expect(laneLabel(PROG_T2(['- 2026-11-06 10:00 /specify 완료 (x)']), '20261106-x')).toBe('풀 경로')
+  const promoted = PROG_T2(['- 2026-11-12 14:50 /full 승격 (x)', '- 2026-11-12 14:22 /basic 시작 (요청)'])
+  expect(laneLabel(promoted, '20261106-x')).toBe('풀 경로')
+})
+
+test('devFSD: a batch FR shows the per-FR stages only, with the batch count as its lane', () => {
+  expect(batchOf('batch-20260917-1649 3 14\n')).toEqual({ id: 'batch-20260917-1649', done: 3, total: 14 })
+  for (const out of ['', 'batch-x 0 0', 'nope 1 2', 'batch-x a b']) expect(batchOf(out)).toBeUndefined()
+  const batch = { id: 'batch-20260917-1649', done: 3, total: 14 }
+  const fr = PROG_T2(['- 2026-11-06 10:20 /implement 진행 (T1)', '- 2026-11-06 10:10 /tasks 완료 (x)', '- 2026-11-06 10:05 /plan 완료 (x)', '- 2026-11-06 10:00 /specify 완료 (x)'])
+  expect(laneLabel(fr, '20261106-x', batch)).toBe('일괄 3/14')
+  expect(stagesOf(fr, '20261106-x', batch).map(s => `${s.label}${s.mark}`).join(' ')).toBe('명세✓ 명확화○ 설계✓ 분해✓ 구현● 검증○')
+  expect(currentStageKey(fr, '20261106-x', batch)).toBe('implement')
+  expect(stagesOf(fr, '20261106-x').map(s => s.key)).toContain('pr') // 일괄이 아니면 종전 12단계
+})
+
+test('devFSD: the head line names the lane for a /basic FID and stays bare for a full-path one', async ($, on) => {
+  const w = verifyWorld(on)
+  await begin($, w)
+  expect((await rowsOn($, SURFACES[0]))[0]).toBe('devFSD · 20261104-b') // 풀 경로는 종전 그대로
+
+  w.progress = '# p\n\n## 20261104-b · y\n\n- 2026-11-12 14:45 /plan 진행 (x)\n- 2026-11-12 14:41 /approve 완료 (x)\n- 2026-11-12 14:22 /basic 시작 (요청)\n'
+  await $.tool.call(editCall('toolu_lane1'))
+  await drain()
+  const rows = await rowsOn($, SURFACES[0])
+  expect(rows[0]).toBe('devFSD · 20261104-b · 기본 경로+')
+  expect(rows[1]).toBe('명세✓ 계획● 구현○ 리뷰○ 검증○ PR○')
+  expect(w.runs.filter(r => r.argv[0] === 'bash' && r.argv[1] === '-c').length).toBe(0) // §batch 라벨이 없으면 큐를 세지 않는다
+})
+
+test('devFSD: a batch FR (spec labelled §batch, queue counted by the script) shows 일괄 n/m and the per-FR stages', async ($, on) => {
+  const w = verifyWorld(on)
+  w.spec = '# s\n\n**§batch**: batch-20261114-0900\n'
+  w.batch = { exitCode: 0, stdout: 'batch-20261114-0900 3 14\n', stderr: '' }
+  await begin($, w)
+  const rows = await rowsOn($, SURFACES[0])
+  expect(rows[0]).toBe('devFSD · 20261104-b · 일괄 3/14')
+  expect(rows[1]?.split(' ').map(c => c.slice(0, -1))).toEqual(['분석', '명세', '명확화', '설계', '분해', '구현', '검증']) // FR 막대에 보안·통합·성능·데모·PR 이 없다
+  const run = w.runs.find(r => String(r.argv[1]).endsWith('/scripts/_internal/batch-progress.sh'))
+  expect(run?.argv[2]).toBe('20261104-b')
+
+  w.batch = { exitCode: 0, stdout: '', stderr: '' } // 묶음이 끝났다(ACTIVE 없음) — 종전 풀 경로 표시로 돌아가고 경로 이름도 지워진다
+  await $.tool.call(editCall('toolu_batch1'))
+  await drain()
+  const after = await rowsOn($, SURFACES[0])
+  expect(after[0]).toBe('devFSD · 20261104-b')
+  expect(after[1]).toBe(BAR_B)
 })

@@ -488,6 +488,24 @@ if [ "${HAVE_BROWSER:-0}" != 1 ]; then sk "U10 (이 환경에 Playwright·브라
   pg p_cover '.sp{height:1600px}.bar{position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;border-top:1px solid #ccc}' "$FORM<div class=\"bar\"><button>제출</button></div>"
   pg x_cover 'main{padding-bottom:80px}.sp{height:1600px}.bar{position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;border-top:1px solid #ccc}' "$FORM<div class=\"bar\"><button>제출</button></div>"
   pg x_modal '.sp{height:1600px}.back{position:fixed;inset:0;background:rgba(0,0,0,.4)}' "$FORM<div class=\"back\"><p>열린 대화상자</p></div>"
+  # ── 리뷰 실측(조각 28개)에서 나온 오탐·미탐 — 구조별 대조
+  CH='.chip{border-radius:999px;background:#e8edf3;padding:0 8px}'
+  pg p_wrapflex ".r{display:flex;gap:4px;width:50px}$CH" '<h1>칩 줄</h1><div class="r"><span class="chip">고객 대기</span></div>'
+  pg p_wrapinline ".c{width:44px}$CH" '<h1>인라인 칩</h1><div class="c"><span class="chip">처리 중</span></div>'
+  pg p_wrapoklch '.c{width:44px}.chip{display:inline-block;border-radius:6px;background:oklch(0.92 0.03 250);padding:0 8px}' '<h1>색 표기</h1><div class="c"><span class="chip">처리 중</span></div>'
+  pg p_wrapbtn '.c{width:40px}button{padding:0}' '<h1>기본 버튼</h1><div class="c"><button>임시 저장</button></div>'
+  pg x_wrapicon '.chip{display:inline-flex;align-items:center;border-radius:999px;background:#e8edf3;padding:0 8px;line-height:1;font-size:12px}.i{font-size:24px}' '<h1>큰 아이콘</h1><p><span class="chip"><span class="i">★</span>즐겨찾기</span></p>'
+  pg x_wraptile '.t{display:inline-flex;flex-direction:column;align-items:center;border-radius:12px;background:#e8edf3;padding:8px 16px;border:0}' '<h1>쌓은 타일</h1><button class="t"><span>📦</span><span>출고</span></button> <button class="t"><span>재고</span><span>12건</span></button>'
+  SHELL='html,body,main{height:100%}html,body{overflow:hidden}.sp{height:1600px}.bar{position:fixed;left:0;right:0;bottom:0;height:64px;background:#fff;border-top:1px solid #ccc}'
+  INNER='<h1>청구서</h1><div class="sp"></div><label for="m">마지막 입력</label><input id="m">'
+  pg x_shell "$SHELL.sc{height:calc(100% - 64px);overflow-y:auto}" "<div class=\"sc\">$INNER</div><div class=\"bar\"><button>제출</button></div>"
+  pg x_shellpad "$SHELL.sc{height:100%;overflow-y:auto;box-sizing:border-box;padding-bottom:80px}" "<div class=\"sc\">$INNER</div><div class=\"bar\"><button>제출</button></div>"
+  pg p_shell "$SHELL.sc{height:100%;overflow-y:auto}" "<div class=\"sc\">$INNER</div><div class=\"bar\"><button>제출</button></div>"
+  pg p_floatbar '.sp{height:1600px}.bar{position:fixed;left:12px;right:12px;bottom:12px;height:56px;border-radius:28px;background:#fff;border:1px solid #ccc}' "$FORM<div class=\"bar\"><button>제출</button></div>"
+  pg x_toast '.sp{height:1600px}.t{position:fixed;left:50%;bottom:8px;width:200px;height:40px;background:#333;color:#fff;transform:translateX(-50%)}.w{position:fixed;left:8px;right:8px;bottom:8px;height:40px;background:#333;color:#fff}' "$FORM<div class=\"t\">저장됨</div><div class=\"w\" role=\"status\">임시 저장했습니다</div>"
+  pg x_carousel '.cr{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory}.cd{flex:0 0 260px;height:80px;scroll-snap-align:start;background:#eef}' '<h1>캐러셀</h1><div class="cr"><div class="cd">첫 카드</div><div class="cd">둘째 카드</div><div class="cd">셋째 카드</div></div>'
+  pg x_prewrap '.w{overflow-x:auto}pre{margin:0}' '<h1>코드</h1><div class="w"><pre>아주 긴 한 줄짜리 명령 아주 긴 한 줄짜리 명령 아주 긴 한 줄짜리 명령 아주 긴 한 줄짜리 명령 아주 긴 한 줄짜리 명령</pre></div>'
+  pg x_vpanel '.p{position:relative;height:120px;overflow-y:auto;width:200px}.in{height:400px}.dd{position:absolute;top:0;left:120px;width:140px;background:#fff}' '<h1>세로 패널</h1><div class="p"><div class="in">세로로 긴 내용</div><div class="dd">열린 드롭다운 항목</div></div>'
   pg x_smooth 'html{scroll-behavior:smooth}p{margin:0 0 1500px}' '<h1>부드러운 스크롤 화면</h1><p>첫 문단</p><p>둘째 문단</p><p>셋째 문단</p>'
   # 알려진 구멍: 불투명한 배지가 라벨을 완전히 덮으면 '포개져 보이는 글자' 가 아니라 가림이라 잡지 않는다(열린 드롭다운과 구별 불가). 이 구멍을 메우면 이 조각이 적중으로 바뀐다 — 의도한 변경인지 확인할 것
   pg x_badge_opaque '.f{position:relative}.hint{position:absolute;top:6px;left:46px;background:#fff3cd}' "<h1>환불</h1>$HINT"
@@ -500,13 +518,13 @@ if [ "${HAVE_BROWSER:-0}" != 1 ]; then sk "U10 (이 환경에 Playwright·브라
   [ "$(cnt "$out" 'over@390 배치 경고 L-OVERLAP(글자 겹침): ')" = 1 ] && has "$out" '환불 금액' && has "$out" '최대 환불 가능액' && ! has "$out" 'over@1280 배치 경고' \
     && ok "U10b 포개진 글자 — 390 에서 겹침 1건(두 글자 덩어리 식별) · 1280 은 0(AC-4)" || no "U10b" "[$out]"
   bad10=""
-  for n in ok1 x_ellipsis x_sronly x_hidden x_scroll x_sticky x_nested x_popup x_decor x_tiny x_abs x_root x_smooth x_badge_opaque x_wrapchip x_wrappara x_scrollfit x_cover x_modal; do
+  for n in ok1 x_ellipsis x_sronly x_hidden x_scroll x_sticky x_nested x_popup x_decor x_tiny x_abs x_root x_smooth x_badge_opaque x_wrapchip x_wrappara x_scrollfit x_cover x_modal x_wrapicon x_wraptile x_shell x_shellpad x_toast x_carousel x_prewrap x_vpanel; do
     out=$(lyrun "$n"); { has "$out" '배치 경고' || has "$out" '배치 계측 못 함'; } && bad10="$bad10 [$n: $(printf '%s' "$out" | grep -F '배치' | head -2 | tr '\n' ' ')]"
   done
   for f in "$PLUGIN/screens/login.html" "$PLUGIN/templates/screen.html"; do
     out=$(node "$P" --out "$LY/out-repo" --widths 390,1280 "file://$f" 2>&1); { has "$out" '배치 경고' || has "$out" '배치 계측 못 함'; } && bad10="$bad10 [$(basename "$f")]"
   done
-  [ -z "$bad10" ] && ok "U10c 정상 화면·제외 조건 조각 19개·저장소 예시 2개 — 양 폭 경고 0 · 못 잰 것 0(AC-5)" || no "U10c" "적중:$bad10"
+  [ -z "$bad10" ] && ok "U10c 정상 화면·제외 조건 조각 27개·저장소 예시 2개 — 양 폭 경고 0 · 못 잰 것 0(AC-5)" || no "U10c" "적중:$bad10"
   out=$(lyrun over_smooth)
   [ "$(cnt "$out" 'over_smooth@390 배치 경고 L-OVERLAP(글자 겹침): ')" = 1 ] && [ "$(cnt "$out" 'over_smooth@1280 배치 경고 L-OVERLAP(글자 겹침): ')" = 1 ] \
     && [ "$(node -e 'const fs=require("fs"),r=require(process.argv[1]).results;console.log(r.every(x=>x.overflow===false&&fs.statSync(x.png).size>0))' "$LY/out-over_smooth/ui-probe.json")" = true ] \
@@ -514,10 +532,12 @@ if [ "${HAVE_BROWSER:-0}" != 1 ]; then sk "U10 (이 환경에 Playwright·브라
   miss10=""
   for n in p_ellipsis p_hidden p_scroll p_decor p_tiny p_left p_abs p_root; do out=$(lyrun "$n"); [ "$(cnt "$out" "$n@390 배치 경고 L-CLIP-X(가로 잘림): ")" = 1 ] || miss10="$miss10 [$n]"; done
   for n in p_sronly p_sticky p_nested p_popup; do out=$(lyrun "$n"); [ "$(cnt "$out" "$n@390 배치 경고 L-OVERLAP(글자 겹침): ")" = 1 ] || miss10="$miss10 [$n]"; done
-  for pr in 'p_wrapchip|L-WRAP-CHIP(칩 줄바꿈): |2' 'p_scrollx|L-SCROLL-X(가로 스크롤에 숨음): <nav.tabs>|1' 'p_cover|L-FIXED-COVER(고정 막대 가림): <div.bar>|1'; do
+  for pr in 'p_wrapchip|L-WRAP-CHIP(칩 줄바꿈): |2' 'p_scrollx|L-SCROLL-X(가로 스크롤에 숨음): <nav.tabs>|1' 'p_cover|L-FIXED-COVER(고정 막대 가림): <div.bar>|1' \
+            'p_wrapflex|L-WRAP-CHIP(칩 줄바꿈): <span.chip>|1' 'p_wrapinline|L-WRAP-CHIP(칩 줄바꿈): <span.chip>|1' 'p_wrapoklch|L-WRAP-CHIP(칩 줄바꿈): <span.chip>|1' 'p_wrapbtn|L-WRAP-CHIP(칩 줄바꿈): <button>|1' \
+            'p_shell|L-FIXED-COVER(고정 막대 가림): <div.bar>|1' 'p_floatbar|L-FIXED-COVER(고정 막대 가림): <div.bar>|1'; do
     n=${pr%%|*}; rest=${pr#*|}; key=${rest%|*}; want=${rest##*|}; out=$(lyrun "$n"); [ "$(cnt "$out" "$n@390 배치 경고 $key")" = "$want" ] || miss10="$miss10 [$n: $(printf '%s' "$out" | grep -F '배치' | head -3 | tr '\n' ' ')]"
   done
-  [ -z "$miss10" ] && ok "U10e 양성 대조 — 제외 조건만 뺀 쌍 11개·왼쪽 가장자리 조각·좁은 폭 규칙 3종은 390 에서 적중(U10c 의 0건이 공허하지 않다)" || no "U10e" "미적중:$miss10"
+  [ -z "$miss10" ] && ok "U10e 양성 대조 — 제외 조건만 뺀 쌍 11개·왼쪽 가장자리 조각·좁은 폭 규칙 3종(구조별 9조각)은 390 에서 적중(U10c 의 0건이 공허하지 않다)" || no "U10e" "미적중:$miss10"
   SSH="$PLUGIN/scripts/_internal/screen-shot.sh"
   out=$(bash "$SSH" "$LY/over.html" "$LY/shot-over" 2>&1); rc=$?
   if [ "$rc" -eq 3 ]; then sk "U10f (시스템 Chrome 없음 — 촬영 SKIP)"

@@ -8,9 +8,9 @@
 const RULES = {
   'L-CLIP-X': { label: '가로 잘림', def: '글자·컨트롤이 든 요소가 가로를 가리는 상자(overflow-x hidden·clip — 가로 스크롤 없음)의 가장자리에 걸쳐 일부만 보인다. 가로 방향만 잰다(세로 잘림은 재지 않는다). html·body 가 가로 스크롤을 막은 화면에서는 화면 가장자리가 그 상자다. 말줄임·낭독기 전용 숨김·숨긴 요소·가로 스크롤 영역 안·가림 상자 밖에 기준을 둔 absolute·fixed 자손은 뺀다.' },
   'L-OVERLAP': { label: '글자 겹침', def: '포함 관계가 아닌 두 요소의 보이는 글자가 4px 넘게 포개진다. 화면에 고정된 요소(fixed·sticky)와 불투명한 층에 덮여 가려진 글자는 뺀다(불투명한 배지가 라벨을 완전히 덮는 경우도 잡지 못한다 — 이미지로 본다).' },
-  'L-WRAP-CHIP': { label: '칩 줄바꿈', def: '칩·배지·버튼처럼 짧은 글자(16자 이하)를 담은 둥근 상자의 글자가 두 줄 이상으로 꺾인다. 배경이나 테두리가 있고 모서리가 둥근 인라인 상자만 본다(평범한 문단·링크는 보지 않는다).' },
-  'L-SCROLL-X': { label: '가로 스크롤에 숨음', def: '가로 스크롤 상자(overflow-x auto·scroll) 안의 내용이 24px 넘게 화면 밖에 숨어 있다. 표를 감싼 상자는 뺀다(표는 래퍼 안 가로 스크롤이 규약이다). 탭 줄·차트가 대상이다.' },
-  'L-FIXED-COVER': { label: '고정 막대 가림', def: '화면 아래에 고정된 막대(position fixed · 화면 폭의 절반 이상 · 높이 40% 이하)가 있는데 문서 끝에 그 높이만큼의 아래 여백이 없어, 끝까지 내려도 마지막 글자·입력이 막대 뒤에 가린다.' },
+  'L-WRAP-CHIP': { label: '칩 줄바꿈', def: '짧은 글자(16자 이하)를 담은 칩·배지(배경이나 테두리가 있고 모서리가 둥근 상자)와 버튼에서 한 글자 덩어리가 두 줄 이상으로 꺾인다. 아이콘과 라벨을 위아래로 쌓은 타일, 평범한 문단·링크는 보지 않는다.' },
+  'L-SCROLL-X': { label: '가로 스크롤에 숨음', def: '가로 스크롤 상자(overflow-x auto·scroll) 안의 내용이 24px 넘게 화면 밖에 숨어 있다. 표·코드 블록을 감싼 상자, 격자(role grid), 넘겨 보는 상자(scroll-snap), 세로로 스크롤하는 패널은 뺀다. 탭 줄·차트가 대상이고, 칸반처럼 의도한 가로 스크롤도 걸린다(그렇다고 적는다).' },
+  'L-FIXED-COVER': { label: '고정 막대 가림', def: '화면 아래에 고정되거나 조금 떠 있는 막대(position fixed · 화면 폭의 60% 이상 · 높이 40% 이하 · 토스트 같은 알림 역할은 제외)가 있는데 그 높이만큼의 아래 여백이 없어, 끝까지 내려도 마지막 글자·입력이 막대 뒤에 가린다. 문서가 스크롤하든 안쪽 상자가 스크롤하든 본다. 닫으면 사라지는 동의 막대도 걸린다.' },
 };
 const MAX_LINES = 5;
 
@@ -122,58 +122,84 @@ function measureLayout() {
       overlap.push(`${name(A.el)} ↔ ${name(B.el)} — ${Math.round(w)}×${Math.round(h)}px 겹침`);
     }
   }
-  // 줄바꿈: 짧은 글자를 담은 둥근 인라인 상자(칩·배지·버튼)의 글자가 두 줄 이상
-  const wrap = [];
+  // 줄바꿈: 짧은 글자를 담은 칩·배지(배경이나 테두리가 있고 모서리가 둥근 상자)·버튼에서 **한 글자 덩어리**가 두 줄 이상으로 꺾임
+  //   display 는 보지 않는다 — flex·grid 의 자식이면 inline-flex 로 쓴 칩도 block·flex 로 계산된다(실측 미탐).
+  //   덩어리(텍스트 노드) 단위로 센다 — 아이콘 위·라벨 아래로 쌓은 타일, 큰 아이콘 옆 한 줄 글자는 덩어리마다 한 줄이라 꺾임이 아니다(실측 오탐).
+  const wrap = []; const wrapped = [];
+  const painted = (c) => Boolean(c) && c !== 'transparent' && !/^rgba\(\s*0,\s*0,\s*0,\s*0\s*\)$/.test(c) && !/\/\s*0\s*\)$/.test(c);   // rgb·oklch·color() 모두(투명만 뺀다)
   for (const el of document.querySelectorAll('body *')) {
-    if (el.children.length > 2 || !shown(el)) continue;
-    const cs = getComputedStyle(el);
-    if (!/^inline-(flex|block)$/.test(cs.display) && el.tagName !== 'BUTTON') continue;
+    if (!shown(el) || wrapped.some((w) => w.contains(el))) continue;
     const txt = (el.innerText || '').replace(/\s+/g, ' ').trim();
-    if (!txt || txt.length > 16) continue;
-    const bg = cs.backgroundColor.match(/rgba?\(([^)]+)\)/); const bp = bg ? bg[1].split(',').map((x) => parseFloat(x)) : [];
-    const filled = (bp.length === 3 || (bp.length === 4 && bp[3] > 0.05)) || parseFloat(cs.borderTopWidth) > 0;
-    if (!filled || parseFloat(cs.borderTopLeftRadius) <= 0) continue;
-    const tops = new Set();
+    if (!txt || txt.length > 16 || el.children.length > 4) continue;
+    const cs = getComputedStyle(el);
+    const chip = (painted(cs.backgroundColor) || parseFloat(cs.borderTopWidth) > 0) && parseFloat(cs.borderTopLeftRadius) > 0;
+    if (!chip && el.tagName !== 'BUTTON') continue;
+    let most = 1;
     const w2 = document.createTreeWalker(el, NodeFilter.SHOW_TEXT); let t;
     while ((t = w2.nextNode())) {
       if (!t.nodeValue.trim()) continue;
       const rg = document.createRange(); rg.selectNodeContents(t);
-      for (const r of rg.getClientRects()) if (r.width >= 1 && r.height >= 1) tops.add(Math.round(r.top / MINPX));
+      const rs = [...rg.getClientRects()].filter((r) => r.width >= 1 && r.height >= 1).sort((x, y) => x.top - y.top);
+      let lines = rs.length ? 1 : 0;
+      for (let k = 1; k < rs.length; k++) if (rs[k].top - rs[k - 1].top > rs[k - 1].height / 2) lines++;
+      most = Math.max(most, lines);
     }
-    // 한 줄에 나란한 글자 조각(아이콘 옆 글자)은 top 이 같다 — 줄 높이의 절반 넘게 벌어진 것만 다른 줄로 센다
-    const ys = [...tops].sort((a, b) => a - b); let lines = ys.length ? 1 : 0;
-    const lh = (parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.2) / MINPX;
-    for (let k = 1; k < ys.length; k++) if (ys[k] - ys[k - 1] > lh / 2) lines++;
-    if (lines >= 2) wrap.push(`${name(el)} — ${lines}줄로 꺾임`);
+    if (most >= 2) { wrapped.push(el); wrap.push(`${name(el)} — ${most}줄로 꺾임`); }
   }
 
   // 가로 스크롤에 숨음: 표가 아닌 내용이 가로 스크롤 상자 안에서 화면 밖에 있다
+  //   뺀다: 표·코드 블록을 감싼 상자 · 격자(role grid·table) · 넘겨 보는 상자(scroll-snap — 캐러셀) · 세로로 스크롤하는 패널(overflow-y 만 줘도 overflow-x 가 auto 로 계산된다)
   const scroll = [];
   const HIDE_MIN = 24;
   for (const box of document.querySelectorAll('body *')) {
     const cs = getComputedStyle(box);
     if (!/^(auto|scroll)$/.test(cs.overflowX) || !shown(box) || box.clientWidth <= 1) continue;
-    if (/^(PRE|CODE|TEXTAREA|SELECT|TABLE)$/.test(box.tagName) || box.querySelector('table')) continue;
+    if (/^(PRE|CODE|TEXTAREA|SELECT|TABLE)$/.test(box.tagName) || box.querySelector('table, pre')) continue;
+    if (/^(grid|table|treegrid)$/.test(box.getAttribute('role') || '') || (cs.scrollSnapType && cs.scrollSnapType !== 'none')) continue;
+    if (box.scrollHeight > box.clientHeight + 1 && /^(auto|scroll)$/.test(cs.overflowY)) continue;
     const hid = box.scrollWidth - box.clientWidth;
     if (hid >= HIDE_MIN && hasContent(box)) scroll.push(`${name(box)} — 가로 스크롤 안에 ${Math.round(hid)}px 숨음`);
   }
 
-  // 고정 막대 가림: 아래 고정 막대 높이만큼의 아래 여백이 문서 끝에 없다
+  // 고정 막대 가림: 끝까지 내려도 마지막 글자·입력이 아래 고정 막대 뒤에 남는다
+  //   요소마다 '끝까지 스크롤했을 때의 아래 좌표' 를 구한다 — 스크롤하는 것이 문서일 수도, 안쪽 상자(앱 셸)일 수도 있다
   const cover = [];
   const vw = document.documentElement.clientWidth, vh = window.innerHeight;
-  let endY = 0;   // 고정되지 않은 글자·입력 가운데 가장 아래(문서 좌표)
-  for (const it of items) endY = Math.max(endY, it.r.bottom + window.scrollY);
+  const docMore = Math.max(0, document.documentElement.scrollHeight - vh - window.scrollY);   // 문서가 더 내려갈 수 있는 양
+  const scroller = (el) => {
+    for (let e = el.parentElement; e && e !== document.body && e !== document.documentElement; e = e.parentElement) {
+      if (/^(auto|scroll)$/.test(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight + 1) return e;
+    }
+    return null;
+  };
+  const finalBottom = (el, r) => {
+    const sc = scroller(el);
+    if (!sc) return r.bottom - docMore;
+    const more = Math.max(0, sc.scrollHeight - sc.clientHeight - sc.scrollTop);
+    const b = sc.getBoundingClientRect();
+    return Math.min(r.bottom - more, b.top + sc.clientTop + sc.clientHeight) - docMore;   // 안쪽 상자 밖으로는 보이지 않는다
+  };
+  let endY = -Infinity;   // 고정되지 않은 글자·입력 가운데, 끝까지 내렸을 때 가장 아래(화면 좌표)
+  const tw2 = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let tn;
+  while ((tn = tw2.nextNode())) {
+    if (!tn.nodeValue.trim()) continue;
+    const el = tn.parentElement;
+    if (!el || /^(SCRIPT|STYLE|NOSCRIPT|OPTION|TITLE)$/.test(el.tagName) || !shown(el) || pinned(el)) continue;
+    const rg = document.createRange(); rg.selectNodeContents(tn);
+    for (const r of rg.getClientRects()) if (r.width >= 1 && r.height >= 1) endY = Math.max(endY, finalBottom(el, r));
+  }
   for (const c of document.querySelectorAll('input, select, textarea, button')) {
     if (!shown(c) || pinned(c)) continue;
-    const r = c.getBoundingClientRect(); if (r.width > 1 && r.height > 1) endY = Math.max(endY, r.bottom + window.scrollY);
+    const r = c.getBoundingClientRect(); if (r.width > 1 && r.height > 1) endY = Math.max(endY, finalBottom(c, r));
   }
-  const docH = Math.max(document.documentElement.scrollHeight, vh);
   for (const bar of document.querySelectorAll('body *')) {
     if (getComputedStyle(bar).position !== 'fixed' || !shown(bar)) continue;
     const r = bar.getBoundingClientRect();
-    if (Math.abs(r.bottom - vh) > 2 || r.width < vw * 0.5 || r.height < 8 || r.height > vh * 0.4 || !hasContent(bar)) continue;
-    const hid = endY - (docH - r.height);
-    if (hid > MINPX) cover.push(`${name(bar)} — 문서 끝 ${Math.round(hid)}px 가 고정 막대 뒤에 가린다(아래 여백 없음)`);
+    // 아래에 붙었거나 조금 떠 있는 막대(화면 아래 40px 안) · 화면 폭의 60% 이상 · 높이 40% 이하(모달 배경 제외) · 잠깐 떴다 사라지는 알림(토스트)은 뺀다
+    if (/^(status|alert|log)$/.test(bar.getAttribute('role') || '') || bar.hasAttribute('aria-live')) continue;
+    if (r.bottom > vh + 2 || r.bottom < vh - 40 || r.width < vw * 0.6 || r.height < 8 || r.height > vh * 0.4 || !hasContent(bar)) continue;
+    const hid = Math.min(endY, r.bottom) - r.top;
+    if (hid > MINPX) cover.push(`${name(bar)} — 끝까지 내려도 ${Math.round(hid)}px 가 고정 막대 뒤에 가린다(아래 여백 없음)`);
   }
   return { clip, overlap, wrap, scroll, cover };
 }

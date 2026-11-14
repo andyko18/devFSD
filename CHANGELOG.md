@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.1.0] — 2026-11-14
+
 ### Added
 
 - **단계 소요 집계가 다른 작업 트리의 진행 기록도 합친다**(`scripts/stage-timing.sh --all-worktrees`). 같은 저장소의 다른 worktree 에 있는 `.specops/session-progress.md` 를 합쳐 집계하고, 원장 줄에 `(+ worktree N곳)` 을 붙인다. worktree 사본은 만들 때의 메인 원장을 들고 시작하므로 같은 FID·같은 줄은 한 번만 센다(겹친 줄을 또 세면 건수가 부풀고 0분 구간이 생긴다). 옵션이 없으면 종전대로 자기 원장만 읽되, 다른 worktree 에 자기 원장에 없는 줄이 있으면 끝에 `참고: 다른 worktree N곳에 원장이 있습니다 — 합쳐 보려면 --all-worktrees` 를 낸다. 하류 실측(20261114): 한 프로젝트의 11월 작업 10건이 본 폴더가 아니라 worktree 사본 2곳에만 기록돼 있어 본 폴더 집계가 "FID 2개"였다 — 합치면 12개. `SPECOPS_ROOT` 를 직접 정했으면 이 옵션은 rc 2 로 거부한다(어느 저장소의 worktree 인지 정할 수 없다). git 저장소가 아니면 자기 원장만으로 집계한다. **집계 기본 동작은 바뀌지 않았다**(안내 한 줄만 새로 나올 수 있다).
@@ -4004,7 +4006,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.0.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.1.0...HEAD
+[5.1.0]: https://github.com/andyko18/devFSD/compare/v5.0.0...v5.1.0
 [5.0.0]: https://github.com/andyko18/devFSD/compare/v4.0.17...v5.0.0
 [4.0.17]: https://github.com/andyko18/devFSD/compare/v4.0.16...v4.0.17
 [4.0.16]: https://github.com/andyko18/devFSD/compare/v4.0.15...v4.0.16

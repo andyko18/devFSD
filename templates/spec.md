@@ -73,12 +73,12 @@
 
 ## 7. 가정 (5원칙 5번 — 한계 고백)
 
-- <전제 1 — 검증 필요시 `/clarify`에서>
+- <전제 1 — 검증 필요시 명확화 단계(`clarifying-ko`)에서>
 - <전제 2>
 
 ## 8. 열린 질문
 
-`/clarify` 단계에서 해소할 사항. 해소 후 `clarifications.md`로 이동.
+명확화 단계(`clarifying-ko`)에서 해소할 사항. 해소 후 `clarifications.md`로 이동.
 
 intent 열린 질문 처리: IQ-n → 답변(§섹션) 또는 이월(Qn). 열린 질문이 없었으면 "해당 없음"
 

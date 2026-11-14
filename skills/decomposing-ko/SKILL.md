@@ -343,7 +343,7 @@ tasks:
 - `skills/tdd-ko/SKILL.md` — TDD 5스텝 규약
 - `templates/tasks.md` — 출력 포맷
 - upstream 근거: Spec-Kit `commands/tasks.md` (specops-ko 경유) + bite-sized 태스크 단위 규약
-- specops-ko 선례: `commands/tasks.md`, `templates/tasks.md`
+- 템플릿: `templates/tasks.md`
 - `docs/harness-principles.md` 「아티팩트 구조 규약」 — .specops/<FID>/ 아티팩트 경로 규약
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 

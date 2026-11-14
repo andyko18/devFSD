@@ -223,7 +223,6 @@ spec·AC 를 아래 8범주로 훑어 범주마다 **확인됨 · 부분 · 빠�
 - `skills/specifying-ko/SKILL.md` — 선행 스킬
 - `docs/harness-principles.md` 「아티팩트 구조 규약」 — 아티팩트 경로 규약
 - `templates/acceptance-criteria.md` — AC 포맷
-- specops-ko 선례: `commands/clarify.md`
 
 ## 다음 skill
 

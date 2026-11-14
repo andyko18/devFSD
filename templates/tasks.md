@@ -154,7 +154,7 @@ tasks:
 ## 참조
 
 - `skills/tdd-ko/SKILL.md` — TDD 5 스텝
-- `skills/writing-plans-ko/SKILL.md` — 바이트-사이즈 규칙
+- `skills/planning-ko/SKILL.md` — 바이트-사이즈 규칙
 - `docs/harness-principles.md` 「스프린트 계약」 — AC 매핑
 - `skills/decomposing-ko/SKILL.md` — 본 템플릿 작성 책임 (HARD-GATE 의무)
 - `scripts/dag/parse-dag.sh` — DAG 파서 (v0.4a W1)

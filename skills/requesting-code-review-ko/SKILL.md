@@ -75,7 +75,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 1. `git diff <BASE_SHA>..<HEAD_SHA> > .specops/<FID>/reviews/review.diff`
    - diff 에 비밀 (자격증명·.env·키) 포함 의심 시 위탁 생략 — `외부 critic: SKIP (비밀 보호)` 기재 (외부 모델 전송 = 외부 송신)
 2. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh "${CLAUDE_PLUGIN_ROOT}"/templates/critic-prompt-diff.md --files .specops/<FID>/reviews/review.diff`
-3. 의견 출력 시 `.specops/<FID>/reviews/external-critic.md` 저장 → 리뷰어 dispatch 프롬프트에 **경로만** 추가 (file-based-communication)
+3. 의견 출력 시 `.specops/<FID>/reviews/external-critic.md` 저장 → 리뷰어 dispatch 프롬프트에 **경로만** 추가 (`docs/harness-principles.md` 「파일 기반 전달」)
 4. `CRITIC: SKIP/FAIL` → 미첨부 + review-request.md 에 `외부 critic: SKIP (<사유>)` 1줄 (한계 고백)
 5. **advisory**: 외부 의견은 **판정 권한 없음** — Claude 리뷰어가 비판적으로 평가할 입력 (receiving-code-review 규약 적용)
 

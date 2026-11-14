@@ -238,20 +238,20 @@ git log --oneline --grep="<symbol>" -n 5
 
 **trivial 시 (§1 합산 ≤ 5):**
 ```
-분析 산출물 작성 완료 (trivial 자동 판정 — §1 라인 합산 N줄 ≤ 5):
+분석 산출물 작성 완료 (trivial 자동 판정 — §1 라인 합산 N줄 ≤ 5):
   - .specops/<FID>/current-state.md
   - .specops/<FID>/impact-analysis.md (§1·§2 생략, §3만 작성)
 
-분析 결과 검토. 진행? [y/n]
+분석 결과 검토. 진행? [y/n]
 ```
 
 **비trivial 시 (§1 합산 > 5):**
 ```
-분析 산출물 작성 완료:
+분석 산출물 작성 완료:
   - .specops/<FID>/current-state.md  (§1 라인 합산: N줄 → 유지보수)
   - .specops/<FID>/impact-analysis.md
 
-분析 결과 검토. 진행? [y/n]
+분석 결과 검토. 진행? [y/n]
 ```
 
 **[y]** → Step 8으로 진행

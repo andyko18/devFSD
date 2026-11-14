@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **없는 명령·파일·skill 을 가리키던 지시와 낡은 안내를 고쳤다**(소스 검토 20261114 — 30여 곳). 모델이 읽는 본문에 남으면 모델은 그것을 찾느라 시간을 쓰고, 템플릿에 남으면 산출 문서 끝에 그대로 찍혀 사용자에게 없는 명령을 안내한다.
+  - 템플릿: `plan.md` 끝의 "다음: `/tasks <FID>`" · `spec.md` 의 `/clarify` · `acceptance-criteria.md` 의 `/specify`·`/clarify` · `templates/analysis.md` · `tasks.md` 의 `writing-plans-ko` → 실제 단계 이름(`decomposing-ko`·`clarifying-ko`·`specifying-ko`·`planning-ko`)으로.
+  - **메타 skill(모든 세션에 주입되는 문장)의 "`/start` 슬래시는 무조건 직행"** → "언제나 lifecycle 로 진입한다(갈래는 스크립트가 고른다)" — 지금은 갈래 판정을 먼저 한다.
+  - 사용자에게 그대로 출력되던 오타 `분析`(analyzing 검토 게이트 4곳 — 기존 테스트가 이 오타를 글자 그대로 잠그고 있어 함께 고쳤다).
+  - v5.0.0 에서 지운 것의 잔재: skill 이름(`context-resets`·`file-based-communication`·`sprint-contracts`)을 원칙 문서의 절 이름으로 · `docs/adoption-notes.md`·`docs/governance-history.md` 의 `/start-lite`·`/maintain-lite` · specifying 의 "lite 는 plan 검토가 없어".
+  - 낡은 수·참조: "3개 에이전트가 `agents/` 에 정의"(실제 16) · 없는 줄 번호 참조(`L170`) · 없는 명령 파일을 "선례"로 가리키던 줄.
+  - README: v5.1.0 뒤 사라진 "PR 질문"을 안내하던 두 문장과 "그래도 멈추는 곳" 목록의 `PR` → 머지.
+
+### Tests/CI
+
+- `test-dead-refs.sh` 신설(11건 — 먼저 실패 11건 확인): 본문(frontmatter 제외)과 사용자 문서에 위 문구가 되살아나지 않는지, 고친 문구가 남았는지.
+
 ### Security
 
 - **작업 폴더의 `yaml.py` 가 훅에서 실행되던 것**(`scripts/_internal/is-hook-enabled.sh`). pyyaml 유무를 보는 탐침 `python3 -c "import yaml"` 이 현재 폴더를 import 경로에 둔 채 돌았다 — `.specops/config.yaml` 이 있는 저장소를 열면 그 저장소의 `yaml.py` 가 Bash 호출마다·세션 시작마다 실행됐다(파싱 단계는 이미 현재 폴더를 뺐고 탐침만 빠져 있었다). 탐침과 파싱 모두 현재 폴더(빈 문자열·`.`·절대경로)를 뺀다.

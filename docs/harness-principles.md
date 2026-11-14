@@ -47,7 +47,7 @@ devFSD 가 서브에이전트·산출물·세션을 다루는 다섯 원칙의 �
 
 ### 규칙
 
-1. `acceptance-criteria.md`는 `/specify` 시점에 작성. `/clarify`에서만 **수정 가능**, 이후 단계는 **읽기 전용**.
+1. `acceptance-criteria.md`는 명세 단계(`specifying-ko`)에서 작성. 명확화 단계(`clarifying-ko`)에서만 **수정 가능**, 이후 단계는 **읽기 전용**.
 2. 모든 AC는 **관찰 가능한 결과**로 서술. "내부적으로 ... 호출" 같은 구현 디테일 금지.
 3. 우선순위: `must` 항목 전부 충족되지 않으면 `/verify`는 PASS 불가.
 4. Evaluator는 계약서의 AC 번호로 참조(`AC-3 실패`)하여 판정.
@@ -81,7 +81,7 @@ devFSD 가 서브에이전트·산출물·세션을 다루는 다섯 원칙의 �
 ### 안티패턴
 
 - 계약서에 **구현 방법**을 적음 (예: "Redis를 사용한다") → Given/When/Then 형식 이탈
-- `/specify` 이후 계약 변경 — 추가 요구사항은 `/clarify`에서만 반영
+- 명세 단계 이후 계약 변경 — 추가 요구사항은 명확화 단계(`clarifying-ko`)에서만 반영
 - Evaluator가 계약에 없는 품질 기준으로 BLOCK (개인 취향) → 계약 재협상이 필요
 - `must`와 `should`를 구분하지 않음 — 우선순위 없이 모두 BLOCK 사유가 됨
 - **회귀 AC 없는 유지보수 FID** — `§유형 = 유지보수` 인데 `AC-R-*` 0 개로 작성. **회귀 검증 근거 없음** → BLOCK. clarifying-ko 단계에서 `AC-R-*` append 가능. `§유형 = trivial` (변경 라인 ≤ 5 자동) 시에만 면제
@@ -235,7 +235,7 @@ escalations: []
 
 ### 안티패턴
 
-- 에이전트 프롬프트에 파일 **내용**을 붙여넣기 (파일 경로만 전달해야 함 — file-based-communication 참조)
+- 에이전트 프롬프트에 파일 **내용**을 붙여넣기 (파일 경로만 전달해야 함 — 「파일 기반 전달」 참조)
 - FID 없이 작업 — 어디에 속한 작업인지 추적 불가
 - 이전 단계 아티팩트를 수정 — spec은 spec이 만든 소유물, 이후 커맨드는 **읽기 전용**
 - `.specops/`를 git에 커밋 — 세션별 맥락이라 팀 공유 불필요하며 프라이버시 위험
@@ -270,13 +270,13 @@ escalations: []
 2. **프롬프트 헤더 의무 선언**: 서브에이전트 dispatch 프롬프트 첫 줄에 다음 중 하나를 명시.
    - `You are a GENERATOR. You MUST produce <output artifact>. You MUST NOT judge prior outputs.`
    - `You are an EVALUATOR. You MUST produce ONLY a judgment artifact (PASS/BLOCK). You MUST NOT modify prior artifacts.`
-3. **세션 분리**: Generator 세션과 Evaluator 세션은 별개 서브에이전트 호출로 분리. context-resets 스킬 준수.
+3. **세션 분리**: Generator 세션과 Evaluator 세션은 별개 서브에이전트 호출로 분리. 「컨텍스트 리셋」 준수.
 4. **파일 통로만**: Evaluator는 Generator의 산출 파일만 읽는다. Generator의 사고 과정·중간 메모에 접근 금지.
 
 ### 체크리스트 (커맨드 구현 시)
 
 - [ ] Evaluator 에이전트 frontmatter 에 `role: evaluator` marker 가 있는가? (validate-structure `agent_tools` 가 Write/Edit 박탈을 하드 검사)
-- [ ] Generator 는 산출 **파일**을 만들고, Evaluator 는 **판정 보고**만 반환하는가? (판정 파일 저장은 부모 소관 — file-based-communication)
+- [ ] Generator 는 산출 **파일**을 만들고, Evaluator 는 **판정 보고**만 반환하는가? (판정 파일 저장은 부모 소관 — 「파일 기반 전달」)
 - [ ] 서브에이전트 호출 시 역할 선언 헤더를 포함하는가?
 - [ ] Evaluator가 BLOCK 판정 시, 수정은 Generator 재호출로 이뤄지는가? (Evaluator가 직접 고치지 않음)
 
@@ -379,7 +379,7 @@ TASK:
 <구체 작업 지시 — 한국어 존댓말로>
 
 WRITE:
-/path/to/.specops/<FID>/analysis.md (JSON block per sprint-contracts schema)
+/path/to/.specops/<FID>/analysis.md (JSON block per 「스프린트 계약」 format)
 
 CONSTRAINTS:
 - Do NOT modify the artifact files you read.

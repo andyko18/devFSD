@@ -166,7 +166,10 @@ _is_cmd_pos_env() {
 #   REASON='...' git commit`(compound)·`B() { BYPASS=1 ...; }`(wrapper) 가 ^줄시작 앵커에 걸려 사유까지
 #   정직 병기한 우회가 false-deny 됐다. 단순 공백 선행(메시지 내 토큰 언급, T37)은 여전히 불인정.
 _reason_val="('[^']*'|\"[^\"]*\"|[^[:space:]]+)"
-if _is_cmd_pos_env "$tool_cmd" "SPECOPS_GOVERNANCE_BYPASS=1" \
+#   표식은 **인용·heredoc 본문을 걷어 낸 문자열**에서 찾는다 (20261114) — 종전엔 명령 원문에서 줄 단위로 찾아
+#   heredoc 본문·여러 줄 커밋 메시지 안의 한 줄(우회 기능을 설명하는 메시지)로 게이트가 열리고 가짜 우회 기록이 쌓였다.
+#   사유 값의 따옴표 본문은 걷히고 따옴표만 남으므로(REASON=\047\047) 사유의 유무는 원문에서 따로 본다.
+if _is_cmd_pos_env "$tool_cmd_scan" "SPECOPS_GOVERNANCE_BYPASS=1" \
      "(SPECOPS_BYPASS_REASON=${_reason_val}[[:space:]]+)?"; then
   # 메시지 오염 가드 (dogfood 20260717 test2 61f9e0d "BYPASS fix: ..."): 우회 표식이 git 히스토리에
   #   유입되면 conventional commit(릴리즈 노트·검색)이 훼손된다. 우회 기록은 REASON+friction-log 담당.
@@ -177,7 +180,9 @@ if _is_cmd_pos_env "$tool_cmd" "SPECOPS_GOVERNANCE_BYPASS=1" \
       '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
     exit 0
   fi
-  if grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]" <<< "$tool_cmd"; then
+  # 빈 사유("" · \047\047)는 사유가 아니다 — 종전 정규식은 따옴표 두 글자를 사유로 받았다.
+  if grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]" <<< "$tool_cmd_scan" \
+     && ! grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=(''|\"\")([[:space:]]|\$)" <<< "$tool_cmd"; then
     # 인라인 우회도 수율 계측에 남긴다(사유 원문은 friction-log / 명령 원문 쪽).
     if [ -d ".specops" ]; then
       _bypass_fid=$(detect_fid 2>/dev/null || echo "")

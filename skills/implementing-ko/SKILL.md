@@ -301,6 +301,7 @@ B 는 거의 항상 통과(1회차 FAIL 6/101)하는데 직렬이라 FID 당 약
 bash "$(git rev-parse --show-toplevel)"/scripts/tests/run-all.sh --quiet > ".specops/$FID/run-all.log" 2>&1
 ```
 
+- **태스크 커밋 전에는 돌리지 않는다**: 태스크 커밋은 receipt(`record-task-done.sh`)로 열린다 — 전체 스위트 통과가 필요 없다. 커밋마다 포그라운드로 돌리면 태스크 수만큼 6~7분씩 든다(실측: 3태스크에 4회 27분). 태스크에서는 그 태스크의 `test_command` 만 돌리고, 전체 스위트는 여기 적은 백그라운드 1회와 수정 라운드 뒤 1회뿐이다. 커밋이 막히면 스위트를 돌리지 말고 차단 안내문의 receipt 사유를 고친다.
 - **증거가 아니다**: R-1/R-2 게이트 증거는 verify 단계 `run-verification.sh` 의 `VERIFY: PASS` 실행 출력이다. 이 실행은 verify 가 전체 스위트를 생략할 근거(통과 마커)를 만들 뿐이다.
 - **수정 라운드**: Phase B/C 지적으로 코드가 바뀌면 마커 지문이 달라져 STALE 이 된다. 수정 라운드의 마지막 커밋 뒤 전체 스위트를 **한 번** 다시 백그라운드로 띄우고 verify 가 그 결과를 재사용한다(다시 띄우지 않으면 verify 가 포그라운드로 돈다).
 - **FAIL 이면**: 종료 후 `run-all.log` 의 `FAILED` 줄을 사용자에게 알리되 B/C 는 막지 않는다. 최종 판정은 verify 의 포그라운드 재실행이다(flaky 를 숨기지 않는다).

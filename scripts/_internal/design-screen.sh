@@ -124,9 +124,14 @@ PLUGIN=$(dirname "$(dirname "$script_dir")")
 source "$PLUGIN/scripts/_internal/init-project/lib.sh"
 
 # 충돌 감지
-if [ -f "screens/${NAME}.md" ] && [ "$FORCE" -ne 1 ]; then
-  echo "Error: screens/${NAME}.md 이미 존재합니다. 덮어쓰려면 --force 사용." >&2
-  exit 1
+#   .md 와 .html 을 둘 다 본다 (20261114) — .md 만 보면 사용자가 다듬은 목업(.html)이 --force 없이 템플릿으로 덮인다.
+if [ "$FORCE" -ne 1 ]; then
+  for _ext in md html; do
+    if [ -e "screens/${NAME}.${_ext}" ]; then
+      echo "Error: screens/${NAME}.${_ext} 이미 존재합니다. 덮어쓰려면 --force 사용." >&2
+      exit 1
+    fi
+  done
 fi
 
 today=$(date +%Y-%m-%d)

@@ -384,7 +384,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 ## 에이전트 정의 파일
 
-3개 에이전트가 `agents/` 디렉토리에 정의돼 있다:
+이 skill 이 부르는 구현·리뷰 에이전트 3개(`agents/` 에 정의 — 계획·설계 전문가와 감사용까지 합하면 16개):
 
 - `agents/implementer-ko.md` — 구현자 서브에이전트 (Phase A)
 - `agents/spec-reviewer-ko.md` — 스펙 준수 리뷰어 (Phase B)

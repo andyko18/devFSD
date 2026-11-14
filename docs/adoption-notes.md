@@ -22,10 +22,10 @@
 ### 한 건에 걸리는 시간
 
 - FID 1건(spec → verify)의 **중앙값 약 2시간, p90 약 7.6시간** (`metrics.jsonl` 기록이 있는 48건). 스테이지 단위 시각은 일괄 기록이라 부정확하다. 속도 개선(v2.32~2.36: 승인 1회·리뷰 병렬·전문가 동시 실행) 전 측정이다. 개선 뒤 수치는 아직 재지 않았다.
-- 변경이 **약 150줄 미만**이면 산출물(spec·plan·tasks·evidence·dispatch·리뷰)이 변경량보다 훨씬 크다 — 무게가 변경 크기에 비례하지 않는다. 작은 수정은 `/start-lite`·`/maintain-lite` 로 clarify·plan 을 건너뛰되, 화면/IF·Phase B/C·verify 는 유지된다.
+- 변경이 **약 150줄 미만**이면 산출물(spec·plan·tasks·evidence·dispatch·리뷰)이 변경량보다 훨씬 크다 — 무게가 변경 크기에 비례하지 않는다. 작은 수정은 `/start`·`/maintain` 이 무거운 위험 신호가 없으면 고르는 기본 경로(spec 1장 · 주 세션 구현 · 리뷰 1회 · 검증 1회)로 가고, 몇 줄짜리는 `/quick-fix` 가 받는다 — 리뷰·verify 는 유지된다.
 - 기본 동작은 질문 묶음 최대 2회와 승인 묶음 1회 뒤 PR 직전까지 묻지 않는다. `--step` 을 붙이면 단계마다(spec 검토·clarify·plan·실행 전환) 응답을 기다린다.
 - **`/init-project`** 는 종류에 따라 답 9~12개를 받는다(프로젝트 종류 · 헌법 원칙 · PRD 6칸 · 디자인 · 화면 이름 · DB · API — 원칙을 직접 적으면 4개 더). 비대화로 돌릴 때는 `--answers-template` 이 키 목록을 내준다. 대화형에서는 문서 보강 단계 앞에 사전 인터뷰가 최대 5문항 있다.
-- **경량 경로도 가볍지는 않다.** 3줄짜리 수정을 `/maintain-lite` 로 하면 승인 묶음 1회와 PR · 스킬 10개 안팎 · 서브에이전트 3종(구현자 · 스펙 리뷰 · 코드 리뷰) · 산출물 9개 안팎(current-state · impact-analysis · intent · spec · AC · tasks · dispatch · reviews · evidence)을 거친다. 줄어드는 것은 clarify·plan 뿐이다. 실측으로 50줄 미만 변경은 산출물이 변경량의 약 50배였고(14건), 소요는 변경 크기와 거의 무관했다 — 이 도구의 비용은 고정비에 가깝다([10회차 평가](audit/2026-10-09-plugin-evaluation-10th.md) 의 실사용 감사).
+- **작은 수정에 풀 경로는 무겁다.** 3줄짜리 수정을 풀 경로(`/maintain --full`)로 하면 승인 묶음 1회와 PR · 스킬 10개 안팎 · 서브에이전트(구현자 · 계획·스펙·코드 리뷰 · 설계 전문가) · 산출물 9개 이상(current-state · impact-analysis · intent · spec · AC · plan · tasks · dispatch · reviews · evidence)을 거친다. 그래서 `/start`·`/maintain` 은 무거운 위험 신호가 없으면 기본 경로를 고른다. 실측으로 50줄 미만 변경은 산출물이 변경량의 약 50배였고(14건), 소요는 변경 크기와 거의 무관했다 — 이 도구의 비용은 고정비에 가깝다([10회차 평가](audit/2026-10-09-plugin-evaluation-10th.md) 의 실사용 감사).
 - **코드를 바꾸는 커밋은 항상 verify 증거를 요구한다.** 정말 필요 없는 변경이면 `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<사유>'` 로 우회하되, 사유는 `friction-log` 에 원문째 남는다.
 
 ### 적용 범위

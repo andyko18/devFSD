@@ -42,7 +42,7 @@ _has "O4.a clarifying §일괄 절 (AC-4)" "$(_sec "$CL" '^## §일괄 모드' '
 # AC-R-1 — --step 경로의 기존 게이트 문구 보존 (개수까지)
 _has "O9.a 기존 게이트 문구 보존 (AC-R-1)" "$(cat "$SP" "$CL" "$AN")" \
   '**[§auto·trivial 이외 모드]** (기존 동작)' '**BLOCKING**: 한 번에 한 질문'
-[ "$(grep -cF '분析 결과 검토. 진행? [y/n]' "$AN")" = 2 ] && ok "O9.c analyzing 검토 게이트 문구 2곳 보존 (AC-R-1)" || nope "O9.c" "$(grep -cF '분析 결과 검토. 진행? [y/n]' "$AN")"
+[ "$(grep -cF '분석 결과 검토. 진행? [y/n]' "$AN")" = 2 ] && ok "O9.c analyzing 검토 게이트 문구 2곳 보존 (AC-R-1)" || nope "O9.c" "$(grep -cF '분석 결과 검토. 진행? [y/n]' "$AN")"
 # ── 승인 뒤 게이트 (Task 3) ──
 _pe=$(_sec "$SK/planning-ko/SKILL.md" '^## 실행 전환' '^## ')
 _has "O5.a planning 실행 전환 §일괄 (AC-5)" "$_pe" '**[§일괄 모드]**' '묻지 않고 서브에이전트 주도' '아래 질문은 `--step` 일 때만 한다' '어느 쪽으로 할까요?'

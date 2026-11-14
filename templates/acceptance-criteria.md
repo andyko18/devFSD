@@ -6,7 +6,7 @@
 
 # 수락 기준 (Acceptance Criteria) — <FID>
 
-> 이 파일은 **스프린트 계약서**입니다. `/specify`가 생성하고 `/clarify`가 append 수정하며, 이후 단계는 **읽기 전용**입니다. Evaluator(`spec-reviewer-ko`·`code-reviewer-ko`·`plan-reviewer-ko`)는 이 계약만을 판정 기준으로 삼습니다.
+> 이 파일은 **스프린트 계약서**입니다. 명세 단계(`specifying-ko`)가 생성하고 명확화 단계(`clarifying-ko`)가 append 수정하며, 이후 단계는 **읽기 전용**입니다. Evaluator(`spec-reviewer-ko`·`code-reviewer-ko`·`plan-reviewer-ko`)는 이 계약만을 판정 기준으로 삼습니다.
 
 ## 계약 항목
 
@@ -101,7 +101,7 @@
 ## 참조
 
 - `docs/harness-principles.md` 「스프린트 계약」 — 계약서 운용 규약
-- `templates/analysis.md`, `templates/session-progress.md` — 판정 기록 포맷
+- `templates/session-progress.md` — 진행 기록 포맷
 
 ---
 

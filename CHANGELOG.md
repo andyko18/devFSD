@@ -4,20 +4,6 @@
 
 ## [Unreleased]
 
-### Fixed
-
-- **없는 명령·파일·skill 을 가리키던 지시와 낡은 안내를 고쳤다**(소스 검토 20261114 — 30여 곳). 모델이 읽는 본문에 남으면 모델은 그것을 찾느라 시간을 쓰고, 템플릿에 남으면 산출 문서 끝에 그대로 찍혀 사용자에게 없는 명령을 안내한다.
-  - 템플릿: `plan.md` 끝의 "다음: `/tasks <FID>`" · `spec.md` 의 `/clarify` · `acceptance-criteria.md` 의 `/specify`·`/clarify` · `templates/analysis.md` · `tasks.md` 의 `writing-plans-ko` → 실제 단계 이름(`decomposing-ko`·`clarifying-ko`·`specifying-ko`·`planning-ko`)으로.
-  - **메타 skill(모든 세션에 주입되는 문장)의 "`/start` 슬래시는 무조건 직행"** → "언제나 lifecycle 로 진입한다(갈래는 스크립트가 고른다)" — 지금은 갈래 판정을 먼저 한다.
-  - 사용자에게 그대로 출력되던 오타 `분析`(analyzing 검토 게이트 4곳 — 기존 테스트가 이 오타를 글자 그대로 잠그고 있어 함께 고쳤다).
-  - v5.0.0 에서 지운 것의 잔재: skill 이름(`context-resets`·`file-based-communication`·`sprint-contracts`)을 원칙 문서의 절 이름으로 · `docs/adoption-notes.md`·`docs/governance-history.md` 의 `/start-lite`·`/maintain-lite` · specifying 의 "lite 는 plan 검토가 없어".
-  - 낡은 수·참조: "3개 에이전트가 `agents/` 에 정의"(실제 16) · 없는 줄 번호 참조(`L170`) · 없는 명령 파일을 "선례"로 가리키던 줄.
-  - README: v5.1.0 뒤 사라진 "PR 질문"을 안내하던 두 문장과 "그래도 멈추는 곳" 목록의 `PR` → 머지.
-
-### Tests/CI
-
-- `test-dead-refs.sh` 신설(11건 — 먼저 실패 11건 확인): 본문(frontmatter 제외)과 사용자 문서에 위 문구가 되살아나지 않는지, 고친 문구가 남았는지.
-
 ### Security
 
 - **작업 폴더의 `yaml.py` 가 훅에서 실행되던 것**(`scripts/_internal/is-hook-enabled.sh`). pyyaml 유무를 보는 탐침 `python3 -c "import yaml"` 이 현재 폴더를 import 경로에 둔 채 돌았다 — `.specops/config.yaml` 이 있는 저장소를 열면 그 저장소의 `yaml.py` 가 Bash 호출마다·세션 시작마다 실행됐다(파싱 단계는 이미 현재 폴더를 뺐고 탐침만 빠져 있었다). 탐침과 파싱 모두 현재 폴더(빈 문자열·`.`·절대경로)를 뺀다.
@@ -34,6 +20,13 @@
 
 ### Fixed
 
+- **없는 명령·파일·skill 을 가리키던 지시와 낡은 안내를 고쳤다**(소스 검토 20261114 — 30여 곳). 모델이 읽는 본문에 남으면 모델은 그것을 찾느라 시간을 쓰고, 템플릿에 남으면 산출 문서 끝에 그대로 찍혀 사용자에게 없는 명령을 안내한다.
+  - 템플릿: `plan.md` 끝의 "다음: `/tasks <FID>`" · `spec.md` 의 `/clarify` · `acceptance-criteria.md` 의 `/specify`·`/clarify` · `templates/analysis.md` · `tasks.md` 의 `writing-plans-ko` → 실제 단계 이름(`decomposing-ko`·`clarifying-ko`·`specifying-ko`·`planning-ko`)으로.
+  - **메타 skill(모든 세션에 주입되는 문장)의 "`/start` 슬래시는 무조건 직행"** → "언제나 lifecycle 로 진입한다(갈래는 스크립트가 고른다)" — 지금은 갈래 판정을 먼저 한다.
+  - 사용자에게 그대로 출력되던 오타 `분析`(analyzing 검토 게이트 4곳 — 기존 테스트가 이 오타를 글자 그대로 잠그고 있어 함께 고쳤다).
+  - v5.0.0 에서 지운 것의 잔재: skill 이름(`context-resets`·`file-based-communication`·`sprint-contracts`)을 원칙 문서의 절 이름으로 · `docs/adoption-notes.md`·`docs/governance-history.md` 의 `/start-lite`·`/maintain-lite` · specifying 의 "lite 는 plan 검토가 없어".
+  - 낡은 수·참조: "3개 에이전트가 `agents/` 에 정의"(실제 16) · 없는 줄 번호 참조(`L170`) · 없는 명령 파일을 "선례"로 가리키던 줄.
+  - README: v5.1.0 뒤 사라진 "PR 질문"을 안내하던 두 문장과 "그래도 멈추는 곳" 목록의 `PR` → 머지.
 - **기본 경로 봉인이 NEEDS_FIX 를 "B PASS" 로 적던 것**(`scripts/basic-path.sh seal`). 저장 훅이 `T1-B-feedback.md` 를 만드는 것은 스펙 리뷰 판정이 `NEEDS_FIX` 일 때뿐인데, 훅이 안 돈 실행(부모 fallback 저장)에서는 그 파일이 없어 봉인이 감사 행(`BC-PAR-CHECK:T1`)에 `B PASS` 를 적었다 — 감사(`check-review-audit.sh`)도 feedback 유무만 교차 검사해 위장이 통과했다(소스 검토 20261114에서 확인, 재현은 새 테스트 V1·V3). 이제 B 보고서 `## 종합 판정` 절의 고정 판정 줄(`판정: NEEDS_FIX` — 줄 전체 일치)을 읽고, feedback 이 없으면 **봉인하지 않는다**(rc 4 — 보고서가 없을 때와 같은 "리뷰 단계로 돌아가라"). **판정 줄이 없는 이전 형식 보고서는 종전대로 feedback 유무로 본다**(하위 호환). 판정 줄은 스펙 리뷰어 정의가 새로 고정한 형식(에이전트 계약 정합 변경)이라 그 변경과 함께 효과가 난다.
 - **`config.yaml` 구조가 예상과 다르면 훅 전체가 조용히 꺼지던 것**(`is-hook-enabled.sh`). 최상위가 목록·문자열·수이거나 `hooks`·`profiles` 가 매핑이 아니면 파이썬이 예외로 rc 1 을 냈고, 호출부는 rc 1 을 "비활성"으로 읽었다. 매핑이 아닌 값은 "설정 없음"으로 읽고, 끄는 것은 프로파일의 전체 끄기와 `enabled: false`(또는 `0`)뿐이다. **행동 변경**: 값을 비운 `enabled:` 는 더 이상 끄지 않는다(종전엔 빈 값도 꺼짐으로 읽혔다).
 - **검증 없이 커밋·PR 이 열리던 명령 형태 셋**(`hooks/governance-lib.sh` · `hooks/rules.jsonl` · `hooks/pretool-governance.sh`).
@@ -49,6 +42,7 @@
 
 ### Tests/CI
 
+- `test-dead-refs.sh` 신설(11건 — 먼저 실패 11건 확인): 본문(frontmatter 제외)과 사용자 문서에 위 문구가 되살아나지 않는지, 고친 문구가 남았는지.
 - **관련 스위트 러너가 가끔 "목록에 없는 경로"로 실패하던 것**(`scripts/tests/run-related.sh`). `printf … | grep -q` 에서 grep 이 첫 일치로 끝나면 printf 가 SIGPIPE 를 받고, `set -o pipefail` 아래에서 그 실패가 "목록에 없다"(exit 2)로 읽혔다 — 타이밍에 따라 나는 흔들림이다(리눅스 CI 1회 · `test-run-related` X22). here-string 으로 넘긴다.
 - `test-basic-path.sh` V1~V6 — NEEDS_FIX + feedback 없음 거부 · feedback 있으면 정상 봉인 + 기존 리뷰 감사 PASS · PASS 대조 · 옛 형식 하위 호환 · 줄 전체 일치(본문 인용·`NEEDS_FIX 아님` 은 판정이 아님).
 - `test-agent-reading-caps.sh` 신설(13건 — 먼저 실패 13건 확인): 8개 정의가 같은 절을 갖고(핵심 문장이 글자까지 같다 — drift 방지) · 빈 출력 규칙 앞에 있고 · 기본 경로 호출과 계획 skill 이 상한을 싣게 하는지 · 상한이 리뷰 범위를 줄이지 않는다는 문구(`한 번은 끝까지`)가 8곳 모두에 있는지.

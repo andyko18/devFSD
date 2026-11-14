@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-devFSD(개발 자율주행)는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 진입은 `/start` · `/maintain` · `/quick-fix` 와 자연어다(무인 일괄 `/start-all-auto`). `/start`·`/maintain`·자연어 진입은 **갈래를 스크립트가 고른다**(`scripts/basic-path.sh route`): 위험 신호가 없으면 **기본 경로**(`commands/basic.md` — spec 1장 → 주 세션 구현 → 리뷰 1회 → 검증 1회 → PR), 있거나 `--full`·`--step` 이면 **풀 경로**(spec → clarify → plan → TDD implement → verify → security → integration-test → performance-test → PR 자동 chain). 기본 경로 중 신호가 나오면 `basic-path.sh promote` 로 같은 FID 를 풀 경로에 올린다. `/basic` 은 기본 경로 직접 지정, `/start-lite`·`/maintain-lite` 는 별칭(다음 메이저에서 제거 · 내부 `lite` 분기는 남아 있다). 몇 줄짜리 수정은 `/quick-fix` 가 chain 밖에서 받는다 — 문서 없이 테스트 실행 + 코드 리뷰 1회이고, 범위 상한은 커밋 때 훅이 판정한다(아래 거버넌스 엔진의 quick 경로). Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
+devFSD(개발 자율주행)는 **Claude Code 전용 한국어 자율 Lifecycle 플러그인**이다. 진입은 `/start` · `/maintain` · `/quick-fix` 와 자연어다(무인 일괄 `/start-all-auto`). `/start`·`/maintain`·자연어 진입은 **갈래를 스크립트가 고른다**(`scripts/basic-path.sh route`): 무거운 신호가 없으면 **기본 경로**(`commands/basic.md` — spec 1장 → 주 세션 구현 → 리뷰 1회 → 검증 1회 → PR · 가벼운 신호엔 전문가), 있거나 `--full`·`--step` 이면 **풀 경로**(spec → clarify → plan → TDD implement → verify → security → integration-test → performance-test → PR 자동 chain). 기본 경로 중 신호가 나오면 `basic-path.sh promote` 로 같은 FID 를 풀 경로에 올린다. `/basic` 은 기본 경로 직접 지정, `/start-lite`·`/maintain-lite` 는 별칭(다음 메이저에서 제거 · 내부 `lite` 분기는 남아 있다). 몇 줄짜리 수정은 `/quick-fix` 가 chain 밖에서 받는다 — 문서 없이 테스트 실행 + 코드 리뷰 1회이고, 범위 상한은 커밋 때 훅이 판정한다(아래 거버넌스 엔진의 quick 경로). Conductor 에이전트 없이 각 SKILL.md 본문의 `## 다음 skill` 섹션이 다음 단계를 강제한다.
 
 ## 테스트 명령
 

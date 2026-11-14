@@ -5,7 +5,8 @@
 #   basic-path.sh route <start|maintain> "<인자 원문>"   /start·/maintain·자연어 진입의 갈래 고르기(쓰지 않는다) — `ROUTE: basic|full — <이유>` + NOTICE·KIND·PROCEDURE(기본 경로 절차 파일)·ENTRY(진입 명령 파일)·OPTIONS·REQUEST 줄
 #   basic-path.sh lane "<요청 한 줄>" [<FID>]   갈래 판정만 한다(쓰지 않는다) — `LANE: basic|full <신호>` 1줄
 #   basic-path.sh start <FID> "<요청 한 줄>" [maintain]   갈래 판정 → FID 폴더·진행 기록·spec 골격(기본 브랜치 위면 브랜치도) · maintain = 유지보수 골격(현재 동작 절 · AC-R-1)
-#   basic-path.sh approve <FID>                 사용자 승인 뒤: spec 절 확인 → 갈래 재판정 → acceptance-criteria.md 도출
+#   basic-path.sh approve <FID>                 사용자 승인 뒤: spec 절 확인 → 갈래 재판정 → acceptance-criteria.md 도출 · `SIGNALS:`·`EXPERTS:` 줄(켤 단계)
+#   basic-path.sh plan <FID> <태스크 수>        승인 뒤·구현 전: 켤 단계 판정 — `PLAN: yes <경로>|skip` · `EXPERTS: <에이전트…>|none` · 태스크 수가 상한 이상이면 rc 3(풀 경로로)
 #   basic-path.sh review <FID>                  구현 뒤·리뷰 dispatch 직전: 진행 기록만 남긴다(구현 완료 · 리뷰 진행 — 관제판 단계 표시)
 #   basic-path.sh related                       검증에 쓸 test_command 제안 — `RELATED: <명령>` 또는 `RELATED: none — <사유>`(쓰지 않는다)
 #   basic-path.sh seal <FID> "<test_command>"   리뷰 뒤: 변경 파일로 갈래 재판정 → 1-태스크 문서 · 리뷰 감사 행
@@ -14,7 +15,11 @@
 #   basic-path.sh done <FID> "<한 줄 요약>"     종결 기록
 # Exit: 0 = 성공 · 3 = 풀 경로 대상(위험 신호) · 4 = 리뷰 보고서 없음 · 1 = 그 밖(입력 오류 · 절 누락 · 관할 아님)
 #
-# 갈래: 풀 = 인증·권한 변경 · DB 스키마 변경 · 데이터 삭제·이관 · 기존 API 응답 형태 변경 · 되돌릴 수 없는 외부 작업.
+# 통합 절차 (20261114): 위험 신호는 갈래가 아니라 **켤 단계**를 정한다 — 신호가 걸리면 이 경로 안에서 분석 문서(유지보수)·계획·
+#   그 신호의 전문가 1종을 켠다. 풀 경로(종전 skill chain)로 넘기는 것은 무거운 신호(데이터 삭제·이관 · 되돌릴 수 없는 외부 작업 ·
+#   결제·개인정보) · 태스크 수 상한 이상 · --full · --step 뿐이다. 끄는 스위치: SPECOPS_UNIFIED_PATH=0 또는 .specops/config.yaml 의
+#   `unified_path: false` — 끄면 아래 종전 규칙(신호가 하나라도 있으면 풀)이다.
+# 갈래(종전 규칙): 풀 = 인증·권한 변경 · DB 스키마 변경 · 데이터 삭제·이관 · 기존 API 응답 형태 변경 · 되돌릴 수 없는 외부 작업.
 #   기존 판정기(risk-profile.sh 의 rp::detect_strict_signals — 영문 낱말·경로)를 그대로 쓰고, 그것이 못 잡는 한글 낱말만 여기서 더한다.
 #   **애매하면 무거운 쪽이다** — 신호가 하나라도 보이면 풀이다. spec 은 무엇을 바꾸는지 적는 절(목표·범위)만 본다 — "범위 밖"·"현재 동작" 절과
 #   수용 기준·비기능 요구의 낱말은 판정에서 뺀다(_spec_corpus). 적지 않은 변경은 seal 이 바뀐 파일 경로로 잡는다(경로 이름에 한함).
@@ -22,6 +27,10 @@
 #   run-verification.sh 의 `VERIFY: PASS` 실행 출력과 진행 기록이 있어야 열린다. 훅·검증 러너는 고치지 않았다.
 set -u
 
+BASIC_FULL_TASK_MIN=4         # 태스크가 이 수 이상이면 풀 경로로 넘긴다(계획 리뷰·태스크별 구현자가 거기 있다 — 근거 얇은 초기값 · 여기 한 곳)
+# 통합 절차에서도 항상 풀 경로인 신호 — 되돌리기 어려운 것. destructive_fs(rm -rf · irreversible: true)·infra(deploy · 워크플로)도 여기다
+#   (한글 "운영 배포" 가 irreversible_ext 로 풀인데 영문 deploy 만 가벼우면 어긋난다 — 코드 리뷰 실측).
+BASIC_HARD_SIGNALS="data_move irreversible_ext payment_pii destructive_fs infra"
 BASIC_SCREEN_APPROVAL_MIN=3   # 이 수 이상의 화면을 고치면 화면 스펙·목업을 먼저 만들고 승인받는다(근거 얇은 기본값 — 여기 한 곳에서 고친다)
 
 ACTION="${1:-}"
@@ -100,19 +109,59 @@ _path_signals() {  # <변경 파일 목록(줄 단위)>
   printf '%s' "$s"
 }
 
-# 갈래 판정 — stdout `LANE: basic` 또는 `LANE: full <신호…>` · rc 0 = basic, 3 = full, 1 = 판정기 로드 불가(막는다)
-_lane() {  # <요청 문장> [<FID>] [<변경 파일 목록>]
+# 통합 절차 스위치 — 기본 켬. rc 0 = 켬.
+_unified() {
+  case "${SPECOPS_UNIFIED_PATH:-}" in 0|false|off) return 1 ;; 1|true|on) return 0 ;; esac
+  # 따옴표·대소문자·no 도 끈 것으로 읽는다 — 끄려던 뜻이 조용히 무시되면 안 된다.
+  [ -f "$BP_SPECOPS/config.yaml" ] && grep -qiE "^[[:space:]]*unified_path:[[:space:]]*[\"']?(false|off|no|0)[\"']?[[:space:]]*(#.*)?\$" "$BP_SPECOPS/config.yaml" && return 1
+  return 0
+}
+# 신호 중 통합 절차에서도 풀 경로인 것만
+_hard_of() {  # <신호…>
+  local w out=""
+  for w in $1; do case " $BASIC_HARD_SIGNALS " in *" $w "*) out="${out:+$out }$w" ;; esac; done
+  printf '%s' "$out"
+}
+# 신호 → 켤 전문가 에이전트(중복 없이). 무거운 신호는 대상이 아니다(풀 경로가 받는다).
+_experts_of() {  # <신호…>
+  local w a out=""
+  for w in $1; do
+    case "$w" in
+      db_schema|db_migration) a="devfsd:db-designer-ko" ;;
+      api_shape|public_api) a="devfsd:api-designer-ko" ;;
+      cross_service) a="devfsd:arch-designer-ko" ;;
+      auth|destructive_fs|external_exec|infra) a="devfsd:security-designer-ko" ;;
+      *) a="" ;;
+    esac
+    [ -n "$a" ] || continue
+    case " $out " in *" $a "*) ;; *) out="${out:+$out }$a" ;; esac
+  done
+  printf '%s' "$out"
+}
+# 신호 수집 — stdout 신호 목록(공백 구분 · 없으면 빈 줄) · rc 1 = 판정기 로드 불가
+_signals() {  # <요청 문장> [<FID>] [<변경 파일 목록>]
   local text="$1" fid="${2:-}" files="${3:-}" corpus sig
   # shellcheck source=/dev/null
-  . "$BP_ROOT/scripts/_internal/risk-profile.sh" 2>/dev/null || { echo "LANE: full 판정기(risk-profile.sh)를 읽을 수 없다"; return 1; }
+  . "$BP_ROOT/scripts/_internal/risk-profile.sh" 2>/dev/null || return 1
   SPECOPS="$BP_SPECOPS"
   corpus="$text"
   [ -n "$fid" ] && corpus="$corpus
 $(_spec_corpus "$SPECOPS/$fid/spec.md")"
   sig="$(rp::detect_strict_signals "$corpus" "$files") $(_ko_signals "$corpus") $(_path_signals "$files")"
-  sig=$(printf '%s' "$sig" | xargs -n1 2>/dev/null | sort -u | xargs)
-  if [ -n "$sig" ]; then echo "LANE: full $sig"; return 3; fi
-  echo "LANE: basic"; return 0
+  printf '%s' "$sig" | xargs -n1 2>/dev/null | sort -u | xargs
+}
+# 갈래 판정 — stdout `LANE: basic`(+ 통합 절차에서 가벼운 신호가 있으면 `SIGNALS: <신호…>` 1줄) 또는 `LANE: full <신호…>`
+#   rc 0 = basic, 3 = full, 1 = 판정기 로드 불가(막는다). 통합 절차: 무거운 신호만 풀. 스위치를 끄면 신호가 하나라도 있으면 풀.
+_lane() {  # <요청 문장> [<FID>] [<변경 파일 목록>]
+  local sig hard
+  sig=$(_signals "$@") || { echo "LANE: full 판정기(risk-profile.sh)를 읽을 수 없다"; return 1; }
+  if [ -z "$sig" ]; then echo "LANE: basic"; return 0; fi
+  if _unified; then
+    hard=$(_hard_of "$sig")
+    if [ -n "$hard" ]; then echo "LANE: full $sig"; return 3; fi
+    echo "LANE: basic"; echo "SIGNALS: $sig"; return 0
+  fi
+  echo "LANE: full $sig"; return 3
 }
 _full_msg() {  # [<FID>] — FID 가 있으면(만든 것이 있다) promote 로 올린다. 없으면 아무것도 만들지 않았다.
   if [ -n "${1:-}" ]; then
@@ -196,7 +245,7 @@ case "$ACTION" in
       out=$(_lane "$req" "" ""); rc=$?
       case "$rc" in
         0) ;;
-        3) why="위험 신호($(_sig_ko "${out#LANE: full }"))" ;;
+        3) why="위험 신호($(_sig_ko "$(printf '%s\n' "$out" | sed -n '1s/^LANE: full //p')"))" ;;
         *) why="위험 신호 판정 불가" ;;
       esac
     fi
@@ -204,8 +253,14 @@ case "$ACTION" in
       echo "ROUTE: full — $why"
       echo "NOTICE: 풀 경로로 진행 — $why."
     else
-      echo "ROUTE: basic — 위험 신호 없음"
-      echo "NOTICE: 기본 경로로 진행 — 위험 신호 없음. 풀 경로는 \`--full\`."
+      soft=$(printf '%s\n' "${out:-}" | sed -n 's/^SIGNALS: //p')
+      if [ -n "$soft" ]; then
+        echo "ROUTE: basic — 위험 신호($(_sig_ko "$soft")): 계획·전문가 검토를 켠다"
+        echo "NOTICE: 기본 경로로 진행 — 위험 신호($(_sig_ko "$soft"))가 있어 계획과 전문가 검토를 켠다. 풀 경로는 \`--full\`."
+      else
+        echo "ROUTE: basic — 위험 신호 없음"
+        echo "NOTICE: 기본 경로로 진행 — 위험 신호 없음. 풀 경로는 \`--full\`."
+      fi
       echo "KIND: $KIND"
       echo "PROCEDURE: $BP_ROOT/commands/basic.md"
     fi
@@ -245,8 +300,10 @@ case "$ACTION" in
     [ -d "$SPECOPS" ] || _die "이 저장소에는 $SPECOPS 가 없다 — specops 관할이 아니다(/init-project 또는 /start 로 시작한다)"
     [ ! -L "$SPECOPS" ] && [ ! -L "$SPECOPS/$FID" ] || _die "symlink 거부"
     [ ! -f "$SPECOPS/$FID/tasks.md" ] || _die "$FID 에는 이미 태스크 문서가 있다 — 다른 경로의 FID 는 다루지 않는다"
-    _lane "$ARG" "" "" ; rc=$?
+    lo=$(_lane "$ARG" "" ""); rc=$?
+    printf '%s\n' "$lo"
     [ "$rc" = 0 ] || { _full_msg ""; exit 3; }
+    soft=$(printf '%s\n' "$lo" | sed -n 's/^SIGNALS: //p')
     mkdir -p "$SPECOPS/$FID" || _die "FID 폴더를 만들 수 없다"
     cur=$(git symbolic-ref --short HEAD 2>/dev/null || true)
     case "$cur" in
@@ -264,7 +321,21 @@ case "$ACTION" in
         ' "$SPECOPS/$FID/spec.md" > "$SPECOPS/$FID/spec.md.tmp" && mv "$SPECOPS/$FID/spec.md.tmp" "$SPECOPS/$FID/spec.md" || _die "유지보수 골격을 쓸 수 없다"
       fi
     fi
+    # 분석 문서 — 위험 신호가 걸린 유지보수만. spec 의 "현재 동작과 영향" 절(신호 없는 유지보수는 그 절로 충분하다)보다 먼저, 따로 쓴다.
+    if [ "$MODE" = maintain ] && [ -n "$soft" ] && [ ! -f "$SPECOPS/$FID/analysis.md" ]; then
+      {
+        printf '# %s — 분석 (유지보수)\n\n' "$FID"
+        printf '> 위험 신호(%s)가 걸린 유지보수라 spec 보다 먼저 쓴다. 코드를 읽고 사실만 적는다 — 추측은 "확인 못 함" 으로.\n\n' "$(_sig_ko "$soft")"
+        printf '## 1. 현재 동작\n\n{{고치는 파일·함수가 지금 하는 일 — 파일:줄과 함께}}\n\n'
+        printf '## 2. 영향 범위\n\n{{그것을 부르는 곳 · 같은 데이터·계약을 쓰는 곳 · 지금 통과하는 관련 테스트}}\n\n'
+        printf '## 3. 깨질 수 있는 기존 동작\n\n{{이 변경으로 달라질 수 있는 기존 동작과, 그것을 지키는 방법(되돌리는 방법 포함)}}\n'
+      } > "$SPECOPS/$FID/analysis.md" || _die "분석 문서 골격을 쓸 수 없다"
+    fi
     bash "$APPEND" "$FID" /basic 시작 "$ARG" "$ARG" >/dev/null || _die "진행 기록을 남길 수 없다"
+    if [ -f "$SPECOPS/$FID/analysis.md" ]; then
+      echo "ANALYSIS: doc $SPECOPS/$FID/analysis.md — spec 보다 먼저 채운다(승인은 spec 과 함께 받는다)"
+    elif [ "$MODE" = maintain ]; then echo "ANALYSIS: section — spec 의 '현재 동작과 영향' 절로 쓴다"
+    else echo "ANALYSIS: none"; fi
     echo "BASIC: STARTED $FID — $SPECOPS/$FID/spec.md 를 채우고 승인받는다"
     ;;
 
@@ -280,8 +351,16 @@ case "$ACTION" in
       grep -qE '^### .*현재 동작' "$SPEC" || _die "유지보수 spec 에 '### 현재 동작과 영향' 절이 없다"
       grep -qE '^### AC-R-1' "$SPEC" || _die "유지보수 spec 에 기존 동작 유지 수용 기준(### AC-R-1)이 없다"
     fi
-    _lane "" "$FID" ""; rc=$?
+    if [ -f "$SPECOPS/$FID/analysis.md" ]; then
+      grep -q '{{' "$SPECOPS/$FID/analysis.md" && _die "analysis.md 에 채우지 않은 자리표시({{…}})가 남아 있다 — 분석을 먼저 끝낸다"
+      for sec in '현재 동작' '영향 범위' '깨질 수 있는'; do
+        grep -qE "^## .*${sec}" "$SPECOPS/$FID/analysis.md" || _die "analysis.md 에 '## … ${sec}' 절이 없다"
+      done
+    fi
+    lo=$(_lane "" "$FID" ""); rc=$?
+    printf '%s\n' "$lo"
     [ "$rc" = 0 ] || { _full_msg "$FID"; exit 3; }
+    soft=$(printf '%s\n' "$lo" | sed -n 's/^SIGNALS: //p')
     # 수용 기준 절을 acceptance-criteria.md 로 옮긴다 — 검증 러너와 스펙 리뷰어가 읽는 계약 파일이다(사용자가 보는 것은 spec 1장).
     {
       printf '# 수용 기준 — %s\n\n> `/basic` 경로: spec.md 의 수용 기준 절에서 도출했다(basic-path.sh approve). 고칠 때는 spec.md 를 고치고 approve 를 다시 실행한다.\n\n' "$FID"
@@ -292,8 +371,57 @@ case "$ACTION" in
     # 유지보수면 회귀 수용 기준(AC-R-1)이 채워져 있어야 한다 — 풀 경로와 같은 검사기다.
     out=$(SPECOPS_ROOT="$SPECOPS" bash "$BP_ROOT/scripts/_internal/check-regression-ac.sh" "$FID" 2>&1); rc=$?
     [ "$rc" = 0 ] || { printf '%s\n' "$out" >&2; rm -f "$SPECOPS/$FID/acceptance-criteria.md"; _die "기존 동작 유지 수용 기준(AC-R-1)이 채워지지 않았다 — spec.md 를 고친 뒤 다시 실행한다"; }
+    [ ! -f "$SPECOPS/$FID/analysis.md" ] || bash "$APPEND" "$FID" /analyze 완료 "analysis.md (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     bash "$APPEND" "$FID" /approve 완료 "spec 1장 승인 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
-    echo "BASIC: APPROVED $FID"
+    ex=$(_experts_of "$soft")
+    echo "EXPERTS: ${ex:-none}"
+    echo "BASIC: APPROVED $FID — 다음: basic-path.sh plan $FID <태스크 수>"
+    ;;
+
+  plan)
+    # 승인 뒤·구현 전 — 켤 단계를 판정한다. 태스크 수는 주 세션이 spec 과 코드를 보고 센다(함께 변하는 파일 묶음 = 1태스크).
+    #   계획: 태스크 2개 이상이거나 위험 신호가 있을 때(전문가는 계획 문서를 읽는다). 태스크 1개·신호 없음이면 건너뛴다(spec 의 수용 기준이 곧 계획이다).
+    #   태스크가 상한 이상이면 rc 3 — 계획 리뷰·태스크별 구현자가 있는 풀 경로로 올린다.
+    FID="${2:-}"; N="${3:-}"
+    [ -n "$FID" ] || _die "usage: $0 plan <FID> <태스크 수>"; _fid_ok "$FID"
+    # 0 으로 시작하는 수·네 자리 이상은 받지 않는다 — 큰 수는 `[ -ge ]` 가 오류(rc 2)를 내 상한 검사를 그냥 지나간다(코드 리뷰 실측).
+    case "$N" in ''|*[!0-9]*|0*|????*) _die "태스크 수는 1~999 의 정수다: '${N}'" ;; esac
+    D="$SPECOPS/$FID"
+    [ -f "$D/acceptance-criteria.md" ] || _die "acceptance-criteria.md 가 없다 — start → approve 를 먼저 실행한다"
+    lo=$(_lane "" "$FID" ""); rc=$?
+    [ "$rc" = 0 ] || { printf '%s\n' "$lo"; _full_msg "$FID"; exit 3; }
+    soft=$(printf '%s\n' "$lo" | sed -n 's/^SIGNALS: //p')
+    if _unified && [ "$N" -ge "$BASIC_FULL_TASK_MIN" ]; then
+      echo "PLAN: full — 태스크 ${N}개(상한 ${BASIC_FULL_TASK_MIN}개 이상)"
+      echo "basic-path: 태스크가 ${N}개다 — 계획 리뷰와 태스크별 구현자가 있는 풀 경로 대상이다. basic-path.sh promote $FID \"태스크 ${N}개\" 로 풀 경로에 올린다(commands/basic.md 「풀 경로로 올리기」)." >&2
+      exit 3
+    fi
+    ex=$(_experts_of "$soft")
+    # 판정 기록 — seal 이 이 줄들로 "계획 때 없던 신호"와 "전문가 보고서 유무"를 본다(모델의 기억이 아니라 파일).
+    printf 'tasks=%s\nsignals=%s\nexperts=%s\n' "$N" "$soft" "$ex" > "$D/steps.txt" || _die "판정 기록을 쓸 수 없다"
+    if [ "$N" -ge 2 ] || [ -n "$soft" ]; then
+      if [ ! -f "$D/plan.md" ]; then
+        {
+          printf '# %s — plan (기본 경로)\n\n' "$FID"
+          printf '> **결정만 적는다** — 파일·시그니처·테스트 단언. 함수 본문은 적지 않는다(시그니처와 테스트가 정하지 못하는 알고리즘만 예외). 기준은 spec.md 이고 이 문서는 그 구현 순서다. 이 문서가 구현할 코드보다 길면 코드를 대신 쓴 것이다.\n\n'
+          printf '## 1. 파일 구조\n\n{{만들거나 고치는 파일과 각 파일의 책임 — 한 줄씩}}\n\n'
+          printf '## 2. 태스크 (%s개)\n\n' "$N"
+          i=1
+          while [ "$i" -le "$N" ]; do
+            printf '### Task %s: {{이름}}\n\n- 파일: {{경로}}\n- 인터페이스: {{시그니처 · 앞 태스크에서 받는 것 / 뒤 태스크에 주는 것}}\n- 테스트: {{테스트 이름과 단언(spec 의 값 그대로) · 실행 명령}}\n- 수용 기준: {{AC-n}}\n\n' "$i"
+            i=$((i+1))
+          done
+          if [ -n "$soft" ]; then
+            printf '## 3. 위험 신호 대응 (%s)\n\n{{걸린 신호마다 — 무엇을 바꾸는가 · 기존 데이터·호출자에 주는 영향 · 되돌리는 방법}}\n' "$(_sig_ko "$soft")"
+          fi
+        } > "$D/plan.md" || _die "계획 골격을 쓸 수 없다"
+      fi
+      bash "$APPEND" "$FID" /plan 진행 "계획 ${N}태스크 · 전문가 ${ex:-없음} (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
+      echo "PLAN: yes $D/plan.md"
+    else
+      echo "PLAN: skip — 태스크 1개 · 위험 신호 없음(spec 의 수용 기준으로 구현한다)"
+    fi
+    echo "EXPERTS: ${ex:-none}"
     ;;
 
   review)
@@ -301,6 +429,7 @@ case "$ACTION" in
     #   `/implement` 줄은 훅이 코드 변경 시각으로 읽는다(governance-lib.sh _verify_passed_in_progress) — 검증보다 앞에 남으므로 뜻이 맞다.
     FID="${2:-}"; [ -n "$FID" ] || _die "usage: $0 review <FID>"; _fid_ok "$FID"
     [ -f "$SPECOPS/$FID/acceptance-criteria.md" ] || _die "acceptance-criteria.md 가 없다 — start → approve 를 먼저 실행한다"
+    [ ! -f "$SPECOPS/$FID/plan.md" ] || ! grep -q '{{' "$SPECOPS/$FID/plan.md" || _die "plan.md 에 채우지 않은 자리표시({{…}})가 남아 있다 — 계획을 끝내고 구현한 뒤 다시 실행한다"
     bash "$APPEND" "$FID" /implement 완료 "주 세션 직접 구현 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     bash "$APPEND" "$FID" /review 진행 "스펙·코드 리뷰 + 보안 스캔 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     echo "BASIC: REVIEWING $FID"
@@ -316,8 +445,40 @@ case "$ACTION" in
     files=$(_changed_files) || _die "변경 파일을 알 수 없다"
     [ -n "$files" ] || _die "변경된 파일이 없다"
     case "$files" in *'"'*|*'\'*) _die "따옴표·역슬래시가 든 파일 이름은 다룰 수 없다" ;; esac
-    _lane "" "$FID" "$files"; rc=$?
+    lo=$(_lane "" "$FID" "$files"); rc=$?
+    printf '%s\n' "$lo"
     [ "$rc" = 0 ] || { _full_msg "$FID"; exit 3; }
+    if _unified; then
+      # 통합 절차의 안전망 둘 — ① 계획 때 없던 위험 신호가 바뀐 파일에서 나왔으면 그 신호의 전문가 검토 없이 구현된 것이다 → 풀 경로로.
+      #   ② 켜기로 한 전문가의 보고서가 없으면 그 단계를 건너뛴 것이다 → 받지 않는다.
+      [ -f "$D/steps.txt" ] || _die "판정 기록(steps.txt)이 없다 — 승인 뒤 basic-path.sh plan $FID <태스크 수> 를 실행하지 않았다"
+      seen=$(sed -n 's/^signals=//p' "$D/steps.txt" | head -1)
+      new=""
+      for w in $(printf '%s\n' "$lo" | sed -n 's/^SIGNALS: //p'); do
+        case " $seen " in *" $w "*) ;; *) new="${new:+$new }$w" ;; esac
+      done
+      if [ -n "$new" ]; then
+        echo "basic-path: 계획 때 없던 위험 신호가 바뀐 파일에서 나왔다($(_sig_ko "$new")) — 그 검토 없이 구현됐다. basic-path.sh promote $FID \"<사유>\" 로 풀 경로에 올린다." >&2
+        exit 3
+      fi
+      # 켤 전문가는 기록(steps.txt)이 아니라 **지금 spec 의 신호에서 다시 구한다** — 기록을 고치거나 비워도 빠지지 않는다.
+      for a in $(_experts_of "$(printf '%s\n' "$lo" | sed -n 's/^SIGNALS: //p')") $(sed -n 's/^experts=//p' "$D/steps.txt" | head -1); do
+        case "$a" in
+          devfsd:db-designer-ko) r=db ;; devfsd:api-designer-ko) r=api ;; devfsd:arch-designer-ko) r=arch ;; devfsd:security-designer-ko) r=security ;; *) r="" ;;
+        esac
+        [ -n "$r" ] || continue
+        [ -s "$D/experts/$r.md" ] || _die "전문가 보고서가 없다: experts/$r.md — $a 를 호출해 계획을 검토받은 뒤 다시 실행한다(commands/basic.md 4-1번)"
+        grep -qE '^## .*반영' "$D/experts/$r.md" || _die "experts/$r.md 에 '## 반영' 절이 없다 — 지적마다 반영·기각을 1줄씩 적은 뒤 다시 실행한다"
+      done
+      # 계획의 태스크 칸 수가 상한 이상이면 풀 경로다 — plan 에 작은 수를 주고 계획에 태스크를 더 적는 길을 막는다.
+      if [ -f "$D/plan.md" ]; then
+        tn=$(grep -cE '^### Task ' "$D/plan.md")
+        if [ "${tn:-0}" -ge "$BASIC_FULL_TASK_MIN" ]; then
+          echo "basic-path: plan.md 의 태스크가 ${tn}개다(상한 ${BASIC_FULL_TASK_MIN}개 이상) — basic-path.sh promote $FID \"태스크 ${tn}개\" 로 풀 경로에 올린다." >&2
+          exit 3
+        fi
+      fi
+    fi
     # 관련 스위트 명령으로 봉인하면 **지금 변경 파일**이 닿는 스위트를 빠짐없이 담아야 한다 — related 뒤에 코드를 더 고쳤거나
     #   스위트를 손으로 뺀 명령은 받지 않는다(고를 수 없는 변경이면 전체 테스트 명령으로 봉인한다).
     case "$ARG" in
@@ -378,11 +539,11 @@ case "$ACTION" in
       files=$(_changed_files) || files=""
       stage=spec; [ -z "$files" ] || stage=code
       kind=new; ! grep -qE '^\*\*§유형\*\*:[[:space:]]*유지보수' "$D/spec.md" || kind=maintain
-      sig=$(_lane "" "$FID" "$files"); sig="${sig#LANE: }"
+      sig=$(_lane "" "$FID" "$files" | head -1); sig="${sig#LANE: }"
       mkdir -p "$DR" || _die "보존 폴더를 만들 수 없다"
       cp "$D/spec.md" "$DR/spec.md" || _die "spec 을 보존할 수 없다"
       [ ! -f "$D/acceptance-criteria.md" ] || cp "$D/acceptance-criteria.md" "$DR/acceptance-criteria.md"
-      for f in tasks.md dispatch-log.md reviews; do
+      for f in tasks.md dispatch-log.md reviews plan.md steps.txt experts analysis.md; do
         [ ! -e "$D/$f" ] || mv "$D/$f" "$DR/$f" || _die "$f 를 보존 폴더로 옮길 수 없다"
       done
       {
@@ -413,5 +574,5 @@ case "$ACTION" in
     echo "BASIC: DONE $FID"
     ;;
 
-  *) _die "usage: $0 {route <start|maintain> \"<인자>\" | promote <FID> \"<사유>\" | related | lane \"<요청>\" [<FID>] | start <FID> \"<요청>\" | approve <FID> | review <FID> | seal <FID> \"<test_command>\" | design-scope <화면 수> [new|flow] | done <FID> \"<요약>\"}" ;;
+  *) _die "usage: $0 {route <start|maintain> \"<인자>\" | promote <FID> \"<사유>\" | related | lane \"<요청>\" [<FID>] | start <FID> \"<요청>\" | approve <FID> | plan <FID> <태스크 수> | review <FID> | seal <FID> \"<test_command>\" | design-scope <화면 수> [new|flow] | done <FID> \"<요약>\"}" ;;
 esac

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.0.0] — 2026-11-14
+
 ### Removed
 
 - **호환성 깨짐 — `/start-lite`·`/maintain-lite` 명령과 lite 진입 분기를 지웠다.** 두 명령은 v4.0.0 부터 `/start`·`/maintain` 의 별칭이었고 제거를 예고해 왔다 — 이제 `/start`·`/maintain` 을 쓴다(갈래는 스크립트가 고른다). 함께 지운 것: `specifying-ko` 의 `[lite 분기]`·`[maintain-lite 분기]`, `analyzing-ko` 의 `[lite-mini 분기]`, 약속어 `<!-- entry: lite -->`·`<!-- entry: maintain-lite -->`. 이 약속어를 내는 명령이 이미 없어 본문에 죽은 채 남아 있었다(본문 48곳). 범위 초과 안내와 `/improve-arch` 의 넘김 대상도 `/maintain` 으로 맞췄다. **남긴 것**: 위험 등급 `lite`(`risk-profile` 의 lite·standard·strict) · 명확화 경량 모드(`clarifications.md` 의 `mode: lite`) · 옛 spec 의 `**§lite**: true` 를 읽는 가드(`check-review-presence.sh` 리뷰 생략 차단 · `risk-profile.sh` `LITE-STRICT-GUARD` · `split-session.sh` · `decomposing-ko` 단축 분기) — 하류에 옛 `§lite` FID 가 남아 있어도 안전망이 그대로 돈다. 유지보수 spec 의 `AC-R-1`(동작 보존)·`AC-R-2`(데이터 보존) 요구는 `specifying-ko` 의 유지보수 라벨 절로 옮겨 적었다(종전엔 지운 분기에만 이름이 있었다). 명령 26 → 24.
@@ -3990,7 +3992,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.17...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.0.0...HEAD
+[5.0.0]: https://github.com/andyko18/devFSD/compare/v4.0.17...v5.0.0
 [4.0.17]: https://github.com/andyko18/devFSD/compare/v4.0.16...v4.0.17
 [4.0.16]: https://github.com/andyko18/devFSD/compare/v4.0.15...v4.0.16
 [4.0.15]: https://github.com/andyko18/devFSD/compare/v4.0.14...v4.0.15

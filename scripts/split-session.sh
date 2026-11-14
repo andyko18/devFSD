@@ -99,7 +99,12 @@ cmd_decide() {
   no() { echo "SPLIT: no ($1)"; exit 1; }
   [ "${SPECOPS_SPLIT_CHILD:-}" = 1 ] && no "이미 분리된 자식 세션"
   [ "${SPECOPS_NO_SPLIT:-}" = 1 ] && no "SPECOPS_NO_SPLIT=1"
-  case "$(cfg enabled)" in false|no|off|0) no "config session_split.enabled: false" ;; esac
+  # 끄기 값은 대소문자를 가리지 않는다(False·OFF·No — unified_path·pr_gate 와 같게 · 20261114). 한 줄 형태
+  #   `session_split: {enabled: false}` 는 cfg 가 읽지 못하므로(블록 형태만 읽는다) 따로 본다 — 못 읽고 켜는 쪽으로 틀리지 않게.
+  case "$(cfg enabled | tr 'A-Z' 'a-z')" in false|no|off|0) no "config session_split.enabled: false" ;; esac
+  if [ -r "$CONFIG" ] && grep -qiE "^session_split:[[:space:]]*\\{[^}]*enabled:[[:space:]]*[\"']?(false|no|off|0)[\"']?[[:space:]]*[,}]" "$CONFIG"; then
+    no "config session_split.enabled: false"
+  fi
   [ -r "$SPECOPS/$FID/spec.md" ] || no "spec.md 없음"
   spec_has '^\*\*§분리\*\*:[[:space:]]*(off|false)' && no "--no-split (spec §분리: off)"
   spec_has '^\*\*§batch\*\*:' && no "§batch — 오케스트레이터가 구현을 소유"

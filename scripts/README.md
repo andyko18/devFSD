@@ -218,7 +218,7 @@ bash scripts/pr-gate.sh decide <FID>   # PR-GATE: auto | auto-draft (<사유>) |
 ```
 
 - `auto` = 묻지 않고 PR 생성 · `auto-draft` = 묻지 않고 **초안** PR(데모가 `확인 필요: yes` — 사용자가 보는 결과가 바뀌었고 확인 전) · `ask` = 종전대로 묻는다.
-- `auto` 조건(전부): spec 에 `§일괄` 또는 `§기본` · `dev-decisions.md` 에 기록 스크립트 형식의 `[approval] … PR 생성 포함` 줄(풀 경로 승인 묶음 · 기본 경로 `basic-path.sh approve` 가 남긴다).
+- `auto` 조건(전부): spec 에 `§일괄` 또는 `§기본` · `dev-decisions.md` 에 기록 스크립트 형식의 `[approval]` 줄이 있고 그 **결정 칸이 `PR 생성 포함` 으로 끝난다**(풀 경로 승인 묶음 · 기본 경로 `basic-path.sh approve` 가 남긴다 — "포함은 거절"·근거 칸에만 있는 말은 동의가 아니다).
 - `ask` 가 되는 경우: `.specops/config.yaml` 의 `pr_gate: ask` · `SPECOPS_PR_GATE=ask` · spec 없음 · `§batch` · `§auto`(무인 — 가정 다이제스트를 사람이 본다) · `--step` · 승인 기록에 PR 생성 포함이 없음(이 버전 전에 승인한 작업 포함). 판단이 서지 않으면 `ask` 다.
 - **머지는 판정 대상이 아니다** — 어느 답이어도 PR 을 만든 뒤 멈춘다.
 - 소비자: `skills/performance-test-ko/SKILL.md` 「끝 보고 + 사용자 확인」 · `commands/basic.md` 8번.

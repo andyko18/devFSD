@@ -74,6 +74,12 @@ _no D4 "trivial" "trivial" "printf '# s\n\n**§유형**: trivial\n' > .specops/$
 _no D5 "plan.md 없음(lite·basic)" "plan.md" "rm .specops/$F/plan.md"
 _no D6 "--no-split 라벨" "no-split" "printf '**§분리**: off\n' >> .specops/$F/spec.md"
 _no D7 "config enabled: false" "enabled" "printf 'session_split:\n  enabled: false\n' > .specops/config.yaml"
+# D7b~e 끄기 값의 대소문자·한 줄 형태 (20261114 재현 — `False`·`OFF` 와 `session_split: {enabled: false}` 가 끄기로 읽히지 않았다.
+#   같은 저장소의 unified_path·pr_gate 는 대소문자를 가리지 않는다)
+_no D7b "config enabled: False" "enabled" "printf 'session_split:\n  enabled: False\n' > .specops/config.yaml"
+_no D7c "config enabled: OFF" "enabled" "printf 'session_split:\n  enabled: OFF\n' > .specops/config.yaml"
+_no D7d "config enabled: No" "enabled" "printf 'session_split:\n  enabled: No\n' > .specops/config.yaml"
+_no D7e "한 줄 형태 {enabled: false}" "enabled" "printf 'session_split: {enabled: false, timeout_min: 60}\n' > .specops/config.yaml"
 _no D8 "SPECOPS_NO_SPLIT=1" "SPECOPS_NO_SPLIT" ":" "SPECOPS_NO_SPLIT=1"
 _no D9 "자식 세션 안(재귀 차단)" "자식" ":" "SPECOPS_SPLIT_CHILD=1"
 _no D10 "claude CLI 없음" "claude" ":" "CLAUDE_BIN=$TMP/none"

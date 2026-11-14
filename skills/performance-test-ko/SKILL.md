@@ -272,13 +272,21 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh show <FID>
 
 `§일괄` 이면(`grep -qE '^\*\*§일괄\*\*:[[:space:]]*true' .specops/<FID>/spec.md`) 묻지 않고 정한 항목도 보인다 — `grep -n 'ASSUMED' .specops/<FID>/clarifications.md .specops/<FID>/intent.md .specops/<FID>/spec.md 2>/dev/null` 출력(없는 파일은 건너뛴다 · 0건이면 그 사실 1줄)과, `.specops/<FID>/auto-state.md` 가 있으면 그 escalations(묻지 않고 한 재시도).
 
-이어서 묻는다:
+이어서 **물을지를 스크립트가 정한다**(20261114 — 하류 실측: 작업 10건에서 승인·진행만 친 발화 38회, PR 질문은 매번 추천안 그대로였다):
 
-> "모든 테스트 통과 (또는 skip). PR을 생성하시겠습니까? [y/n]"
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/pr-gate.sh decide <FID>
+```
 
-`n` 시: "PR 생성 보류. 나중에 직접 `gh pr create` 실행 가능." → Lifecycle 종료.
+| 답 | 동작 |
+|---|---|
+| `PR-GATE: auto` | **묻지 않고** §3 으로 간다 — 승인 묶음이 PR 생성을 실었다 |
+| `PR-GATE: auto-draft (<사유>)` | 묻지 않고 §3 을 **초안**(`gh pr create --draft`)으로 만든다. 끝 보고 맨 앞에 데모에서 보여 준 것(스크린샷·출력)과 "결과를 확인해 주세요 — 다르면 말씀해 주시면 고쳐 같은 PR 에 올립니다" 를 둔다 |
+| `PR-GATE: ask (<사유>)` | 사유 1줄을 보이고 종전대로 묻는다 — "모든 테스트 통과 (또는 skip). PR을 생성하시겠습니까? [y/n]" · `n` 시: "PR 생성 보류. 나중에 직접 `gh pr create` 실행 가능." → Lifecycle 종료 |
 
-### 3. PR 생성 (y 응답 시)
+**머지는 자동으로 하지 않는다** — 어느 답이어도 PR 을 만든 뒤 주소를 알리고 멈춘다. 머지·다음 작업 시작은 사용자가 정한다.
+
+### 3. PR 생성 (`auto`·`auto-draft` 또는 y 응답 시)
 
 ```bash
 FID="<현재 FID>"

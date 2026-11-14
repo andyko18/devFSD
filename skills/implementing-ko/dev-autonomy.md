@@ -66,4 +66,4 @@ wave loop 전에 아래 태스크를 모은다:
 
 ## 4. 끝 — 한 번에 보고한다
 
-PR 게이트 직전에 `dev-decision.sh show <FID>` 출력을 **줄이지 않고** 보여 준 뒤 PR 생성 여부를 묻는다. `backlog` 줄은 PR 본문에도 넣는다(`show <FID> --backlog`) — 리뷰어가 찾았지만 이번에 고치지 않은 것이 PR 을 보는 사람에게도 보여야 한다.
+PR 게이트 직전에 `dev-decision.sh show <FID>` 출력을 **줄이지 않고** 보여 준 뒤 `pr-gate.sh decide <FID>` 의 답대로 한다(승인 묶음에 PR 생성이 들어 있으면 묻지 않고 만든다 — `performance-test-ko` 「끝 보고 + 사용자 확인」). `backlog` 줄은 PR 본문에도 넣는다(`show <FID> --backlog`) — 리뷰어가 찾았지만 이번에 고치지 않은 것이 PR 을 보는 사람에게도 보여야 한다.

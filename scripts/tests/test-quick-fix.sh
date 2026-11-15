@@ -237,6 +237,17 @@ sbd=$(_mk); _SBS="$_SBS $sbd"; ( cd "$sbd" && git checkout -q -b develop && git 
 out=$(cd "$sb" && bash "$QF" seal "$F" 'bash tests/t.sh "x"' 2>&1); rc=$?
 [ "$rc" = 1 ] && ok "S1.d test_command 의 따옴표 → 거부(태스크 문서의 YAML 을 깨뜨린다)" || nope "S1.d" "rc=$rc out=$out"
 
+# ── S2K 한글 파일 이름 (20261115 실주행) — 봉인한 영수증이 실제 경로를 담아 커밋 훅을 통과한다 ──
+#   영수증 검사가 실제 경로로 비교하므로 봉인도 실제 경로를 outputs 에 적어야 한다(이스케이프된 "src/\352…" 를 적으면 어긋난다).
+sb=$(_mk); _SBS="$_SBS $sb"
+( cd "$sb" && bash "$QF" start "$F" "한글 이름 파일 수정" ) >/dev/null 2>&1
+( cd "$sb" && printf 'echo v2\n' > src/a.sh && printf 'echo 값\n' > "src/값 계산.sh" && git add src ); _review "$sb" PASS
+out=$(cd "$sb" && bash "$QF" seal "$F" "bash tests/t.sh" 2>&1); rc=$?
+v=$(_hook "$sb" "$MSG")
+[ "$rc" = 0 ] && jq -e '.outputs | index("src/값 계산.sh")' "$sb/.specops/$F/receipts/T1.json" >/dev/null 2>&1 && [ "$v" = "ALLOW" ] \
+  && ok "S2K ★ 한글 파일을 stage 한 quick 봉인 → 영수증 outputs 에 실제 경로 · 'Task: T1' 커밋 훅 통과" \
+  || nope "S2K" "rc=$rc out=$out outs=$(jq -c .outputs "$sb/.specops/$F/receipts/T1.json" 2>/dev/null) hook=$(printf '%s' "$v" | head -2)"
+
 # ── S2 종단 — start → 수정 → 리뷰 → seal → 커밋 → done (AC-1 · AC-6) ────────
 sb=$(_mk); _SBS="$_SBS $sb"
 out=$(cd "$sb" && bash "$QF" start "$F" "a.sh 값 수정" 2>&1); rc=$?

@@ -13,6 +13,7 @@
 #   SPECOPS_ROOT 를 직접 정했으면 쓸 수 없다(rc 2 — 어느 저장소의 worktree 인지 정할 수 없다).
 # --split: Claude Code transcript 의 구조 필드(turn_duration·origin.kind — turn_duration 이 없는 파일은 턴 끝 표지 stop_hook_summary 와 어시스턴트 기록 시각)로 각 구간을 작업·사람·백그라운드·기타로 쪼갠다.
 #   transcript 본문은 읽지 않는다 — 읽는 일은 scripts/_internal/transcript-turns.sh(프라이버시 경계) 한 곳이 맡는다.
+#   예외 하나(20261115): 하위 폴더 세션 디렉토리를 고를 때 그 디렉토리 첫 세션 파일 앞 50줄에서 구조 필드 `cwd` 만 jq 로 읽는다.
 # --by-agent: --split 을 내포하고, 서브에이전트 transcript(세션폴더/subagents/agent-ID.jsonl + .meta.json)의 구조 필드로
 #   서브에이전트 역할별 소요 표를 --split 표 뒤에 더한다. 읽는 일은 scripts/_internal/agent-spans.sh(프라이버시 경계) 한 곳이 맡는다.
 set -u
@@ -142,6 +143,22 @@ $CP
           else TDIR_MISS=$((TDIR_MISS + 1)); continue; fi
           DUP=0; for X in "${TDIRS[@]:-}"; do [ "$X" = "$HIT" ] && DUP=1; done   # IFS 가 개행이라 ${TDIRS[*]} 문자열 대조는 쓸 수 없다
           [ "$DUP" = 1 ] || TDIRS+=("$HIT")
+          # 하위 폴더에서 연 세션 (20261115 실주행) — `backend/` 에서 세션을 열면 그 폴더 경로로 인코딩된 디렉토리에 모인다
+          #   (루트 이름 뒤에 '-<하위 경로>'). 이름 앞부분만으로는 이웃 폴더(repo-x)와 구별할 수 없으니, 그 디렉토리 세션 기록의
+          #   구조 필드 cwd 가 이 작업 트리 안(CP 자신 또는 CP/…)일 때만 더한다. 본문은 읽지 않는다.
+          #   이 루프는 set -f · IFS=개행 아래라 글롭 대신 find 로 찾는다(인코딩 이름은 영숫자·'-'·비ASCII 뿐이라 -name 패턴이 안전하다).
+          SUBPAT=(-name "$EB-*"); [ -z "$EC" ] || [ "$EC" = "$EB" ] || SUBPAT+=(-o -name "$EC-*")   # IFS 가 개행이라 낱말 나누기에 기대지 않는다
+          for SUB in $(find "$PROJ_ROOT" -mindepth 1 -maxdepth 1 -type d \( "${SUBPAT[@]}" \) 2>/dev/null); do
+            [ -d "$SUB" ] || continue
+            DUP=0; for X in "${TDIRS[@]:-}"; do [ "$X" = "$SUB" ] && DUP=1; done
+            [ "$DUP" = 0 ] || continue
+            SUBF=$(find "$SUB" -maxdepth 1 -type f -name '*.jsonl' 2>/dev/null | head -1)
+            [ -n "$SUBF" ] || continue
+            SUBCWD=$(head -50 "$SUBF" 2>/dev/null | jq -r 'select(.cwd? != null) | .cwd' 2>/dev/null | head -1)
+            [ -n "$SUBCWD" ] || continue   # cd "" 는 성공하고 현재 폴더를 준다 — 빈 값을 작업 트리 안으로 오인하지 않는다
+            SUBCWD=$(cd "$SUBCWD" 2>/dev/null && pwd -P) || continue
+            case "$SUBCWD" in "$CP"/*) TDIRS+=("$SUB") ;; esac
+          done
         done
         set +f; IFS=$OLD_IFS
         if [ "${#TDIRS[@]}" -gt 0 ]; then TDIR="${TDIRS[0]}"

@@ -409,5 +409,20 @@ else
 fi
 out=$(echo "$_in10" | bash "$HOOK" 2>/dev/null)
 [ -s "$w10/.specops/pending-capture.jsonl" ] && pass "T10.e 대조 — 설정·프로파일 없음(기본) → 캡처" || fail "T10.e" "out=$out"
+# T11.a 한글 파일 이름 (20261115 실주행) — git 기본값은 변경 목록에서 "docs/\354…" 로 이스케이프해 편집 경로와 맞지 않았다(포착 누락)
+wk="$TMP/workk"; mkdir -p "$wk/docs" "$wk/.specops"
+(cd "$wk" && git init -q && git -c user.email=t@t.t -c user.name=t commit --allow-empty -m init -q)
+echo "규칙" > "$wk/docs/주문 규칙.md"; (cd "$wk" && git add docs)
+trk="$TMP/trk.jsonl"
+printf '%s\n' \
+  '{"type":"user","message":{"content":[{"type":"text","text":"규칙 문서 고쳐"}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"docs/주문 규칙.md"}}]}}' > "$trk"
+echo "{\"transcript_path\":\"$trk\",\"cwd\":\"$wk\"}" | bash "$HOOK" >/dev/null 2>&1
+gotk=$(jq -r '.files[0] // empty' "$wk/.specops/pending-capture.jsonl" 2>/dev/null)
+if [ "$gotk" = "docs/주문 규칙.md" ]; then
+  PASS=$((PASS+1)); echo "PASS T11.a ★ 한글 파일 이름 편집도 포착 · 실제 경로로 기록"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T11.a (files[0]=$gotk)"
+fi
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -44,7 +44,9 @@ rec_hash=$(jq -r '.test_command_hash // empty' "$receipt")
 [ "$cur_hash" = "$rec_hash" ] || { echo "check-task-receipt: test_command drift" >&2; exit 1; }
 
 # staged ⊆ outputs (공집합 staged 거부). bash 3.2 호환 — mapfile 미사용.
-staged=$(git diff --cached --name-only --no-renames 2>/dev/null || true)
+# 비ASCII 경로(한글 파일 이름)를 따옴표·8진 이스케이프 없이 받는다 — 영수증 outputs 는 실제 경로다(20261115 실주행:
+#   한글 문서 커밋이 "staged outside outputs" 로 막혀 세션이 사용자 저장소의 core.quotepath 를 바꿔 통과했다).
+staged=$(git -c core.quotePath=false diff --cached --name-only --no-renames 2>/dev/null || true)
 [ -n "$staged" ] || { echo "check-task-receipt: staged empty" >&2; exit 1; }
 outs=$(jq -r '.outputs[]?' "$receipt" 2>/dev/null)
 [ -n "$outs" ] || { echo "check-task-receipt: outputs empty" >&2; exit 1; }

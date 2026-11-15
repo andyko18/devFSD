@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+풀 경로 실주행(20261115 · v5.4.1) — 같은 희생용 하류 프로젝트(Gradle · `develop` · 한글·공백 경로 · 하위 폴더 `backend/` 에서 세션 시작)에서 `/start` 풀 경로를 실제 세션으로 PR 직전까지 돌려 나온 2건. 주행: 23.5분 · 사람 입력 1회(승인) · 분리 자식 세션 정상 완료.
+
+- **한글 파일 이름을 커밋해도 태스크 영수증이 맞는다**(`scripts/_internal/check-task-receipt.sh` · `scripts/quick-fix.sh` · `hooks/freecomment-capture.sh`). git 기본값(`core.quotepath` 켜짐)은 비ASCII 경로를 `"docs/\354…"` 로 이스케이프해 내서, 영수증의 실제 경로와 어긋나 커밋이 "staged outside outputs" 로 막혔다 — 구현 세션은 **사용자 저장소의 `core.quotepath` 를 꺼서** 통과했다. 세 곳이 경로 목록을 `-c core.quotePath=false` 로 받는다(quick 봉인이 적는 outputs · 자유작업 포착의 변경 목록도 같은 모양이 된다).
+- **단계 소요 계측이 하위 폴더에서 연 세션을 읽는다**(`scripts/stage-timing.sh --split`). 저장소 최상위·worktree 경로로 인코딩된 세션 디렉토리만 읽어, `backend/` 에서 연 주 세션 16분이 전부 "기타" 로 빠졌다. 루트 인코딩 이름 뒤에 `-<하위 경로>` 가 붙은 디렉토리 중 세션 기록의 `cwd` 가 작업 트리 안인 것만 더한다(이름 앞부분이 같은 이웃 폴더는 넣지 않는다).
+
 ## [5.4.1] — 2026-11-15
 
 ### Fixed

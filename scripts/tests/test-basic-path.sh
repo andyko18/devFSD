@@ -896,6 +896,32 @@ b2=$(_dev_repo br2); ( cd "$b2" && git checkout -q --detach ); _bp "$b2" start "
 b3=$(_dev_repo br3); ( cd "$b3" && git checkout -q -b work ); _bp "$b3" start "$FID" "줄 수 세기 명령에 옵션 추가" >/dev/null
 [ "$(cd "$b3" && git symbolic-ref --short HEAD)" = "work" ] && ok "BR3 이미 작업 브랜치 위면 종전대로 그 브랜치를 쓴다" || no "BR3" "branch=$(cd "$b3" && git symbolic-ref --short HEAD)"
 
+# ── BR4~6 origin/HEAD 가 없는 저장소 (20261115 실주행) — `git init` + `git remote add` 로 만든 저장소는 origin/HEAD 가 없다.
+#   종전엔 develop 위에서 작업 브랜치를 만들지 않고 알림도 없었다. 리뷰 기준(BASE)·게이트의 변경 파일 조회도 함께 비었다.
+_nohead_repo() {  # <이름> <브랜치> [origin] → origin/HEAD 없는 저장소. origin 을 주면 origin/<브랜치> 추적 ref 와 원격 설정만 둔다
+  local d="$TMP/$1"; mkdir -p "$d/.specops" "$d/scripts/tests"
+  ( cd "$d" && git init -q -b "$2" && printf 'x\n' > README.md && printf '.specops/\n' > .gitignore \
+    && git add README.md .gitignore && git -c user.name=t -c user.email=t@e.com commit -qm init \
+    && { [ "${3:-}" != origin ] || { git remote add origin "$TMP/$1.remote.git" && git update-ref "refs/remotes/origin/$2" HEAD; }; } ) || return 1
+  printf '%s' "$d"
+}
+b4=$(_nohead_repo br4 develop origin); out=$(_bp "$b4" start "$FID" "줄 수 세기 명령에 옵션 추가")
+[ "$(cd "$b4" && git symbolic-ref --short HEAD)" = "feat/$FID" ] && ok "BR4 ★ origin/HEAD 없는 develop 저장소에서 start → feat/<FID> 생성" || no "BR4" "branch=$(cd "$b4" && git symbolic-ref --short HEAD) $out"
+[ "$(cd "$b4" && git symbolic-ref --short -q refs/remotes/origin/HEAD)" = "origin/develop" ] && printf '%s\n' "$out" | grep -q '^BRANCH-NOTE: .*origin/HEAD' \
+  && ok "BR4.b ★ origin/HEAD 를 develop 으로 맞추고 한 줄로 알린다(뒤 단계의 기준 ref 조회가 살아난다)" || no "BR4.b" "head=$(cd "$b4" && git symbolic-ref --short -q refs/remotes/origin/HEAD) $out"
+( cd "$b4" && printf 'y\n' >> README.md && git -c user.name=t -c user.email=t@e.com commit -qam work )
+_fill_spec "$b4"; _bp "$b4" approve "$FID" >/dev/null; _bp "$b4" plan "$FID" 1 >/dev/null
+out=$(_bp "$b4" review "$FID")
+printf '%s\n' "$out" | grep -qE '^BASE: [0-9a-f]{7,}' && ok "BR4.c ★ 그 저장소의 review 가 BASE 를 찾는다(BASE: none 아님)" || no "BR4.c" "$out"
+b5=$(_nohead_repo br5 develop); out=$(_bp "$b5" start "$FID" "줄 수 세기 명령에 옵션 추가")
+[ "$(cd "$b5" && git symbolic-ref --short HEAD)" = "feat/$FID" ] && ! (cd "$b5" && git symbolic-ref -q refs/remotes/origin/HEAD >/dev/null) \
+  && ok "BR5 원격이 없는 develop 저장소 → 브랜치는 만들고 origin/HEAD 는 만들지 않는다" || no "BR5" "branch=$(cd "$b5" && git symbolic-ref --short HEAD) $out"
+b6=$(_nohead_repo br6 release-line); ( cd "$b6" && git checkout -q -b other && git checkout -q release-line ); out=$(_bp "$b6" start "$FID" "줄 수 세기 명령에 옵션 추가")
+[ "$(cd "$b6" && git symbolic-ref --short HEAD)" = "release-line" ] && printf '%s\n' "$out" | grep -q '^BRANCH-NOTE: .*기본 브랜치를 알 수 없' \
+  && ok "BR6 ★ 기본 브랜치를 알 수 없으면 그 브랜치에서 진행하되 한 줄로 알린다(종전: 무언)" || no "BR6" "branch=$(cd "$b6" && git symbolic-ref --short HEAD) $out"
+b7=$(_repo br7); out=$(_bp "$b7" start "$FID" "줄 수 세기 명령에 옵션 추가")
+! printf '%s\n' "$out" | grep -q '^BRANCH-NOTE:' && ok "BR7 기본 브랜치를 아는 저장소의 작업 브랜치 위 → 알림 없음" || no "BR7" "$out"
+
 # ── SUB 하위 폴더에서 부른 basic-path (20261115) — 상대경로 .specops 를 못 찾아 "관할 아님" 으로 거부했다(모델이 /init-project 로 오인) ──
 sb1=$(_repo subd); mkdir -p "$sb1/packages/web"
 out=$( cd "$sb1/packages/web" && bash "$BP" start "$FID" "줄 수 세기 명령에 옵션 추가" 2>&1 ); rc=$?

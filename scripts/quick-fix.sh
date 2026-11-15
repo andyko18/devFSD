@@ -35,6 +35,7 @@ case "$ACTION" in
     # 기본 브랜치(main·master·origin/HEAD 가 가리키는 develop 등) 위거나 분리(detached) HEAD 면 작업 브랜치를 딴다(20261115 — base-branch.sh).
     # shellcheck source=/dev/null
     . "$PLUGIN/scripts/_internal/base-branch.sh" || _die "base-branch.sh 를 읽을 수 없다"
+    specops_prepare_branch_base
     if specops_on_default_branch; then
       bash "$PLUGIN/scripts/git-branch-create.sh" "$FID" || _die "브랜치를 만들 수 없다"
     fi

@@ -331,6 +331,7 @@ case "$ACTION" in
     # 기본 브랜치(main·master·origin/HEAD 가 가리키는 develop 등) 위거나 분리(detached) HEAD 면 작업 브랜치를 딴다(20261115 — base-branch.sh).
     # shellcheck source=/dev/null
     . "$BP_ROOT/scripts/_internal/base-branch.sh" || _die "base-branch.sh 를 읽을 수 없다"
+    specops_prepare_branch_base
     if specops_on_default_branch; then
       bash "$BP_ROOT/scripts/git-branch-create.sh" "$FID" || _die "브랜치를 만들 수 없다"
     fi
@@ -489,7 +490,9 @@ case "$ACTION" in
     # 리뷰어가 볼 diff 기준 — 기본 브랜치와의 merge-base (20261114). 종전엔 리뷰어 프롬프트의 `<base>` 를 정의 없이 모델이
     #   정해 실행마다 달랐다. 기본 브랜치 후보: origin/HEAD → main → master. 못 찾으면 none(리뷰를 막지 않는다).
     _bp_base=""
-    for _bp_b in "$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)" main master; do
+    # shellcheck source=/dev/null
+    . "$BP_ROOT/scripts/_internal/base-branch.sh" 2>/dev/null || true
+    for _bp_b in "$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)" main master "$(specops_default_branch 2>/dev/null || true)"; do
       [ -n "$_bp_b" ] || continue
       git rev-parse --verify -q "${_bp_b}^{commit}" >/dev/null 2>&1 || continue
       _bp_base=$(git merge-base HEAD "$_bp_b" 2>/dev/null) && [ -n "$_bp_base" ] && break

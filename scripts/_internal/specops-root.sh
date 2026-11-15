@@ -114,11 +114,24 @@ _sr_redirect_main() {
   printf '%s\n' "$main/.specops"
 }
 
+# 하위 폴더 DIR 의 위치만 알려 준다 (20261115 실주행) — specops_top_enter 의 "옮기지 않는" 짝.
+#   DIR 에 .specops 가 없고 그 작업 트리 최상위에 .specops 디렉터리가 있을 때만 rc 0 + 최상위 .specops 경로.
+#   세션을 backend/ 같은 하위 폴더에서 열면 훅의 cwd 가 그 폴더라, 리뷰 저장 훅이 "FID 디렉터리 없음" 으로 건너뛰었다.
+#   DIR 에 .specops 가 있으면(최상위 자신 · 모노레포 하위 프로젝트의 자기 관할) git 을 부르지 않고 rc 1 — 종전 경로(NFR-2).
+_sr_top_dir() {
+  local dir=${1:-$PWD} wt
+  [ ! -e "$dir/.specops" ] && [ ! -L "$dir/.specops" ] || return 1
+  [ -z "${GIT_DIR:-}${GIT_WORK_TREE:-}" ] || return 1
+  wt=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null) || return 1
+  [ -n "$wt" ] && [ -d "$wt/.specops" ] && [ ! -L "$wt/.specops" ] || return 1
+  printf '%s\n' "$wt/.specops"
+}
+
 specops_root_dir() { # FID [DIR] → 기록 디렉터리
   local r
   if r=$(_sr_redirect_main "$@"); then printf '%s\n' "$r"
   elif [ -n "${SPECOPS_ROOT:-}" ]; then printf '%s\n' "$SPECOPS_ROOT"
-  else printf '%s\n' "${2:-$PWD}/.specops"
+  else _sr_top_dir "${2:-$PWD}" || printf '%s\n' "${2:-$PWD}/.specops"
   fi
 }
 

@@ -162,6 +162,7 @@ fi
 #   새로 잡은 잠금을 다른 대기자가 낡은 판정으로 지운다(리뷰 재현: 병렬 30건 중 27~29건).
 #   종전(20261115)에는 5초가 지나면 주인을 보지 않고 걷어 낸 뒤 잡았는지 확인 없이 진행했다(CI 에서 12건 중 10건).
 _spa_lock="$TARGET.lock"; _spa_reap="$TARGET.lock.reap"; _spa_i=0; _spa_total=0; _spa_held=0
+_spa_miss=0; _spa_seen=""; _spa_reaping=0
 _spa_max="${SPECOPS_SPA_LOCK_TRIES:-100}"; _spa_hard="${SPECOPS_SPA_LOCK_HARD_TRIES:-1200}"
 _spa_owner() { readlink "$_spa_lock" 2>/dev/null || true; }
 #   kill -0 은 남의 프로세스에 EPERM 을 낸다(살아 있는데 실패) — ps 로 한 번 더 본다.
@@ -178,28 +179,43 @@ _spa_reap_lock() {
     [ -n "$(find "$_spa_reap" -maxdepth 0 -mmin +1 2>/dev/null)" ] && rmdir "$_spa_reap" 2>/dev/null
     return 0
   fi
+  _spa_reaping=1
   [ "$(_spa_owner)" = "$1" ] && rm -f "$_spa_lock" 2>/dev/null
   rmdir "$_spa_reap" 2>/dev/null || true
+  _spa_reaping=0
 }
+#   끝날 때(신호 포함) — 잡고 있던 뮤텍스와 **자기** 잠금만 지운다(하드 상한으로 빼앗긴 뒤 끝나는 프로세스가
+#   새 주인의 잠금을 지우지 않게). 뮤텍스가 남으면 걷어 내기가 최대 1분 멈춘다.
+_spa_cleanup() {
+  [ "$_spa_reaping" = 1 ] && rmdir "$_spa_reap" 2>/dev/null
+  [ "$_spa_held" = 1 ] && [ "$(_spa_owner)" = "$$" ] && rm -f "$_spa_lock" 2>/dev/null
+  return 0
+}
+trap _spa_cleanup EXIT
 while :; do
-  if ln -s "$$" "$_spa_lock" 2>/dev/null; then _spa_held=1; break; fi
-  #   잠금이 없는데 못 만든다 = 남이 잡은 것이 아니라 만들 수 없는 곳이다(읽기 전용 등) — 기다려도 소용없다.
-  #   (그 사이 주인이 놓았을 수 있어 한 번 더 잡아 본다.)
+  if ln -sn "$$" "$_spa_lock" 2>/dev/null; then _spa_held=1; break; fi
   if [ ! -L "$_spa_lock" ]; then
-    if ln -s "$$" "$_spa_lock" 2>/dev/null; then _spa_held=1; break; fi
-    [ -L "$_spa_lock" ] || break
+    #   잠금이 없는데 못 만들었다. 폴더에 쓸 수 없으면(읽기 전용 등) 기다려도 소용없다 — 잠금 없이 쓴다.
+    #   쓸 수 있는 폴더면 방금 주인이 놓은 것이다 — 다시 잡는다(여기서 포기하면 다음 주인과 겹쳐 쓴다).
+    #   그래도 1초(20회) 내리 "없는데 못 만든다" 면 이유를 알 수 없는 실패다 — 잠금 없이 쓴다(영구 정지 금지).
+    _spa_miss=$((_spa_miss + 1))
+    if [ ! -w "$(dirname "$_spa_lock")" ] || [ "$_spa_miss" -ge 20 ]; then break; fi
+    sleep 0.05
+    continue
   fi
+  _spa_miss=0
   _spa_i=$((_spa_i + 1)); _spa_total=$((_spa_total + 1))
   [ "$_spa_total" -ge $((_spa_hard * 3)) ] && break   # 걷어 내기조차 안 되는 곳 — 잠금 없이 쓴다(영구 정지 금지)
-  if [ "$_spa_i" -ge "$_spa_max" ] || [ "$_spa_total" -ge "$_spa_hard" ]; then
+  if [ "$_spa_i" -ge "$_spa_max" ]; then
     _spa_i=0
     _spa_pid=$(_spa_owner)
+    #   하드 상한은 주인별이다 — 주인이 바뀌었으면(줄이 줄고 있다) 다시 센다. 누적으로 세면 상한을 넘긴 대기자들이
+    #   서로 새로 잡은 잠금을 연달아 걷어 낸다(리뷰 재현: 40건 중 29~35건).
+    if [ "$_spa_pid" != "$_spa_seen" ]; then _spa_seen="$_spa_pid"; _spa_total=0; fi
     if [ "$_spa_total" -ge "$_spa_hard" ] || ! _spa_alive "$_spa_pid"; then _spa_reap_lock "$_spa_pid"; fi
   fi
   sleep 0.05
 done
-#   자기 잠금만 지운다 — 하드 상한으로 빼앗긴 뒤 끝나는 프로세스가 새 주인의 잠금을 지우지 않게.
-trap '[ "$_spa_held" = 1 ] && [ "$(_spa_owner)" = "$$" ] && rm -f "$_spa_lock" 2>/dev/null || true' EXIT
 
 _freework_pin
 

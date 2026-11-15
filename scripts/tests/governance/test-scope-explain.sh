@@ -100,5 +100,17 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T-se.f CLAUDE.md 안내 부재"
 fi
 
+# T-se.ko (20261115 실주행 발견) — 한글(비ASCII) 이름의 문서만 스테이징해도 문서 면제다.
+#   git 기본값은 그런 경로를 "docs/\355…md" 로 따옴표 이스케이프해 내서 확장자 판정이 빗나가 "코드" 로 읽혔다(문서 커밋이 막혔다).
+_ko=$(mktemp -d); ( cd "$_ko" && "$_G" init -q && mkdir -p docs src .specops && printf 'x\n' > README.md && "$_G" add README.md \
+  && "$_G" -c user.name=t -c user.email=t@e.com "$_C" -qm init ) >/dev/null 2>&1
+printf '# 안내\n' > "$_ko/docs/할인 안내.md"; ( cd "$_ko" && "$_G" add "docs/할인 안내.md" )
+out=$(cd "$_ko" && bash "$SE" "$_G $_C -m docs" 2>&1)
+printf '%s' "$out" | grep -q 'EXEMPT=yes' && { PASS=$((PASS+1)); echo "PASS T-se.ko1 한글 이름 문서만 → 면제"; } || { FAIL=$((FAIL+1)); echo "FAIL T-se.ko1 (out=$out)"; }
+printf 'x\n' > "$_ko/src/주문.py"; ( cd "$_ko" && "$_G" add "src/주문.py" )
+out=$(cd "$_ko" && bash "$SE" "$_G $_C -m feat" 2>&1)
+printf '%s' "$out" | grep -q 'EXEMPT=no' && { PASS=$((PASS+1)); echo "PASS T-se.ko2 한글 이름 코드가 섞이면 → 비면제"; } || { FAIL=$((FAIL+1)); echo "FAIL T-se.ko2 (out=$out)"; }
+rm -rf "$_ko"
+
 echo "==== test-scope-explain: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

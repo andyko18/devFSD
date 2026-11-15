@@ -153,6 +153,16 @@ if [ ! -f "$TARGET" ]; then
   fi
 fi
 
+# 동시 쓰기 잠금 (20261115) — 아래는 읽기 → awk → 임시 파일 → mv 라, 병렬 호출이 서로의 줄을 덮어썼다(12건 중 2~5건만 남음).
+#   mkdir 은 원자적이라 잠금으로 쓴다. 약 5초(50ms × 100) 기다려도 남아 있으면 죽은 프로세스의 것으로 보고 걷어 낸다(영구 정지 금지).
+_spa_lock="$TARGET.lock.d"; _spa_i=0; _spa_max="${SPECOPS_SPA_LOCK_TRIES:-100}"
+while ! mkdir "$_spa_lock" 2>/dev/null; do
+  _spa_i=$((_spa_i + 1))
+  if [ "$_spa_i" -ge "$_spa_max" ]; then rmdir "$_spa_lock" 2>/dev/null || true; mkdir "$_spa_lock" 2>/dev/null || true; break; fi
+  sleep 0.05
+done
+trap 'rmdir "$_spa_lock" 2>/dev/null || true' EXIT
+
 _freework_pin
 
 # 이중화 — prepend 직전 현 상태를 .bak 1세대로 백업 (best-effort, 실패해도 prepend 계속 — AC-2)

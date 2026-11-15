@@ -584,5 +584,22 @@ _a=$(_active "$_f7")
 [ "$_b" = "20260301-active" ] && [ "$_a" = "$_b" ] && ok "F7 FID 없는 깨진 마커 → 못박기를 건너뛰지 않는다(활성 FID 불변)" || nope "F7" "전=$_b 후=$_a"
 rm -rf "$TMP_ROOT_F"
 
+# ── L 동시 쓰기 (20261115) — 잠금이 없어 병렬 호출 12건 중 2~5건만 남았다(awk → 임시 파일 → mv 가 서로 덮어쓴다).
+#   병렬 태스크의 완료 기록·분리 세션·Stop 훅이 겹치면 진행 기록(검증 통과 줄 포함)이 사라진다.
+TMP_L=$(mktemp -d); mkdir -p "$TMP_L/.specops"
+( cd "$TMP_L" && bash "$SCRIPT" 20261115-lock /specify 완료 "seed" ) >/dev/null 2>&1
+for _i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+  ( cd "$TMP_L" && bash "$SCRIPT" 20261115-lock /implement 진행 "par-$_i" ) >/dev/null 2>&1 &
+done
+wait
+_n=$(grep -c 'par-' "$TMP_L/.specops/session-progress.md")
+[ "$_n" = 12 ] && ok "L1 ★ 병렬 12건 → 12줄 모두 남는다" || fail "L1 병렬 12건 중 ${_n}건만 남았다"
+[ ! -e "$TMP_L/.specops/session-progress.md.lock.d" ] && ok "L2 잠금 폴더가 남지 않는다" || fail "L2 잠금 폴더 잔존"
+#   죽은 프로세스가 남긴 잠금은 기다린 뒤 걷어 내고 쓴다(영구 정지 금지).
+mkdir "$TMP_L/.specops/session-progress.md.lock.d"
+( cd "$TMP_L" && SPECOPS_SPA_LOCK_TRIES=5 bash "$SCRIPT" 20261115-lock /verify PASS "stale-lock" ) >/dev/null 2>&1
+grep -q 'stale-lock' "$TMP_L/.specops/session-progress.md" && ok "L3 남은 잠금이 있어도 기다린 뒤 쓴다" || fail "L3 남은 잠금 때문에 쓰지 못했다"
+rm -rf "$TMP_L"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

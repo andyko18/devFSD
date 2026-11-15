@@ -81,7 +81,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 ### 2. 코드 리뷰어 서브에이전트 dispatch
 
-`Agent` 도구로 `code-reviewer`(또는 `oh-my-claudecode:code-reviewer`) 서브에이전트 호출. 다음 정보를 **전체 텍스트**로 포함:
+`Agent` 도구로 `devfsd:code-reviewer-ko` 서브에이전트 호출(플러그인 밖 리뷰어는 보고서가 `reviews/` 에 저장되지 않는다). 다음 정보를 **전체 텍스트**로 포함:
 
 **필수 필드**:
 - `WHAT_WAS_IMPLEMENTED` — 방금 구축한 것

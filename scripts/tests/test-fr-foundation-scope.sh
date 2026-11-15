@@ -308,4 +308,24 @@ SF="$PLUGIN/commands/start-foundation.md"
 grep -q 'fr-set-fid.sh' "$SF" && grep -q 'check-fr-table.sh --classify' "$SF" \
   && ok "T9.i start-foundation.md 가 공통 FR 범위·완료 기록을 지시" || nope "T9.i" "명령 문서 미배선"
 
+# T-multi (20261115): foundation-fr 표지가 여러 개면 **모두** 읽는다.
+#   init 이 만드는 빈 표지(`<!-- foundation-fr: -->`)가 먼저 있고 ID 를 적은 표지를 그 아래에 더하면 첫 표지만 읽혀 무시됐다 —
+#   공통부(스캐폴딩·인증) FR 이 일반 기능으로 구현 대상에 올랐다.
+TD=$(mktemp -d)
+_req "$TD/.specops/memory/requirements.md" <<'EOF'
+<!-- foundation-fr: -->
+| ID | 요구사항 | 마일스톤 | 우선순위 | 관련 spec |
+|---|---|---|---|---|
+| FR-4 | 프로젝트 스캐폴딩 | M1 | must | (TBD) |
+| FR-5 | 인증 공통 | M1 | must | (TBD) |
+| FR-10 | 주문 조회 | M1 | must | (TBD) |
+<!-- foundation-fr: FR-4 -->
+<!-- foundation-fr: FR-5 -->
+EOF
+out=$(cd "$TD" && bash "$CHK" --classify 2>&1); rc=$?
+printf '%s' "$out" | grep -qE '^SKIP\|FR-4\|foundation-scope\|' && printf '%s' "$out" | grep -qE '^SKIP\|FR-5\|foundation-scope\|' \
+  && printf '%s' "$out" | grep -qE '^ELIGIBLE\|FR-10\|' \
+  && ok "T-multi ★ 빈 표지 뒤에 더한 표지들도 읽는다(FR-4·FR-5 → foundation-scope)" || nope "T-multi" "rc=$rc out=$out"
+rm -rf "$TD"
+
 finish

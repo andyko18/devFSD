@@ -25,6 +25,9 @@ set -u
 export LC_ALL=C
 
 BASE="origin/main"
+# 기본 브랜치가 develop·trunk 인 저장소 — origin/HEAD 가 가리키는 브랜치를 기본 기준으로 쓴다(20261115 · --base 가 덮는다).
+_oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true)
+[ -z "$_oh" ] || BASE="$_oh"
 err() { echo "DOD-WEAKENING: ERROR $1" >&2; exit 2; }
 while [ $# -gt 0 ]; do
   case "$1" in

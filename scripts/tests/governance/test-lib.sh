@@ -375,6 +375,13 @@ _base_case "origin/main" "T-base.d 낡은 로컬 main → origin/main(HEAD 에 �
 _su_base_e() { git init -q; git checkout -q -b main 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; git update-ref refs/remotes/origin/main HEAD; git checkout -q -b feat; echo c>c.md; git add c.md; git "$C" -q -m f; }
 _base_case "main"        "T-base.e 로컬 main 과 origin/main 이 같으면 로컬 우선" _su_base_e
 
+# T-base.f~g: 기본 브랜치가 main/master 가 아닌 저장소 (20261115) — origin/HEAD 가 가리키는 브랜치를 후보에 넣는다.
+#   종전엔 후보가 main·master 뿐이라 develop·trunk 저장소에서 판정 실패 → 문서만 바꾼 PR 도 막혔다.
+_su_base_f() { git init -q; git checkout -q -b develop 2>/dev/null; echo a>a.md; git add a.md; git "$C" -q -m i; git update-ref refs/remotes/origin/develop HEAD; git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/develop; git checkout -q -b feat; echo c>c.md; git add c.md; git "$C" -q -m f; }
+_base_case "develop"        "T-base.f origin/HEAD → develop (로컬 우선)" _su_base_f
+_su_base_g() { _su_base_f; git branch -q -D develop; }
+_base_case "origin/develop" "T-base.g 로컬 develop 이 없으면 origin/develop" _su_base_g
+
 # T-symlink: log_friction — .specops 가 symlink 면 쓰기 거부 (path-escape 차단)
 tmp=$(mktemp -d); real=$(mktemp -d); cd "$tmp"; ln -s "$real" .specops
 log_friction "20260424-sl" "R-1" 5 "x" 7 2>/dev/null

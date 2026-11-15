@@ -18,6 +18,11 @@ PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 . "$PLUGIN/scripts/_internal/foundation-kind.sh"
 
 _resolve_base() {
+  # 기본 브랜치가 develop·trunk 인 저장소 — origin/HEAD 가 가리키는 브랜치가 먼저다(20261115 — base-branch.sh).
+  local _d
+  # shellcheck source=/dev/null
+  . "$PLUGIN/scripts/_internal/base-branch.sh" 2>/dev/null && _d=$(specops_default_branch) \
+    && git show-ref --verify --quiet "refs/heads/$_d" 2>/dev/null && { echo "$_d"; return 0; }
   if git show-ref --verify --quiet refs/heads/main 2>/dev/null; then
     echo main
     return 0

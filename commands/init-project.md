@@ -38,7 +38,7 @@ reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
      - 기본 시간 창은 24시간 — `SPECOPS_PLAN_MAX_AGE_HOURS` 로 조정한다. 오래된 plan 을 근거로 끌어오는 stale 을 막는다.
    - **0-c. 기존 기획 문서 auto-discovery** (20260716 신설 — 온보딩 마찰 해소: 실무는 PRD 가 이미 파일로 존재하는 게 보통):
      ```bash
-     ls PRD*.md prd*.md docs/PRD*.md docs/prd*.md 기획*.md 요구사항*.md REQUIREMENTS*.md requirements*.md docs/기획*.md docs/요구사항*.md docs/requirements*.md 2>/dev/null
+     find . docs -maxdepth 1 -type f \( -iname 'PRD*.md' -o -iname 'requirements*.md' -o -name '기획*.md' -o -name '요구사항*.md' \) 2>/dev/null   # 글롭을 셸에 맡기지 않는다 — zsh 는 맞는 파일이 없는 패턴 하나로 명령 전체를 거부한다
      ```
      - 발견 시 **사용자 확인 필수**(주권 — 자동 소비 금지): "기존 문서 `<경로>` 를 PRD 초안 근거로 사용할까요? [y/n]". `n` 이면 무시.
      - 복수 발견 시 목록 제시 → 사용자 선택 (전체·일부·없음).

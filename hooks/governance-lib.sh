@@ -265,7 +265,7 @@ _verify_evidence_stamp() {
 _extract_declared_cmds() {
   local tasks="$1"
   [ -n "$tasks" ] && [ -r "$tasks" ] || { echo '[]'; return 0; }
-  local pat='^(cd[[:blank:]]+[A-Za-z0-9_.][A-Za-z0-9_/.-]*[[:blank:]]+&&[[:blank:]]+)?((poetry|uv|pdm|rye)[[:blank:]]+run[[:blank:]]+)?(bash[[:blank:]]+(scripts|tests?)/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*|(python[[:blank:]]+-m[[:blank:]]+)?pytest([[:blank:]][A-Za-z0-9_/.=-]*)*|(npm|pnpm|yarn)[[:blank:]]+((--dir|--filter|-C|workspace)[[:blank:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:blank:]]+)*(run[[:blank:]]+)?test(:[A-Za-z0-9._-]+)?([[:blank:]][A-Za-z0-9_/.=-]*)*|go[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|cargo[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|npx[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*|(pnpm|yarn)[[:blank:]]+exec[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*)$'
+  local pat='^(cd[[:blank:]]+[A-Za-z0-9_.][A-Za-z0-9_/.-]*[[:blank:]]+&&[[:blank:]]+)?((poetry|uv|pdm|rye)[[:blank:]]+run[[:blank:]]+)?(bash[[:blank:]]+(scripts|tests?)/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*|(python3?[[:blank:]]+-m[[:blank:]]+)?pytest([[:blank:]][A-Za-z0-9_/.=:-]*)*|(npm|pnpm|yarn)[[:blank:]]+((--dir|--filter|-C|workspace)[[:blank:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:blank:]]+)*(run[[:blank:]]+)?test(:[A-Za-z0-9._-]+)?([[:blank:]][A-Za-z0-9_/.=-]*)*|go[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|cargo[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|npx[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*|(pnpm|yarn)[[:blank:]]+exec[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*|(\./mvnw|mvn)([[:blank:]]+(-(pl|P|f|s)[[:blank:]]+[A-Za-z0-9_][A-Za-z0-9_/.,:-]*|-[A-Za-z0-9_.=:-]+))*[[:blank:]]+(test|verify)([[:blank:]]+-[A-Za-z0-9_/.=:#,-]+)*|(\./gradlew|gradle)([[:blank:]]+-[A-Za-z0-9_.=:-]+)*[[:blank:]]+(:?([A-Za-z0-9_-]+:)*)?(test|check)([[:blank:]]+(--tests[[:blank:]]+[A-Za-z0-9_.]+|-[A-Za-z0-9_/.=:-]+))*|dotnet[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=:-]*)*)$'
   local cmd out=""
   # ★ sed 는 **파이프 1회**만 돈다 — 종전 per-line fork 는 태스크 수에 선형이었다
   #   (실측: 30태스크 97ms · 100태스크 268ms). PreToolUse hot path 라 fork 를 O(1) 로 낮춘다.
@@ -315,7 +315,7 @@ EOF_TC
 #   `VERIFY: PASS` 를 내므로(판정기 related-suite-fresh.sh) 결과 술어는 그대로다. 앵커는 `tests/` 아래로 좁힌다(T64q6).
 # 한계: `npx <bin>`·`(pnpm|yarn) exec <bin>` 은 임의 바이너리를 받는다(`npx cowsay VERIFY` 도 인정).
 #   whitelist 와 동치라는 요구의 귀결이며, 되돌리려면 whitelist 도 함께 좁혀야 한다.
-_RUNNER_ANCHOR_PAT='(^|[;&|(\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(rtk[[:space:]]+(proxy[[:space:]]+)?)?((poetry|uv|pdm|rye)[[:space:]]+run[[:space:]]+)?(bash[[:space:]]+\S*(run-verification\.sh|tests/run-all\.sh|tests/run-related\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+((--dir|--filter|-C|workspace)[[:space:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:space:]]+)*(run[[:space:]]+)?test(:[A-Za-z0-9._-]+)?|go[[:space:]]+test|cargo[[:space:]]+test|npx[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(pnpm|yarn)[[:space:]]+exec[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*)'
+_RUNNER_ANCHOR_PAT='(^|[;&|(\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(rtk[[:space:]]+(proxy[[:space:]]+)?)?((poetry|uv|pdm|rye)[[:space:]]+run[[:space:]]+)?(bash[[:space:]]+\S*(run-verification\.sh|tests/run-all\.sh|tests/run-related\.sh)|(python3?[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+((--dir|--filter|-C|workspace)[[:space:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:space:]]+)*(run[[:space:]]+)?test(:[A-Za-z0-9._-]+)?|go[[:space:]]+test|cargo[[:space:]]+test|npx[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(pnpm|yarn)[[:space:]]+exec[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(\./mvnw|mvn)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(test|verify)|(\./gradlew|gradle)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(:?([A-Za-z0-9_-]+:)*)?(test|check)|dotnet[[:space:]]+test)'
 
 _verify_exec_evidence() {
   local transcript="$1" fiddir="${2:-}"
@@ -617,8 +617,11 @@ _detect_base_branch() {
   # main·master·origin/main·origin/master 중 HEAD 에 가장 가까운(ref..HEAD 커밋 수 최소) ref — 동률이면 앞선 후보(로컬).
   #   로컬 main 만 보면, 로컬 main 이 원격보다 뒤처진 repo 에서 base...HEAD 가 원격에 쌓인 변경까지 PR 범위로 읽는다
   #   (문서뿐인 PR 이 코드 포함으로 판정돼 false-deny). risk-profile.sh rp::base_ref 와 같은 규칙이다.
-  local b n best="" best_n=""
-  for b in main master origin/main origin/master; do
+  #   origin/HEAD 가 가리키는 브랜치(기본 브랜치가 develop·trunk 인 저장소)를 후보 앞에 둔다(20261115 — scripts/_internal/base-branch.sh 와 같은 순서).
+  local b n best="" best_n="" _oh
+  _oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null) || _oh=""
+  _oh=${_oh#origin/}; case "$_oh" in main|master) _oh="" ;; esac
+  for b in ${_oh:+"$_oh" "origin/$_oh"} main master origin/main origin/master; do
     git rev-parse --verify --quiet "$b^{commit}" >/dev/null 2>&1 || continue
     n=$(git rev-list --count "$b..HEAD" 2>/dev/null) || continue
     case "$n" in ''|*[!0-9]*) continue ;; esac

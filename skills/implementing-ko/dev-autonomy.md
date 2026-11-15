@@ -2,6 +2,7 @@
 
 > `skills/implementing-ko/SKILL.md` `## 개발 구간 무질문` 에서 참조. wave loop 에 들어가기 **직전에** 한 번 읽는다.
 > 적용 구간: **구현 시작 ~ PR 게이트 직전** (implementing · verify · 리뷰 · security · integration · performance). 설계 구간(analyze · specify · clarify · plan)의 질의응답은 그대로다.
+> **경로**: 이 문서는 Read 로 읽힌다 — 명령에 적힌 플러그인 루트 변수(CLAUDE_PLUGIN_ROOT)는 치환되지 않고 Bash 에도 없다. 이 파일 경로에서 `/skills/` 앞까지(플러그인 루트 절대경로)로 바꿔 실행한다.
 
 ## 원칙
 

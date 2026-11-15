@@ -48,8 +48,23 @@ _sr_wt_owns_record() {
   [ -n "$untracked" ]
 }
 
+# 하위 폴더에서 불렸을 때 (20261115) — 현재 폴더에 .specops 가 없고 이 작업 트리 최상위에 .specops 디렉터리가 있으면 최상위로 옮긴다.
+#   일반 저장소에서 모델이 `cd packages/web` 한 뒤 기록·검증 스크립트를 부르면 상대경로 .specops 를 못 찾았다(진행 기록은 하위 폴더에
+#   새 .specops 를 만들어 관할이 갈라지고, 검증 러너·기본 경로는 "없다" 로 끝났다). _SR_CWD 는 남기지 않는다 — 테스트 명령은
+#   저장소 최상위 기준으로 적혀 있어 최상위에서 돈다. 현재 폴더에 .specops 가 있으면(모노레포 하위 프로젝트의 자기 관할) 옮기지 않는다.
+specops_top_enter() {
+  local wt
+  [ -z "${SPECOPS_ROOT:-}" ] || return 1
+  [ ! -e .specops ] && [ ! -L .specops ] || return 1
+  [ -z "${GIT_DIR:-}${GIT_WORK_TREE:-}" ] || return 1
+  wt=$(git rev-parse --show-toplevel 2>/dev/null) || return 1
+  [ -d "$wt/.specops" ] && [ ! -L "$wt/.specops" ] || return 1
+  cd "$wt" 2>/dev/null
+}
+
 specops_root_enter() {
   local gd cd main wt here=0
+  specops_top_enter || true   # 하위 폴더면 먼저 이 작업 트리 최상위로 — 아래 linked worktree 판정은 그 뒤에 그대로 돈다
   [ -z "${SPECOPS_ROOT:-}" ] || return 1                                # 부르는 쪽이 위치를 정했다
   [ ! -L .specops ] || return 1                                         # 링크 .specops 는 종전대로 이동하지 않는다
   [ -e .specops ] && here=1

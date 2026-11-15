@@ -138,6 +138,24 @@ else
 fi
 rm -f "$T10F"
 
+# T10.h 코드 표기는 자리표시가 아니다 (20261115) — 요청 원문·현재 동작 서술의 HTML 태그·제네릭 타입이 "미채움" 으로 읽혀
+#   intent 검사·유지보수 baseline 검사가 FAIL 하고 구현 dispatch 가 막혔다. 같은 줄의 실 자리표시는 여전히 잡는다.
+T10F=$(mktemp) || exit 1
+printf '로그인 <button> 색을 바꾼다. <div class="box"> 안의 <input type="text"/> 도.\n반환형은 Optional<String> · Map<String, List<Order>> · Promise<User> 다.\n' > "$T10F"
+if bash "$SCAN" "$T10F" >/dev/null 2>&1; then
+  printf 'PASS %-6s %s\n' "T10.h" "HTML 태그·제네릭 타입만 → clean exit 0"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T10.h" "HTML 태그·제네릭 타입만 → clean exit 0 ($(bash "$SCAN" "$T10F" 2>&1 | head -2))"; FAIL=$((FAIL+1))
+fi
+printf '반환형 Optional<String> 과 <담당자> · 파일 20261115_<description>.sql · T<N>\n' > "$T10F"
+o=$(bash "$SCAN" "$T10F" 2>&1); rc=$?
+if [ "$rc" -ne 0 ] && printf '%s' "$o" | grep -q '<담당자>' && printf '%s' "$o" | grep -q '<description>' && printf '%s' "$o" | grep -q 'T<N>'; then
+  printf 'PASS %-6s %s\n' "T10.i" "코드 표기와 섞여도 실 자리표시(<담당자>·_<description>·T<N>)는 검출"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T10.i" "실 자리표시 검출 유지 (rc=$rc $o)"; FAIL=$((FAIL+1))
+fi
+rm -f "$T10F"
+
 # T10.c 혼재 줄 (규약 표기 + 실 placeholder 동일 줄) → token-level 로 검출 유지
 T10F=$(mktemp) || exit 1
 printf -- '- 종속 .specops/<FID> 디렉토리: <목록>\n' > "$T10F"

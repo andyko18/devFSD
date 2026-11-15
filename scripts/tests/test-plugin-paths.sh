@@ -119,4 +119,20 @@ d=$(_fx skills/x-ko/SKILL.md '`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.s
 [ "$rc" -eq 1 ] && ok "P18 테스트 경로 예시가 같은 줄에 있어도 다른 인자 위반 → FAIL" || nope "P18" "rc=$rc"
 rm -rf "$d"
 
+# P19: Read 로 읽는 보조 문서(skills/<x>/SKILL.md 가 아닌 .md · commands/basic.md · templates/screen-design-guide.md)는
+#   플러그인 루트 변수가 치환되지 않는다(Bash 에도 그 변수가 없다) — 변수를 쓰는 문서는 절대경로로 바꾸라는 안내가 있어야 한다.
+d=$(_fx skills/x-ko/aux.md '`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/x.sh a`'); out=$(bash "$CHK" "$d" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'x-ko/aux.md' && ok "P19a 보조 문서에 치환 안내 없음 → FAIL" || nope "P19a" "rc=$rc out=$out"
+rm -rf "$d"
+d=$(_fx skills/x-ko/aux.md '> 변수는 플러그인 루트 절대경로로 바꿔 실행한다.
+`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/x.sh a`'); bash "$CHK" "$d" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "P19b 치환 안내가 있으면 통과" || nope "P19b" "rc=$rc"
+rm -rf "$d"
+d=$(_fx commands/basic.md '`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/x.sh a`'); bash "$CHK" "$d" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 1 ] && ok "P19c commands/basic.md(route 가 Read 시킨다)도 대상" || nope "P19c" "rc=$rc"
+rm -rf "$d"
+d=$(_fx skills/x-ko/SKILL.md '`bash "${CLAUDE_PLUGIN_ROOT}"/scripts/x.sh a`'); bash "$CHK" "$d" >/dev/null 2>&1; rc=$?
+[ "$rc" -eq 0 ] && ok "P19d SKILL.md 는 Skill 도구가 치환한다 — 대상 아님" || nope "P19d" "rc=$rc"
+rm -rf "$d"
+
 finish

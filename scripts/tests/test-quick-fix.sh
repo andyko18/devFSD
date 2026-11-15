@@ -230,6 +230,10 @@ sb=$(_mk); _SBS="$_SBS $sb"; ( cd "$sb" && git checkout -q -b main ) >/dev/null 
 ( cd "$sb" && bash "$QF" start "$F" "기본 브랜치에서" ) >/dev/null 2>&1
 [ "$(cd "$sb" && git symbolic-ref --short HEAD)" = "feat/$F" ] && ok "S1.c 기본 브랜치(main) 위에서 start → 브랜치 feat/<FID> 생성" \
   || nope "S1.c" "branch=$(cd "$sb" && git symbolic-ref --short HEAD)"
+sbd=$(_mk); _SBS="$_SBS $sbd"; ( cd "$sbd" && git checkout -q -b develop && git update-ref refs/remotes/origin/develop HEAD && git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/develop ) >/dev/null 2>&1
+( cd "$sbd" && bash "$QF" start "$F" "develop 에서" ) >/dev/null 2>&1
+[ "$(cd "$sbd" && git symbolic-ref --short HEAD)" = "feat/$F" ] && ok "S1.c2 기본 브랜치가 develop(origin/HEAD)이어도 start → feat/<FID> 생성 (20261115)" \
+  || nope "S1.c2" "branch=$(cd "$sbd" && git symbolic-ref --short HEAD)"
 out=$(cd "$sb" && bash "$QF" seal "$F" 'bash tests/t.sh "x"' 2>&1); rc=$?
 [ "$rc" = 1 ] && ok "S1.d test_command 의 따옴표 → 거부(태스크 문서의 YAML 을 깨뜨린다)" || nope "S1.d" "rc=$rc out=$out"
 

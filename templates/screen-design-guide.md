@@ -29,6 +29,8 @@
 
 ## ③ 찍고 보기 (원문의 "스크린샷으로 자기 비평" 을 실제로)
 
+> 이 문서는 Read 로 읽힌다 — 아래 명령의 플러그인 루트 변수(CLAUDE_PLUGIN_ROOT)는 치환되지 않고 Bash 에도 없다. 이 파일 경로에서 `/templates/` 앞까지(플러그인 루트 절대경로)로 바꿔 실행한다.
+
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/screen-shot.sh screens/<name>.html .specops/<FID>/shots/<name>
 ```

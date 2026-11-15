@@ -26,6 +26,15 @@ latest=$(awk -v f="## $fid" '
 #    `/finishing 완료` 도 종결이다 — 메타 스킬의 재개 통보(using-specops-ko)가 종결로 치는 목록과 같아야 한다.
 if printf '%s' "$latest" | grep -qE '/(lifecycle|finish)[[:space:]]+DONE|/finishing[[:space:]]+완료|DONE[[:space:]]*\(PR|PR[[:space:]]*#[0-9]+[[:space:]]+생성'; then
   echo "NEW"
+  exit 0
+fi
+
+# 4) 종결 줄이 없어도 **이미 머지된** FID 는 귀속하지 않는다 (20261114) — 사고: 종결 줄 없이 PR 로 머지된 옛 FID 에 자유작업이 귀속돼
+#    그 FID 가 활성이 됐고 이후 커밋이 그 FID 의 검증 기록을 요구했다. 판정은 reconcile-check.sh(SessionStart 가 쓰는 것)와 같다 —
+#    브랜치 feat/<FID> 가 머지 커밋으로 기본 브랜치에 들어갔는가. git·브랜치가 없어 판정하지 못하면 종전대로 귀속한다.
+_recon="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/reconcile-check.sh"
+if [ -f "$_recon" ] && SPECOPS_ROOT="$(pwd)/.specops" bash "$_recon" "$fid" --hook 2>/dev/null | grep -q '이미 머지됨'; then
+  echo "NEW"
 else
   echo "ATTACH:$fid"
 fi

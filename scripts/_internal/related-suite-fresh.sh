@@ -54,6 +54,14 @@ for _b in refs/remotes/origin/main refs/remotes/origin/master; do
 done
 [ -n "$base" ] || _stale "origin 의 기본 브랜치를 모름"
 mb=$(git -C "$ROOT" merge-base "$base" HEAD 2>/dev/null) && [ -n "$mb" ] || _stale "기본 브랜치와 공통 조상 없음"
+# 병합 진행 중(MERGE_HEAD)이면 기준을 병합이 들여오는 쪽으로 옮긴다 (20261114) — 병합 커밋을 만들기 전에는 HEAD 가 병합 전이라 공통 조상이 옛 것이고,
+#   작업 트리에 들어온 main 쪽 변경이 전부 "내 변경"으로 세어져 닿는 스위트가 부풀었다(137개 · 상한 80 → 증거 무효).
+#   병합 커밋 뒤에는 공통 조상이 MERGE_HEAD 와 같아지므로, 커밋 전후의 목록이 같아진다.
+#   MERGE_HEAD 가 기본 브랜치의 조상(또는 같음)일 때만 옮긴다 — 그렇지 않으면(다른 브랜치를 병합 중) 종전 판정 그대로다.
+if _mh=$(git -C "$ROOT" rev-parse -q --verify MERGE_HEAD 2>/dev/null) && [ -n "$_mh" ] \
+   && git -C "$ROOT" merge-base --is-ancestor "$_mh" "$base" 2>/dev/null; then
+  mb="$_mh"
+fi
 
 d1=$(git -C "$ROOT" -c core.quotepath=false diff --no-renames --name-only "$mb" 2>/dev/null) || _stale "변경 파일 목록 실패"
 d2=$(git -C "$ROOT" -c core.quotepath=false ls-files -o --exclude-standard 2>/dev/null) || _stale "변경 파일 목록 실패"

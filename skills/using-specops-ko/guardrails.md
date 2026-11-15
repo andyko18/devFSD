@@ -28,7 +28,7 @@
 >
 > **애매하면 호출한다.** 배제는 명백할 때만이다 — 진짜 코딩 작업을 놓치는 것(false-negative)이 그 반대보다 훨씬 나쁘다.
 >
-> **배제 시 1줄 고지**: "(코딩 작업이 아니라 판단해 lifecycle 을 진입하지 않았습니다. 필요하면 `/start <설명>` 으로 강제 진입할 수 있습니다.)" — `/start` 슬래시는 무조건 직행하므로(`commands/start.md` SoT), 판정이 틀렸을 때 사용자가 즉시 뒤집을 수 있다.
+> **배제 시 1줄 고지**: "(코딩 작업이 아니라 판단해 lifecycle 을 진입하지 않았습니다. 필요하면 `/start <설명>` 으로 강제 진입할 수 있습니다.)" — `/start` 슬래시는 언제나 lifecycle 로 진입하므로(갈래는 스크립트가 고른다 — `commands/start.md` SoT), 판정이 틀렸을 때 사용자가 즉시 뒤집을 수 있다.
 
 > **경계**: `/start <인자>` 슬래시의 동작 정의는 `commands/start.md` 가 Source of Truth. 본 메타 skill 은 **자연어 입력** 의 신호 감지만 책임한다. `/start` 에 붙은 인자 내용이 "기능 설명으로 보이지 않는다"는 이유로 specifying-ko 호출을 보류하는 2차 판단은 `commands/start.md` 안티패턴 "인자 내용 2차 판단" 에 의해 금지 — 슬래시 진입은 무조건 specifying-ko 로 직행.
 
@@ -59,8 +59,8 @@ CLAUDE.md가 "TDD 쓰지 말 것"이고 skill이 "항상 TDD"라면 → 사용�
 신호 감지?
     ↓ YES                              ↓ NO
 maintenance flag 분류 (Phase D 추가)        일반 응답
-    ├─ false (신규)  → specifying-ko 직행 (args 그대로)
-    └─ true (유지보수) → analyzing-ko 먼저 (★ HARD GATE) → specifying-ko (args 첫 줄 "<!-- entry: maintain -->" prepend)
+    ├─ false (신규)  → [풀 경로일 때] specifying-ko 직행 (args 그대로)
+    └─ true (유지보수) → [풀 경로일 때] analyzing-ko 먼저 (★ HARD GATE) → specifying-ko (args 첫 줄 "<!-- entry: maintain -->" prepend)
     ↓
 spec.md + acceptance-criteria.md 작성
     ↓
@@ -70,7 +70,7 @@ devfsd:clarifying-ko (skill 본문이 다음 chain 명시)
     ↓
 ... → planning-ko → decomposing-ko → implementing-ko (subagent dispatch) → verifying-evidence-ko → security-review-ko → integration-test-ko → performance-test-ko → PR
     ↓
-"PR 생성? [y/n]"
+"PR 생성? [y/n]"   (--step 일 때만 — 기본은 승인 묶음이 PR 생성을 싣고 묻지 않는다)
 ```
 
 > **기본 동작 `§일괄`**: 질문 묶음 → 승인 1회 → PR 까지 무정지. 위 단계별 확인은 `--step` — 슬래시로만(자연어 추론 금지).
@@ -83,8 +83,8 @@ devfsd:clarifying-ko (skill 본문이 다음 chain 명시)
 
 | flag | chain 진입 | args 합성 |
 |---|---|---|
-| `false` (신규) | specifying-ko 직행 | 원본 args 그대로 |
-| `true` (유지보수) | **analyzing-ko 먼저** → specifying-ko (Phase C 적용 후) | args 첫 줄에 `<!-- entry: maintain -->` HTML 주석 prepend → 줄바꿈 후 원본 args |
+| `false` (신규) | (갈래 판정이 풀일 때) specifying-ko 직행 | 원본 args 그대로 |
+| `true` (유지보수) | (갈래 판정이 풀일 때) **analyzing-ko 먼저** → specifying-ko (Phase C 적용 후) | args 첫 줄에 `<!-- entry: maintain -->` HTML 주석 prepend → 줄바꿈 후 원본 args |
 
 **Phase C chain 재배선** (analyzing-ko 신설 후):
 - maintenance flag = `true` → **analyzing-ko 호출** (★ HARD GATE) → analyzing-ko 가 specifying-ko 로 chain (args 그대로 전달, 첫 줄 약속어 유지)

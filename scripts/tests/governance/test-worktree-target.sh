@@ -544,6 +544,12 @@ done
 r=$(_pre13 "cd $W13P && git commit -m 'feat: moved'" "$M13P")
 _why "$r" | grep -qF '다른 작업 트리로 옮겨' && _why "$r" | grep -qF '검증 기록' \
   && ok "WT-E8.2 deny 이유가 '옮겨서 메인의 검증 기록으로 열지 않음' 이라고 말한다" || nope "WT-E8.2" "$(_why "$r" | head -c 300)"
+# WT-E8.2b (20261114) 안내문이 **서브에이전트가 따를 수 있는 길**을 준다 — 호출마다 셸 위치가 초기화돼 `cd` 를 따로 낼 수 없다. 자기 임시 저장소(리뷰·재현용 복사본)의
+#   git 단계는 자기 임시 폴더의 스크립트 파일로 실행한다. 단 이 저장소(프로젝트 폴더)의 커밋을 그 길로 하라는 말이 아니라고 못박는다(게이트 우회로 읽히지 않게).
+_wt=$(_why "$r")
+{ printf '%s' "$_wt" | grep -qF '자기 임시 저장소' && printf '%s' "$_wt" | grep -qF '스크립트 파일' && printf '%s' "$_wt" | grep -qF '서브에이전트' \
+  && printf '%s' "$_wt" | grep -qF '이 저장소(프로젝트 폴더)의 커밋은 이 방법으로 하지 않습니다'; } \
+  && ok "WT-E8.2b ★ deny 안내가 임시 저장소의 git 단계를 스크립트 파일로 실행하라고 말하고, 이 저장소의 커밋에는 쓰지 말라고 못박는다" || nope "WT-E8.2b" "$(printf '%s' "$_wt" | tail -c 400)"
 a=$(_dec "$(_pre13 "cd $M13P && git commit -m 'feat: same'" "$M13P")"); b=$(_dec "$(_pre13 "cd $M13P/src && git commit -m 'feat: same'" "$M13P")")
 c2=$(_dec "$(_pre13 "git commit -m 'feat: plain'" "$M13P")")
 [ "$a" = "allow" ] && [ "$b" = "allow" ] && [ "$c2" = "allow" ] \

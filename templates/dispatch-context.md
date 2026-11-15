@@ -8,7 +8,7 @@
 
 > leaf subagent 가 받는 5 컨텍스트의 표준 포맷. 부모(implementing-ko)가 dispatch 직전 작성.
 > leaf 가 5개 중 누락 또는 모호하다고 판단하면 `NEEDS_CONTEXT: <누락 항목>` 반환 — 추측 금지.
-> 본 파일은 file-based-communication-ko 원칙 따라 leaf 에 **경로만** 전달, 본문은 leaf 가 직접 읽음.
+> 본 파일은 「파일 기반 전달」(docs/harness-principles.md) 원칙 따라 leaf 에 **경로만** 전달, 본문은 leaf 가 직접 읽음.
 
 ## 1. 담당 AC
 
@@ -22,7 +22,10 @@
 > spec.md 의 해당 task와 직결된 섹션 경로 + 라인 범위.
 
 - `.specops/<FID>/spec.md` §<N> <섹션 제목> (line <start>-<end>)
+- 태스크 본문: `.specops/<FID>/dispatch/<task-id>-task.md` (tasks.md 의 이 태스크 절 — tasks.md 전체는 읽지 않는다)
 - `.specops/<FID>/acceptance-criteria.md` AC-N, AC-N
+
+> `태스크 본문:` 줄은 `emit-context.sh` 가 tasks.md 의 `## Task N` 절을 잘라 `dispatch/<task-id>-task.md` 로 쓰고 싣는다. 절을 잘라내지 못한 태스크(제목 형식이 다른 옛 문서·번호 어긋남)는 파일이 없고 이 줄이 `tasks.md` 에서 절을 찾으라고 안내한다.
 
 ## 3. 테스트 명령
 

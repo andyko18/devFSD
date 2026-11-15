@@ -121,7 +121,9 @@ esac
 # ── 실행 ──
 ALL=$(_suites)
 for s in "$@"; do
-  printf '%s\n' "$ALL" | grep -Fxq -- "$s" || { echo "run-related: 스위트 목록에 없는 경로다: $s" >&2; exit 2; }
+  # 파이프가 아니라 here-string 으로 넘긴다 (20261114 CI 실측) — `grep -q` 는 첫 일치에서 끝나 printf 가 SIGPIPE 를 받고,
+  #   set -o pipefail 아래에서 그 실패가 "목록에 없다"(exit 2)로 읽혔다. 목록이 길수록·러너가 바쁠수록 잘 난다(리눅스 CI 1회 재현).
+  grep -Fxq -- "$s" <<< "$ALL" || { echo "run-related: 스위트 목록에 없는 경로다: $s" >&2; exit 2; }
 done
 # run-all.sh 와 같은 실행 환경 — 재귀 가드(스위트 안의 release.sh·pre-push 가 전체 스위트를 다시 부르지 않게) · 네트워크 SAST 금지
 export SPECOPS_RUN_ALL=1

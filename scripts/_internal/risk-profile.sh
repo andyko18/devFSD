@@ -29,8 +29,11 @@ rp::max_profile() {
 #   변경으로 읽었다(실측 20261008: 100커밋 뒤처진 main → 3줄 수정이 151파일·infra strict → lite 가 풀 경로로 승격).
 #   동률이면 앞선 후보(로컬)를 쓴다. 후보가 하나도 없으면 빈 문자열(종전과 동일 — 파일 신호 없음).
 rp::base_ref() {
-  local ref n best="" best_n=""
-  for ref in main master origin/main origin/master; do
+  local ref n best="" best_n="" _oh
+  #   origin/HEAD 가 가리키는 브랜치(기본 브랜치가 develop·trunk 인 저장소)를 후보 앞에 둔다 — base-branch.sh 와 같은 순서(20261115).
+  _oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null) || _oh=""
+  _oh=${_oh#origin/}; case "$_oh" in main|master) _oh="" ;; esac
+  for ref in ${_oh:+"$_oh" "origin/$_oh"} main master origin/main origin/master; do
     git rev-parse --verify --quiet "$ref^{commit}" >/dev/null 2>&1 || continue
     n=$(git rev-list --count "$ref..HEAD" 2>/dev/null) || continue
     case "$n" in ''|*[!0-9]*) continue ;; esac
@@ -44,9 +47,11 @@ rp::collect_files() {
   # 세 출처의 합집합이다 (20261008). 종전엔 앞 출처가 비었을 때만 다음을 봤다 — 트리에 미커밋 변경이 하나라도 있으면
   #   이 브랜치에 이미 커밋된 변경(예: Step 5.6 이 고쳐 커밋한 data-model.md)이 판정에서 빠졌다.
   base=$(rp::base_ref)
-  files=$( { git diff HEAD --name-only --no-renames
-             git diff --cached --name-only --no-renames
-             [ -n "$base" ] && git diff "$base"...HEAD --name-only --no-renames; } 2>/dev/null || true)
+  # core.quotePath=false — 기본값이면 git 이 비ASCII(한글) 경로를 "docs/\352…" 로 따옴표 이스케이프해 낸다. 그 문자열은 실제 경로가
+  #   아니라 경로 신호 판정이 빗나가고, 기본 경로 seal 은 "따옴표가 든 이름" 으로 거부했다(20261115).
+  files=$( { git -c core.quotePath=false diff HEAD --name-only --no-renames
+             git -c core.quotePath=false diff --cached --name-only --no-renames
+             [ -n "$base" ] && git -c core.quotePath=false diff "$base"...HEAD --name-only --no-renames; } 2>/dev/null || true)
   # tasks outputs 보강
   if [ -n "${_RP_YAML:-}" ] && command -v python3 >/dev/null 2>&1; then
     local extra
@@ -300,7 +305,7 @@ rp::detect_strict_signals() {
     '(api-spec\.md|/api/|openapi|public api|엔드포인트)' \
     && signals="${signals} public_api"
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
-    '(\.github/workflows|Dockerfile|terraform|kubernetes|k8s|helm|deploy)' \
+    '(\.github/workflows|Dockerfile|terraform|kubernetes|k8s|helm|(^|[^a-z0-9_])deploy)' \
     && signals="${signals} infra"
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
     '(subprocess|child_process|os\.system|exec\(|bash -c|Runtime\.exec)' \

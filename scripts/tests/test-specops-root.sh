@@ -519,4 +519,25 @@ _sr_wt_owns_record "$FID40" "$W46"; rc=$?; [ "$rc" -eq 1 ] && ok "SR-46 .specops
 mkdir -p "$TD/notgit"; out=$(_sr_untracked_records "$FID40" "$TD/notgit"); rc=$?
 [ "$rc" -eq 1 ] && [ -z "$out" ] && ok "SR-47 git 아님 → rc 1 · 빈 출력" || nope "SR-47" "rc=$rc out=$out"
 
+# ── SR-50 하위 폴더에서 부른 기록·검증 스크립트 (20261115) ───────────────────────
+#   일반 저장소에서 모델이 `cd packages/web` 한 뒤 스크립트를 부르면 상대경로 .specops 를 못 찾았다 — 진행 기록은 하위 폴더에
+#   새 .specops 를 만들고(관할 분열), 검증 러너는 "tasks.md not found" 였다. 작업 트리 최상위에 .specops 가 있으면 거기로 옮긴다.
+SD="$TD/sd"; SDMK="$TD/sd.marker"; _mk "$SD" "$SDMK"; mkdir -p "$SD/packages/web"; SDP=$(cd "$SD" && pwd -P)
+(cd "$SD/packages/web" && bash "$APPEND" "$FID" /implement 진행 "sr-50 하위 폴더") >/dev/null 2>&1
+grep -q 'sr-50 하위 폴더' "$SD/.specops/session-progress.md" && [ ! -e "$SD/packages/web/.specops" ] \
+  && ok "SR-50 ★ 하위 폴더에서 진행 기록 → 최상위 .specops 에 쓰고 하위 폴더에 .specops 를 만들지 않는다" \
+  || nope "SR-50" "top=$(grep -c 'sr-50' "$SD/.specops/session-progress.md") sub=$(ls -a "$SD/packages/web")"
+: > "$SDMK"; out=$(cd "$SD/packages/web" && bash "$RUNV" "$FID" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qx 'VERIFY: PASS' && [ "$(cut -d'|' -f1 "$SDMK" | head -1)" = "$SDP" ] \
+  && ok "SR-51 ★ 하위 폴더에서 검증 러너 → tasks.md 를 찾고 테스트 명령은 최상위에서 돈다" || nope "SR-51" "rc=$rc out=$(printf '%s' "$out" | tail -2) marker=$(cat "$SDMK")"
+#   현재 폴더에 .specops 가 있으면(모노레포의 하위 프로젝트가 자기 관할) 옮기지 않는다.
+mkdir -p "$SD/apps/own/.specops"
+(cd "$SD/apps/own" && bash "$APPEND" "$FID" /implement 진행 "sr-52 자기 관할") >/dev/null 2>&1
+grep -q 'sr-52 자기 관할' "$SD/apps/own/.specops/session-progress.md" 2>/dev/null && ! grep -q 'sr-52' "$SD/.specops/session-progress.md" \
+  && ok "SR-52 현재 폴더에 .specops 가 있으면 그대로 쓴다(최상위로 옮기지 않는다)" || nope "SR-52" "own=$(ls "$SD/apps/own/.specops" 2>&1)"
+#   최상위에도 .specops 가 없는 저장소 — 옮기지 않는다(관할 밖 판정은 각 스크립트의 종전 동작).
+NS="$TD/ns"; git init -q "$NS"; mkdir -p "$NS/sub"
+r=$(cd "$NS/sub" && specops_top_enter; printf '%s|%s' "$?" "$(pwd -P)")
+[ "$r" = "1|$(cd "$NS/sub" && pwd -P)" ] && ok "SR-53 최상위에 .specops 가 없으면 specops_top_enter rc 1 · 폴더 불변" || nope "SR-53" "r=$r"
+
 finish

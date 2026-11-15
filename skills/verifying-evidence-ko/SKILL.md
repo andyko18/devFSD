@@ -196,7 +196,7 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
     - 화면 괴리는 evidence.md 에 `## 화면 동기화 권고` 섹션으로 기록(chain 비차단, 자동 수정 금지 — DB 동기화와 동일). screens/ 부재(CLI·순수 로직) 시 graceful skip.
     - **화면 껍데기 점검 (기존 역방향 net 확장 — 새 스크립트·훅 신설 아님)**: 루트 `screens/` 존재 시 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/design-screen.sh --check screens/*.md screens/*.html` 로 판정(태스크 1 헬퍼 재사용). exit 0(껍데기 잔존)이면 evidence.md 에 `## 화면 껍데기 경고` 섹션으로 해당 경로를 나열하고 사용자에게 출력한다.
       - **비차단**: 본 버전에서는 `VERIFY: FAIL` 로 승급하지 않는다 (사용자 결정 — 단계적 적용. 상류 Phase 2.5·Step 5.5 자동 재생성이 실질 공백을 메운다).
-      - **차단 승급 조건 (차기 버전 반영 대상 — 현 버전은 위 "비차단"이 우선)**: 이 경고가 실제로 관찰되면 상류 교정 실패의 증거이므로 차단으로 승급 대상이다 (차기 유지보수에서 `VERIFY: FAIL` 승급) — 상류가 정상 동작하면 신규 생성 화면에 마커가 남을 수 없기 때문이다. **현 버전에서는 관찰돼도 승급하지 말 것** (L170 비차단 준수).
+      - **차단 승급 조건 (차기 버전 반영 대상 — 현 버전은 위 "비차단"이 우선)**: 이 경고가 실제로 관찰되면 상류 교정 실패의 증거이므로 차단으로 승급 대상이다 (차기 유지보수에서 `VERIFY: FAIL` 승급) — 상류가 정상 동작하면 신규 생성 화면에 마커가 남을 수 없기 때문이다. **현 버전에서는 관찰돼도 승급하지 말 것** (위 "비차단" 규칙 준수).
       - `screens/` 부재(CLI·순수 로직) 시 graceful skip.
     - **화면 품질 계측 (같은 역방향 net — 단일 모드 도달점)**: 루트 `screens/` 존재 시 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-screen-quality.sh --all` 을 실행해 전 화면 계측 원문을 evidence.md `## 화면 품질 계측` 섹션에 기록한다. 사용자에게는 **상세줄이 있는 화면**만 출력한다(노이즈 최소) — 단 상세줄이 `[genre] 원형 미선언` 하나뿐인 화면(원형을 선언하지 않은 기존 화면)은 화면별로 나열하지 않고 `원형 미선언 N개` 1줄로 모은다. `genre=` 축은 `DESIGN.md` §6.1 장르 규칙이고, `genre=unknown` 은 원형 미선언이지 위반 없음이 아니다.
       - **비차단**: 계측기는 항상 exit 0 이며 이 결과로 `VERIFY: FAIL` 로 승급하지 않는다 — 휴리스틱 오탐이 chain 을 세우면 BYPASS 관성이 생긴다.

@@ -104,4 +104,16 @@ function writeJson(file, obj) {
   } catch (e) { return { ok: false, reason: String(e.message || e).split('\n')[0].slice(0, 160) }; }
 }
 
-module.exports = { readJson, loadMemory, memoryUrls, describeUrls, mergeMemory, parseBaseline, compareBaseline, mergeBaseline, writeJson };
+// 실패한 요청의 주소를 출력용으로 줄인다 — 쿼리·해시는 버린다(토큰·개인정보가 실리는 자리다).
+//   data:·blob: 와 origin 이 없는 스킴(about:·javascript:·확장 주소)은 스킴만, 읽지 못한 주소는 원문을 내지 않는다.
+//   userinfo(user:pass@)는 origin 에 들지 않아 빠진다. 경로는 남는다 — 경로에 실린 값(/reset/<토큰>)까지는 가리지 못한다.
+function requestLabel(u) {
+  let p;
+  try { p = new URL(String(u)); } catch (_) { return '(주소를 읽지 못함)'; }
+  if (p.protocol === 'file:') return `file://${p.pathname}`.slice(0, 160);
+  if (p.protocol === 'data:' || p.protocol === 'blob:' || p.origin === 'null') return p.protocol;
+  const base = `${p.origin}${p.pathname}`;
+  return base.slice(0, 160);
+}
+
+module.exports = { readJson, loadMemory, memoryUrls, describeUrls, mergeMemory, parseBaseline, compareBaseline, mergeBaseline, writeJson, requestLabel };

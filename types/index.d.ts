@@ -150,6 +150,8 @@ export type Board = {
   fid?: string
   stages?: StageMark[]
   verify?: string
+  /** 경로 이름 — `기본 경로` · `기본 경로+`(분석·계획이 켜짐) · `일괄 n/m`. 풀 경로는 싣지 않는다. */
+  lane?: string
   /** devFSD: 현재 브랜치 PR 의 CI 잡 — ciWatch 를 켠 세션만 채운다. */
   ci?: CiCheck[]
   activityAt?: number // 마지막 활동 시각(ms) — 훅 이벤트·출력 파일 중 늦은 쪽

@@ -29,7 +29,7 @@ grep -E '^review_mode:' .specops/<FID>/tasks.md
 
 `risk-profile`의 「Phase B/C 축소 금지」는 **리뷰 생략**을 금지한 것이다. end-loaded는 B·C를 **수행**하므로 allowlist 위반이 아니다.
 
-**§lite 불변** (`spec.md`에 `**§lite**: true` — `/start-lite`·`/maintain-lite`): clarify·plan만 축약된 FID다. **Phase B(`spec-reviewer-ko`)·Phase C(`code-reviewer-ko`) 생략 금지**. end-loaded B/C 각 1회 필수. 화면·IF 설계 계약을 §6으로 소비(해당 시).
+**단축 경로 불변** (`§유형: trivial` · 옛 `**§lite**: true` spec): clarify·plan만 축약된 FID다. **Phase B(`spec-reviewer-ko`)·Phase C(`code-reviewer-ko`) 생략 금지**. end-loaded B/C 각 1회 필수. 화면·IF 설계 계약을 §6으로 소비(해당 시).
 
 ## 개발 구간 무질문
 
@@ -67,11 +67,11 @@ grep -E '^review_mode:' .specops/<FID>/tasks.md
 ## 프로세스 (다단계 wave — dag::find_ready 기반 · end-loaded 기본)
 
 ```
-플랜 + tasks.md 1회 읽기 → review_mode 판정 (부재=end-loaded) → TodoWrite 생성
+플랜 + tasks.md 1회 읽기 → review_mode 판정 (부재=end-loaded) → 할 일 목록 생성
     ↓
 DAG 초기화 (bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh)
     yaml=$(dag::extract_yaml .specops/<FID>/tasks.md)
-    done=""   ← 완료 task id 집합 (공백 구분 문자열, 초기 빈)
+    done=""   ← 완료 task id 집합 (공백 구분). **재개면** `receipts/<tid>.json` 이 있는 tid 로 채운다
     ↓
 [WAVE LOOP — Phase A only when end-loaded] ──────────────────
 ready=$(dag::find_ready "$yaml" $done)
@@ -208,6 +208,7 @@ Wave loop 완료 후의 **최종 코드 리뷰어(전체 구현)** 는 **태스�
 
 end-loaded(기본)에서 최초 B·C 가 지적을 내면 **수정 라운드 1회**로 끝낸다 — 고친 뒤 B·C 를 다시 부르지 않는다.
 
+0. B 보고서의 `should`·`nice-to-have` 미충족은 판정이 PASS 라 수정 라운드 대상이 아니다 — `dev-decision.sh add <FID> backlog "<AC 번호·요지>"` 로 남긴다(PR 본문 "넘긴 것").
 1. B FAIL·C `NEEDS_FIX` 의 feedback 과 계약 안 Important(`dev-autonomy.md` §2)를 **한 번에 모아** 영향받은 tid 의 `devfsd:implementer-ko` 를 재dispatch 한다(feedback **경로만** · 아래 상향 규칙). 서로 outputs 가 겹치지 않는 tid 는 한 메시지에서 동시에 보낸다.
 2. 구현자가 `DONE` 이고 그 태스크의 관련 테스트가 통과하면 dispatch-log 에 tid 마다 `| <N> | <ISO-8601> | REVIEW-FIX:<tid> | implementer-ko | FIXED | reviews/<tid>-<B|C>-feedback.md |` 1행을 남기고 **재리뷰 없이** `verifying-evidence-ko` 로 간다. 고친 코드의 검증은 verify(AC 대조·전체 스위트·fix_loop)가 맡는다.
 3. 구현자가 고치지 못하면(`BLOCKED` · 관련 테스트 FAIL · Critical 지적을 반영하지 않은 `DONE_WITH_CONCERNS`) **Critical 미해결**이다 — 아래 「cap 초과 처리」(전역 재시도 1회 → HARD GATE)를 그대로 탄다. verify 로 넘기지 않는다.
@@ -252,7 +253,7 @@ auto_retry_count < 1?
             systematic-debugging 또는 사용자 개입 필요"
 ```
 
-**auto-state.md 경로**: `.specops/<FID>/auto-state.md` (structured-artifacts-ko 규약).
+**auto-state.md 경로**: `.specops/<FID>/auto-state.md` (「아티팩트 구조 규약」 규약).
 **카운터 공유**: implementing-ko와 verifying-evidence-ko가 동일 `auto_retry_count`를 공유 — per-FID 전역.
 
 ## pre-dispatch irreversible 게이트 (§auto 전용)
@@ -275,7 +276,7 @@ grep -A5 "id: <task-id>" .specops/<FID>/tasks.md | grep "irreversible: true"
   `n` 시 → Lifecycle 종료. `y` 시 → 진행.
 - 단일 모드 + `irreversible: true` → 사전 승인 기록(`dispatch/<task-id>-approval.md` — `dev-autonomy.md` §1)이 있으면 다시 묻지 않고 진행, 없으면 task 내부 Step 0
 
-**reviewer 출력 파일 경로 규약** (file-based-communication-ko 준수 — reviewer 는 read-only, SubagentStop 훅이 저장 · report 부재 시 부모 fallback 저장):
+**reviewer 출력 파일 경로 규약** (「파일 기반 전달」 준수 — reviewer 는 read-only, SubagentStop 훅이 저장 · report 부재 시 부모 fallback 저장):
 - `.specops/<FID>/reviews/<task-id>-B-report.md` — spec-reviewer-ko 판정 보고서(PASS/FAIL 무관). **SubagentStop 훅이 저장** — 부모는 fallback 조건(report 부재 · 반환에 훅 요약 없음)일 때만 저장 · `review-saved.sh check` rc 0 이면 저장하지 않는다
 - `.specops/<FID>/reviews/<task-id>-B-feedback.md` — FAIL 시 implementer-ko 재dispatch 용 (B-report 와 동일 내용이거나 이슈 발췌)
 - `.specops/<FID>/reviews/<task-id>-C-feedback.md` — code-reviewer-ko 출력. **SubagentStop 훅이 저장** — 부모는 같은 fallback 조건일 때만 저장
@@ -301,6 +302,7 @@ B 는 거의 항상 통과(1회차 FAIL 6/101)하는데 직렬이라 FID 당 약
 bash "$(git rev-parse --show-toplevel)"/scripts/tests/run-all.sh --quiet > ".specops/$FID/run-all.log" 2>&1
 ```
 
+- **태스크 커밋 전에는 돌리지 않는다**: 태스크 커밋은 receipt(`record-task-done.sh`)로 열린다 — 전체 스위트 통과가 필요 없다. 커밋마다 포그라운드로 돌리면 태스크 수만큼 6~7분씩 든다(실측: 3태스크에 4회 27분). 태스크에서는 그 태스크의 `test_command` 만 돌리고, 전체 스위트는 여기 적은 백그라운드 1회와 수정 라운드 뒤 1회뿐이다. 커밋이 막히면 스위트를 돌리지 말고 차단 안내문의 receipt 사유를 고친다.
 - **증거가 아니다**: R-1/R-2 게이트 증거는 verify 단계 `run-verification.sh` 의 `VERIFY: PASS` 실행 출력이다. 이 실행은 verify 가 전체 스위트를 생략할 근거(통과 마커)를 만들 뿐이다.
 - **수정 라운드**: Phase B/C 지적으로 코드가 바뀌면 마커 지문이 달라져 STALE 이 된다. 수정 라운드의 마지막 커밋 뒤 전체 스위트를 **한 번** 다시 백그라운드로 띄우고 verify 가 그 결과를 재사용한다(다시 띄우지 않으면 verify 가 포그라운드로 돈다).
 - **FAIL 이면**: 종료 후 `run-all.log` 의 `FAILED` 줄을 사용자에게 알리되 B/C 는 막지 않는다. 최종 판정은 verify 의 포그라운드 재실행이다(flaky 를 숨기지 않는다).
@@ -362,7 +364,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 5. whitelist 외 파일을 수정해야 task 완수 가능 — 부모에 컨텍스트 보강 요청
 6. worktree 경로 존재 안 함 또는 git worktree 가 아님
 
-부모 검증: dispatch 직전 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh .specops/<FID>/dispatch/<task-id>-context.md` 실행 — exit 1 시 dispatch 보류. 표준 포맷: `templates/dispatch-context.md`.
+부모 검증: dispatch 직전 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/validate-context.sh .specops/<FID>/dispatch/<task-id>-context.md` 실행 — exit 1 시 dispatch 보류. 표준 포맷: `templates/dispatch-context.md`. 구현자는 태스크 본문을 emit-context 가 잘라 둔 `dispatch/<task-id>-task.md` 로 읽는다 — 구현자 프롬프트에 tasks.md 전체를 읽으라고 쓰지 않는다(그 파일이 없을 때만 구현자가 tasks.md 에서 절을 찾는다).
 
 > **[스코프 이관 규약]** (트리거 5 = whitelist 외 파일 수정 필요 — verify-exec-gate 잔여 backlog): 이관은 **tasks.md 가 SoT** 다. dispatch context 파일만 수기 보강하는 것을 **금지**한다 — ① tasks.md 와 drift ② emit-context 재실행 시 수기 보강 증발 ③ 후속 wave 의 outputs-disjoint 병렬 판정이 **낡은 outputs 로 계산**되어 두 leaf 가 같은 파일을 병렬 편집(R11 git race). 처리 순서:
 > 1. `.specops/<FID>/tasks.md` YAML 의 해당 task `outputs`(필요시 `inputs`)를 먼저 갱신 — 이관 사유 1줄 주석
@@ -382,7 +384,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 ## 에이전트 정의 파일
 
-3개 에이전트가 `agents/` 디렉토리에 정의돼 있다:
+이 skill 이 부르는 구현·리뷰 에이전트 3개(`agents/` 에 정의 — 계획·설계 전문가와 감사용까지 합하면 16개):
 
 - `agents/implementer-ko.md` — 구현자 서브에이전트 (Phase A)
 - `agents/spec-reviewer-ko.md` — 스펙 준수 리뷰어 (Phase B)
@@ -397,7 +399,7 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 - 리뷰 생략 (스펙 준수 OR 코드 품질)
 - **미해결 이슈를 두고 진행** (`backlog` 로 기록해 넘긴 계약 밖 항목은 미해결이 아니다 — `dev-autonomy.md` §2)
 - 구현 서브에이전트를 **상태 공유 시 병렬로** dispatch (충돌, R11). v0.4a 정정: outputs disjoint 한 독립 leaf 2+ 는 `dispatching-parallel-agents-ko` DAG-aware 모드로 자동 병렬 권장 — `dag::find_independent_batch` 가 자동 식별. **상태 공유 (같은 파일 수정) 시에만 병렬 금지**
-- 서브에이전트 프롬프트에 **파일 본문(payload)을 인라인 첨부** — `file-based-communication-ko` 위반. 경로만 전달하고 서브에이전트가 `.specops/<FID>/*.md`·`dispatch/<task-id>-context.md` 를 직접 read 해야 한다 (컨트롤러 컨텍스트 오염 방지)
+- 서브에이전트 프롬프트에 **파일 본문(payload)을 인라인 첨부** — 「파일 기반 전달」 위반. 경로만 전달하고 서브에이전트가 `.specops/<FID>/*.md`·`dispatch/<task-id>-context.md` 를 직접 read 해야 한다 (컨트롤러 컨텍스트 오염 방지)
 - 장면 설정 컨텍스트 생략 (서브에이전트는 태스크가 어디에 맞는지 이해해야 함)
 - 서브에이전트 질문 무시 (진행 전에 답하기)
 - "근접함"으로 스펙 준수 인정 (스펙 리뷰어가 이슈 발견 = 미완료)
@@ -478,13 +480,13 @@ v0.4a W2 — leaf subagent 가 다음 6 트리거 중 하나라도 발견 시 �
 
 ## 참조
 
-- `skills/generator-evaluator-ko/SKILL.md` — 2단계 리뷰(스펙·품질) 분리 원칙
-- `skills/context-resets-ko/SKILL.md` — fresh 서브에이전트 세션 보장
+- `docs/harness-principles.md` 「생성·평가 분리」 — 2단계 리뷰(스펙·품질) 분리 원칙
+- `docs/harness-principles.md` 「컨텍스트 리셋」 — fresh 서브에이전트 세션 보장
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 
 ## Handoff 기록 (다음 skill 진입 직전 필수)
 
-`verifying-evidence-ko` 호출 직전 `.specops/<FID>/handoffs/implementing.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining). 특히 Remaining 섹션에 "검증이 필요한 AC story 목록" 명시.
+`verifying-evidence-ko` 호출 직전 `.specops/<FID>/handoffs/implementing.md` 작성 (「아티팩트 구조 규약」 규약 4필드: Decided/Rejected/Risks/Remaining). 특히 Remaining 섹션에 "검증이 필요한 AC story 목록" 명시.
 
 ## session-progress append (v0.4-pre P1 신설)
 

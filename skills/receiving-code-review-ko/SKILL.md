@@ -240,7 +240,7 @@ Skill: devfsd:security-review-ko
 
 security-review-ko가 SAST 보안 스캔을 점검하고 → integration-test-ko → performance-test-ko → PR 생성 게이트로 chain한다.
 
-- **Important 이슈 수정 필요** → `devfsd:implementing-ko`로 복귀 (수정 태스크를 새로 dispatch)
+- **이번 FID 가 만든 Important 이슈 수정 필요** → `devfsd:implementing-ko`로 복귀 (수정 태스크를 새로 dispatch)
 - **재검증 필요** → `devfsd:verifying-evidence-ko` 재호출
 
 본 receiving-code-review-ko는 단일 모드에서 **security-review-ko 이외의 다음 스킬을 호출하지 않는다** (수정 루프 복귀 및 batch halt 제외).

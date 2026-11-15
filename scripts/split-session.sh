@@ -7,7 +7,8 @@
 #                                                   마지막 줄 `SPLIT-RESULT: DONE|HELD|FAILED|TIMEOUT …`
 #                                                   rc 0=DONE 10=HELD 1=FAILED 124=TIMEOUT 2=사용법
 #   split-session.sh status <FID>                  자식 세션 진행 상황(진행 기록 끝 5줄 + 자식의 최근 도구 호출)
-#   split-session.sh warn-size [<transcript 경로>]  현재 대화가 기준보다 크면 1줄 고지(차단 아님 · 항상 rc 0)
+#   split-session.sh warn-size [<transcript 경로>]  이 대화에서 이미 끝난 작업이 있으면 1줄 고지(판정 불가면 기준 초과 시 · 차단 아님 · 항상 rc 0)
+#   split-session.sh finish-note [<transcript 경로>]  작업을 마친 시점의 새 세션 안내 1줄(크기 표기 · 못 읽으면 무출력 · 항상 rc 0)
 #
 # 왜 필요한가 (20261112 실측): 작업 1건 비용의 약 70%가 주 세션이 커진 대화를 호출마다 다시 읽는 것이었다
 #   (호출 255회 · 대화 213K→792K 토큰). 호출이 가장 많은 구간이 구현(62~82분)인데 그 구간은 설계 단계의
@@ -29,7 +30,7 @@
 #   model: <별칭>                  SPECOPS_SPLIT_MODEL          (기본: 넘기지 않음 — 사용자 기본 모델)
 #   timeout_min: 180               SPECOPS_SPLIT_TIMEOUT_MIN
 #   max_budget_usd: <수>           SPECOPS_SPLIT_MAX_BUDGET_USD (기본: 넘기지 않음)
-#   warn_context_tokens: 150000    SPECOPS_SPLIT_WARN_TOKENS
+#   warn_context_tokens: 150000    SPECOPS_SPLIT_WARN_TOKENS   (0 이면 warn-size·finish-note 를 끈다 · 150K 는 끝난 작업을 판정할 수 없을 때만 쓴다)
 set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
@@ -42,7 +43,7 @@ DEFAULT_WARN_TOKENS=150000
 # transcript 에서 usage 를 읽지 못할 때만 쓰는 근사 — 압축 전 기록은 토큰당 약 10바이트였다(3.2MB↔299K · 0.46MB↔74K).
 BYTES_PER_TOKEN=10
 
-usage() { sed -n '4,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
+usage() { sed -n '4,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
 
 # `session_split:` 블록의 한 단계 키만 읽는다(YAML 파서 의존 없음). 없으면 빈 문자열.
 cfg() {
@@ -99,7 +100,12 @@ cmd_decide() {
   no() { echo "SPLIT: no ($1)"; exit 1; }
   [ "${SPECOPS_SPLIT_CHILD:-}" = 1 ] && no "이미 분리된 자식 세션"
   [ "${SPECOPS_NO_SPLIT:-}" = 1 ] && no "SPECOPS_NO_SPLIT=1"
-  case "$(cfg enabled)" in false|no|off|0) no "config session_split.enabled: false" ;; esac
+  # 끄기 값은 대소문자를 가리지 않는다(False·OFF·No — unified_path·pr_gate 와 같게 · 20261114). 한 줄 형태
+  #   `session_split: {enabled: false}` 는 cfg 가 읽지 못하므로(블록 형태만 읽는다) 따로 본다 — 못 읽고 켜는 쪽으로 틀리지 않게.
+  case "$(cfg enabled | tr 'A-Z' 'a-z')" in false|no|off|0) no "config session_split.enabled: false" ;; esac
+  if [ -r "$CONFIG" ] && grep -qiE "^session_split:[[:space:]]*\\{[^}]*enabled:[[:space:]]*[\"']?(false|no|off|0)[\"']?[[:space:]]*[,}]" "$CONFIG"; then
+    no "config session_split.enabled: false"
+  fi
   [ -r "$SPECOPS/$FID/spec.md" ] || no "spec.md 없음"
   spec_has '^\*\*§분리\*\*:[[:space:]]*(off|false)' && no "--no-split (spec §분리: off)"
   spec_has '^\*\*§batch\*\*:' && no "§batch — 오케스트레이터가 구현을 소유"
@@ -126,6 +132,7 @@ child_prompt() {
 2. PR 생성 게이트(demo-ko · PR 질문 · gh pr create)는 하지 않는다 — 주 세션의 몫이다. performance-test-ko 의 판정과 기록까지 끝나면 마지막 줄을 \`SPLIT-CHILD-DONE: $FID\` 로 끝낸다.
 3. 더 진행할 수 없으면(도구 거부 · 환경 문제) 마지막 줄을 \`SPLIT-CHILD-FAILED: $FID <사유 한 줄>\` 로 끝낸다.
 4. 마지막 메시지에는 위 마커 줄과 요약 5줄 이내만 쓴다(커밋 범위 · 테스트 결과 · 넘긴 결정 수).
+5. 태스크 커밋 전에 전체 스위트를 돌리지 않는다 — 태스크 커밋은 receipt 로 열린다. 전체 스위트는 implementing-ko 의 「전체 스위트 병행」이 적은 때(마지막 태스크 뒤 백그라운드 1회 · 수정 라운드 뒤 1회)에만 돌린다.
 EOF
 }
 
@@ -250,19 +257,30 @@ cmd_status() {
   return 0
 }
 
-# 현재 대화 크기 고지. 마지막 주 세션 응답의 usage(입력+캐시)가 곧 지금 맥락 크기다.
-cmd_warn_size() {
-  local t="${1:-}" limit tokens="" basis=usage
-  limit=$(setting "${SPECOPS_SPLIT_WARN_TOKENS:-}" warn_context_tokens "$DEFAULT_WARN_TOKENS")
+# 고지 기준(토큰). 0 이면 시작·종결 고지를 모두 끈다. stdout=기준 · rc 1=끔
+notice_limit() {
+  local limit; limit=$(setting "${SPECOPS_SPLIT_WARN_TOKENS:-}" warn_context_tokens "$DEFAULT_WARN_TOKENS")
   case "$limit" in ''|*[!0-9]*) limit=$DEFAULT_WARN_TOKENS ;; esac
-  [ "$limit" -gt 0 ] || return 0
+  [ "$limit" -gt 0 ] || return 1
+  printf '%s' "$limit"
+}
+
+# 현재 세션 transcript 경로. 인자가 있으면 그것, 없으면 세션 id 로 찾는다. 읽을 수 없으면 rc 1.
+find_transcript() {
+  local t="${1:-}" cand
   if [ -z "$t" ] && [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
-    local cand
     for cand in "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/projects/*/"$CLAUDE_CODE_SESSION_ID".jsonl; do
       [ -r "$cand" ] && { t="$cand"; break; }
     done
   fi
-  [ -n "$t" ] && [ -r "$t" ] || return 0
+  [ -n "$t" ] && [ -r "$t" ] || return 1
+  printf '%s' "$t"
+}
+
+# 현재 맥락 크기. 마지막 주 세션 응답의 usage(입력+캐시)가 곧 지금 맥락 크기다 — 읽지 못하면 파일 크기 근사.
+#   stdout=`<토큰> <근거>` (근거: usage | 파일 크기 근사)
+ctx_tokens() {
+  local t="$1" tokens="" basis=usage
   if command -v jq >/dev/null 2>&1; then
     tokens=$(tail -n 400 "$t" | jq -r 'select(.type=="assistant" and (.isSidechain|not)) | .message.usage
               | ((.input_tokens // 0) + (.cache_read_input_tokens // 0) + (.cache_creation_input_tokens // 0))' 2>/dev/null | tail -n 1)
@@ -271,14 +289,64 @@ cmd_warn_size() {
     basis="파일 크기 근사"
     tokens=$(( $(wc -c < "$t" | tr -d ' ') / BYTES_PER_TOKEN )) ;;
   esac
-  [ "$tokens" -gt "$limit" ] || return 0
-  echo "CONTEXT-LARGE: 현재 대화가 약 $((tokens / 1000))K 토큰입니다(기준 $((limit / 1000))K · $basis). 새 세션에서 시작하면 호출마다 다시 읽는 양이 줄어듭니다 — 그대로 진행해도 됩니다."
+  printf '%s %s' "$tokens" "$basis"
+}
+
+# 이 대화에서 이미 끝난 작업이 있는가 (20261115-token-task-slice). rc 0=있음 · 1=없음 · 2=판정 불가(jq 없음)
+#   흔적: 주 세션(사이드체인 아님)의 Bash 호출 가운데 **명령 위치**에서 부른 종결 동작이 성공(is_error 아님)한 것 —
+#   종결 고지(finish-note — 두 경로의 끝이 부른다) · PR 생성(`gh pr create`) · 종결 진행 기록(`/lifecycle DONE` · `basic-path.sh done`).
+#   명령 인자 속 문자열(`grep 'gh pr create' …` · 역슬래시 뒤 `\|`)·heredoc 본문(첫 `<<` 뒤는 보지 않는다 — PR 본문을 heredoc 으로
+#   넘기는 PR 생성은 명령이 `<<` 앞에 있어 잡힌다)·서브에이전트의 호출은 세지 않는다.
+FINISH_CMD_RE='(^|\n|(^|[^\\])[;&|(])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=(\$\([^)]*\)|[^[:space:]]*)[[:space:]]+)*(gh[[:space:]]+pr[[:space:]]+create|bash[[:space:]]+[^[:space:]]*split-session\.sh"?[[:space:]]+finish-note|bash[[:space:]]+[^[:space:]]*session-progress-append\.sh"?[[:space:]]+[^[:space:]]+[[:space:]]+/lifecycle[[:space:]]+DONE|bash[[:space:]]+[^[:space:]]*basic-path\.sh"?[[:space:]]+done([[:space:]]|$))'
+finished_work() {
+  local t="$1" ids
+  command -v jq >/dev/null 2>&1 || return 2
+  # 후보 줄만 jq 로 읽는다(큰 transcript 전체를 파싱하지 않게) — 명령 낱말이 없는 대화는 여기서 끝난다
+  ids=$(grep -E 'gh pr create|split-session\.sh.{0,4} finish-note|/lifecycle DONE|basic-path\.sh.{0,4} done' "$t" 2>/dev/null \
+    | jq -r --arg re "$FINISH_CMD_RE" 'select(.type=="assistant" and (.isSidechain|not)) | .message.content[]?
+        | select(.type=="tool_use" and .name=="Bash" and ((.input.command // "") | split("<<")[0] | test($re))) | .id' 2>/dev/null)
+  [ -n "$ids" ] || return 1
+  local id
+  while IFS= read -r id; do
+    [ -n "$id" ] || continue
+    grep -F "\"$id\"" "$t" 2>/dev/null | jq -e --arg id "$id" -s '[.[] | select(.type=="user" and (.isSidechain|not)) | .message.content[]?
+        | select(type=="object" and .type=="tool_result" and .tool_use_id==$id and (.is_error != true))] | length > 0' >/dev/null 2>&1 && return 0
+  done <<< "$ids"
+  return 1
+}
+
+# 시작 시 고지 — 이 대화에서 이미 끝난 작업이 있으면 1줄(새 세션의 첫 작업에는 뜨지 않는다).
+#   판정할 수 없으면 종전대로 기준(warn_context_tokens) 초과일 때만. 차단하지 않는다(항상 rc 0).
+cmd_warn_size() {
+  local limit t sz tokens basis rc=0
+  limit=$(notice_limit) || return 0
+  t=$(find_transcript "${1:-}") || return 0
+  sz=$(ctx_tokens "$t"); tokens=${sz%% *}; basis=${sz#* }
+  finished_work "$t" || rc=$?
+  case "$rc" in
+    0) echo "CONTEXT-LARGE: 이 대화에서 이미 끝난 작업이 있습니다(현재 약 $((tokens / 1000))K 토큰 · $basis). 새 세션에서 시작하면 호출마다 다시 읽는 양이 줄어듭니다 — 그대로 진행해도 됩니다." ;;
+    2) [ "$tokens" -gt "$limit" ] || return 0
+       echo "CONTEXT-LARGE: 현재 대화가 약 $((tokens / 1000))K 토큰입니다(기준 $((limit / 1000))K · $basis). 새 세션에서 시작하면 호출마다 다시 읽는 양이 줄어듭니다 — 그대로 진행해도 됩니다." ;;
+  esac
+  return 0
+}
+
+# 종결 시 고지 (20261115) — 작업을 마친 시점(PR 생성 직후)이 대화를 끊기 가장 좋은 지점이다. 크기와 함께 1줄.
+#   크기를 읽지 못하면(transcript 없음) 조용히 끝난다. 차단하지 않는다(항상 rc 0). 기준 0 이면 끔.
+cmd_finish_note() {
+  local t sz basis tag=""
+  notice_limit >/dev/null || return 0
+  t=$(find_transcript "${1:-}") || return 0
+  sz=$(ctx_tokens "$t"); basis=${sz#* }
+  [ "$basis" = usage ] || tag="($basis) "
+  echo "SESSION-NEXT: 지금 대화가 약 $(( ${sz%% *} / 1000 ))K 토큰입니다 ${tag}— 다음 작업은 새 세션에서 시작하면 호출마다 다시 읽는 양이 줄어듭니다."
   return 0
 }
 
 sub="${1:-}"; [ "$#" -gt 0 ] && shift
 case "$sub" in
   warn-size) cmd_warn_size "${1:-}" ;;
+  finish-note) cmd_finish_note "${1:-}" ;;
   decide|run|status)
     FID="${1:-}"; [ "$#" -gt 0 ] && shift
     is_fid "$FID" || { usage; exit 2; }

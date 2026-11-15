@@ -120,6 +120,17 @@ bash "$SCRIPT" login 2>/dev/null; code=$?
   && ok  "T6.a 기존 파일 + --force 없음 → exit 1" \
   || nope "T6.a 충돌 보호" "exit code=$code (0이면 안 됨)"
 
+# T6.c ★ `.html` 만 있어도 덮어쓰지 않는다 (20261114 재현 — 충돌 검사가 `.md` 만 봐서, 사용자가 다듬은 목업
+#   screens/<name>.html 이 --force 없이 템플릿 껍데기로 덮였다)
+mkdir -p screens && printf '<html>내가 다듬은 목업</html>\n' > screens/onlyhtml.html
+bash "$SCRIPT" onlyhtml >/dev/null 2>&1; code=$?
+{ [ "$code" -ne 0 ] && grep -q '내가 다듬은 목업' screens/onlyhtml.html && [ ! -e screens/onlyhtml.md ]; } \
+  && ok  "T6.c .html 만 있고 --force 없음 → exit 1 · 목업 보존 · .md 를 만들지 않음" \
+  || nope "T6.c .html 덮어쓰기" "exit code=$code html=$(head -c 40 screens/onlyhtml.html 2>/dev/null)"
+bash "$SCRIPT" onlyhtml --force >/dev/null 2>&1; code=$?
+{ [ "$code" -eq 0 ] && [ -f screens/onlyhtml.md ]; } \
+  && ok  "T6.d 대조: --force 면 종전대로 만든다" || nope "T6.d" "exit code=$code"
+
 # T6.b: --force 시 덮어쓰기
 bash "$SCRIPT" login --force >/dev/null 2>&1; code=$?
 [ "$code" -eq 0 ] && [ -f "screens/login.md" ] \

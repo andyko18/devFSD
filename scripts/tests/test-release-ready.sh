@@ -341,6 +341,38 @@ out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
   && ok "RR-16 수용 흔적 있음 → READY" || nope "RR-16" "rc=$rc out=$out"
 rm -rf "$TD"
 
+# RR-16b~e (20261115): 수용 흔적은 **이 FID 의 진행 기록 절** 안에서만, 건너뜀 기록이 아닌 것만 친다.
+#   종전엔 진행 기록 전체에서 `/receive-review|수용` 을 찾아 ① 다른 FID 의 줄 ② review-skip-pass 가 FID 마다 남기는
+#   `/receive-review 완료 "review-skip 통과"` ③ "수용 기준" 이라는 낱말로도 미해결 Critical 이 해제됐다(사실상 항상 해제).
+_rr16_case() {  # $1=id $2=설명 $3=기대 rc $4=진행 기록에 덧붙일 내용(printf 형식)
+  local td fid=20260806-rr-scope out rc
+  td=$(mktemp -d); _mk_endloaded "$td" "$fid"
+  _tpl_report "$td/.specops/$fid/reviews/T1-C-report.md" \
+    '- `src/auth.sh:44` — 토큰 검증 없이 세션 발급. 근거: 보안 표준' \
+    '- ⚠️ **NEEDS_FIX**: Critical 1건'
+  # shellcheck disable=SC2059
+  printf -- "$4" >> "$td/.specops/session-progress.md"
+  out=$(cd "$td" && bash "$RR" "$fid" 2>&1); rc=$?
+  [ "$rc" -eq "$3" ] && ok "$1 $2" || nope "$1" "rc=$rc(기대 $3) out=$out"
+  rm -rf "$td"
+}
+_rr16_case RR-16b "다른 FID 절의 /receive-review 는 수용 흔적이 아니다 → NOT_READY" 1 '\n## 20260801-other\n- 2026-08-01 09:00 /receive-review 완료 "다른 작업"\n'
+_rr16_case RR-16c "건너뜀 기록(review-skip 통과)은 수용 흔적이 아니다 → NOT_READY" 1 '- 2026-08-06 10:20 /receive-review 완료 "review-skip 통과 (end-loaded B/C 가 전체 FID diff 를 이미 리뷰)"\n'
+_rr16_case RR-16d "'수용 기준' 이라는 낱말은 수용 흔적이 아니다 → NOT_READY" 1 '- 2026-08-06 10:20 /specify 완료 "수용 기준 3건"\n'
+_rr16_case RR-16e "이 FID 절의 리뷰 지적 수용 기록 → READY" 0 '- 2026-08-06 10:20 /implement 진행 "Critical 1건 수용 · 수정"\n'
+
+# RR-16f: B 보고서의 고정 판정 줄(`판정: PASS`)이 있으면 본문의 NEEDS_FIX 낱말로 미해결이라 하지 않는다.
+#   B 보고서는 READY_TO_MERGE 를 쓰지 않아, 틀 문구 "(NEEDS_FIX 시) 재dispatch" 하나로 통과 보고서가 미해결로 읽혔다.
+TD=$(mktemp -d); FID=20260806-rr-bpass
+_mk_endloaded "$TD" "$FID"
+printf '# 스펙 준수 리뷰\n\n## 종합 판정\n\n판정: PASS\n\n- (NEEDS_FIX 시) implementer-ko 재dispatch\n' > "$TD/.specops/$FID/reviews/T1-B-report.md"
+out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && echo "$out" | grep -q 'crit_high=OK' && ok "RR-16f B 보고서 '판정: PASS' + 틀 문구의 NEEDS_FIX → READY" || nope "RR-16f" "rc=$rc out=$out"
+printf '# 스펙 준수 리뷰\n\n## 종합 판정\n\n판정: NEEDS_FIX\n\nREADY_TO_MERGE 는 C 의 낱말이다\n' > "$TD/.specops/$FID/reviews/T1-B-report.md"
+out=$(cd "$TD" && bash "$RR" "$FID" 2>&1); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q 'crit_high=UNRESOLVED_REVIEW' && ok "RR-16g B 보고서 '판정: NEEDS_FIX' → NOT_READY(본문에 READY_TO_MERGE 낱말이 있어도)" || nope "RR-16g" "rc=$rc out=$out"
+rm -rf "$TD"
+
 # RR-17: 과거 라운드의 -feedback.md 잔존 — 최종 report 가 깨끗하면 무시
 #        근거(implementing-ko:115·131): FAIL 이면 `-feedback.md` 병기 후 재dispatch → B/C 재실행이
 #        같은 `-report.md` 경로를 덮어쓴다. 즉 report 가 최종 판정이고 feedback 은 해소된 라운드가 남는다.

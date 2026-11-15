@@ -24,6 +24,15 @@ cargo test
 npx vitest run
 pnpm exec vitest
 yarn exec jest
+python3 -m pytest tests/ -q
+pytest tests/test_a.py::test_b
+mvn test
+mvn -q -B test
+./mvnw verify
+./gradlew test
+gradle check
+./gradlew :app:test --tests com.x.FooTest
+dotnet test
 #!skip bash 스크립트 일반은 앵커가 T15 로 파일명을 제한한다 — 별도 FID | bash tests/unit.sh
 #!skip 동일 | bash scripts/ci/lint.sh
 #!skip 동일 | bash tests/run.sh

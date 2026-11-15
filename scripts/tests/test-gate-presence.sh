@@ -231,7 +231,7 @@ if has templates/dispatch-context.md '## 7\. 실행 모드'; then ok "fable-tips
 #   (실측 `/context`: specops skill 행 54→32, ~870 tok 절감 — `claude plugin details` 투영값은 이 플래그를 반영하지 않는다).
 #   모델이 부를 수 있어야 하는 init-project(메타 skill 이 y 응답 시 호출)·status(재개 조회)는 켜 두지 않는다.
 _dmi_ok=ok; _dmi_n=0
-for c in brainstorming design-interface design-interfaces design-screen design-screens doctor e2e-test gbrain improve-arch log maintain-lite maintain promote release security-scan start-all-auto start-all start-foundation start-lite start statusline-install; do
+for c in brainstorming design-interface design-interfaces design-screen design-screens doctor e2e-test gbrain improve-arch log maintain promote release security-scan start-all-auto start-all start-foundation start statusline-install; do
   _dmi_n=$((_dmi_n+1))
   awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$PLUGIN/commands/$c.md" | grep -qx 'disable-model-invocation: true' || { _dmi_ok=no; echo "  (플래그 누락: commands/$c.md)"; }
 done
@@ -240,7 +240,7 @@ for c in init-project status; do
 done
 [ "$_dmi_ok" = ok ] && ok "dmi: 사용자 전용 command ${_dmi_n}종 disable-model-invocation · init-project·status 는 제외" || nope "dmi: command 플래그 계약 위반"
 # 비활성 command 를 skill 호출 문법(devfsd:<cmd>)으로 부르는 본문이 없다 — 있으면 모델이 못 불러 체인이 끊긴다
-_dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'devfsd:(brainstorming|design-interfaces?|design-screens?|doctor|e2e-test|gbrain|improve-arch|log|maintain-lite|maintain|promote|release|security-scan|start-all-auto|start-all|start-foundation|start-lite|start|statusline-install)([^-a-z]|$)' -- skills agents hooks 2>/dev/null | head -3)
+_dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'devfsd:(brainstorming|design-interfaces?|design-screens?|doctor|e2e-test|gbrain|improve-arch|log|maintain|promote|release|security-scan|start-all-auto|start-all|start-foundation|start|statusline-install)([^-a-z]|$)' -- skills agents hooks 2>/dev/null | head -3)
 [ -z "$_dmi_ref" ] && ok "dmi: 비활성 command 를 모델이 skill 로 호출하는 본문 0건" || nope "dmi: 비활성 command 호출 참조" "$_dmi_ref"
 
 # ── implementer-ko 가 karpathy-ko 를 프리로드한다 (공식 sub-agents: `skills` frontmatter = 시작 시 전체 내용 주입) ──
@@ -264,6 +264,13 @@ if has skills/implementing-ko/SKILL.md '전체 스위트 병행' 'run-all\.sh --
   ok "implementing-ko 전체 스위트 병행 계약 존재 (백그라운드·log·비증거·수정 라운드·FAIL 알림·실 트리 변조 금지)"
 else
   nope "implementing-ko 전체 스위트 병행 계약 소실" "병행 실행 절차 또는 안전 규칙 부재"
+fi
+# 20261114 — 태스크 커밋마다 전체 스위트를 앞단에서 돌린 실측(3태스크 4회 27분)을 막는 문장
+if has skills/implementing-ko/SKILL.md '태스크 커밋 전에는 돌리지 않는다' '태스크 커밋은 receipt' \
+   && has scripts/split-session.sh '태스크 커밋 전에 전체 스위트를 돌리지 않는다'; then
+  ok "implementing-ko·자식 세션 프롬프트 — 태스크 커밋 전 전체 스위트 금지"
+else
+  nope "태스크 커밋 전 전체 스위트 금지 문장 소실" "implementing-ko 또는 split-session.sh child_prompt"
 fi
 if has skills/implementing-ko/SKILL.md '리뷰어 실행 예산' '핵심 실행 2회' '되돌려-관찰 3회' '전체 소비자 스위트 재실행은 하지 않는다' 'B 4회 이내·C 6회 이내' '위험도와 무관하게' '대상 스위트가 느린 경우' '실행 상한을 숫자로' '계약 밖 점검' 'RED 1회·GREEN 1회·되돌려-관찰 1회' 'B·C 각 1회 필수'; then
   ok "implementing-ko 리뷰어 실행 예산 존재 (B 2회·C 3회·strict B 4회·C 6회·전체 스위트 금지(위험도 무관)·느린 대상 스위트 규칙·구현자 실행 상한)"
@@ -731,24 +738,24 @@ else
   nope "요구사항 이해 전문가 에이전트" "파일·frontmatter·빈칸 증명·핵심 규칙·공통 원칙·README 중 빠진 것이 있다"
 fi
 
-# 화면·UX 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 빈칸 증명(찾은 곳·빈칸) · 핵심 규칙 8(이름·근거 같은 줄) · 공통 원칙 4(출처 같은 줄) · Critical 없음 · README 16건·모델 표 (20261023-ui-expert-integrate)
+# 화면·UX 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 빈칸 증명(찾은 곳·빈칸) · 핵심 규칙 8(이름·근거 같은 줄) · 공통 원칙 6(출처 같은 줄) · Critical 없음 · README 16건·모델 표 (20261023-ui-expert-integrate)
 _UIA=agents/ui-designer-ko.md
 _uia_rules_ok() {
   local name
   for name in '로딩·오류·0건 구분' '일부 실패' '공통 컴포넌트 계약 대조' '색만으로 전달 금지' '알림 수준' '같은 목적 입력의 동작 통일' '근거 없는 라벨 금지' '앞서 가는 화면 값'; do
     grep -F -- "- **$name**:" "$_UIA" | grep -qE '근거: Argus 2026[0-9]{4}-' || return 1
   done
-  for name in '안내 문구의 실행 가능성' '디자인 토큰 밖 색' '포커스 이동' '부분 데이터가 없는 것보다 낫다'; do
+  for name in '안내 문구의 실행 가능성' '디자인 토큰 밖 색' '포커스 이동' '로딩 영역의 이름' '대비 기준의 글자 크기' '부분 데이터가 없는 것보다 낫다'; do
     grep -F -- "- **$name**:" "$_UIA" | grep -qE '출처: .*\((MIT|Apache-2\.0)\)' || return 1
   done
-  [ "$(awk '/^## 핵심 규칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 8 ] && [ "$(awk '/^## 공통 원칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 4 ] || return 1
+  [ "$(awk '/^## 핵심 규칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 8 ] && [ "$(awk '/^## 공통 원칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 6 ] || return 1
 }
 if [ -f "$_UIA" ] && has "$_UIA" '^name: ui-designer-ko$' '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/ui\.md` 하나뿐이다' \
      '^## 받는 컨텍스트' '^## 작업 순서' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^### Important 의 자격 — 빈칸 증명' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
      '`찾은 곳:`' '`빈칸:`' 'Important 는 많아야 5건' '\*\*`## 확인 필요` 질문으로만\*\*' 'Critical 은 쓰지 않는다' '\*\*확인한 사실 위에서만 심각도를 매긴다\*\*' '\*\*Bash 행동계약\*\*' \
    && ! grep -q '^role: evaluator' "$_UIA" && grep -q 'agents/ .*← 16건 .*ui-designer' README.md && grep -qE '^\| ui-designer-ko .*\| opus · high \|' README.md \
    && _uia_rules_ok; then
-  ok "화면·UX 전문가 에이전트 — opus·high · 산출 파일 하나 · 빈칸 증명 · 핵심 규칙 8(근거) · 공통 원칙 4(출처) · Critical 없음 · README 16건·모델 표"
+  ok "화면·UX 전문가 에이전트 — opus·high · 산출 파일 하나 · 빈칸 증명 · 핵심 규칙 8(근거) · 공통 원칙 6(출처) · Critical 없음 · README 16건·모델 표"
 else
   nope "화면·UX 전문가 에이전트" "파일·frontmatter·빈칸 증명·핵심 규칙·공통 원칙·README 중 빠진 것이 있다"
 fi
@@ -855,7 +862,7 @@ if [ -n "$_l_s6" ] && [ -n "$_s65_body" ] && [ "$_l_s6" -lt "$_l_s65" ] \
         'spec §8 열린 질문으로 옮긴다' \
         '`acceptance-criteria\.md` · `intent\.md`' '가용 모델 override 로 다시 dispatch' '부모가 대신 검토하지 않는다' \
         '\| req-expert \| req-designer-ko \| 반영 \|' '\| req-expert \| - \| SKIP \| 데이터 표면 없음 \|' '\| req-expert \| req-designer-ko \| 산출 없음 \|' \
-   && printf '%s\n' "$_s65_ex" | grep -qE '^   - \*\*제외\*\*: `§batch` · `§lite`.* · `§유형: trivial` · promote\(`promote-fid`\) · foundation 은 부르지 않는다' \
+   && printf '%s\n' "$_s65_ex" | grep -qE '^   - \*\*제외\*\*: `§batch` · `§유형: trivial` · promote\(`promote-fid`\) · foundation 은 부르지 않는다' \
    && printf '%s\n' "$_s65_ex" | grep -qF '유지보수 분기는 부른다' \
    && ! printf '%s\n' "$_s65_body" | grep -q '§auto' \
    && ! printf '%s\n' "$_s65_body" | grep -vE '^   - \*\*제외\*\*:' | grep -E '(§batch|§lite|trivial|promote|foundation)' | grep -q '부른다' \
@@ -878,7 +885,7 @@ if [ -n "$_l_s65" ] && [ -n "$_l_s66" ] && [ -n "$_l_s7" ] && [ "$_l_s65" -lt "$
         'spec §8 열린 질문으로 옮긴다' \
         '이번에 만든·고친 `screens/<name>\.md`·`\.html` · `\.specops/<FID>/spec\.md` · `acceptance-criteria\.md` · `DESIGN\.md`\(있으면\)' '가용 모델 override 로 다시 dispatch' '부모가 대신 검토하지 않는다' \
         '\| ui-expert \| ui-designer-ko \| 반영 \|' '\| ui-expert \| - \| SKIP \| 화면 변경 없음 \|' '\| ui-expert \| ui-designer-ko \| 산출 없음 \|' \
-   && printf '%s\n' "$_s66_ex" | grep -qE '^   - \*\*제외\*\*: `§batch`.*Phase 2\.5 A2.* · `§lite`.* · `§유형: trivial` · foundation 셸 화면\(`<!-- foundation-shell -->`\)만 바꾼 경우는 부르지 않는다' \
+   && printf '%s\n' "$_s66_ex" | grep -qE '^   - \*\*제외\*\*: `§batch`.*Phase 2\.5 A2.* · `§유형: trivial` · foundation 셸 화면\(`<!-- foundation-shell -->`\)만 바꾼 경우는 부르지 않는다' \
    && printf '%s\n' "$_s66_ex" | grep -qF '화면 변경이 없으면 부르지 않고 SKIP 행을 남긴다' \
    && printf '%s\n' "$_s66_ex" | grep -qF '유지보수 분기는 부른다' \
    && ! printf '%s\n' "$_s66_body" | grep -q '§auto' \
@@ -1004,6 +1011,16 @@ if [ -n "$_l_cc" ] && [ -n "$_l_ts9" ] && [ -n "$_l_pr9" ] && [ "$_l_ts9" -lt "$
   ok "planning-ko 1회차 동시 dispatch — 테스트 전문가 < 이 절 < plan-reviewer · 동시 호출 · 한 번 반영 · 2회차는 1회차 Critical 일 때만(기계 판정) · 기록 · 하위 단계 3종"
 else
   nope "planning-ko 1회차 동시 dispatch" "위치(ts=$_l_ts9 cc=$_l_cc pr=$_l_pr9) 또는 없음:$_miss"
+fi
+
+# 통합 게이트 — 전부 skip 은 통과가 아니다 (20261114 소스 검토: "exit 0, skip 있음 → PASS 로 간주" 가 DB·서버가 없어
+#   통합 테스트가 전부 skip 된 실행도 PASS 로 적게 했다. verifying-evidence-ko 의 "0건 실행은 NOT_RUN" 과 모순이었다)
+_it="$PLUGIN/skills/integration-test-ko/SKILL.md"
+if grep -qF '전부 skip 이거나 실행된 테스트가 0건이면 PASS 로 적지 않는다' "$_it" \
+   && ! grep -qE '^\| exit 0, skip 있음 \| PASS로 간주\.' "$_it"; then
+  ok "integration-test-ko — 전부 skip·0건 실행은 PASS 가 아니다"
+else
+  nope "integration-test-ko 전부 skip" "문구 없음 또는 옛 'PASS로 간주' 줄 잔존"
 fi
 
 finish

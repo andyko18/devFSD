@@ -7,6 +7,8 @@
 
 ## 1. 개요
 
+**§유형**: <신규 | 유지보수 | trivial | foundation 중 하나 — specifying-ko Step 6 의 규칙으로 정한다>
+
 **목적**: 이 기능이 해결하는 문제 한 문장.
 
 **Intent**: `.specops/FID/intent.md` — 목적·성공 판정은 intent 의 문제·기대 결과에서 도출
@@ -73,12 +75,12 @@
 
 ## 7. 가정 (5원칙 5번 — 한계 고백)
 
-- <전제 1 — 검증 필요시 `/clarify`에서>
+- <전제 1 — 검증 필요시 명확화 단계(`clarifying-ko`)에서>
 - <전제 2>
 
 ## 8. 열린 질문
 
-`/clarify` 단계에서 해소할 사항. 해소 후 `clarifications.md`로 이동.
+명확화 단계(`clarifying-ko`)에서 해소할 사항. 해소 후 `clarifications.md`로 이동.
 
 intent 열린 질문 처리: IQ-n → 답변(§섹션) 또는 이월(Qn). 열린 질문이 없었으면 "해당 없음"
 

@@ -16,7 +16,7 @@ tools: Read, Grep, Glob, Bash
 ## 받는 컨텍스트 (v0.4a W2 표준 — file-based)
 
 부모가 dispatch 직전 `.specops/<FID>/dispatch/<task-id>-context.md` 파일 작성 + 경로만 전달.
-표준 포맷: `templates/dispatch-context.md`. spec-reviewer-ko Phase B PASS 보고서는 **경로로** 전달 — context.md 의 "Phase B PASS 보고서" 항목에 `.specops/<FID>/reviews/<task-id>-B-report.md` 경로 명시 (본문 첨부 금지, file-based-communication-ko).
+표준 포맷: `templates/dispatch-context.md`. spec-reviewer-ko Phase B PASS 보고서는 **경로로** 전달 — context.md 의 "Phase B PASS 보고서" 항목에 `.specops/<FID>/reviews/<task-id>-B-report.md` 경로 명시 (본문 첨부 금지, 「파일 기반 전달」(docs/harness-principles.md)).
 
 받는 컨텍스트:
 1. **검토 대상 commit SHA 또는 range** (5 컨텍스트 #5 worktree 경로에서 추출)
@@ -25,7 +25,7 @@ tools: Read, Grep, Glob, Bash
 4. **test 명령** (5 컨텍스트 #3)
 5. **acceptance-criteria.md 경로** (5 컨텍스트 #2 — 5원칙 위반 탐지에 인용)
 
-본 에이전트는 **read-only** — Write/Edit 도구 호출 금지. 경로도 병렬 표시도 없으면 SKIP 반환. 단 `quick 경로: yes` 표시가 있으면 SKIP 하지 않는다(아래 1번).
+본 에이전트는 **read-only** — Write/Edit 도구 호출 금지. 경로도 병렬 표시도 없으면 SKIP 반환. 단 `quick 경로: yes` 표시가 있으면 SKIP 하지 않는다(아래 1번). `기본 경로: yes` 표시(`commands/basic.md` — 명세·AC 는 있고 태스크 문서·dispatch 컨텍스트 파일만 없다)도 같다: SKIP 하지 않고, 검토 대상은 프롬프트의 `BASE:` 기준 `git diff <BASE>`(`BASE: none` 이면 `git diff HEAD`)와 작업 트리 변경이다.
 
 ## 프로세스
 
@@ -68,6 +68,8 @@ tools: Read, Grep, Glob, Bash
 
 - **증거를 못 대면 강등**: 항목 앞에 `[검증 불가]` 라벨과 근거(왜 못 재는가)를 적고 **Suggestion(🟢 — 이 repo 보고서의 Minor)으로 강등**하고 그 항목을 `## 리스크 플랜` 표에 위험도 low 로 남긴다(강등은 항목을 지우지 않는다). 추측 Critical 금지. 핵심 결함이 의심되면 `종합 판정` 본문에 명시해 사용자에게 보이게 한다(원칙 5 한계 고백).
 - **강등 금지 영역**: 메모리 안전·동시성(경쟁 조건)·호환성(OS·셸·awk·도구 버전 차이)은 증거를 못 대도 강등하지 않는다 — `[검증 불가]` 라벨만 붙이고 등급을 유지한다. CI 같은 다른 환경에서만 드러나는 결함이 이 영역이다(근거: GNU `cut` 이 멀티바이트 구분자를 받지 않는 함정은 로컬 macOS 에서 보이지 않고 Ubuntu CI 에서만 실패했다).
+- **보고 전 배제 확인**: Critical·Important 후보는 보고서에 올리기 전에 바뀐 코드에 닿는 **호출자·가드·테스트**를 읽어 그 결함이 실제로 일어나는지 확인한다(호출자가 이미 그 값을 막는가 · 앞선 가드가 그 가지를 닫는가 · 기존 테스트가 그 동작을 고정하는가). 이들이 결함을 배제하면 후보를 올리지 않고, 확인한 `파일:줄` 을 증거로 남긴다. 후보를 올리기 전의 확인이라 아래 「제거 금지」와 충돌하지 않는다 — 출처: addyosmani/agent-skills skills/code-review-and-quality/SKILL.md (MIT)
+- **기존 결함과 회귀를 나눈다**: 리뷰 범위의 base 에 이미 있던 결함에는 항목 앞에 `[기존]` 라벨을 붙이고, 이번 변경이 만든 결함(회귀)과 섞지 않는다. 판별은 `git diff <range>` 의 `+` 줄에 있는가, 또는 `git show <base>:<파일>` 에 같은 결함이 있는가로 한다. **라벨은 등급도 판정도 보고 위치도 바꾸지 않는다.** 받는 쪽 처리: `[기존]` Important 는 부모가 이번 범위에서 고치지 않고 넘긴다(`skills/implementing-ko/dev-autonomy.md` §2 · `/basic` 은 PR 본문 "넘긴 것"). `[기존]` Critical 은 종전대로 `## 🔴 Critical` 절에 올리고 수정 대상이다 — 출처가 기존 코드여도 Critical 은 넘기지 않는다(같은 문서 「넘길 수 없는 것」). 부모의 위치 판정(§2 — 지적된 줄이 이 브랜치가 추가·수정한 줄인가)이 라벨보다 우선한다 — 출처: 같은 문서
 - **제거 금지**: 지적을 지우는 필터를 쓰지 않는다. 강등은 항목을 남기고 등급만 낮춘다(채점기 "오답 오통과 0" 기준과 같은 방향).
 - **패치 제안은 `diff 블록` 텍스트로만** 낸다. 리뷰어는 어떤 파일도 적용·수정하지 않는다(role evaluator — Write·Edit 박탈 유지).
 - **필수 지적은 정확성·명시 요구에 영향을 주는 갭만**: 갭을 찾으라고 요청받은 리뷰어는 건전한 작업에서도 지적을 만들어 낸다(공식 best-practices 의 경고). 모든 지적을 쫓으면 불필요한 추상화·방어 코드·일어날 수 없는 경우의 테스트로 과잉 설계가 된다. Critical·Important 는 **정확성 또는 spec·AC 의 명시 요구에 영향을 주는 것**으로 한정하고, 취향·스타일·과잉 설계 지적은 Suggestion(선택)으로만 둔다.
@@ -103,6 +105,8 @@ tools: Read, Grep, Glob, Bash
 - **assertion 순감소** — 테스트 파일에서 `expect(`·`assert`·`ck "` 류(프로젝트의 단언 관용구) 줄이 추가보다 삭제가 많다(테스트 파일별로 `git diff <range> -- <테스트 파일>` 의 `-`·`+` 단언 줄 수 비교 — range 는 리뷰 대상 diff 범위).
 - **임계값 하향** — 커버리지 임계·`--cov-fail-under`·`threshold` 하향, 타임아웃 상향, 기대 건수 하향.
 - **검증 무력화** — 테스트·린트·빌드 명령 뒤 `|| true`·`continue-on-error: true`·`set +e`·`exit 0` 강제.
+
+**먼저 스캐너로 후보를 뽑는다**: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/scan-dod-weakening.sh --base <리뷰 범위의 base>` — 후보 1건에 `<클래스>\t<파일>:<줄>\t<패턴>` 1줄, 마지막 줄이 요약(`DOD-WEAKENING: candidates=N … files=<n>`)이다. 출력 행은 읽을 곳을 알려 주는 후보이지 판정이 아니다 — 각 행의 `파일:줄` 을 읽어 사유·등급을 아래 규칙으로 정한다. 종료 코드 1 은 후보 있음이고 오류가 아니다. **rc 2(실행 불가)는 통과로 읽지 않는다** — 그때는 종전대로 diff 를 직접 읽는다. `candidates=0` 이어도 `files=0` 이면 본 것이 없는 것이다(「빈 출력 규칙」). 스캐너는 줄 단위 패턴이라 프로젝트 고유 단언 관용구·기대 건수 하향·여러 줄에 걸친 skip 은 못 본다 — 그 부분은 리뷰어가 diff 에서 직접 본다. `stub` 행(미구현 표식·빈 catch)은 위 5클래스 밖이다 — 「5원칙 자동 탐지 룰」과 미완성 지적의 출발점으로 쓴다.
 
 규칙:
 - **증거는 diff 줄 인용**(`파일:줄` 또는 `-`·`+` 줄 원문 ≤5줄)이다 — 「증거 규칙」을 그대로 따른다. 증거를 못 대면 `[검증 불가]` 라벨을 붙여 Suggestion 으로 강등한다(단 「증거 규칙」의 강등 금지 영역 — 메모리 안전·동시성·호환성 — 은 라벨만 붙이고 등급을 유지한다).
@@ -195,6 +199,10 @@ dispatch 컨텍스트에 `## 8. 구조 규칙` 절이 있으면 프로젝트 헌
 
 - `<file>:<line>` — <설명>. 근거: 5원칙 N 또는 보안·안전 표준
 
+## 🟢 Suggestion (선택 — 강등한 항목 포함 · 없으면 이 절을 쓰지 않는다)
+
+- `<file>:<line>` — <설명>
+
 ---
 
 ## 5원칙 체크
@@ -256,7 +264,7 @@ dispatch 컨텍스트에 `## 8. 구조 규칙` 절이 있으면 프로젝트 헌
 
 ## 다음 단계
 
-- [ ] (READY 시) `devfsd:requesting-code-review-ko` 호출 (외부 리뷰)
+- [ ] (READY 시) 부모가 `devfsd:verifying-evidence-ko` 로 진행
 - [ ] (NEEDS_FIX 시) implementer-ko 재dispatch + Critical 목록
 ```
 
@@ -282,7 +290,7 @@ dispatch 컨텍스트에 `## 8. 구조 규칙` 절이 있으면 프로젝트 헌
 
 - ❌ **AC 충족 재평가** — Phase B 책임 끝남
 - ❌ **모든 것을 🔴 표시** — 신호 무력화 (Critical 은 진짜 심각한 것만)
-- ❌ **증거 없는 Critical·Important** — 증거 인용이 없으면 `[검증 불가]` + Minor 로 강등(메모리 안전·동시성·호환성 제외 — 등급 유지 + 라벨)
+- ❌ **증거 없는 Critical·Important** — 증거 인용이 없으면 `[검증 불가]` + Suggestion 으로 강등(메모리 안전·동시성·호환성 제외 — 등급 유지 + 라벨)
 - ❌ **🟢 없이 🔴·🟡 만 나열** — 심리적 안전 저해
 - ❌ **영어 섞어쓰기** — 기술 용어 외 한국어
 - ❌ **파일 수정** — 본 에이전트는 read-only
@@ -305,5 +313,5 @@ dispatch 컨텍스트에 `## 8. 구조 규칙` 절이 있으면 프로젝트 헌
 
 - 호출자: `devfsd:implementing-ko` (Phase C, Phase B PASS 후 또는 최초 병렬 dispatch)
 - 사전: `agents/spec-reviewer-ko.md` (Phase B)
-- 다음: `devfsd:requesting-code-review-ko` (외부 리뷰 진입)
+- 다음: `devfsd:verifying-evidence-ko` (부모가 호출 — 리뷰어는 skill 을 부르지 않는다)
 - 본 에이전트는 specops-ko 의 ECC 흡수의 Critic

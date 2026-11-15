@@ -55,13 +55,13 @@ if bash "$PLUGIN/scripts/_internal/check-propagation.sh" >/dev/null 2>&1; then o
 else nope "T3.b check-propagation"; fi
 
 # ── T4 부모 문서 공통 리터럴 (start-all · file-based-communication) ──
-for d in commands/start-all.md skills/file-based-communication-ko/SKILL.md; do
+for d in commands/start-all.md docs/harness-principles.md; do
   for lit in '판정 SoT = reviews 파일' 'report 부재 시 부모 fallback 저장' 'dispatch-log 행은 부모가 기록'; do
     if grep -qF "$lit" "$PLUGIN/$d"; then ok "T4.a $d · $lit"
     else nope "T4.a $d" "'$lit' 부재"; fi
   done
 done
-FBC="$PLUGIN/skills/file-based-communication-ko/SKILL.md"
+FBC="$PLUGIN/docs/harness-principles.md"
 if grep -qF '반환에 훅 요약이 없으면 파일 존재와 무관하게 덮어쓰기 저장' "$FBC"; then ok "T4.b file-based-communication-ko fallback 덮어쓰기 조건"
 else nope "T4.b file-based-communication-ko fallback 덮어쓰기 조건 부재"; fi
 # 프로필 한계 — standard·minimal 에서 is-hook-enabled 가 훅을 끈다 (사용자 결정: 현행 유지 + 한계 기록)

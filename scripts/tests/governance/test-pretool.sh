@@ -297,6 +297,45 @@ check "T36f compound bypass 무사유 → deny (사유 강제 보존)" 'SPECOPS_
 # T37 메시지 내 토큰 언급은 면제 안 됨 → deny (F-2 우발면제 차단)
 out=$(mkstdin 'git commit -m "docs SPECOPS_GOVERNANCE_BYPASS=1 flag"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T37 message token → deny" '"permissionDecision":"deny"' "$out"
+# T37b~e 우회 표식은 **실행되는 명령 자리**에서만 인정한다 (20261114 소스 검토 재현 — 종전엔 명령 원문에서 줄 단위로 찾아
+#   heredoc 본문·여러 줄 커밋 메시지 안의 한 줄로 게이트가 열렸다. 이 저장소는 우회 기능을 설명하는 커밋 메시지를 쓴다).
+_C37='git commit'
+out=$(mkstdin "$_C37 -F - <<EOF
+msg
+SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=notes
+EOF" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T37b ★ heredoc 메시지 본문의 우회 줄 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "$_C37 -m \"title
+SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=doc
+more\"" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T37c ★ 여러 줄 -m 메시지 안의 우회 줄 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=\"\" $_C37 -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T37d ★ 빈 사유(\"\") 는 사유가 아니다 → deny(사유 요구)" 'SPECOPS_BYPASS_REASON' "$out"
+check "T37d' 빈 사유 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='' $_C37 -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T37e 빈 사유('') → deny" '"permissionDecision":"deny"' "$out"
+# T-cq 주석 속 작은따옴표 (20261114 재현): 주석의 ' 가 인용을 열고 다른 주석의 ' 가 닫아, 사이의 실명령이 "인용 본문"으로
+#   지워져 트리거에서 사라졌다. 셸은 주석 안의 따옴표를 인용으로 보지 않는다.
+out=$(mkstdin "# don't forget
+$_C37 -m fix
+# it's done" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-cq.a ★ 주석 따옴표 둘 사이의 커밋 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "echo hello # isn't it
+$_C37 -m fix # wasn't" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-cq.b 줄 끝 주석 따옴표 둘 사이의 커밋 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "# don't forget
+ls -la
+# it's done" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-cq.c 대조: 주석 따옴표 사이에 커밋이 없으면 allow" '"continue":true' "$out"
+out=$(mkstdin "printf '%s\n' \"배포 후 (git commit 으로 기록) # 메모\" 'it''s'" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-cq.d 대조: 인용 문자열 안의 # 는 주석이 아니다 — 인용 본문 프로즈는 종전대로 allow" '"continue":true' "$out"
+out=$(mkstdin "echo \${x#y} \$# a#b; printf '%s' '(git commit 으로 기록)'" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T-cq.e 대조: 낱말 중간의 # (\${x#y}·\$#·a#b)는 주석이 아니다 — 뒤 인용 본문은 종전대로 지워진다" '"continue":true' "$out"
+# T-ev 값이 빈 env 접두 (20261114 재현): `FOO= git commit` 은 접두로 인식되지 않아 트리거가 빗나갔다.
+for _pre in 'FOO=' 'GIT_EDITOR=' 'env FOO=' 'A= B=x'; do
+  out=$(mkstdin "$_pre $_C37 -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+  check "T-ev ★ 빈 값 env 접두 [$_pre] → deny" '"permissionDecision":"deny"' "$out"
+done
 
 # T38~T39 통합 wiring (F-1) — transcript 에 verify skill 부재(lookback 밖 시뮬)인 상태에서
 # session-progress 의 /verify PASS 자기보고가 어떻게 취급되는지.

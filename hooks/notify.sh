@@ -13,7 +13,7 @@ bash "$plugin_root/scripts/_internal/is-hook-enabled.sh" notify >/dev/null 2>&1 
 command -v jq >/dev/null 2>&1 || exit 0
 
 input=$(cat 2>/dev/null || true)
-matcher=$(printf '%s' "$input" | jq -r '.matcher // empty' 2>/dev/null || true)
+matcher=$(printf '%s' "$input" | jq -r '.notification_type // .matcher // empty' 2>/dev/null || true)
 cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
 
 case "$matcher" in

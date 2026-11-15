@@ -166,7 +166,10 @@ _is_cmd_pos_env() {
 #   REASON='...' git commit`(compound)·`B() { BYPASS=1 ...; }`(wrapper) 가 ^줄시작 앵커에 걸려 사유까지
 #   정직 병기한 우회가 false-deny 됐다. 단순 공백 선행(메시지 내 토큰 언급, T37)은 여전히 불인정.
 _reason_val="('[^']*'|\"[^\"]*\"|[^[:space:]]+)"
-if _is_cmd_pos_env "$tool_cmd" "SPECOPS_GOVERNANCE_BYPASS=1" \
+#   표식은 **인용·heredoc 본문을 걷어 낸 문자열**에서 찾는다 (20261114) — 종전엔 명령 원문에서 줄 단위로 찾아
+#   heredoc 본문·여러 줄 커밋 메시지 안의 한 줄(우회 기능을 설명하는 메시지)로 게이트가 열리고 가짜 우회 기록이 쌓였다.
+#   사유 값의 따옴표 본문은 걷히고 따옴표만 남으므로(REASON=\047\047) 사유의 유무는 원문에서 따로 본다.
+if _is_cmd_pos_env "$tool_cmd_scan" "SPECOPS_GOVERNANCE_BYPASS=1" \
      "(SPECOPS_BYPASS_REASON=${_reason_val}[[:space:]]+)?"; then
   # 메시지 오염 가드 (dogfood 20260717 test2 61f9e0d "BYPASS fix: ..."): 우회 표식이 git 히스토리에
   #   유입되면 conventional commit(릴리즈 노트·검색)이 훼손된다. 우회 기록은 REASON+friction-log 담당.
@@ -177,7 +180,9 @@ if _is_cmd_pos_env "$tool_cmd" "SPECOPS_GOVERNANCE_BYPASS=1" \
       '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
     exit 0
   fi
-  if grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]" <<< "$tool_cmd"; then
+  # 빈 사유("" · \047\047)는 사유가 아니다 — 종전 정규식은 따옴표 두 글자를 사유로 받았다.
+  if grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=[^[:space:]]" <<< "$tool_cmd_scan" \
+     && ! grep -Eq "(^|[[:space:]])SPECOPS_BYPASS_REASON=(''|\"\")([[:space:]]|\$)" <<< "$tool_cmd"; then
     # 인라인 우회도 수율 계측에 남긴다(사유 원문은 friction-log / 명령 원문 쪽).
     if [ -d ".specops" ]; then
       _bypass_fid=$(detect_fid 2>/dev/null || echo "")
@@ -424,7 +429,8 @@ if [ -n "$violation" ]; then
     _bg_hint=""
     _evidence_hint="✘ ① 명령이 다른 작업 트리로 옮겨 커밋합니다 — 이 판정이 보는 검증 기록(프로젝트 폴더의 FID ${fid:-<FID>})은 옮겨 간 곳의 변경을 검증한 것이 아니므로 그 기록으로 열지 않습니다.
    이동 위치를 확인하지 못한 경우(인용·변수·명령치환으로 쓴 경로, git 이 아닌 도구의 -C 포함)도 같은 판정입니다.
-   그 폴더로 셸을 옮긴 뒤(\`cd\` 를 별도 호출로) 맨 \`git commit\` 을 쓰면 그곳 기준으로 판정됩니다 — 그 폴더의 기록에서 검증이 유효해야 열립니다."
+   그 폴더로 셸을 옮긴 뒤(\`cd\` 를 별도 호출로) 맨 \`git commit\` 을 쓰면 그곳 기준으로 판정됩니다 — 그 폴더의 기록에서 검증이 유효해야 열립니다.
+   서브에이전트처럼 호출마다 셸 위치가 초기화돼 \`cd\` 를 따로 낼 수 없고 대상이 **자기 임시 저장소**(mktemp 폴더 — 리뷰·재현용 복사본)라면: 그 저장소의 git 단계를 자기 임시 폴더 안의 스크립트 파일로 쓰고 \`bash <그 파일>\` 로 실행하세요. 이 저장소(프로젝트 폴더)의 커밋은 이 방법으로 하지 않습니다."
   elif [ -n "${_stale_cause:-}" ]; then
     _evidence_hint="① 실행 증거가 **stale** 입니다 — 러너는 이 세션에서 PASS 했으나 그 뒤 코드가 수정됐습니다.
    마지막 수정: ${_stale_cause#stale }

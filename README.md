@@ -4,7 +4,7 @@
 
 # devFSD
 
-**개발 자율주행(devFSD) — Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v4.0.6)
+**개발 자율주행(devFSD) — Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v5.4.3)
 
 > 감독형 자율주행이다 — 설계 승인과 PR 병합은 사람이 한다. (이전 이름 specops-ko)
 
@@ -13,7 +13,7 @@
 [![license: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 ![Claude Code only](https://img.shields.io/badge/Claude%20Code-only-8957e5)
 
-슬래시 1회 또는 자연어 1회로 **spec → clarify → plan → decompose → TDD implement → verify → review → security → integration-test → performance-test → PR** 전 단계를 자동으로 이어서 진행한다.
+슬래시 1회 또는 자연어 1회로 **spec → clarify → plan → decompose → TDD implement(끝에 스펙·코드 리뷰) → verify → security → integration-test → performance-test → PR** 전 단계를 자동으로 이어서 진행한다.
 한글로는 **명세 → 명확화 → 계획 → 분해 → TDD 구현 → 검증 → 리뷰 → 보안 → 통합 테스트 → 성능 테스트 → PR** 이다.
 
 ## 왜 쓰나
@@ -26,7 +26,7 @@ LLM 에이전트에게 개발을 맡길 때 반복되는 실패를, 프롬프트
 | 🧠 세션이 끊기면 맥락이 사라진다 | 📁 **파일이 기억한다** — 모든 산출물은 `.specops/<FID>/` 에 남는다. 세션이 끊겨도 파일만 읽고 이어간다 |
 | 🙈 검증하지 않고 "다 됐다"고 말한다 | ✅ **주장은 증거로만** — verify 없이 `git commit`·`gh pr create` 하면 훅이 실행 전에 차단한다 (`.specops/` 가 있는 repo 에서) |
 | 🔍 한 사람(한 리뷰어)이 모든 분야를 놓치지 않고 보기 어렵다 | 🧑‍🔬 **분야 전문가 7종** — 요구사항·화면·DB·구조·API·보안·테스트를 그 분야만 보는 별도 패스가 다시 본다. [전문가 패스](#전문가-패스) 참조 |
-| 🙋 확인 요청이 너무 잦다 | 🗳️ **질문 묶음 최대 2회 + 승인 1회** — 설계가 끝나면 한 번에 승인받고 PR 직전까지 멈추지 않는다(만든 결과는 PR 질문 앞에 화면·실행 출력으로 보여 준다 — 따로 멈추지 않는다). 단계마다 확인하려면 `--step` 을 붙인다 |
+| 🙋 확인 요청이 너무 잦다 | 🗳️ **질문 묶음 최대 2회 + 승인 1회** — 설계가 끝나면 한 번에 승인받고 **PR 생성까지** 멈추지 않는다(만든 결과는 PR 앞에 화면·실행 출력으로 보여 준다 · 사용자가 보는 결과가 바뀐 작업은 초안 PR 로 만들고 확인을 청한다 · 머지는 자동으로 하지 않는다). 단계마다 확인하려면 `--step` 을 붙인다 |
 
 ```mermaid
 flowchart LR
@@ -34,7 +34,7 @@ flowchart LR
     B --> C["명세 → 명확화 → 계획<br/>질문 묶음 최대 2회 · 승인 1회"]
     C --> D["분해 → TDD 구현<br/>태스크별 fresh 서브에이전트"]
     D --> E["검증 → 리뷰 → 보안·통합·성능"]
-    E --> F["★ PR 생성? y/n"]
+    E --> F["PR 생성 (승인에 포함)<br/>★ 머지는 사용자가"]
     classDef gate fill:#ddf4ff,stroke:#0969da,color:#0b3d91
     class C,F gate
 ```
@@ -91,19 +91,18 @@ claude plugin install devfsd@devfsd
 | 슬래시 | 용도 |
 |---|---|
 | `/init-project` | 프로젝트 초기화 — 표준 산출물 14종(풀스택 기준 · 종류·선택별 7~14종) 부트스트랩 (1회) |
-| **`/start`** | 신규 기능 1건. 위험 신호(인증·권한 · DB 스키마 · 데이터 삭제·이관 · API 응답 형태 · 되돌릴 수 없는 외부 작업)를 스크립트가 판정해 **없으면 기본 경로**(spec 1장 승인 → 주 세션 직접 구현 → 스펙·코드 리뷰 + 보안 스캔 동시 1회 → 검증 1회 → PR), **있으면 풀 경로**(설계 문서·plan 리뷰·전문가 검토·게이트 3종)를 고르고 어느 쪽인지 1줄로 알린다. `--full` 은 무조건 풀 |
+| **`/start`** | 신규 기능 1건. 위험 신호(인증·권한 · DB 스키마 · 데이터 삭제·이관 · API 응답 형태 · 되돌릴 수 없는 외부 작업)를 스크립트가 판정해 **없으면 기본 경로**(spec 1장 승인 → 주 세션 직접 구현 → 스펙·코드 리뷰 + 보안 스캔 동시 1회 → 검증 1회 → PR), 가벼운 신호(인증·권한 · DB 스키마 · API 계약)면 **기본 경로 안에서 단계를 켜고**(유지보수 분석 문서 · 결정만 적은 계획 · 그 신호의 전문가 1종), 무거운 신호(데이터 삭제·이관 · 되돌릴 수 없는 외부 작업 · 결제·개인정보 · 파일 삭제·배포)거나 태스크 4개 이상이면 **풀 경로**(설계 문서·plan 리뷰·전문가 검토·게이트 3종)로 가고 어느 쪽인지 1줄로 알린다. `--full` 은 무조건 풀 |
 | **`/maintain`** | 기존 코드 수정. 같은 판정 — 기본 경로는 spec 1장에 현재 동작과 "기존 동작 유지" 수용 기준(`AC-R-1`)을 받고, 풀 경로는 영향 분석을 먼저 한다 |
 | **`/quick-fix`** | 몇 줄짜리 수정 — 명세·분해 문서 없이 테스트 실행 + 코드 리뷰 1회. 크기 상한과 고위험 신호를 커밋 때 훅이 판정하고, 넘으면 `/maintain` 으로 간다 |
 | `/start-foundation` | 공통부(라우팅·인증·레이아웃·공통 스키마) 먼저 개발 (1회) |
 | `/start-all` · `/start-all-auto` | `requirements.md` FR 표 전체 일괄 구현 (`-auto` 는 무인 — 가역 게이트 자동 통과, batch PR만 확인). 갈래 자동 고르기는 적용하지 않는다(종전 풀 경로) |
 | `/basic` | 기본 경로를 직접 지정(`/start`·`/maintain` 이 자동으로 고르는 그 경로). 진행 중 위험 신호가 나오면 만든 spec·코드를 들고 풀 경로로 올라간다 |
-| `/start-lite` · `/maintain-lite` | `/start`·`/maintain` 의 별칭 — **다음 메이저에서 제거**(실행하면 그 고지가 나온다) |
 | `/brainstorming` | (선택) 구현 전 아이디어 탐색 |
 | `/design-screen(s)` · `/design-interface(s)` | lifecycle 밖 화면·인터페이스 단발 설계 |
 
 **갈래 자동 고르기**: `/start`·`/maintain` 과 자연어 진입("X 만들어줘"·"Y 고쳐줘")은 같은 스크립트 판정(`scripts/basic-path.sh route`)을 거친다 — 모델이 "가벼워 보인다"로 고르지 않는다. 애매하면 풀이고, `--step` 을 붙여도 풀이다. 실측(20261112 · 기계 시간): 기본 경로 42분(원인 조사 15분 포함)·12분, 풀 경로 149~157분 — 표본은 기본 2건이고 자동 분기·승격의 실제 주행은 아직 재지 않았다.
 
-**풀 경로의 기본 동작**: `/start`·`/maintain` 과 자연어 진입은 질문을 최대 2회 묶음으로 받고 intent·설계·스펙·화면·IF·답변을 **한 번에 승인**받은 뒤 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 은 그대로 멈춘다). 지금까지처럼 단계마다 확인하려면 `--step` 을 붙인다 — 예: `/start --step CSV 줄 수 세기 CLI`. `/start-all` 도 같다 — 질문은 체인 전·Phase 1 끝 묶음 2회, 승인은 설계 승인(2.5-E) 1회(`/start-all --step` 은 지금처럼).
+**풀 경로의 기본 동작**: `/start`·`/maintain` 과 자연어 진입은 질문을 최대 2회 묶음으로 받고 intent·설계·스펙·화면·IF·답변을 **한 번에 승인**받은 뒤 PR 생성까지 멈추지 않는다 — 승인 묶음이 PR 생성을 싣는다(머지는 자동으로 하지 않는다 · 예전처럼 PR 앞에서 묻게 하려면 `.specops/config.yaml` 에 `pr_gate: ask`)(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 은 그대로 멈춘다). 지금까지처럼 단계마다 확인하려면 `--step` 을 붙인다 — 예: `/start --step CSV 줄 수 세기 CLI`. `/start-all` 도 같다 — 질문은 체인 전·Phase 1 끝 묶음 2회, 승인은 설계 승인(2.5-E) 1회(`/start-all --step` 은 지금처럼).
 
 **어느 걸 고를까**
 
@@ -144,11 +143,11 @@ flowchart TD
     DEC --> IMP["implementing-ko (구현)<br/>태스크별 fresh dispatch · DAG 병렬<br/>Phase B spec-reviewer-ko · Phase C code-reviewer-ko"]
     IMP --> VER["verifying-evidence-ko (검증)<br/>evidence.md"]
     VER --> SEC["게이트 사전 판정 → security-review-ko → integration-test-ko → performance-test-ko<br/>해당 표면 없으면 skill 을 부르지 않고 SKIP 기록"]
-    SEC --> PR["PR 생성? y/n → finishing-a-development-branch-ko"]:::gate
+    SEC --> PR["데모 → PR 생성 (승인에 포함)<br/>머지는 사용자가 → finishing-a-development-branch-ko"]:::gate
     classDef gate fill:#ddf4ff,stroke:#0969da,color:#0b3d91
 ```
 
-사람이 개입하는 곳은 질문 묶음(최대 2회)·승인 묶음(1회)·PR 이다. `--step` 이면 단계마다 확인한다.
+사람이 개입하는 곳은 질문 묶음(최대 2회)·승인 묶음(1회)·머지다(무인 `/start-all-auto` 와 `--step` 은 PR 앞에서도 묻는다). `--step` 이면 단계마다 확인한다.
 
 **전체 흐름에서 그래도 멈추는 곳**
 
@@ -160,10 +159,10 @@ flowchart TD
 - 실행 환경 없는 게이트
 - FID 10태스크 이상 분할
 - verify 재시도 뒤 남은 실패
-- PR
+- 머지(PR 생성은 승인에 들어 있다 — 무인 `/start-all-auto`·`--step` 은 PR 앞에서도 묻는다)
 
 
-**질문은 설계에서, 개발은 묻지 않고** — 구현부터 PR 직전까지는 사용자에게 묻지 않는다(만든 결과는 PR 질문에서 함께 보여 준다). 실 DB 적재·외부 API 호출처럼 미리 알 수 있는 작업은 구현 시작 전에 **한 번에** 승인받고, 리뷰 지적은 승인받은 계약(AC·spec) 안이면 고치고 밖이면 다음 작업으로 넘긴다. 묻지 않고 정한 것은 전부 `.specops/<FID>/dev-decisions.md` 에 남아 PR 질문 직전에 한 번에 보고된다(넘긴 것은 PR 본문에도 실린다). 그래도 멈추는 것은 예상 못 한 비가역 작업 · 재시도 뒤에도 남은 치명 결함 · 리뷰어가 절충 선택을 요구한 경우뿐이다 — `skills/implementing-ko/dev-autonomy.md`.
+**질문은 설계에서, 개발은 묻지 않고** — 구현부터 PR 직전까지는 사용자에게 묻지 않는다(만든 결과는 PR 앞에서 보여 준다 — 사용자가 보는 결과가 바뀌었으면 초안 PR 로 만들고 확인을 청한다). 실 DB 적재·외부 API 호출처럼 미리 알 수 있는 작업은 구현 시작 전에 **한 번에** 승인받고, 리뷰 지적은 승인받은 계약(AC·spec) 안이면 고치고 밖이면 다음 작업으로 넘긴다. 묻지 않고 정한 것은 전부 `.specops/<FID>/dev-decisions.md` 에 남아 PR 생성 직전 끝 보고에 한 번에 보인다(넘긴 것은 PR 본문에도 실린다). 그래도 멈추는 것은 예상 못 한 비가역 작업 · 재시도 뒤에도 남은 치명 결함 · 리뷰어가 절충 선택을 요구한 경우뿐이다 — `skills/implementing-ko/dev-autonomy.md`.
 
 **Generator ↔ Evaluator 분리** — 구현체(`implementer-ko`)와 평가자(`spec-reviewer-ko` · `code-reviewer-ko`)를 다른 서브에이전트로 나눠 자기평가 편향을 막는다. Evaluator 는 `role: evaluator` 로 Write/Edit 가 박탈된다. 기본 `review_mode: end-loaded` (FID 단위 B×1 + C×1), 레거시는 `per-task`.
 
@@ -196,7 +195,7 @@ flowchart LR
 
 - 발동하지 않으면 부르지 않는다.
 - 지적은 반영 또는 기각을 `experts/<분야>.md` 끝에 1줄씩 적는다.
-- `§lite`·trivial 은 부르지 않는다.
+- trivial 은 부르지 않는다.
 - `/start-all`(batch) 에서는 계획 단계 5종이 돌지 않고 화면 전문가만 Phase 2.5 에서 batch 당 1회 돈다. 요구사항 전문가는 batch·promote·foundation 에서도 부르지 않는다.
 
 **측정의 한계** — 실제 하류 프로젝트의 계획·명세 2건 × 3회, 결함 없는 대조군 3회, 에이전트 본문만 주입해 잰 소표본이다. DB 는 시간 초과 1회를 빼 5회 분모이고, 대조군은 결함을 채워 보강한 뒤 2/3 통과했다. 수치의 출처는 `CHANGELOG.md` 의 각 전문가 항목이다.
@@ -266,7 +265,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | security-designer-ko (보안 설계 전문가) | opus · high | 인가·신뢰 경계 결함은 코드 뒤 스캐너가 못 잡는다 — 인증·인가·입력 경계·개인정보를 다루는 계획만 집중 검토 |
 | test-designer-ko (테스트 설계 전문가) | opus · high | 계획 리뷰를 통과한 테스트가 틀린 구현도 통과시킨다 — 테스트를 만들거나 고치는 계획의 검증력을 집중 검토 |
 | comprehension-reviewer-ko (이해 검사 리뷰어) | sonnet · high | 문서만 읽는 처음 보는 독자의 재진술은 깊은 추론보다 역할 격리가 핵심이다 — plan 1회차에서 경고(Minor)만 낸다 |
-| red-team-ko · blue-team-ko · auditor-ko | 세션 모델 계승 | 드문 self-config 감사 |
+| red-team-ko · blue-team-ko · auditor-ko | 세션 모델 계승 — 단 `/security-scan --self-config` 가 호출할 때 sonnet 으로 낮춘다 | 드문 self-config 감사 |
 
 외부 critic(`scripts/critic-ask.sh`)도 기본 opus, fallback sonnet 이다(`CRITIC_CLAUDE_MODEL`·`CRITIC_CLAUDE_FALLBACK` 로 변경).
 
@@ -302,7 +301,8 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 - **`jq` 가 없으면 훅이 전면 fail-open** — 에러 없이 R-1~R-5 차단·감사가 꺼진다. 설치 직후 `/doctor` 의 `deps` 항목으로 확인한다.
 - **기본 설치(`user` 범위)는 모든 repo 의 세션 시작에 메타 스킬을 주입한다** — 일부 repo 에서만 쓰려면 `claude plugin install devfsd@devfsd --scope project`(또는 `local`)로 설치한다.
 - **산출물은 기본적으로 로컬이다** — `intent.md` 만 커밋되고 spec·plan·evidence·리뷰는 저장소에 올라가지 않아 PR 리뷰어가 볼 수 없다.
-- **풀 경로는 구현 구간을 새 세션에서 돌린다** — `/start`·`/maintain` 은 태스크 분해 뒤 구현~성능 게이트를 대화 맥락이 빈 자식 세션(`claude -p`)에 맡기고 결과만 받아 PR 게이트로 간다(사용자 동작 없음 · 진행은 `bash scripts/split-session.sh status <FID>`). 자식은 사용자의 권한 설정을 그대로 따르고 권한 건너뛰기 옵션은 쓰지 않는다 — 기본 권한 모드가 auto 가 아니면 나누지 않고 종전대로 한 세션에서 한다. 끄기: `--no-split` · `.specops/config.yaml` 의 `session_split.enabled: false`. `/basic`·`-lite`·`/quick-fix`·`/start-all` 은 나누지 않는다.
+- **풀 경로는 구현 구간을 새 세션에서 돌린다** — `/start`·`/maintain` 은 태스크 분해 뒤 구현~성능 게이트를 대화 맥락이 빈 자식 세션(`claude -p`)에 맡기고 결과만 받아 PR 게이트로 간다(사용자 동작 없음 · 진행은 `bash scripts/split-session.sh status <FID>`). 자식은 사용자의 권한 설정을 그대로 따르고 권한 건너뛰기 옵션은 쓰지 않는다 — 기본 권한 모드가 auto 가 아니면 나누지 않고 종전대로 한 세션에서 한다. 끄기: `--no-split` · `.specops/config.yaml` 의 `session_split.enabled: false`. `/basic`·`/quick-fix`·`/start-all` 은 나누지 않는다.
+- **작업을 마치면 다음 작업은 새 세션에서 하라고 1줄 알린다** — PR 을 만든 뒤 끝 보고 마지막 줄에 지금 대화 크기와 함께(`SESSION-NEXT:`). `/start`·`/maintain` 을 이미 작업을 끝낸 대화에서 다시 시작하면 시작할 때도 1줄 알린다(새 세션의 첫 작업에는 알리지 않는다). 둘 다 묻지도 막지도 않는다 — 같은 대화에서 이어 가면 커진 대화를 호출마다 다시 읽는다(하류 실측: 비용의 약 51%). 끄기: `.specops/config.yaml` 의 `session_split.warn_context_tokens: 0`.
 - **한 건에 걸리는 시간** — FID 1건(spec → verify) 중앙값 약 2시간, p90 약 7.6시간 — **속도 개선(v2.32~2.36: 승인 1회·리뷰 병렬·전문가 동시 실행) 전** 측정이다. 개선 뒤 수치는 아직 재지 않았다.
 
 ---
@@ -333,11 +333,11 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 ```
 devFSD/
 ├── .claude-plugin/     plugin.json · marketplace.json
-├── commands/           슬래시 진입로 26건
+├── commands/           슬래시 진입로 24건
 ├── hooks/              SessionStart · PreToolUse · PostToolUse · Stop · Notification
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
-├── skills/             flat: skills/<name>/SKILL.md × 31
-│                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 Harness(원칙)
+├── skills/             flat: skills/<name>/SKILL.md × 26
+│                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 E2E (원칙 5종은 docs/harness-principles.md)
 ├── agents/             ← 16건  implementer · req-designer · ui-designer · db-designer · arch-designer · api-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
 │                              design-reviewer · comprehension-reviewer · red-team · blue-team · auditor
 ├── templates/          ← 41건 (lifecycle 21 + /init-project 산출 14 + 기타 6)
@@ -392,4 +392,4 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 
 ---
 
-*초기화: 2026-04-21 · v1.0.0 릴리즈: 2026-04-26 · **최신: v4.0.6 (2026-11-13)** · Claude Code 전용*
+*초기화: 2026-04-21 · v1.0.0 릴리즈: 2026-04-26 · **최신: v5.4.3 (2026-11-15)** · Claude Code 전용*

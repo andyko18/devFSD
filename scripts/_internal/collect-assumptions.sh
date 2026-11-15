@@ -37,7 +37,7 @@ fids=$(awk -F'|' "$QUEUE_AWK_QNORM"'
 
 echo "# 가정 다이제스트 — $(basename "$BATCH_DIR")"
 echo ""
-echo "> `/start-all-auto` 무인 진행 중 **사용자 확인 없이** 확정된 항목 전체."
+echo '> `/start-all-auto` 무인 진행 중 **사용자 확인 없이** 확정된 항목 전체.'   # 작은따옴표 — 큰따옴표 안의 백틱은 명령으로 실행됐다(20261115)
 echo "> 집계기: collect-assumptions.sh (수기 집계 금지 — 과소보고 차단)"
 echo ""
 

@@ -4,7 +4,7 @@
 # <PROJECT_NAME> 테스트 전략
 
 > 한국 SI 표준 "테스트 CASE" 의 전사 정책. `/init-project` Phase 8h 가 1회 생성.
-> 기능별 테스트 CASE 는 `.specops/<FID>/acceptance-criteria.md` 가 흡수 (sprint-contracts-ko 계약).
+> 기능별 테스트 CASE 는 `.specops/<FID>/acceptance-criteria.md` 가 흡수 (「스프린트 계약」(docs/harness-principles.md) 계약).
 
 ## 1. 테스트 피라미드 정책
 
@@ -43,7 +43,7 @@ CI 가 PR 마다 커버리지 측정. 신규 코드 커버리지 기준: <신규
 
 ## 4. 회귀 테스트 정책
 
-specops-ko sprint-contracts-ko 와 연동:
+specops-ko 「스프린트 계약」(docs/harness-principles.md) 와 연동:
 
 - **유지보수 FID** (`/maintain` 진입): `acceptance-criteria.md` 의 `## 회귀 방지 AC (유지보수 FID 필수)` 섹션에 `AC-R-N` ≥ 1 강제
 - 회귀 AC 미작성 시 sprint-contracts evaluator 가 `verdict = BLOCK`

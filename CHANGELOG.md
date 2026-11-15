@@ -8,6 +8,280 @@
 
 - **리뷰어·skill 이 플러그인 스크립트를 저장소 상대 경로로 받아 하류에서 경로를 짐작하던 것.** `agents/design-reviewer-ko.md` 가 화면 품질 계측기를 `scripts/_internal/check-screen-quality.sh` 로 적어, 플러그인이 설치만 된 프로젝트에서는 그 파일이 없었다(실측 2026-11-13: 리뷰어가 플러그인 캐시를 찾아 실행했다 — 못 찾으면 계측 없이 판정한다). 같은 표기 12곳을 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/…` 로 고쳤다: `design-reviewer-ko`(계측기 · `ui-probe.cjs --rules`) · `gbrain-ko`(연계 유틸 표 4행 · 직접 호출 안내) · `security-review-ko` · `performance-test-ko` · `commands/status.md` · `commands/gbrain.md`(마찰 집계 단계) · `commands/init-project.md`(팔레트 재주입의 `lib.sh`). Read 로 읽히는 보조 문서 2곳(`using-specops-ko/guardrails.md` · `specifying-ko/basic-promote.md`)은 그 변수가 치환되지 않아 접두를 붙이지 않고, 명령처럼 보이던 표기만 풀었다(`scripts/basic-path.sh` 의 `route`). `check-plugin-paths.sh` 가 이 형태를 넷째 표면으로 잡는다 — 백틱이 plugin 상대 스크립트 경로로 시작하고 백틱 안에 인자가 붙었거나(명령 형태) 닫는 백틱 바로 뒤(12바이트 안)에 실행·호출이 오는 표기이고, 로케일과 무관하게 바이트로 센다. 종전 검사는 `bash|source` 가 앞에 있을 때만 봤다. 인자도 실행 동사도 없는 설명용 언급(`판정 SoT = scripts/…`)은 종전대로 대상이 아니고 그대로 남아 있다. 알려진 한계: 바로 뒤의 "실행하지 않는다"·"실행 결과" 도 걸리고(접두를 붙이면 풀린다), `x.sh 를 Bash 로 돌린다`·코드 펜스 속 맨 경로·`templates/…` 열람 표기는 보지 않는다.
 
+## [5.4.3] — 2026-11-15
+
+### Changed
+
+- **설계 전문가 7개가 자기 검토 파일을 Edit 로 고친다**(`agents/*-designer-ko.md` — api·arch·db·req·security·test·ui). 도구가 Write 뿐이라, 검토 파일(`experts/<분야>.md`)을 다시 고칠 때마다 파일 전체를 새로 썼다. 풀 경로 재주행(20261115 · v5.4.2)에서 `test-designer-ko` 가 10~11KB 파일을 세 번 통째로 다시 써 176초를 썼고, 동시에 도는 전문가 가운데 혼자 9.6분(다음 최장 2.9분)으로 계획 단계의 임계 경로가 됐다. 쓸 수 있는 파일은 그대로 자기 검토 파일 하나다(이미 Write 가 있어 권한은 넓어지지 않는다). 처음 한 번은 Write, 다시 고칠 때는 Edit 로 바뀌는 곳만 고친다.
+
+## [5.4.2] — 2026-11-15
+
+### Fixed
+
+풀 경로 실주행(20261115 · v5.4.1) — 같은 희생용 하류 프로젝트(Gradle · `develop` · 한글·공백 경로 · 하위 폴더 `backend/` 에서 세션 시작)에서 `/start` 풀 경로를 실제 세션으로 PR 직전까지 돌려 나온 2건. 주행: 23.5분 · 사람 입력 1회(승인) · 분리 자식 세션 정상 완료.
+
+- **한글 파일 이름을 커밋해도 태스크 영수증이 맞는다**(`scripts/_internal/check-task-receipt.sh` · `scripts/quick-fix.sh` · `hooks/freecomment-capture.sh`). git 기본값(`core.quotepath` 켜짐)은 비ASCII 경로를 `"docs/\354…"` 로 이스케이프해 내서, 영수증의 실제 경로와 어긋나 커밋이 "staged outside outputs" 로 막혔다 — 구현 세션은 **사용자 저장소의 `core.quotepath` 를 꺼서** 통과했다. 세 곳이 경로 목록을 `-c core.quotePath=false` 로 받는다(quick 봉인이 적는 outputs · 자유작업 포착의 변경 목록도 같은 모양이 된다).
+- **단계 소요 계측이 하위 폴더에서 연 세션을 읽는다**(`scripts/stage-timing.sh --split`). 저장소 최상위·worktree 경로로 인코딩된 세션 디렉토리만 읽어, `backend/` 에서 연 주 세션 16분이 전부 "기타" 로 빠졌다. 루트 인코딩 이름 뒤에 `-<하위 경로>` 가 붙은 디렉토리 중 세션 기록의 `cwd` 가 작업 트리 안인 것만 더한다(이름 앞부분이 같은 이웃 폴더는 넣지 않는다).
+
+## [5.4.1] — 2026-11-15
+
+### Fixed
+
+실주행(20261115 · v5.4.0) — 희생용 하류 프로젝트(Gradle · 기본 브랜치 `develop` · 한글·공백 경로 · `git init` + `git remote add` · 하위 폴더 `backend/` 에서 세션 시작)에서 `/start` 기본 경로를 실제 세션으로 끝까지 돌려 나온 2건.
+
+- **세션을 하위 폴더에서 열어도 리뷰 보고서가 저장된다**(`scripts/_internal/specops-root.sh` 새 `_sr_top_dir` · `specops_root_dir`). 리뷰 저장 훅(`hooks/save-review-report.sh`)은 훅 입력의 cwd 아래 `.specops` 만 보았다 — 세션을 `backend/` 에서 열면 "FID 디렉터리 없음" 으로 저장을 건너뛰었고, 부모가 요약본을 손으로 써서 봉인을 통과했다(리뷰어 원문이 남지 않는다). cwd 에 `.specops` 가 없고 작업 트리 최상위에 있으면 최상위를 쓴다. 하위 폴더에 자기 `.specops` 가 있으면 종전대로 그곳이다.
+- **`origin/HEAD` 가 없는 저장소에서도 작업 브랜치를 만든다**(`scripts/_internal/base-branch.sh` 새 `specops_prepare_branch_base` · `basic-path.sh` · `quick-fix.sh`). clone 이 아니라 `git init` + `git remote add` 로 만든 저장소는 `origin/HEAD` 가 없어, `develop` 위에서 말없이 그대로 진행했고 리뷰 기준(`BASE: none`)과 게이트의 변경 파일 조회도 비었다. 기본 브랜치 후보에 로컬 `develop`·`dev`·`trunk`·`development` 를 더했고, 그렇게 알아낸 브랜치의 `origin/<브랜치>` 가 있으면 `origin/HEAD` 를 맞춘다(`git remote set-head` — 네트워크 없음). 끝내 모르면 `BRANCH-NOTE:` 한 줄로 알린다.
+
+## [5.4.0] — 2026-11-15
+
+### Fixed
+
+소스 검토(20261115 · v5.3.0) — **하류 프로젝트에서 처음 돌릴 때 막히는 곳**. 이 플러그인은 자기 저장소 모양(`main` 브랜치 · 저장소 최상위 · bash 테스트 · 영문 파일 이름)을 하류에 가정하고 있었다. 행동 변경.
+
+- **Java·.NET 프로젝트의 테스트 명령을 검증 러너가 받는다**(`scripts/_internal/run-verification.sh` · `record-task-receipt.sh` · `hooks/governance-lib.sh`). `mvn|./mvnw [옵션] test|verify` · `gradle|./gradlew [:모듈:]test|check [--tests <클래스>]` · `dotnet test` · `python3 -m pytest` · pytest node id(`a.py::test_b`). 종전에는 전부 `VERIFY: PARTIAL` 이라 커밋이 막혔다. 수명주기 단계는 test·verify·check 로 고정하고 뒤 인자는 옵션만 받는다(`mvn test deploy`·`gradlew test publish` 는 여전히 거부). `make` 와 `go test ./...` 는 종전대로 미지원이다(래퍼 `bash scripts/test.sh` 를 쓴다).
+- **한글 파일 이름이 있어도 기본 경로를 봉인한다**(`scripts/basic-path.sh` · `scripts/_internal/risk-profile.sh`). git 이 비ASCII 경로를 따옴표로 이스케이프해 내서 "따옴표가 든 파일 이름" 으로 영구 거부됐다.
+- **기본 브랜치가 `main`·`master` 가 아닌 저장소**(새 `scripts/_internal/base-branch.sh` — `origin/HEAD` 가 가리키는 브랜치 → main → master). `develop` 저장소에서 기본·quick 경로가 작업 브랜치를 만들지 않고 그 자리에 커밋했고, 기준 ref 를 못 찾아 문서만 바꾼 PR 이 막혔다. 분리(detached) HEAD 에서도 작업 브랜치를 만든다. 적용: `basic-path.sh` · `quick-fix.sh` · `governance-lib.sh` · `risk-profile.sh` · `reconcile-check.sh` · `check-foundation-merged.sh` · `check-foundation-manifest.sh` · `check-screen-quality.sh` · `scan-dod-weakening.sh`. `origin/HEAD` 가 없는 저장소는 `git remote set-head origin -a` 가 필요하다.
+- **하위 폴더에서 부른 스크립트가 작업 트리 최상위의 `.specops` 를 쓴다**(`scripts/_internal/specops-root.sh` `specops_top_enter` · `basic-path.sh` · `show-fid-status.sh`). `cd packages/web` 뒤에 부르면 진행 기록이 하위 폴더에 새 `.specops` 를 만들었고(관할 분열) 검증 러너·기본 경로는 "없다" 로 끝났다. 현재 폴더에 `.specops` 가 있으면 옮기지 않는다.
+- **코드 표기를 "채우지 않은 자리표시" 로 읽지 않는다**. 기본 경로(`basic-path.sh`)는 코드 펜스·백틱 안의 `{{` 를 건너뛴다(Vue·Jinja·GitHub Actions 를 말하는 spec 이 승인·봉인에서 영구 거부됐다). `scan-enrich-placeholders.sh` 는 제네릭 타입(`Optional<String>`)과 HTML 태그(`<button>`)를 건너뛴다(요청 원문에 그런 글자가 있으면 intent·유지보수 baseline 검사가 FAIL 해 구현 dispatch 가 막혔다).
+- **Read 로 읽는 보조 문서의 플러그인 루트 변수**(`skills/specifying-ko/once-approval.md` · `decomposing-ko/session-split.md` · `implementing-ko/dev-autonomy.md` · `commands/basic.md` · `templates/screen-design-guide.md`). Read 는 그 변수를 치환하지 않고 Bash 에도 없어, 적힌 대로 치면 `bash /scripts/…` 였다(승인 기록·세션 분리 명령). 문서 머리에 절대경로로 바꿔 실행하라는 안내를 넣고 `check-plugin-paths.sh` 다섯째 표면이 빠진 문서를 잡는다.
+- **유지보수 분석의 호출자·테스트 탐색이 저장소 전체를 본다**(`skills/analyzing-ko/SKILL.md` — `git grep`). 종전 명령은 이 플러그인의 폴더(`commands/ skills/ hooks/ scripts/`)만 보아 하류에서는 늘 "호출자 없음" 이었다.
+- **spec 을 git 이 무시하는 경로에 쓰면 커밋하지 않는다**(`skills/specifying-ko/SKILL.md`) · **기획서 자동 발견이 zsh 에서도 돈다**(`commands/init-project.md` — `find`).
+
+소스 검토(20261115) — **틀리게 통과하던 곳**. 행동 변경.
+
+- **대화 기록에 읽을 수 없는 줄이 있어도 실행 증거 게이트가 꺼지지 않는다**(`hooks/governance-lib.sh` `_verify_exec_evidence`). 깨진 줄 하나나 기록 중이라 잘린 마지막 줄 하나에 판정이 "불가 → 통과" 가 되어 커밋이 흔적 없이 열렸다(재현). 읽을 수 있는 줄만 추려 다시 판정하고 그 사실을 degraded 로 남긴다. 한 줄도 못 읽으면 종전대로 판정 불가다.
+- **posttool 경고가 모델에 닿는다**(`hooks/posttool-governance.sh`). `additionalContext` 를 최상위에 내고 있었는데 Claude Code 는 `hookSpecificOutput` 안의 것만 읽는다(공식 훅 문서 대조) — R-1·R-2·R-3 경고가 기록만 되고 모델에는 전달되지 않았다. 알림 훅(`hooks/notify.sh`)은 실제 입력 필드 `notification_type` 을 읽는다(종전 `.matcher` 는 입력에 없어 권한 대기 알림이 늘 "입력 대기" 였다).
+- **`jq`·`pyyaml` 이 없으면 세션 시작에 알린다**(`hooks/session-start.sh` — 관할 저장소에서만). `jq` 가 없으면 훅 3종이 판정하지 못하고 통과시키는데 사용자도 모델도 몰랐다. `pyyaml` 이 없을 때 검증 러너가 "YAML missing test_command" 라고 틀린 사유를 말하던 것도 고쳤다(`extract-test-commands.sh`). DAG 의존성 탐침이 작업 폴더의 `yaml.py` 를 실행하던 것(`scripts/dag/parse-dag.sh` · `doctor.sh`)도 막았다.
+- **전문가 보고서의 반영 절을 내용으로 본다**(`scripts/basic-path.sh` seal). 종전 검사는 `## 반영` 제목만 봤는데 그 제목은 전문가 산출 틀에 이미 있어 항상 통과했다. 항목이 없거나 틀 그대로(`<지적 N>` · `반영(…) | 기각(…)` 둘 다 남음)면 봉인하지 않는다.
+- **릴리즈 준비 판정의 미해결 리뷰**(`scripts/_internal/release-ready.sh`). 수용 흔적을 진행 기록 전체에서 `/receive-review|수용` 으로 찾아, 다른 작업의 줄 · 작업마다 남는 건너뜀 기록(`review-skip 통과`) · "수용 기준" 이라는 낱말로도 미해결 Critical 이 풀렸다(사실상 항상 해제). 그 작업의 절 안에서 건너뜀이 아닌 기록만 친다. 스펙 리뷰 보고서는 고정 판정 줄(`판정: PASS|NEEDS_FIX`)을 먼저 읽는다 — 통과 보고서가 틀 문구의 `NEEDS_FIX` 낱말로 미해결이 되던 것과 반대 방향을 함께 막는다.
+- **spec 에 `§유형` 줄이 없으면 분석 표지로 유지보수를 판정한다**(`scripts/_internal/check-regression-ac.sh` · `templates/spec.md` 에 그 줄 추가). 줄을 빠뜨리는 것만으로 회귀 기준 검사가 SKIP 됐다.
+- **통합 게이트가 외부 서비스 이름을 신호로 읽는다**(`scripts/_internal/gate-preflight.sh` — postgres·mysql·mongo·redis·kafka·rabbitmq·s3·sqs·stripe 등). "Postgres 에 저장 · Redis 캐시" 만 적힌 spec 이 "낱말 없음" 으로 SKIP 됐다.
+
+소스 검토(20261115) — **종단 주행에서 나온 것과 상태가 꼬이던 곳**. 임시 하류 프로젝트(기본 브랜치 `develop` · 한글·공백 경로 · Gradle · 하위 폴더 호출)에서 기본 경로를 스크립트로 끝까지 밀어 확인했다(LLM 단계는 손으로 대신). 행동 변경.
+
+- **한글 이름의 문서만 바꾼 커밋·PR 이 문서 면제를 받는다**(`hooks/governance-lib.sh` — 파일 목록 호출 12곳에 `core.quotePath=false`). 주행에서 발견: `docs/할인 안내.md` 하나를 스테이징하면 `EXEMPT=no REASON=code` 였다(경로가 따옴표 이스케이프돼 확장자 판정이 빗나감).
+- **진행 기록의 동시 쓰기가 줄을 잃지 않는다**(`scripts/session-progress-append.sh` — mkdir 잠금). 병렬 12건 중 2~5건만 남았다. 약 5초 넘게 남은 잠금은 죽은 것으로 보고 걷어 낸다.
+- **일괄 실행 폴더를 하류 저장소가 커밋하지 않는다**(`scripts/_internal/init-project/phases-artifacts.sh` — `.specops/.gitignore` 템플릿에 `batch-*/` · `*.lock.d/`). 진행 표지(`ACTIVE`)·큐가 커밋되면 머지 뒤에도 끝난 batch 가 매 세션 "미완" 으로 안내됐다.
+- **공통부 FR 표지가 여러 개면 모두 읽는다** · **점·낱말이 든 FR ID 를 조용히 빼지 않는다**(`scripts/_internal/check-fr-table.sh`). 빈 표지 아래에 더한 표지가 무시돼 공통부 FR 이 일반 기능으로 올랐고, `FR-1.1`·`FR-AUTH-01` 꼴은 경고 없이 batch 에서 빠졌다(이제 `UNPARSED` 로 알린다).
+- **`/log` 메모가 명령으로 실행되지 않는다**(`commands/log.md` — 따옴표 붙은 heredoc). 메모 속 백틱·`$( )` 가 셸에서 실행됐다. 가정 다이제스트 머리말의 같은 오류(`collect-assumptions.sh`)도 고쳤다.
+- **재진입 코드 리뷰가 이 플러그인의 리뷰어를 부른다**(`skills/requesting-code-review-ko/SKILL.md`) · **구현을 재개하면 끝난 태스크를 영수증에서 복원한다**(`skills/implementing-ko/SKILL.md`).
+
+### Tests/CI
+
+- `test-agent-contracts.sh` 의 `($n곳)` 이 `LANG` 이 설정된 bash 3.2 에서 `unbound variable` 로 죽던 것(`${n}곳`). 새 단언: `test-verifying-automation.sh` T-jvm(34) · `test-basic-path.sh` Z9k·BR1~3·SUB1 · `test-specops-root.sh` SR-50~53 · `test-plugin-paths.sh` P19 · `test-lib.sh` T-base.f·g · `test-quick-fix.sh` S1.c2 · `test-init-project-enrich.sh` T10.h·i · `test-exec-evidence.sh` T-brk · `test-session-start-order.sh` T-deps · `test-parse-dag.sh` T-shadow.probe · `test-basic-path.sh` N9x1·2 · `test-release-ready.sh` RR-16b~g · `test-regression-ac.sh` T-nolabel · `test-gate-preflight.sh` G-ext. `test-hooks.sh` 는 posttool 출력을 `hookSpecificOutput` 형태로 읽는다. 3단계 새 단언: `test-scope-explain.sh` T-se.ko · `test-session-progress-append.sh` L1~3 · `test-fr-foundation-scope.sh` T-multi · `test-fr-placeholder-guard.sh` T-idshape · `test-init-project.sh` T30.d.
+
+## [5.3.0] — 2026-11-15
+
+### Changed
+
+- **구현자가 태스크 문서 전체 대신 자기 태스크 절만 읽는다**(`scripts/dag/emit-context.sh` · `agents/implementer-ko.md` · `templates/dispatch-context.md` · `skills/implementing-ko/SKILL.md`). 행동 변경. `emit-context.sh` 가 문맥 파일을 쓸 때 `tasks.md` 의 `## Task N`(또는 `### Task N` · `## 태스크 N`) 절을 잘라 `dispatch/<task-id>-task.md` 로 함께 쓰고, 문맥 파일 §2 에 `태스크 본문:` 경로 1줄을 싣는다. 구현자 정의는 그 파일을 읽고 `tasks.md` 전체는 읽지 않게 바뀌었다. 절 판정은 `check-foundation-reuse.sh` 와 같은 규칙(2~3단 제목 · 코드 펜스 밖)이고, 절은 다음 2단 이하 제목 또는 번호가 다른 태스크 제목 직전까지다(같은 번호의 `### Task N — 둘째 사이클` 은 같은 절). task id 와 절 번호의 대응도 같다 — 절 번호가 id 에 없으면(번호 어긋남) 어느 것도 자르지 않는다. 절을 못 찾거나 같은 번호 절이 둘이면 그 태스크는 파일을 만들지 않고(재실행 때 옛 파일은 지운다) 표준 오류에 `emit-context: NOTE` 1줄 — **emit 은 실패하지 않고**, 구현자는 종전대로 `tasks.md` 에서 절을 찾는다. `tasks.md` 형식과 `decomposing-ko` 의 "태스크마다 테스트 코드·시그니처를 다시 적는다" 규칙은 그대로다(자른 절이 혼자 읽히는 전제).
+  - 왜: 이 저장소 최근 12건에서 `tasks.md` 는 5~65KB 이고 구현자는 자기 절을 찾으려고 문서 전체를 읽었다(태스크 7개 65KB 면 구현자 7명이 합 455KB). 실물 4건에 돌려 보면 65KB 문서가 절 2~24KB 로 잘린다.
+  - 기대 효과(**추정 · 아직 재지 않았다**): 전체 비용의 약 2~3%(구현자 몫 약 6.6% 의 절반 안팎 — 설계안 20261115 추정치).
+- **작업을 마치면 다음 작업은 새 세션에서 하라고 1줄 알리고, 시작 고지는 이미 끝난 작업이 있는 대화에서만 낸다**(`scripts/split-session.sh` · `skills/performance-test-ko/SKILL.md` · `commands/basic.md` · `commands/start.md` · `commands/maintain.md`). 행동 변경. 새 서브명령 `finish-note` 가 `SESSION-NEXT: 지금 대화가 약 NK 토큰입니다 — 다음 작업은 새 세션에서 시작하면 호출마다 다시 읽는 양이 줄어듭니다.` 1줄을 낸다(크기를 읽지 못하면 무출력 · 항상 rc 0). 풀 경로는 `performance-test-ko` PR 생성 뒤 §5, 기본 경로는 `/basic` 9번 마무리에서 부르고 끝 보고 마지막 줄로 싣는다 — 질문을 늘리지 않는다. 시작 고지(`warn-size`)는 고정 150K 초과가 아니라 **transcript 에 이 대화의 끝난 작업 흔적**(주 세션 Bash 호출 가운데 명령 위치의 `gh pr create` · `finish-note` · `/lifecycle DONE` · `basic-path.sh done` 이 성공한 것 — 인자 속 문자열·heredoc 본문·서브에이전트 호출 제외)이 있을 때 낸다. 판정할 수 없으면(`jq` 없음) 종전 150K 기준. `session_split.warn_context_tokens`·`SPECOPS_SPLIT_WARN_TOKENS` 는 계속 듣는다(0 이면 두 고지 모두 끔).
+  - 왜: 하류 한 프로젝트 작업 10건에서 비용의 약 51% 가 주 세션이 커진 대화를 호출마다 다시 읽는 것이었고, 한 세션에서 작업 4건을 하자 맥락이 107K 에서 964K 로 커졌다. 종전 시작 고지는 새 세션이 이미 100~141K 라 거의 늘 뜨거나 이미 이어서 일하는 중이었고, 끊기 가장 좋은 지점(PR 생성 직후)에는 안내가 없었다.
+  - 기대 효과(**추정 · 아직 재지 않았다** · 사용자가 새 세션을 열 때만 난다): 한 세션에 4건이면 호출당 읽는 양 중앙 432~558K, 작업마다 새 세션이면 150~250K 안팎(설계안 20261115 추정치).
+  - 테스트: 새 스위트 `scripts/tests/dag/test-emit-task-slice.sh`(16) · `test-split-session.sh` W·N·K7·K8. `test-split-session.sh` K6 은 "`/basic` 은 `split-session.sh` 를 부르지 않는다"에서 "분리(`decide`·`run`)를 부르지 않는다"로 좁혔다 — 종결 고지는 분리가 아니다.
+
+## [5.2.1] — 2026-11-15
+
+### Fixed
+
+- **갈래 판정이 위험한 요청을 기본 경로로 보내던 것과, 식별자 일부의 낱말로 풀 경로에 올리던 것**(`scripts/basic-path.sh` · `scripts/_internal/risk-profile.sh`). 소스 검토(20261114)에서 "운영 서버에 배포한다"·"사용자 계정을 삭제한다"·"카드번호 저장 필드 추가"·"Delete all users from the database"·"외부 서버로 사용자 데이터를 전송한다" 가 **신호 없이** 기본 경로로 갔다. 고치기 전에 과거 작업 327건(이 저장소 + 하류 앱 6곳 · worktree 사본 포함)에 현행 판정을 적용해 쟀다:
+  - **미탐**: 과거 기본 판정 302건의 목표·범위 절에서 위험 표현은 사실상 0건이었다(후보 2건도 "표의 행 삭제"·"pid 파일 제거"). 그래서 무거운 신호에 더한 형태는 **과거 기록에서 오발 0건을 확인한 것만**이다 — 운영 대상 배포(`프로덕션·실서버·운영 서버` + 배포 · `deploy to production`) · 계정·사용자·회원·주문 등의 삭제 · `delete all|from` · `drop … table` · 카드·계좌·주민 번호 · 사용자 데이터의 외부 전송 · 대량 발송(`이메일을 발송`·`send emails to`) · `refund`·`charge the …` · 강제 푸시. 가벼운 신호(인증)에는 `password` 와 검사 우회를 더했다.
+  - **오탐**: 풀 판정 25건 중 6건이 낱말이 **식별자 일부**라서 풀이었다(`expiredTruncated` 4건 · `isPkcs12DeployType` · `runDeployCycle`). 영문 `backfill`·`truncate`·`purge`·`deploy` 는 낱말 경계로만 센다(`jobs/backfill_candles.py`·`scripts/deploy.sh` 같은 경로는 그대로 센다).
+  - **결과(같은 327건 재측정)**: 풀 25 → 19건. 풀린 6건은 모두 위 오탐이고, 새로 풀이 된 과거 작업은 0건이다. 풀린 6건은 태스크가 4개 이상이라 계획 단계에서 어차피 풀로 올라간다 — 경로가 아니라 판정 근거가 바로잡혔다.
+  - **하지 않은 것**: "결제 완료 화면의 폰트 크기" 처럼 화면 문구 안의 위험 낱말로 풀이 되는 것은 그대로 둔다 — 화면 낱말로 무거운 신호를 낮추면 진짜 결제 동작 변경을 놓친다(안전 비대칭). 과거 기록에도 그런 사례는 없었다. 문서 속 낱말(예: "sparse(`truncate`)로 만든다")로 풀이 되는 2건도 남아 있다.
+
+### Tests/CI
+
+- `test-basic-path.sh` N2b~N2e — **기본값(통합 절차) 모드의 미탐·오탐 표**(먼저 실패 23건 확인). 종전 위험 낱말 표(K5 98행)는 옛 규칙 모드에서만 "신호 → 풀" 을 봐서, 기본값에서 위험한 요청이 기본으로 남는 것과 식별자 오탐을 어느 행도 보지 않았다. 대조 행: 진짜 백필 작업 경로·`scripts/deploy.sh`·`truncate orders`·운영 반영은 그대로 풀.
+
+## [5.2.0] — 2026-11-14
+
+### Security
+
+- **작업 폴더의 `yaml.py` 가 훅에서 실행되던 것**(`scripts/_internal/is-hook-enabled.sh`). pyyaml 유무를 보는 탐침 `python3 -c "import yaml"` 이 현재 폴더를 import 경로에 둔 채 돌았다 — `.specops/config.yaml` 이 있는 저장소를 열면 그 저장소의 `yaml.py` 가 Bash 호출마다·세션 시작마다 실행됐다(파싱 단계는 이미 현재 폴더를 뺐고 탐침만 빠져 있었다). 탐침과 파싱 모두 현재 폴더(빈 문자열·`.`·절대경로)를 뺀다.
+
+### Changed
+
+- **계획 단계 에이전트 8종에 「읽기 상한」 절을 더했다**(`plan-reviewer`·`test-designer`·`req`·`ui`·`db`·`arch`·`api`·`security` 설계 전문가). 하류 실측(20261114 — 한 프로젝트의 작업 10건): 계획 리뷰어·테스트 전문가 1회가 맥락 최대 약 484K·493K 토큰까지 갔고, 같은 `plan.md`(최대 100KB)를 통째로 여러 번 읽었다(계획 리뷰어 Read 결과 중앙 150K자 · 범위 지정 Read 비율 35%). 실행 상한("긴 명령 2회")은 부모 프롬프트에만 있고 에이전트 정의에는 없었으며, 기본 경로의 전문가 호출에는 그 문장 자체가 없었다. 이제 정의가 직접 말한다 — 큰 문서는 `grep -n '^#'` 로 절 범위를 찾아 offset/limit 로 읽고 · **한 번은 끝까지 읽되**(리뷰 범위를 줄이지 않는다) 같은 파일을 통째로 두 번 읽지 않으며 · 긴 명령 2회 이내 · 전체 스위트 금지. `commands/basic.md` 의 전문가 호출은 프롬프트마다 이 상한을 숫자로 적게 하고, `planning-ko` 의 실행 예산도 읽기 규칙을 싣게 한다. **효과(토큰 감소)는 아직 재지 않았다** — 다음 하류 주행의 계획 단계에서 서브에이전트 최대 맥락으로 확인한다. 문구 지침의 효과는 재현되지 않을 수 있다(좁은 폭 지침 선례).
+- **에이전트 계약을 부르는 쪽·받는 쪽·템플릿이 같은 말로 맞췄다**(소스 검토 20261114 — 전부 소스에서 확인). **행동 변경 둘**:
+  - **스펙 리뷰어는 `must` 수용 기준만으로 PASS 를 정한다**(`agents/spec-reviewer-ko.md`). 종전엔 정의에 `must`·`should` 낱말이 없어 "있으면 좋은"(`nice-to-have`) 기준 하나의 미충족도 `NEEDS_FIX` 가 돼 수정 라운드(구현자 재dispatch)를 불렀다 — 템플릿 §우선순위 규약("nice-to-have: 미충족 시 BLOCK 없음")과 정면 충돌이었다. 이제 `should`·`nice-to-have` 미충족은 PASS 이고 보고서 표에 우선순위와 함께 남으며, 부모(`basic.md` 6번 · `implementing-ko` 「수정 라운드」 0번)가 `dev-decision.sh add <FID> backlog` 로 옮겨 PR 본문 "넘긴 것"에 실린다. `**우선순위**` 줄이 없는 옛 AC 문서는 모두 `must` 로 본다(`AC-R-*` 는 항상 `must`).
+  - **종합 판정이 고정 한 줄이다** — 보고서 `## 종합 판정` 첫 줄이 `판정: PASS` 또는 `판정: NEEDS_FIX`. 종전엔 보고서 틀이 `✅ PASS / ⚠️ PARTIAL / ❌ FAIL`, 반환이 `PASS / NEEDS_FIX / NEEDS_CONTEXT`, 템플릿이 `verdict = BLOCK`(어느 에이전트도 내지 않는 값) 으로 한 정의 안에서도 세 벌이었다. 훅이 읽는 `verdict=<PASS|NEEDS_FIX>` 는 그대로다. 이 줄이 생겨 다음 단계에서 봉인이 판정을 읽을 수 있다(지금 봉인은 보고서 파일 유무만 본다 — 별도 작업).
+- **기본 경로가 리뷰어에게 줄 입력이 정의됐다.** `commands/basic.md` 6번은 dispatch 컨텍스트 파일 없이 리뷰어를 부르는데 두 리뷰어 정의는 5 컨텍스트 누락 시 `NEEDS_CONTEXT` 를 반환하라고 했고(코드 리뷰어만 `quick 경로: yes` 예외), `<base>` 는 정의가 없어 실행마다 달랐다. 두 정의에 `기본 경로: yes` 규약(AC 는 `acceptance-criteria.md` 전체 · test 명령은 변경된 테스트에서 스스로 골라 부모의 실행 상한 안에서)을 더했고, `basic-path.sh review` 가 `BASE: <sha>`(기본 브랜치 origin/HEAD → main → master 와의 merge-base · 못 찾으면 `BASE: none`)를 낸다.
+- **구현자는 whitelist 밖 파일을 쓰지 않는다**(`agents/implementer-ko.md`). 정의가 `tasks.md` 체크(`- [ ]` → `- [x]`)와 `session-progress` 줄을 쓰라고 하면서 whitelist 밖은 `NEEDS_CONTEXT` 라고도 했고, 부모는 `record-task-done.sh` 로 같은 줄을 따로 써 중복·병렬 충돌 여지가 있었다. 체크 표시를 읽는 곳은 구현자 정의 자신뿐이었다(소스 전수 확인). 대신 **기존 동작만 고정하는 태스크는 변이로 RED 를 대신한다**(부모·계획이 약속했는데 받는 에이전트가 없던 "되돌려-관찰" — whitelist 안에서만 · `git diff` 로 원복 확인).
+- **`/security-scan --self-config` 가 감사 3종을 sonnet 으로 부른다**(`commands/security-scan.md`). 에이전트 정의의 `model: inherit`(README 에 "세션 모델 계승"으로 적힌 의도된 설계)는 그대로 두고, 호출 때 낮춘다 — 세션이 상위 모델이면 감사 3종이 그대로 따라가던 것을 막는다.
+
+### Fixed
+
+- **없는 명령·파일·skill 을 가리키던 지시와 낡은 안내를 고쳤다**(소스 검토 20261114 — 30여 곳). 모델이 읽는 본문에 남으면 모델은 그것을 찾느라 시간을 쓰고, 템플릿에 남으면 산출 문서 끝에 그대로 찍혀 사용자에게 없는 명령을 안내한다.
+  - 템플릿: `plan.md` 끝의 "다음: `/tasks <FID>`" · `spec.md` 의 `/clarify` · `acceptance-criteria.md` 의 `/specify`·`/clarify` · `templates/analysis.md` · `tasks.md` 의 `writing-plans-ko` → 실제 단계 이름(`decomposing-ko`·`clarifying-ko`·`specifying-ko`·`planning-ko`)으로.
+  - **메타 skill(모든 세션에 주입되는 문장)의 "`/start` 슬래시는 무조건 직행"** → "언제나 lifecycle 로 진입한다(갈래는 스크립트가 고른다)" — 지금은 갈래 판정을 먼저 한다.
+  - 사용자에게 그대로 출력되던 오타 `분析`(analyzing 검토 게이트 4곳 — 기존 테스트가 이 오타를 글자 그대로 잠그고 있어 함께 고쳤다).
+  - v5.0.0 에서 지운 것의 잔재: skill 이름(`context-resets`·`file-based-communication`·`sprint-contracts`)을 원칙 문서의 절 이름으로 · `docs/adoption-notes.md`·`docs/governance-history.md` 의 `/start-lite`·`/maintain-lite` · specifying 의 "lite 는 plan 검토가 없어".
+  - 낡은 수·참조: "3개 에이전트가 `agents/` 에 정의"(실제 16) · 없는 줄 번호 참조(`L170`) · 없는 명령 파일을 "선례"로 가리키던 줄.
+  - README: v5.1.0 뒤 사라진 "PR 질문"을 안내하던 두 문장과 "그래도 멈추는 곳" 목록의 `PR` → 머지.
+- **기본 경로 봉인이 NEEDS_FIX 를 "B PASS" 로 적던 것**(`scripts/basic-path.sh seal`). 저장 훅이 `T1-B-feedback.md` 를 만드는 것은 스펙 리뷰 판정이 `NEEDS_FIX` 일 때뿐인데, 훅이 안 돈 실행(부모 fallback 저장)에서는 그 파일이 없어 봉인이 감사 행(`BC-PAR-CHECK:T1`)에 `B PASS` 를 적었다 — 감사(`check-review-audit.sh`)도 feedback 유무만 교차 검사해 위장이 통과했다(소스 검토 20261114에서 확인, 재현은 새 테스트 V1·V3). 이제 B 보고서 `## 종합 판정` 절의 고정 판정 줄(`판정: NEEDS_FIX` — 줄 전체 일치)을 읽고, feedback 이 없으면 **봉인하지 않는다**(rc 4 — 보고서가 없을 때와 같은 "리뷰 단계로 돌아가라"). **판정 줄이 없는 이전 형식 보고서는 종전대로 feedback 유무로 본다**(하위 호환). 판정 줄은 스펙 리뷰어 정의가 새로 고정한 형식(에이전트 계약 정합 변경)이라 그 변경과 함께 효과가 난다.
+- **`config.yaml` 구조가 예상과 다르면 훅 전체가 조용히 꺼지던 것**(`is-hook-enabled.sh`). 최상위가 목록·문자열·수이거나 `hooks`·`profiles` 가 매핑이 아니면 파이썬이 예외로 rc 1 을 냈고, 호출부는 rc 1 을 "비활성"으로 읽었다. 매핑이 아닌 값은 "설정 없음"으로 읽고, 끄는 것은 프로파일의 전체 끄기와 `enabled: false`(또는 `0`)뿐이다. **행동 변경**: 값을 비운 `enabled:` 는 더 이상 끄지 않는다(종전엔 빈 값도 꺼짐으로 읽혔다).
+- **검증 없이 커밋·PR 이 열리던 명령 형태 셋**(`hooks/governance-lib.sh` · `hooks/rules.jsonl` · `hooks/pretool-governance.sh`).
+  - 주석 속 작은따옴표: 주석의 `'` 가 인용을 열고 다른 주석의 `'` 가 닫아, 그 사이의 `git commit`·`gh pr create` 가 "인용 본문"으로 지워져 트리거에서 사라졌다(`# don't …` / 커밋 / `# it's …`). 낱말 머리의 `#` 뒤는 줄 끝까지 주석으로 보고 그 안의 따옴표를 인용으로 세지 않는다. 주석 글자는 지우지 않는다(차단 우세).
+  - 값이 빈 env 접두: `FOO= git commit` · `GIT_EDITOR= git commit` · `env FOO= git commit` 이 접두로 인식되지 않아 트리거가 빗나갔다. 빈 값을 접두로 인정한다.
+  - 우회 표식의 위치: `SPECOPS_GOVERNANCE_BYPASS=1` 을 명령 원문에서 줄 단위로 찾아, heredoc 본문이나 여러 줄 커밋 메시지 안의 한 줄(우회 기능을 설명하는 메시지)로 게이트가 열리고 가짜 우회 기록이 쌓였다. 인용·heredoc 본문을 걷어 낸 문자열에서만 찾는다. 빈 사유(`SPECOPS_BYPASS_REASON=""`·`''`)는 사유로 받지 않는다.
+  - 하류 실측이 아니라 소스 검토(20261114)에서 임시 저장소로 재현한 것이다. 정직한 사용에서 드물게 나는 형태지만 흔적 없이 열렸다.
+- **판정이 틀리거나 통과로 잘못 적히던 것 넷**(소스 검토 20261114 — 전부 실행으로 재현).
+  - PR 판정기(`scripts/pr-gate.sh`)가 "PR 생성 포함은 거절" 같은 기록도 동의로 읽었다. 승인 기록의 **결정 칸이 `PR 생성 포함` 으로 끝날 때만** 동의다(근거 칸에만 있는 말·"포함하지 않음"은 아니다). v5.1.0 에서 들어간 결함이다.
+  - 세션 분리 끄기(`scripts/split-session.sh`)가 `enabled: False`·`OFF`·`No` 와 한 줄 형태 `session_split: {enabled: false}` 를 끄기로 읽지 못했다.
+  - 화면 스크립트(`scripts/_internal/design-screen.sh`)가 `.md` 만 보고 충돌을 판정해, `.html` 만 있으면 사용자가 다듬은 목업을 `--force` 없이 템플릿으로 덮었다. `.md`·`.html` 을 둘 다 본다. **행동 변경**: `.html` 만 있는 화면 이름으로 부르면 이제 `--force` 없이는 거부한다.
+  - 통합 게이트(`skills/integration-test-ko`)가 "exit 0, skip 있음 → PASS" 라서 DB·서버가 없어 전부 skip 된 실행도 통과로 적혔다. 전부 skip 이거나 실행 0건이면 PASS 로 적지 않고 환경 질문으로 돌아간다.
+
+### Tests/CI
+
+- `test-dead-refs.sh` 신설(11건 — 먼저 실패 11건 확인): 본문(frontmatter 제외)과 사용자 문서에 위 문구가 되살아나지 않는지, 고친 문구가 남았는지.
+- **관련 스위트 러너가 가끔 "목록에 없는 경로"로 실패하던 것**(`scripts/tests/run-related.sh`). `printf … | grep -q` 에서 grep 이 첫 일치로 끝나면 printf 가 SIGPIPE 를 받고, `set -o pipefail` 아래에서 그 실패가 "목록에 없다"(exit 2)로 읽혔다 — 타이밍에 따라 나는 흔들림이다(리눅스 CI 1회 · `test-run-related` X22). here-string 으로 넘긴다.
+- `test-basic-path.sh` V1~V6 — NEEDS_FIX + feedback 없음 거부 · feedback 있으면 정상 봉인 + 기존 리뷰 감사 PASS · PASS 대조 · 옛 형식 하위 호환 · 줄 전체 일치(본문 인용·`NEEDS_FIX 아님` 은 판정이 아님).
+- `test-agent-reading-caps.sh` 신설(13건 — 먼저 실패 13건 확인): 8개 정의가 같은 절을 갖고(핵심 문장이 글자까지 같다 — drift 방지) · 빈 출력 규칙 앞에 있고 · 기본 경로 호출과 계획 skill 이 상한을 싣게 하는지 · 상한이 리뷰 범위를 줄이지 않는다는 문구(`한 번은 끝까지`)가 8곳 모두에 있는지.
+- `test-pretool.sh` T37b~e · T-cq.a~e · T-ev(4형태) · `test-is-hook-enabled.sh` T7 · T8 · T8b — 먼저 실패를 확인했다(13건). 대조군: 주석 따옴표 사이에 커밋이 없으면 통과 · 인용 문자열 안의 `#` 는 주석이 아님 · 낱말 중간의 `#`(`${x#y}`·`$#`·`a#b`)는 주석이 아님 · 정상 구조의 `enabled: false` 는 그대로 끔.
+- `test-pr-gate.sh` G3.k~n · G1.c·d · **G6.e**(승인 → 기록 1줄 → 판정기 auto 를 실제로 돌려 본다 — 종전 G6.a 는 문자열이 파일에 있는지만 봐서 기록 호출을 지워도 통과했다) · `test-split-session.sh` D7b~e · `test-design-screen.sh` T6.c·d · `test-gate-presence.sh` 통합 게이트 문구.
+
+## [5.1.0] — 2026-11-14
+
+### Added
+
+- **단계 소요 집계가 다른 작업 트리의 진행 기록도 합친다**(`scripts/stage-timing.sh --all-worktrees`). 같은 저장소의 다른 worktree 에 있는 `.specops/session-progress.md` 를 합쳐 집계하고, 원장 줄에 `(+ worktree N곳)` 을 붙인다. worktree 사본은 만들 때의 메인 원장을 들고 시작하므로 같은 FID·같은 줄은 한 번만 센다(겹친 줄을 또 세면 건수가 부풀고 0분 구간이 생긴다). 옵션이 없으면 종전대로 자기 원장만 읽되, 다른 worktree 에 자기 원장에 없는 줄이 있으면 끝에 `참고: 다른 worktree N곳에 원장이 있습니다 — 합쳐 보려면 --all-worktrees` 를 낸다. 하류 실측(20261114): 한 프로젝트의 11월 작업 10건이 본 폴더가 아니라 worktree 사본 2곳에만 기록돼 있어 본 폴더 집계가 "FID 2개"였다 — 합치면 12개. `SPECOPS_ROOT` 를 직접 정했으면 이 옵션은 rc 2 로 거부한다(어느 저장소의 worktree 인지 정할 수 없다). git 저장소가 아니면 자기 원장만으로 집계한다. **집계 기본 동작은 바뀌지 않았다**(안내 한 줄만 새로 나올 수 있다).
+
+### Changed
+
+- **승인 한 번에 PR 생성까지 간다 — PR 앞에서 다시 묻지 않는다.** 승인 묶음(풀 경로 `once-approval.md` · 기본 경로 4번 승인)이 "PR 생성 포함 · 머지는 자동으로 하지 않는다" 를 싣고, 승인되면 그 사실을 기록한다(`dev-decisions.md` 의 `[approval] … PR 생성 포함`). PR 단계는 새 판정기 `scripts/pr-gate.sh decide <FID>` 의 답대로 한다 — `auto`(묻지 않고 생성) · `auto-draft`(데모가 "확인 필요: yes" 인 작업 — **초안** PR 로 만들고 끝 보고 맨 앞에서 결과 확인을 청한다) · `ask`(종전대로 묻는다). **행동 변경**: `/start`·`/maintain`·`/basic` 의 기본 동작에서 "PR을 생성하시겠습니까? [y/n]" 질문이 사라진다. **머지는 바뀌지 않는다 — 언제나 사용자가 정한다.** 그대로 묻는 경우: 무인(`/start-all-auto` 의 가정 다이제스트) · `--step` · batch · 이 버전 전에 승인한 진행 중 작업(승인 기록에 PR 이 없다) · 판정 불가. 예전처럼 늘 묻게 하려면 `.specops/config.yaml` 에 `pr_gate: ask`(또는 `SPECOPS_PR_GATE=ask`). 커밋·PR 훅(R-1·R-2)의 검증 요구는 그대로다. 근거(하류 실측 20261114 — 한 프로젝트의 작업 10건·세션 6개): "추천대로·진행·승인" 만 친 발화가 38회였고 PR 생성 질문에는 매번 추천안 그대로 답했다. 효과(질문 횟수)는 다음 하류 주행에서 잰다.
+
+### Tests/CI
+
+- `test-pr-gate.sh` 신설(25건) — 자동·초안·묻기 판정, 손으로 쓴 줄·다른 종류의 기록은 동의로 치지 않음, 판정 불가는 묻는 쪽, 읽기 전용, 승인을 기록하는 쪽과 읽는 쪽이 같은 문구를 쓰는지, 두 경로와 승인 문서가 "머지는 자동으로 하지 않는다" 를 적는지.
+
+## [5.0.0] — 2026-11-14
+
+### Removed
+
+- **호환성 깨짐 — `/start-lite`·`/maintain-lite` 명령과 lite 진입 분기를 지웠다.** 두 명령은 v4.0.0 부터 `/start`·`/maintain` 의 별칭이었고 제거를 예고해 왔다 — 이제 `/start`·`/maintain` 을 쓴다(갈래는 스크립트가 고른다). 함께 지운 것: `specifying-ko` 의 `[lite 분기]`·`[maintain-lite 분기]`, `analyzing-ko` 의 `[lite-mini 분기]`, 약속어 `<!-- entry: lite -->`·`<!-- entry: maintain-lite -->`. 이 약속어를 내는 명령이 이미 없어 본문에 죽은 채 남아 있었다(본문 48곳). 범위 초과 안내와 `/improve-arch` 의 넘김 대상도 `/maintain` 으로 맞췄다. **남긴 것**: 위험 등급 `lite`(`risk-profile` 의 lite·standard·strict) · 명확화 경량 모드(`clarifications.md` 의 `mode: lite`) · 옛 spec 의 `**§lite**: true` 를 읽는 가드(`check-review-presence.sh` 리뷰 생략 차단 · `risk-profile.sh` `LITE-STRICT-GUARD` · `split-session.sh` · `decomposing-ko` 단축 분기) — 하류에 옛 `§lite` FID 가 남아 있어도 안전망이 그대로 돈다. 유지보수 spec 의 `AC-R-1`(동작 보존)·`AC-R-2`(데이터 보존) 요구는 `specifying-ko` 의 유지보수 라벨 절로 옮겨 적었다(종전엔 지운 분기에만 이름이 있었다). 명령 26 → 24.
+- **Harness 원칙 skill 5개를 문서 1장으로 합쳤다**(`docs/harness-principles.md`). `sprint-contracts-ko`·`structured-artifacts-ko`·`generator-evaluator-ko`·`context-resets-ko`·`file-based-communication-ko` 는 최근 30일 Skill 호출 0회였고(본문 직접 읽기도 한 개 4회뿐) 다른 본문이 이름만 인용했다. 내용은 옮기기 전과 같다 — 진행 기록 줄 순서 불변식 · 리뷰 보고서 저장 예외 · 에이전트 16종 명단 · handoff 4필드 같은 계약 문구를 테스트가 새 경로에서 그대로 잠근다. 인용하던 skill·에이전트·템플릿 18파일은 「원칙 이름」+ 문서 경로로 바꿨다. **행동 변경**: `devfsd:<위 5개>` 를 Skill 로 부를 수 없다. skill 31 → 26 · 상시 설명문 5줄 감소.
+
+### Tests/CI
+
+- `test-start-lite-doc.sh` → `test-lite-removed.sh`: 명령 파일·진입 약속어·분기 이름이 실행 본문과 README·CLAUDE.md 에 되살아나지 않는지, 옛 `§lite` spec 가드 3종이 남아 있는지 잠근다. 전파 규칙 `lite-clarify-plan-skip`·`lite-screen-if-keep` 삭제, `lite-bc-mandatory` 는 `implementing-ko` 의 「단축 경로 불변」 문장으로 옮김. 라우팅 기준선·skill 크기 기준선 재생성.
+
+## [4.0.17] — 2026-11-14
+
+### Fixed
+
+- **통합 절차의 빈틈 넷**(20261114 프로세스 점검 — 가짜 프로젝트 주행으로 찾았다).
+  - 세션을 재개하면 기본 경로 작업에 "clarify 부터 재개" 라는 풀 경로용 안내가 주입되던 것(`scripts/_internal/reconcile-check.sh` — `/basic` 기록이 있는 FID 는 기본 경로의 다음 단계를 말한다).
+  - 채우지 않은 계획 문서로 `review` 를 건너뛰고 봉인하면 통과하던 것(`basic-path.sh seal` 도 자리표시를 검사한다).
+  - 기본 경로 본문에 FID 짓는 규칙이 없던 것(`commands/basic.md` — 영문 소문자·숫자·하이픈, 한글 요청은 영어로 옮긴다).
+  - `basic-path.sh plan` 을 태스크 수를 바꿔 다시 실행하면 계획 문서와 어긋나던 것(손대지 않은 골격은 다시 만들고, 채운 계획은 `PLAN-NOTE:` 로 칸 수 차이만 알린다).
+- **기본 경로에서 올린 FID 가 이미 한 분석·전문가 검토를 다시 하던 것**(`skills/specifying-ko/basic-promote.md`) — 보존 폴더의 분석 문서·계획·전문가 보고서를 입력으로 읽고, 분석은 `current-state.md` 의 시드로, 전문가는 달라진 부분만 다시 받는다.
+
+### Changed
+
+- **DB 스키마를 바꾸는 작업은 기본 경로에서도 데이터 보존 수용 기준(`AC-R-2`)이 있어야 승인된다**(`basic-path.sh start`·`approve`). 풀 경로가 스키마 변경에 요구하던 기준인데, 통합 절차로 스키마 변경이 기본 경로에 남으면서 빠져 있었다. 스키마 신호로 시작하면 spec 골격에 `AC-R-2` 칸이 들어간다.
+- 옛 갈래 설명("위험 신호가 있으면 풀 경로")을 현행 규칙으로 고쳤다 — `commands/basic.md`·`maintain.md`·별칭 2개 · `docs/architecture.md` · 메타 skill 보조 문서(`guardrails.md`).
+
+## [4.0.16] — 2026-11-14
+
+### Changed
+
+- **관제판이 경로에 따라 단계를 다르게 보여 준다**(`hooks/progress-pane.tsx` · `hooks/console.tsx`). 기본 경로는 머리 줄에 `기본 경로` 를 붙이고, 통합 절차에서 분석·계획이 켜진 작업은 `기본 경로+` 와 함께 그 단계를 막대에 끼워 보인다(`분석 → 명세 → 계획 → 구현 → 리뷰 → 검증 → PR` — 켜지지 않은 단계는 보이지 않는다). `/start-all` 의 FR 은 `일괄 <끝난 FR>/<전체 FR>` 과 FR 단위 단계만(명세·명확화·설계·분해·구현·검증) 보인다 — 보안·통합·성능·데모·PR 은 묶음에서 한 번 도는 단계라 FR 막대에서 뺐다. 풀 경로 표시는 종전 그대로다. `basic-path.sh review` 가 계획이 있던 작업에 `/plan 완료` 를 남긴다.
+
+## [4.0.15] — 2026-11-14
+
+### Changed
+
+- **`/start`·`/maintain` 통합 절차 — 위험 신호는 갈래가 아니라 켤 단계를 정한다**(`scripts/basic-path.sh` · `commands/basic.md`). 종전에는 위험 신호가 하나라도 있으면 풀 경로(실측 약 150분 · 12단계)로 갔다. 이제 가벼운 신호(인증·권한 · DB 스키마 · API 계약 등)는 기본 경로 안에서 단계를 켠다 — 유지보수면 분석 문서(`analysis.md`), 결정만 적은 계획(`plan.md` — 태스크 2개 이상이거나 신호가 있을 때), 걸린 신호의 전문가 1종. 풀 경로로 가는 것은 무거운 신호(데이터 삭제·이관 · 되돌릴 수 없는 외부 작업 · 결제·개인정보 · 파일 삭제·배포·인프라) · 태스크 4개 이상 · `--full` · `--step` 이다. 새 하위 명령 `basic-path.sh plan <FID> <태스크 수>` 가 켤 단계를 판정해 기록하고, 봉인이 그 기록과 대조한다(계획 때 없던 신호가 구현에서 나오면 풀로 올림 · 지금 spec 의 신호가 요구하는 전문가의 보고서와 그 `## 반영` 절이 없으면 거부 · 계획의 태스크 칸이 4개 이상이면 풀로 올림). 전문가 보고서는 파일로만 확인한다 — 리뷰 보고서처럼 훅이 저장하는 증거는 아니다. 끄는 스위치: `.specops/config.yaml` 의 `unified_path: false` 또는 `SPECOPS_UNIFIED_PATH=0`. 풀 경로 skill chain·훅·검증 러너는 고치지 않았다. **효과는 미측정**이다 — 계획 리뷰·이해 검사·통합·성능·시연 없이 가는 작업이 늘어나므로 발행 뒤 끝 리뷰 지적 수를 본다.
+
+- **`/start`·`/maintain` 의 갈래 판정이 spec 의 목표·범위 절만 본다**(`scripts/basic-path.sh` `_spec_corpus`). 종전에는 승인 단계가 spec 전문에서 위험 낱말을 찾아, 수용 기준의 전제("로그인한 사용자가…")나 현재 동작 설명에 낱말이 나오기만 해도 풀 경로로 올렸다. 과거 하류 앱 spec 144건에 대 보면 전문 기준 기본 경로 15% · 목표·범위 절 기준 43% 다(모의 — 풀 경로용 긴 spec 이라 실제 비율은 다를 수 있다). 무엇을 바꾸는지는 범위 절에 그 말로 적고(`commands/basic.md` 2번), 봉인 단계의 파일 판정에 경로 신호를 더했다(`_path_signals` — 스키마 정의·ORM 모델·인증·세션 이름이 든 경로 · 파일 내용은 보지 않는다). 가림은 코드 펜스 밖의 2단계 이상 제목만 보고, 목표·범위 절이 없는 문서는 종전대로 전문을 본다.
+
+## [4.0.14] — 2026-11-14
+
+### Changed
+
+- **풀 경로 구현 구간이 태스크 커밋마다 전체 스위트를 돌리지 않는다**(`skills/implementing-ko/SKILL.md` 「전체 스위트 병행」 · `scripts/split-session.sh` 자식 세션 프롬프트). 태스크 커밋은 receipt 로 열리는데, 실측 1건에서 자식 세션이 커밋마다 전체 스위트를 앞단에서 돌려 3태스크에 4회 27분을 썼다. 전체 스위트는 마지막 태스크 뒤 백그라운드 1회와 수정 라운드 뒤 1회뿐이라고 적었다.
+- **`/init-project` 설계 리뷰 구간의 대기를 줄인다**(`commands/init-project.md` §M1 설계 완료 규약). 화면 전문가를 백그라운드로 띄우고 그동안 남은 문서를 쓴다 · 설계 리뷰 프롬프트에 계측기 절대 경로를 적는다(안 주면 리뷰어가 찾는 데 약 2분 반) · 재리뷰 범위를 "1회차 지적 해소 + 그 수정이 만든 불일치" 로 한정한다(전체 재판정 293초 · 범위 한정 92초 — 무인 실행 2건 실측).
+
+## [4.0.13] — 2026-11-14
+
+### Added
+
+- **좁은 폭 결함 3종을 계측이 잡는다**(`scripts/_internal/ui-probe-layout.cjs`). `L-WRAP-CHIP`(칩·배지·버튼의 짧은 글자 한 덩어리가 두 줄로 꺾임 — 아이콘과 라벨을 쌓은 타일은 세지 않는다) · `L-SCROLL-X`(탭 줄·차트가 가로 스크롤 상자 안에 24px 넘게 숨음 — 표·코드 블록 래퍼, 격자, 넘겨 보는 상자, 세로 패널은 세지 않는다) · `L-FIXED-COVER`(아래 고정 막대 높이만큼의 아래 여백이 없어 끝까지 내려도 마지막 입력이 가림 — 문서 스크롤과 안쪽 상자 스크롤 모두 · 토스트는 세지 않는다). 브라우저 점검과 촬영 계측(`probe.txt`)에 `배치 경고` 줄로 나오고, 있을 때만 요약에 ` · 줄바꿈 N · 스크롤 숨음 N · 고정 가림 N` 이 붙는다. **경고이고 판정(PASS·FAIL)·rc 는 그대로다.** 3회 재생성 실측에서 지침 문장(좁은 폭 규칙)은 효과가 재현되지 않았고 계측(대비)은 9화면 전부 재현됐다 — 그래서 같은 규칙을 기계가 보게 했다. 실측 12화면 대조: 평가자가 지적한 칩 줄바꿈·차트 잘림·탭 잘림을 7건 잡았다. 독립 리뷰가 조각 28개로 찾은 오탐 3종(쌓은 타일·큰 아이콘·앱 셸)과 미탐 5종(flex 자식 칩·인라인 칩·oklch 배경·기본 버튼·떠 있는 막대)을 대조 조각으로 잠갔다. 남는 오탐: 칸반 같은 의도한 가로 스크롤, 닫으면 사라지는 동의 막대. 화면 전문가·설계 리뷰어는 이 줄을 Minor 로 인용한다(어림 규칙).
+
+### Fixed
+
+- **정정 — v4.0.12 의 "좁은 폭 2.83 → 4.17" 은 재현되지 않았다.** v4.0.12 항목 「화면 보충 지침에 좁은 폭 규칙과 색 글자 대비 기준을 더했다」에 적은 재측정 수치는 생성 1회 표본이었다. 새 절차로 같은 3화면을 3회 생성해 이전 절차와 가려 비교한 결과(화면당 4변형 · 평가자 2명 · 12장): 좁은 폭은 이전 3.33 대 새 3.50·3.00·3.33 으로 **차이가 없고**, 고유성은 이전 3.83 대 새 3.17·3.33·2.67 로 세 번 모두 낮았다(이전 쪽이 1회뿐이라 확정은 아니다 · 새 3회 사이 편차 0.66). **재현된 것은 대비뿐이다** — 새 절차 9화면 전부 위반 0(이전 3화면 전부 위반). 좁은 폭 지침은 그대로 두되 효과가 확인된 것으로 읽지 않는다. 발행된 v4.0.12 본문은 고치지 않고 이 항목으로 정정한다.
+
+## [4.0.12] — 2026-11-14
+
+### Added
+
+- **기본 경로가 화면 품질을 본다**(`commands/basic.md` · `scripts/basic-path.sh`). 화면을 건드리는 작업이면 ① 구현 첫 일로 **목업 CSS 이식**(목업 토큰·공통 클래스를 앱 전역 CSS 로 — 풀 경로 `planning-ko` 와 같은 규칙), ② 봉인 전에 **브라우저 점검 1회**(`ui-probe.cjs` — 375·768·1280 촬영 · 가로 넘침 · 콘솔 오류 · 접근성)와 목업 클래스 생존율(`check-mock-css.sh`)을 돌리고 `evidence.md`·PR 본문에 `**브라우저**:` 줄을 남긴다. `basic-path.sh design-scope` 가 `DESIGN:` 줄 아래에 `UI:` 줄을 항상 1줄 낸다. 종전엔 두 장치가 풀 경로에만 있었다 — 하류 실측에서 목업 클래스 생존율이 8%·33%·90% 로 갈렸고, 지금 기본으로 고르는 이 경로는 그것을 보지 않았다. 화면 기록(`.specops/memory/ui-probe.json`)이 없으면 서버 시작 명령·포트·경로를 spec 질문 묶음에서 한 번에 묻는다(승인 뒤 무질문 유지). 브라우저 도구가 없거나 서버를 못 띄우면 멈추지 않고 미실행으로 적는다(PASS 로 적지 않는다).
+- **촬영 계측이 대비 미달을 알려 준다**(`scripts/_internal/screen-shot.sh` · `ui-probe.cjs`). `<접두>.probe.txt` 에 배치 줄 뒤로 접근성 결과가 붙는다 — `접근성 serious color-contrast(N곳)` 줄과 요소마다 `· <선택자> — 글자 / 배경 <색> / <색> = <비율> (기준 4.5:1)`(5곳까지 · 넘으면 `외 N곳`), 위반이 없으면 `접근성 심각 0건 …`, axe-core 가 없으면 `접근성 계측 못 함 …`. 브라우저 점검(`ui-probe.cjs`)의 접근성 위반 줄에도 같은 요소 상세가 붙고 `ui-probe.json` 에 `detail` 로 남는다. 종전엔 건수만 나와 어느 요소인지 찾을 수 없었고, 목업 단계의 계측은 접근성을 아예 적지 않았다. **판정(PASS·FAIL)·rc 는 종전 그대로다.** 화면 전문가·설계 리뷰어는 이 줄을 인용해 Important 로 낸다.
+- **촬영이 화면 전체도 남긴다**(`screen-shot.sh`). 계측이 돌면 `<접두>@390.full.png`·`@1280.full.png`(전체 높이)와 `SCREEN-SHOT-FULL:` 줄이 나온다 — 종전 두 장은 높이가 고정(1280×1000 · 390×1400)이라 긴 화면의 아래쪽을 볼 수 없었다. 계측 도구가 없으면 종전처럼 두 장뿐이다.
+- **화면 보충 지침에 좁은 폭 규칙과 색 글자 대비 기준을 더했다**(`templates/screen-design-guide.md`). 칩·배지 줄바꿈 금지 · 차트를 가로 스크롤 안에 숨기지 않기 · 행 카드에 열 이름 되풀이 금지(값은 지우지 않고 접는다) · 결론과 주 액션의 위치 · 고정 막대 아래 여백 · 전체 촬영에서 고정 요소 읽는 법. 블라인드 실측(같은 명세 3화면 · 평가자 2명)에서 좁은 폭이 3.5/5 로 가장 낮았다. 같은 평가자의 재측정(이전 3화면 대 새 절차 3화면)에서 좁은 폭 2.83 → 4.17 · 대비 위반 7곳 → 0 · 전체 평균은 3.94 → 4.03 으로 사실상 같고 고유성은 3.67 → 3.0 으로 내렸다(생성 1회 — 원인 미확정).
+
+### Fixed
+
+- **기본 경고색·성공색과 디자인 방향 8종의 상태색이 자기 옅은 배경 위에서 대비 4.5 에 못 미치던 것.** 템플릿 `--color-warning` `#9A6700` → `#885B00`(옅은 배경 위 4.17 → 4.6 이상), `--color-success` `#1E7A45` → `#1C7140`, 디자인 방향 카탈로그의 Error·Success 12값을 같은 색조에서 최소한만 짙게(다크 방향은 밝게) 옮겼다. 현재 절차로 만든 3화면 전부에서 나온 대비 위반 7곳의 원인이 경고색 토큰 하나였다 — 새 값으로 같은 화면이 위반 0. **행동 변경**: 새로 만드는 `DESIGN.md`·목업의 상태색이 조금 짙어진다(기존 프로젝트의 `DESIGN.md` 는 바뀌지 않는다). 주색을 글자로 쓰는 경우(방향 3·6 의 밝은 주색)는 값 대신 지침으로 다룬다.
+
+## [4.0.11] — 2026-11-14
+
+### Changed
+
+- **"다른 작업 트리로 옮겨 커밋" 차단 안내가 서브에이전트가 따를 수 있는 길을 준다.** 종전 안내는 "`cd` 를 별도 호출로"뿐인데, 서브에이전트는 호출마다 셸 위치가 초기화돼 그럴 수 없다 — 리뷰 서브에이전트가 자기 임시 저장소(mktemp 폴더의 복사본)에서 확인하다 같은 차단을 겪었다. 안내에 **자기 임시 저장소의 git 단계는 자기 임시 폴더 안의 스크립트 파일로 쓰고 `bash <그 파일>` 로 실행**하라는 문장을 더했고, 이 저장소(프로젝트 폴더)의 커밋은 그 방법으로 하지 않는다고 못박았다(`hooks/pretool-governance.sh` · `test-worktree-target` WT-E8.2b). **게이트 판정은 바꾸지 않았다** — 이동 판정(`_gov_cmd_moves_elsewhere`)을 풀어 "목적지에 `.specops` 가 없으면 허용"하는 안은 `git clone --local` 사본으로 검증 없이 원격에 올리는 구멍이 돼 채택하지 않았다(20261016 기록).
+
+### Fixed
+
+- **자유작업 기록이 활성 FID 를 바꾸던 것.** 종결 줄 없이 머지된 옛 FID 에 자유작업이 귀속되고 그 FID 가 활성이 돼, 이후 커밋이 그 FID 의 검증 기록을 요구했다(R-1 ②앵커). 두 곳을 고쳤다. `scripts/freework-resolve-fid.sh` 는 종결 줄이 없어도 **이미 머지된** FID(`reconcile-check.sh` 와 같은 판정 — 브랜치 `feat/<FID>` 가 머지 커밋으로 들어감)를 귀속하지 않는다. `scripts/session-progress-append.sh` 는 `/freework` 기록이 활성 FID 마커를 옮기지 않으며, 마커가 없는 파일에서는 새 섹션이 맨 위에 붙기 전에 지금의 활성(첫 헤더 — fixture 는 건너뜀)을 마커로 못박는다. 성공 기준은 기록 스크립트의 출력이 아니라 **기록 전후로 `detect_fid` 의 답이 같은가**다(`test-session-progress-append` F1~F7). squash·fast-forward 머지는 종전대로 판정하지 못해 귀속된다(`reconcile-check.sh` 의 알려진 한계).
+- **병합 커밋을 만드는 시점에 관련 스위트 증거가 부풀던 것.** 작업 브랜치에 `origin/main` 을 병합하는 동안(커밋 전) 공통 조상이 옛 것이라 main 쪽 변경이 전부 "내 변경"으로 세어져 닿는 스위트가 137개(상한 80)가 됐다. `scripts/_internal/related-suite-fresh.sh` 가 병합 진행 중(`MERGE_HEAD`)이고 `MERGE_HEAD` 가 기본 브랜치의 조상일 때 비교 기준을 `MERGE_HEAD` 로 옮긴다 — 병합 커밋 전후의 목록이 같아진다. 비교는 작업 트리 대 커밋이라 병합 중 손으로 푼 충돌·끼워 넣은 변경도 그대로 센다(빠지는 것은 main 쪽만 바꾼 파일뿐). 기본 브랜치의 조상이 아닌 브랜치를 병합 중이면 종전 판정 그대로다.
+
+## [4.0.10] — 2026-11-14
+
+### Changed
+
+- **코드 리뷰어의 `[기존]` 라벨을 받는 쪽이 안다.** 4.0.7 에서 라벨만 넣고 받는 쪽을 잇지 않았다. `[기존]` Important 는 부모가 이번 범위에서 고치지 않고 넘긴다(`skills/implementing-ko/dev-autonomy.md` §2 · `/basic` 은 PR 본문 "넘긴 것"). `[기존]` Critical 은 라벨이 붙어도 종전대로 🔴 절에 올리고 수정 대상이다(「넘길 수 없는 것」 — 릴리즈 준비 판정이 🔴 절을 읽는다). 라벨은 참고이고 부모의 위치 판정이 우선한다.
+- **코드 리뷰어의 "다음 단계"를 지금의 흐름으로 고쳤다.** 고정 단계에서 빠진 `requesting-code-review-ko` 를 가리키던 두 줄을 `verifying-evidence-ko`(부모가 호출)로 바꿨다. README·CLAUDE.md 의 풀 경로 순서도 `implement(끝에 스펙·코드 리뷰) → verify → security` 로 맞췄다.
+- **코드 리뷰어 등급 낱말을 하나로 맞췄다.** 증거 없는 지적의 강등 등급을 Suggestion 으로 통일하고, 출력 형식에 Suggestion 절을 더했다(강등한 항목이 갈 곳이 없었다).
+- **Important 처리 규칙을 한 기준으로 맞췄다.** `requesting-code-review-ko`·`receiving-code-review-ko` 가 "이번 FID 가 만든 결함만 수정 대상"이라는 `dev-autonomy.md` §2 의 기준을 쓴다(종전엔 모든 Important 를 다음 단계 전에 고치라고 했다).
+
+### Tests/CI
+
+- **판정 방향이 뒤집혀도 통과하던 구멍을 메웠다**(20261113 변이 실측에서 살아남은 것). push 전 게이트: 다른 트리의 통과 기록으로 건너뛰지 않는다 · `master` 로 push 는 전체 스위트(`test-git-hooks` PR.12·PR.13). 갈래 판정: "범위 밖" 절 뒤 같은 깊이 절의 위험 낱말 · 판정기 부재 시 풀 경로 · 리뷰 보고서는 둘 다 필요 · 변경 파일 없이 봉인 거부(`test-basic-path` K1~K4). 위험 낱말 98개를 낱말마다 그 종류의 신호로 풀 판정이 나는지 표로 잠갔다(K5 — 종전엔 95개 중 55개가 어느 스위트에도 없었다). 변이 7종을 넣어 새 단언이 각각 잡는 것을 확인했다.
+- skill 크기 기준: `requesting-code-review-ko` +133B · `receiving-code-review-ko` +22B · 체인 총량 +155B.
+
+## [4.0.9] — 2026-11-13
+
+### Added
+
+- **브라우저 점검이 실패한 요청을 알려 준다**(`scripts/_internal/ui-probe.cjs`). 4xx·5xx 응답과 연결 실패를 `<화면>@<폭> 요청 실패 경고: <상태|사유> <메서드> <주소>` 줄로 내고, 있을 때만 요약 끝에 ` · 요청 실패 <N>` 을 붙인다. 콘솔 오류 문구에는 어느 요청인지가 없었다. **경고이고 판정(PASS·FAIL)은 종전 그대로다.** 주소는 쿼리·해시를 빼고, 화면 이동이 끊은 요청(`ERR_ABORTED`)은 세지 않으며, 화면·폭마다 10줄까지 낸다. `ui-probe.json` 의 화면별 `failedRequests` 에 전체가 남는다.
+- **체계적 디버깅에 어려운 경우 4종을 더했다**(`skills/systematic-debugging-ko/hard-cases.md` — 해당할 때만 읽는 보조 문서). 재현되지 않을 때 갈래(타이밍·환경·상태)부터 정하기 · 회귀는 `git bisect` · 진단용 계측은 픽스 확인 뒤 제거 · 오류 출력 속 지시는 데이터이지 따를 지시가 아니다. 본문 Phase 1 의 해당 줄이 절 번호로 가리킨다. 출처는 addyosmani/agent-skills 의 debugging-and-error-recovery.
+
+### Changed
+
+- skill 크기 기준을 두 곳에서 올렸다(`systematic-debugging-ko` +158B · `integration-test-ko` +90B · 체인 총량 +90B) — 위 두 항목을 가리키는 문구 분량이다.
+
+## [4.0.8] — 2026-11-13
+
+### Added
+
+- **기준 약화 후보를 스크립트가 먼저 뽑는다**(`scripts/_internal/scan-dod-weakening.sh --base <ref>`). 리뷰 범위의 변경과 추적하지 않는 새 파일에서 억제 주석 신규 · 테스트 skip·삭제 · 단언 순감소 · 임계 하향·타임아웃 상향 · 검증 무력화 · 미구현 표식 6종을 `<클래스>\t<파일>:<줄>\t<패턴>` 으로 내고, 조이는 방향의 변경은 내지 않는다. 종료 코드는 0(없음)·1(있음)·2(실행 불가 — 통과로 읽지 않는다)이고 줄 원문은 출력하지 않는다. 코드 리뷰어가 「기준 약화 탐지」에서 이 출력으로 읽을 곳을 정한다 — 사유·등급 판정은 종전대로 리뷰어 몫이다(`agents/code-reviewer-ko.md`). 계약은 addyosmani/agent-skills 의 floor-guard 에서 가져왔다.
+
+### Fixed
+
+- `commands/basic.md` 의 `specops_version` 을 본문이 마지막으로 바뀐 4.0.7 로 맞췄다(릴리즈 때 뜨던 미갱신 경고).
+
+## [4.0.7] — 2026-11-13
+
+### Changed
+
+- **구현자와 `/basic` 이 통과한 같은 테스트 명령을 다시 돌리지 않는다.** 통과를 확인한 뒤 파일을 바꾸지 않았으면 앞선 출력을 쓴다(`agents/implementer-ko.md` 「범위 위생」 · `commands/basic.md` 5번). 훅의 통과 기록 재사용은 이미 있었고, 구현 중 반복 실행을 막는 문장이 없었다.
+- **코드 리뷰어가 지적을 올리기 전에 호출자·가드·테스트로 배제되는지 확인하고, 원래 있던 결함에 `[기존]` 라벨을 붙인다**(`agents/code-reviewer-ko.md` 「증거 규칙」). 라벨은 등급을 바꾸지 않는다.
+- **전문가 에이전트에 상류(addyosmani/agent-skills `aeac41d`→`301b02b`)에서 고쳐진 규칙 4건을 옮겼다.** 소유 확인 전에 존재 확인(404)(`security-designer-ko`) · 크래시·롤백 테스트는 실제 경계를 태운다(`test-designer-ko`) · 로딩 영역은 `role=status` 와 이름 · 대비 기준의 큰 글자는 18pt(24px)(`ui-designer-ko`). `ui-designer-ko`·`req-designer-ko` 의 상류 표기 `@HEAD` 는 대조한 커밋으로 고정했다.
+
 ## [4.0.6] — 2026-11-13
 
 ### Changed
@@ -3871,7 +4145,27 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v4.0.6...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.4.3...HEAD
+[5.4.3]: https://github.com/andyko18/devFSD/compare/v5.4.2...v5.4.3
+[5.4.2]: https://github.com/andyko18/devFSD/compare/v5.4.1...v5.4.2
+[5.4.1]: https://github.com/andyko18/devFSD/compare/v5.4.0...v5.4.1
+[5.4.0]: https://github.com/andyko18/devFSD/compare/v5.3.0...v5.4.0
+[5.3.0]: https://github.com/andyko18/devFSD/compare/v5.2.1...v5.3.0
+[5.2.1]: https://github.com/andyko18/devFSD/compare/v5.2.0...v5.2.1
+[5.2.0]: https://github.com/andyko18/devFSD/compare/v5.1.0...v5.2.0
+[5.1.0]: https://github.com/andyko18/devFSD/compare/v5.0.0...v5.1.0
+[5.0.0]: https://github.com/andyko18/devFSD/compare/v4.0.17...v5.0.0
+[4.0.17]: https://github.com/andyko18/devFSD/compare/v4.0.16...v4.0.17
+[4.0.16]: https://github.com/andyko18/devFSD/compare/v4.0.15...v4.0.16
+[4.0.15]: https://github.com/andyko18/devFSD/compare/v4.0.14...v4.0.15
+[4.0.14]: https://github.com/andyko18/devFSD/compare/v4.0.13...v4.0.14
+[4.0.13]: https://github.com/andyko18/devFSD/compare/v4.0.12...v4.0.13
+[4.0.12]: https://github.com/andyko18/devFSD/compare/v4.0.11...v4.0.12
+[4.0.11]: https://github.com/andyko18/devFSD/compare/v4.0.10...v4.0.11
+[4.0.10]: https://github.com/andyko18/devFSD/compare/v4.0.9...v4.0.10
+[4.0.9]: https://github.com/andyko18/devFSD/compare/v4.0.8...v4.0.9
+[4.0.8]: https://github.com/andyko18/devFSD/compare/v4.0.7...v4.0.8
+[4.0.7]: https://github.com/andyko18/devFSD/compare/v4.0.6...v4.0.7
 [4.0.6]: https://github.com/andyko18/devFSD/compare/v4.0.5...v4.0.6
 [4.0.5]: https://github.com/andyko18/devFSD/compare/v4.0.4...v4.0.5
 [4.0.4]: https://github.com/andyko18/devFSD/compare/v4.0.3...v4.0.4

@@ -48,7 +48,7 @@ P=skills/planning-ko/SKILL.md
 has "$P" '^### 이해 검사 \(comprehension-reviewer' && ok "P.a planning-ko 에 이해 검사 절" || nope "P.a" "절 제목 없음"
 has "$P" 'devfsd:comprehension-reviewer-ko' '순차 추가 금지' '한 메시지의 `Agent` 호출 2개\*\*\(아래 「이해 검사」를 더하면 3개\)' \
   && ok "P.b 같은 메시지 합류(순차 추가 금지) · 1회차 동시 dispatch 문구 연동" || nope "P.b" "합류 문구 누락"
-has "$P" '`§batch`\(plan-reviewer DEFER\)·`§lite`·`§유형: trivial`·promote\(`promote-fid`\)·foundation 은 부르지 않고 기록 행도 남기지 않는다' '2회차에는 부르지 않는다' \
+has "$P" '`§batch`\(plan-reviewer DEFER\)·`§유형: trivial`·promote\(`promote-fid`\)·foundation 은 부르지 않고 기록 행도 남기지 않는다' '2회차에는 부르지 않는다' \
   && ok "P.c 제외 조건 5종 · 2회차 미호출" || nope "P.c" "제외·2회차 문구 누락"
 has "$P" '`PLAN-REVIEW-RESULT`·cap 계산·외부 critic 입력에 넣지 않는다' && ok "P.d 판정 불변(PLAN-REVIEW-RESULT·cap·critic)" || nope "P.d" "판정 불변 문구 누락"
 has "$P" '\| comprehension \| comprehension-reviewer-ko \| 반영 \| experts/comprehension\.md' '\| comprehension \| comprehension-reviewer-ko \| 산출 없음 \|' \

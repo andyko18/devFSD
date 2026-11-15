@@ -478,5 +478,31 @@ printf '## %s · ok\n\n- 2026-01-05T00:00:00Z /specify 완료 (spec.md)\n' "$fid
 out=$( cd "$d" && SPECOPS_ROOT="$d/.specops" bash "$SCRIPT" "$fid" --hook 2>&1 ); rc=$?
 if [ "$rc" -eq 0 ] && [ -z "$out" ]; then ok "R39.nogit 저장소 아님 → 무출력"; else no "R39.nogit" "rc=$rc out=[$out]"; fi
 
+
+# ── B 기본 경로 FID (20261114 주행 실측) — 풀 경로 사다리로 재면 "clarify 부터 재개" 오보가 난다 ──
+mk_basic() {  # <fid> <기록 줄…(최신이 위)>
+  local fid="$1" root="$TMP/.specops"; shift
+  mkdir -p "$root/$fid"; touch "$root/$fid/spec.md"
+  { printf '## %s · basic\n\n' "$fid"; printf '%s\n' "$@"; printf '\n'; } >> "$root/session-progress.md"
+}
+mk_basic "20261114-basic-a" '- 2026-11-14 10:05 /approve 완료 (spec 1장 승인 (/basic))' '- 2026-11-14 10:00 /basic 시작 (요청)'
+out=$(SPECOPS_ROOT="$TMP/.specops" bash "$SCRIPT" "20261114-basic-a" --hook 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -qE 'DESYNC|clarify' && ok "B1 ★ 기본 경로 FID 는 승인 직후 --hook 에서 DESYNC·clarify 안내를 내지 않는다" || no "B1" "rc=$rc [$out]"
+out=$(SPECOPS_ROOT="$TMP/.specops" bash "$SCRIPT" "20261114-basic-a" 2>&1)
+printf '%s' "$out" | grep -qF '기본 경로 — 다음: 4-1번 켤 단계 판정' && ! printf '%s' "$out" | grep -q 'DESYNC' && ok "B2 ★ default 모드 — 기본 경로의 다음 단계(4-1번)를 말한다" || no "B2" "[$out]"
+mk_basic "20261114-basic-b" '- 2026-11-14 10:20 /review 완료 (봉인 (/basic))' '- 2026-11-14 10:10 /implement 완료 (x)' '- 2026-11-14 10:05 /approve 완료 (x)' '- 2026-11-14 10:00 /basic 시작 (요청)'
+out=$(SPECOPS_ROOT="$TMP/.specops" bash "$SCRIPT" "20261114-basic-b" 2>&1)
+printf '%s' "$out" | grep -qF '기본 경로 — 다음: 7번 검증' && ok "B3 봉인 뒤에는 7번 검증을 가리킨다" || no "B3" "[$out]"
+# B5·B6 (코드 리뷰 실측) — 메모 속 글자를 단계로 읽지 않는다 · 검증 뒤 다시 봉인했으면 검증을 가리킨다
+mk_basic "20261114-basic-d" '- 2026-11-14 10:05 /approve 완료 (x)' '- 2026-11-14 10:00 /basic 시작 (/lifecycle 문서에서 /verify PASS 표시와 /review 완료 줄을 고친다)'
+out=$(SPECOPS_ROOT="$TMP/.specops" bash "$SCRIPT" "20261114-basic-d" 2>&1)
+printf '%s' "$out" | grep -qF '기본 경로 — 다음: 4-1번 켤 단계 판정' && ok "B5 ★ 요청 메모에 /verify PASS·/lifecycle 이 있어도 단계로 읽지 않는다" || no "B5" "[$out]"
+mk_basic "20261114-basic-e" '- 2026-11-14 10:40 /review 완료 (다시 봉인)' '- 2026-11-14 10:30 /verify PASS (x)' '- 2026-11-14 10:20 /review 완료 (x)' '- 2026-11-14 10:05 /approve 완료 (x)' '- 2026-11-14 10:00 /basic 시작 (요청)'
+out=$(SPECOPS_ROOT="$TMP/.specops" bash "$SCRIPT" "20261114-basic-e" 2>&1)
+printf '%s' "$out" | grep -qF '기본 경로 — 다음: 7번 검증' && ok "B6 ★ 검증 뒤 다시 봉인했으면(최신 줄) 7번 검증을 가리킨다" || no "B6" "[$out]"
+mk_basic "20261114-basic-c" '- 2026-11-14 10:30 /full 승격 (태스크 4개 — 기본 경로에서 올림)' '- 2026-11-14 10:05 /approve 완료 (x)' '- 2026-11-14 10:00 /basic 시작 (요청)'
+out=$(SPECOPS_ROOT="$TMP/.specops" bash "$SCRIPT" "20261114-basic-c" 2>&1)
+! printf '%s' "$out" | grep -qF '기본 경로 — 다음' && ok "B4 ★ 풀 경로로 올린 FID 는 종전 사다리로 잰다" || no "B4" "[$out]"
+
 echo "── test-reconcile-check: PASS=$PASS FAIL=$FAIL ──"
 [ "$FAIL" -eq 0 ]

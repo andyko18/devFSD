@@ -120,7 +120,7 @@ graph TD
 review_mode: end-loaded   # 기본 — A만 wave 후 FID 단위 B·C 각 1회. 레거시: per-task
 tasks:
   - id: T1
-    test_command: "bash scripts/tests/test-<file1>.sh"   # 필수 — emit-context.sh 게이트 (미기재 시 exit 1). plain bash 단일 명령, compound(연쇄·파이프) 금지 — run-verification whitelist. verify 계층 fallback 은 과거 산출물 하위호환용
+    test_command: "bash scripts/tests/test-<file1>.sh"   # 필수 — emit-context.sh 게이트 (미기재 시 exit 1). 단일 테스트 명령(bash 테스트 스크립트·pytest·npm/pnpm/yarn test·go test·cargo test·mvn/gradle test·dotnet test — 그 밖은 `bash scripts/test.sh` 래퍼로 감싼다), compound(연쇄·파이프) 금지 — run-verification whitelist. verify 계층 fallback 은 과거 산출물 하위호환용
     depends_on: []
     inputs: []
     outputs: [src/<file1>.sh, scripts/tests/test-<file1>.sh]
@@ -154,8 +154,8 @@ tasks:
 ## 참조
 
 - `skills/tdd-ko/SKILL.md` — TDD 5 스텝
-- `skills/writing-plans-ko/SKILL.md` — 바이트-사이즈 규칙
-- `skills/sprint-contracts-ko/SKILL.md` — AC 매핑
+- `skills/planning-ko/SKILL.md` — 바이트-사이즈 규칙
+- `docs/harness-principles.md` 「스프린트 계약」 — AC 매핑
 - `skills/decomposing-ko/SKILL.md` — 본 템플릿 작성 책임 (HARD-GATE 의무)
 - `scripts/dag/parse-dag.sh` — DAG 파서 (v0.4a W1)
 

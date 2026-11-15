@@ -76,7 +76,7 @@ used_by: </command 또는 skill short name>  # command=/start, skill=specifying-
 |---|---|---|
 | **1** | 메타 (SessionStart 자동 주입) | `using-specops-ko` |
 | **2** | Engine — Lifecycle 단계·cross-cutting | `specifying-ko`, `karpathy-ko`, `advisor-ko` |
-| **3** | Harness — 아키텍처 원칙 강제 | `sprint-contracts-ko`, `context-resets-ko` |
+| **3** | Harness — lifecycle E2E 자동 검증 (원칙 5종은 skill 이 아니라 `docs/harness-principles.md`) | `e2e-test-ko` |
 
 ### 본문 필수 섹션
 

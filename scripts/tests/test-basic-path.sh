@@ -61,6 +61,10 @@ SPEC
 
 has() { local f="$1" p; shift; for p in "$@"; do grep -qF -- "$p" "$f" || return 1; done; }
 
+# 종전 규칙 구간 — 통합 절차 스위치를 끄고 본다(신호가 하나라도 있으면 풀). 통합 절차(기본값)는 파일 끝 N 구간이 본다.
+#   이 구간이 잠그는 것: 끈 스위치의 종전 동작 전부 + 두 방식이 함께 쓰는 기계 절차(골격·승인 검사·봉인·승격·종결).
+export SPECOPS_UNIFIED_PATH=0
+
 # ── L 갈래 판정 ──
 d=$(_repo lane)
 out=$(_bp "$d" lane "목록 화면에 정렬 버튼 추가"); rc=$?
@@ -89,6 +93,13 @@ out=$(_bp "$d" design-scope 3); printf '%s' "$out" | grep -q '^DESIGN: approve' 
 out=$(_bp "$d" design-scope 1 new); printf '%s' "$out" | grep -q '^DESIGN: approve' && ok "L3d ★ 새 화면은 1개여도 approve" || no "L3d" "$out"
 out=$(_bp "$d" design-scope 1 flow); printf '%s' "$out" | grep -q '^DESIGN: approve' && ok "L3e ★ 흐름 변경은 1개여도 approve" || no "L3e" "$out"
 grep -q '^BASIC_SCREEN_APPROVAL_MIN=3 ' "$BP" && ok "L3f 기준값은 스크립트 상수 한 곳(3)" || no "L3f"
+# 화면을 건드리면 설계 확인 범위와 별개로 구현 품질 두 가지(목업 CSS 이식 · 브라우저 점검)를 항상 알린다 — 하류 실측 생존율 8%·33% (20261114)
+i=0
+for args in "0" "2" "3" "1 new" "1 flow"; do
+  i=$((i+1)); out=$(_bp "$d" design-scope $args)
+  [ "$(printf '%s\n' "$out" | grep -c '^UI: ')" = 1 ] && printf '%s\n' "$out" | grep '^UI: ' | grep -q '목업 CSS 이식' && printf '%s\n' "$out" | grep '^UI: ' | grep -q '브라우저 점검' \
+    && [ "$(printf '%s\n' "$out" | grep -c '^DESIGN: ')" = 1 ] && ok "L3g.$i ★ design-scope $args → UI 줄 1개(이식·브라우저 점검) + DESIGN 줄 1개" || no "L3g.$i" "$out"
+done
 
 # ── S start ──
 out=$(_bp "$d" start "$FID" "결제 모듈 교체"); rc=$?
@@ -162,6 +173,12 @@ printf '%s' "$st" | grep -q 'PASS' && ok "Z6 판정 SoT(verification-state) = PA
 out=$(_bp "$d" seal "$FID" "bash scripts/tests/test-count.sh"); [ "$(grep -c 'BC-PAR-CHECK:T1' "$d/.specops/$FID/dispatch-log.md")" = 1 ] \
   && ok "Z8 다시 seal 해도 감사 행이 중복되지 않는다" || no "Z8"
 _bp "$d" seal "$FID" 'bash "x".sh' >/dev/null; [ $? = 1 ] && ok "Z9 test_command 의 따옴표 거부" || no "Z9"
+# 한글(비ASCII) 파일 이름 (20261115) — git 기본값은 그런 경로를 "docs/\352…" 로 따옴표 이스케이프해 내서, seal 이 "따옴표가 든 이름" 으로 영구 거부했다.
+mkdir -p "$d/docs"; printf 'x\n' > "$d/docs/가이드.md"; printf 'y\n' > "$d/scripts/도움말.sh"; ( cd "$d" && git add scripts/도움말.sh )
+out=$(_bp "$d" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 0 ] && grep -q '"docs/가이드.md"' "$t" && grep -q '"scripts/도움말.sh"' "$t" \
+  && ok "Z9k ★ 한글 파일 이름(미추적·스테이징)이 있어도 seal 통과 · outputs 에 원문 이름" || no "Z9k" "rc=$rc $out"
+rm -f "$d/docs/가이드.md"; ( cd "$d" && git rm -q --cached scripts/도움말.sh ); rm -f "$d/scripts/도움말.sh"
 out=$(_bp "$d" "done" "$FID" "빈 줄 제외 옵션"); grep -q '/lifecycle DONE' "$d/.specops/session-progress.md" && ok "Z10 done → 종결 기록" || no "Z10" "$out"
 
 # ── R 관련 스위트로 검증 (20261112 speed) ──
@@ -280,7 +297,9 @@ out=$(_bp "$m" approve "$FID"); rc=$?
 awk '/^## 4\. / { print "### AC-R-1: 옵션 없이는 종전대로 센다\n\n**우선순위**: must\n**Given** {{기존 전제}}\n**When** 옵션 없이 실행한다\n**Then** 종전과 같은 수를 출력한다\n**검증 방법**: bash scripts/tests/test-count.sh\n" } { print }' "$MS" > "$MS.t" && mv "$MS.t" "$MS"
 out=$(_bp "$m" approve "$FID"); rc=$?
 [ "$rc" = 1 ] && ok "M6 AC-R-1 에 자리표시가 남으면 승인 거부" || no "M6" "rc=$rc $out"
-sed -i.bak 's/{{기존 전제}}/빈 줄이 든 파일/' "$MS"; rm -f "$MS.bak"
+# 코드 표기(백틱·코드 펜스) 안의 `{{` 는 자리표시가 아니다 (20261115) — Vue·Jinja·GitHub Actions 를 말하는 spec 이 영구 거부됐다.
+sed -i.bak 's/{{기존 전제}}/빈 줄이 든 파일(화면은 `{{ count }}` 로 표시)/' "$MS"; rm -f "$MS.bak"
+printf '\n```yaml\ntoken: ${{ secrets.TOKEN }}\n```\n' >> "$MS"
 out=$(_bp "$m" approve "$FID"); rc=$?
 [ "$rc" = 0 ] && grep -q '^### AC-R-1: ' "$m/.specops/$FID/acceptance-criteria.md" \
   && ( cd "$m" && bash "$PLUGIN/scripts/_internal/check-regression-ac.sh" "$FID" 2>&1 | grep -q '^REGRESSION-AC: PASS' ) \
@@ -388,18 +407,526 @@ has "$C" '한 메시지에서 함께 보낸다' 'devfsd:spec-reviewer-ko' 'devfs
   && ok "D3 스펙·코드 리뷰 + 보안 스캔 동시 1회 · 그동안 PR 본문 준비 · 재리뷰 없음" || no "D3"
 has "$C" 'basic-path.sh start' 'basic-path.sh approve' 'basic-path.sh seal' 'run-verification.sh <FID>' '/verify PASS' '우회하지 않고' \
   && ok "D4 start → approve → seal → 검증 러너 → 진행 기록 · 훅 우회 금지" || no "D4"
-has "$C" '인증·권한 변경 · DB 스키마 변경 · 데이터 삭제·이관 · 기존 API 응답 형태 변경 · 되돌릴 수 없는 외부 작업' '**애매하면 무거운 쪽**' '종료 코드 3' \
-  && ok "D5 풀 신호 5종 · 애매하면 무거운 쪽 · 승격(rc 3)" || no "D5"
+has "$C" '데이터 삭제·이관 · 되돌릴 수 없는 외부 작업 · 결제·개인정보 · 태스크 4개 이상' '**애매하면 무거운 쪽**' '종료 코드 3' \
+  && ok "D5 풀 조건(무거운 신호 3종 · 태스크 4개 이상) · 애매하면 무거운 쪽 · 승격(rc 3)" || no "D5"
+has "$C" '### 켜지는 단계' 'basic-path.sh plan <FID> <태스크 수>' '`ANALYSIS: doc <경로>`' '`PLAN: yes <경로>`' '`EXPERTS: <에이전트…>`' '**결정만 적는다**' '**한 메시지에서 동시에**' 'unified_path: false' '봉인은 이 보고서가 없으면 받지 않는다' \
+  && ok "D5b 통합 절차 — 켜지는 단계 표 · plan 하위 명령 · 분석·계획·전문가 · 끄는 스위치" || no "D5b"
 has "$C" '갈래를 바꾸지 않고 **설계 확인 범위만**' 'DESIGN: none' 'DESIGN: update' 'DESIGN: approve' \
   && ok "D6 화면 변경량은 설계 확인 범위만 정한다(3단계)" || no "D6"
 has "$C" '**모델이 갈래를 고르기**' '**표본 2건**' '아직 재지 않았다' '미실행 게이트' && ok "D7 모델이 갈래를 고르지 않는다 · 표본·미측정 고지 · 미실행 게이트 표기" || no "D7"
 has "$C" 'basic-path.sh review <FID>' && grep -qF "cmds: ['/approve', BASIC_CMD]" "$PLUGIN/hooks/progress-pane.tsx" \
   && for c in /implement /review /verify /lifecycle; do grep -qF "cmds: ['$c']" "$PLUGIN/hooks/progress-pane.tsx" || exit 1; done \
   && ok "D10 리뷰 dispatch 전 review 기록 · 관제판 기본 경로 단계가 이 스크립트의 기록 이름을 읽는다" || no "D10"
+has "$C" '`UI:` 줄' '**목업 CSS 이식**' 'Tailwind' '최소 구현(YAGNI)으로 줄이지 않는다' \
+  && ok "D11 ★ 화면을 건드리면 구현 첫 일은 목업 CSS 이식(풀 경로 planning 과 같은 규칙)" || no "D11"
+has "$C" '**화면 점검**' 'ui-probe.cjs --out .specops/<FID>/ui' '.specops/memory/ui-probe.json' 'check-mock-css.sh' '`UI-PROBE: FAIL`' '**PASS 로 적지 않는다**' \
+  '**브라우저**: 실행(' '**브라우저**: 미실행(' '**접근성 기준선 첫 실행**' '방금 만든 위반을 기준선에 넣지 않는다' && ok "D12 ★ 봉인 전 브라우저 점검 1회 · 생존율 계측 · FAIL 은 고친다 · SKIP 은 PASS 아님 · evidence 브라우저 줄" || no "D12"
+has "$C" '서버 시작 명령·포트·화면 경로' && ok "D13 화면 기록이 없으면 질문 묶음에서 한 번에 묻는다(승인 뒤 무질문 유지)" || no "D13"
 has "$C" 'basic-path.sh related' 'RELATED: none' '**프로젝트의 테스트 명령 전체**' '**전체 스위트는 여기서 돌리지 않는다**' 'push 전 게이트' \
   && ok "D9 검증 명령은 related 의 답 · 매핑 없으면 전체 명령 · 전체 스위트는 push 전 게이트와 CI" || no "D9"
 grep -qF '`/quick-fix`·`--full`·`--step` 은 슬래시 전용' "$PLUGIN/skills/using-specops-ko/SKILL.md" \
   && ok "D8 메타 skill: /quick-fix·--full·--step 은 슬래시 전용" || no "D8"
+
+# ── K 판정 방향 잠금 (20261113 변이 실측에서 살아남은 4건 + 낱말 표) ──
+# K1 "범위 밖" 절은 **그 절만** 가린다 — 뒤따르는 같은 깊이의 절(화면 변경)에 든 위험 낱말은 신호다 (변이: lvl <= depth → <)
+g=$(_repo gap); _bp "$g" start "$FID" "줄 수 세기 명령에 옵션 추가" >/dev/null
+_fill_spec "$g"
+awk 'f && $0 == "없음" { print "로그인 화면의 권한 안내 문구를 바꾼다"; f = 0; next } /^### 화면 변경/ { f = 1 } { print }' "$g/.specops/$FID/spec.md" > "$g/.specops/$FID/spec.new" \
+  && mv "$g/.specops/$FID/spec.new" "$g/.specops/$FID/spec.md"
+out=$(_bp "$g" approve "$FID"); rc=$?
+[ "$rc" = 3 ] && [ ! -e "$g/.specops/$FID/acceptance-criteria.md" ] && ok "K1 ★ '범위 밖' 뒤 같은 깊이 절의 위험 낱말 → rc 3 (가림은 그 절에서 끝난다)" || no "K1" "rc=$rc $out"
+
+# ── C 판정 대상 절 (20261114) — 무엇을 바꾸는지 적는 절(목표·범위)만 본다 ──
+c=$(_repo corpus); _bp "$c" start "$FID" "줄 수 세기 명령에 옵션 추가" maintain >/dev/null
+_cspec() {  # <awk 치환 프로그램> — 기본 spec 을 채운 뒤 한 줄을 바꾼다
+  _fill_spec "$c"
+  awk '/^### 범위 밖/ { print "### 현재 동작과 영향\n\n- scripts/count.sh 는 빈 줄도 센다.\n" } /^## 4\. / { print "### AC-R-1: 종전대로 센다\n\n**우선순위**: must\n**Given** 파일\n**When** 옵션 없이 실행한다\n**Then** 전체 줄 수를 출력한다\n**검증 방법**: bash scripts/tests/test-count.sh\n" } { print }' "$c/.specops/$FID/spec.md" \
+    | sed 's/^\*\*§기본\*\*: true$/**§기본**: true\n**§유형**: 유지보수/' | awk "$1" > "$c/.specops/$FID/spec.new" && mv "$c/.specops/$FID/spec.new" "$c/.specops/$FID/spec.md"
+  rm -f "$c/.specops/$FID/acceptance-criteria.md"
+}
+_cspec '{ sub(/^\*\*Given\*\* 빈 줄 2개/, "**Given** 로그인한 관리자 권한 사용자가 빈 줄 2개"); print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 0 ] && ok "C1 ★ 수용 기준의 전제에 나온 낱말(로그인·권한)은 신호가 아니다 → 승인" || no "C1" "rc=$rc $out"
+_cspec '{ sub(/^- scripts\/count.sh 는 빈 줄도 센다\./, "- scripts/count.sh 는 인증 토큰 검사 뒤에 불리고 테이블 추가 마이그레이션과는 무관하다."); print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 0 ] && ok "C2 ★ '현재 동작과 영향' 절의 낱말은 신호가 아니다 → 승인" || no "C2" "rc=$rc $out"
+_cspec 'f && $0 == "없음" { print "응답 형태와 하위 호환은 해당 없다"; f = 0; next } /^## 4\. / { f = 1 } { print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 0 ] && ok "C3 ★ 비기능 요구 절의 낱말은 신호가 아니다 → 승인" || no "C3" "rc=$rc $out"
+_cspec '{ sub(/^줄 수 세기 명령에 빈 줄 제외 옵션을 더한다\./, "줄 수 세기 명령의 권한 검사를 고친다."); print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C4 ★ 목표 절의 풀 신호 → rc 3 (변이: 목표 절을 판정에서 빼면 통과한다)" || no "C4" "rc=$rc $out"
+_cspec '{ print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 0 ] || no "C5.pre" "rc=$rc $out"
+( cd "$c" && mkdir -p src/auth && printf 'x\n' > src/auth/guard.sh && git add src/auth/guard.sh )
+out=$(_bp "$c" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 3 ] && ok "C5 ★ 목표·범위에 적지 않은 변경은 봉인이 바뀐 파일로 잡는다 → rc 3" || no "C5" "rc=$rc $out"
+# C6 목표·범위 절이 없는 문서는 전문을 본다 — 모르면 무거운 쪽 (변이: found 폴백 삭제 → basic)
+printf '# x\n\n## 개요\n\n로그인 권한 검사를 고친다.\n' > "$c/.specops/$FID/spec.md"
+out=$(_bp "$c" lane "x" "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C6 ★ 목표·범위 절이 없는 spec 은 전문으로 판정 → full" || no "C6" "rc=$rc $out"
+
+# C7~C9 가림이 목표·범위 절을 통째로 지우지 않는다 (코드 리뷰 실측 — 셋 다 고치기 전에는 basic 이었다)
+_cspec '{ sub(/^줄 수 세기 명령에 빈 줄 제외 옵션을 더한다\./, "줄 수 세기 명령의 권한 검사를 고친다."); sub(/^## 1\. 목표$/, "## 1. 목표 (현재 동작 개선 · 일부 제외)"); print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C7 ★ 2단계 제목에 제외 낱말이 붙어도 목표 절은 본다 → rc 3" || no "C7" "rc=$rc $out"
+_cspec '{ sub(/^줄 수 세기 명령에 빈 줄 제외 옵션을 더한다\./, "줄 수 세기 명령의 권한 검사를 고친다."); sub(/^# .*spec \(기본 경로\)$/, "# 빈 줄 제외 옵션 — spec (기본 경로)"); print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C8 ★ 1단계 제목의 제외 낱말은 가림을 열지 않는다 → rc 3" || no "C8" "rc=$rc $out"
+_cspec '/^- scripts\/count.sh 에 옵션을 더한다/ { print "```bash"; print "# 빈 줄 제외 예시"; print "```"; print "- 로그인 권한 검사를 고친다"; next } { print }'
+out=$(_bp "$c" approve "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C9 ★ 코드 펜스 안 # 줄은 제목이 아니다 — 뒤따르는 범위 줄의 풀 신호 → rc 3" || no "C9" "rc=$rc $out"
+# C10 봉인의 경로 신호 — 인증·스키마 이름이 든 경로는 풀, 평범한 경로는 기본
+_cspec '{ print }'; _bp "$c" approve "$FID" >/dev/null
+for pth in prisma/schema.prisma db/schema.sql src/models/user.py src/lib/session.ts src/AuthService.ts src/middleware/guard.ts; do
+  ( cd "$c" && git reset -q && git clean -fdq -e .specops && mkdir -p "$(dirname "$pth")" && printf 'x\n' > "$pth" && git add "$pth" )
+  out=$(_bp "$c" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+  [ "$rc" = 3 ] && ok "C10 ★ 봉인: $pth → rc 3" || no "C10 $pth" "rc=$rc $out"
+done
+( cd "$c" && git reset -q && git clean -fdq -e .specops && mkdir -p src/routes scripts && printf 'x\n' > src/routes/orders.ts && printf 'x\n' > scripts/count.sh && git add src scripts )
+out=$(cd "$c" && bash "$BP" lane "x" "$FID" 2>&1); rc=$?
+[ "$rc" = 0 ] && ok "C11 평범한 spec 은 lane basic (경로 신호는 봉인에서만 본다)" || no "C11" "rc=$rc $out"
+# C12 경로 신호의 오탐 방지 — 글쓴이(author)·session-progress·새 라우트 파일은 인증·스키마가 아니다
+( cd "$c" && git reset -q && git clean -fdq -e .specops && mkdir -p src/routes scripts && printf 'x\n' > src/routes/authors.ts && printf 'x\n' > scripts/session-progress-append.sh && git add src scripts )
+out=$(_bp "$c" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" != 3 ] && ok "C12 ★ 봉인: authors.ts · session-progress-append.sh 는 풀 신호가 아니다" || no "C12" "rc=$rc $out"
+
+# K2 판정기를 읽을 수 없으면 가벼운 쪽으로 열리지 않는다 — route 는 풀, lane 은 rc 1 (변이: 판정 불가 가지 삭제)
+mkdir -p "$TMP/plug/scripts"; cp "$BP" "$TMP/plug/scripts/basic-path.sh"
+out=$( cd "$g" && bash "$TMP/plug/scripts/basic-path.sh" route start "목록 화면에 정렬 버튼 추가" 2>&1 ); rc=$?
+printf '%s\n' "$out" | grep -q '^ROUTE: full — 위험 신호 판정 불가' && ! printf '%s\n' "$out" | grep -q '^ROUTE: basic' \
+  && ok "K2 ★ 판정기 부재 → ROUTE: full(판정 불가) — basic 으로 열리지 않는다" || no "K2" "rc=$rc $out"
+out=$( cd "$g" && bash "$TMP/plug/scripts/basic-path.sh" lane "목록 화면에 정렬 버튼 추가" 2>&1 ); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '^LANE: full ' && ok "K2b 판정기 부재 → lane rc 1 · LANE: full" || no "K2b" "rc=$rc $out"
+
+# K4 변경 파일이 없으면 봉인하지 않는다 (변이: 빈 목록 검사 삭제) · K3 리뷰 보고서는 둘 다 있어야 한다 (변이: && → ||)
+_fill_spec "$g"; _bp "$g" approve "$FID" >/dev/null
+out=$(_bp "$g" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '변경된 파일이 없다' && [ ! -e "$g/.specops/$FID/tasks.md" ] && ok "K4 ★ 변경 파일 없이 seal → rc 1 · 태스크 문서 없음" || no "K4" "rc=$rc $out"
+printf '#!/usr/bin/env bash\ngrep -c . "$1"\n' > "$g/scripts/count.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$g/scripts/tests/test-count.sh"; chmod +x "$g/scripts/count.sh" "$g/scripts/tests/test-count.sh"
+mkdir -p "$g/.specops/$FID/reviews"
+printf '# B\n**판정**: PASS\n' > "$g/.specops/$FID/reviews/T1-B-report.md"
+out=$(_bp "$g" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 4 ] && [ ! -e "$g/.specops/$FID/tasks.md" ] && ok "K3a ★ 스펙 리뷰 보고서만 있고 코드 리뷰 보고서가 없으면 seal rc 4" || no "K3a" "rc=$rc $out"
+rm -f "$g/.specops/$FID/reviews/T1-B-report.md"
+printf '# C\n**판정**: READY_TO_MERGE\n' > "$g/.specops/$FID/reviews/T1-C-report.md"
+out=$(_bp "$g" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 4 ] && [ ! -e "$g/.specops/$FID/tasks.md" ] && ok "K3b ★ 코드 리뷰 보고서만 있고 스펙 리뷰 보고서가 없으면 seal rc 4" || no "K3b" "rc=$rc $out"
+
+# K5 위험 낱말 표 — 낱말 하나만 든 문장이 그 종류의 신호로 풀 판정이 나는가 (20261113: 95개 중 55개가 어느 스위트에도 없었다 — 낱말 삭제·오타가 통과했다)
+#   한 줄 = `<신호 이름>|<그 낱말만 위험한 문장>`. 판정기(basic-path.sh _ko_signals · risk-profile.sh rp::detect_strict_signals)에 낱말을 더하면 여기에도 더한다.
+kw_total=0; kw_bad=""
+while IFS='|' read -r kc kq; do
+  [ -n "$kc" ] || continue
+  kw_total=$((kw_total+1))
+  out=$(_bp "$d" lane "$kq"); rc=$?
+  { [ "$rc" = 3 ] && printf ' %s ' "${out#LANE: full }" | grep -qF " $kc "; } || kw_bad="$kw_bad [$kc|$kq → rc=$rc $out]"
+done <<'KW'
+auth|화면에 인증 안내를 더한다
+auth|인가 규칙 설명을 고친다
+auth|권한 안내를 고친다
+auth|로그인 문구를 고친다
+auth|비밀번호 안내를 고친다
+auth|세션 토큰 설명을 고친다
+auth|auth 모듈 주석을 고친다
+auth|oauth 설명을 고친다
+auth|jwt 설명을 고친다
+auth|rbac 설명을 고친다
+auth|permission 표를 고친다
+auth|credential 설명을 고친다
+auth|secret 이름을 바꾼다
+auth|값을 .env 에서 읽는다
+db_schema|스키마 설명을 고친다
+db_schema|마이그레이션 안내를 고친다
+db_schema|컬럼 이름을 고친다
+db_schema|주문 테이블 추가
+db_schema|주문 테이블 변경
+db_schema|주문 테이블 삭제
+db_schema|주문 테이블 생성
+db_schema|주문 인덱스 추가
+db_schema|주문 인덱스 삭제
+db_migration|migration 파일을 본다
+db_migration|alembic 설정을 본다
+db_migration|prisma/migrations 를 본다
+db_migration|supabase/migrations 를 본다
+db_migration|CREATE TABLE orders
+db_migration|ALTER TABLE orders
+db_migration|DROP TABLE orders
+db_migration|data-model.md 를 고친다
+data_move|오래된 데이터 삭제
+data_move|주문 데이터 이관
+data_move|주문 데이터 이전
+data_move|주문 데이터 정리
+data_move|주문 일괄 삭제
+data_move|주문 백필
+data_move|orders backfill
+data_move|truncate orders
+data_move|purge orders
+api_shape|주문 조회 응답 형태를 본다
+api_shape|주문 조회 응답 형식을 본다
+api_shape|주문 조회 응답 구조를 본다
+api_shape|주문 조회 응답 필드를 본다
+api_shape|주문 조회 응답 스키마를 본다
+api_shape|하위 호환 설명을 고친다
+api_shape|breaking 표시를 더한다
+api_shape|주문 API 변경
+api_shape|주문 API 수정
+api_shape|주문 API 삭제
+irreversible_ext|운영 배포 안내를 고친다
+irreversible_ext|운영 반영 안내를 고친다
+irreversible_ext|결제 화면 문구를 고친다
+irreversible_ext|과금 문구를 고친다
+irreversible_ext|환불 문구를 고친다
+irreversible_ext|가입 메일 발송
+irreversible_ext|가입 문자 발송
+irreversible_ext|가입 푸시 발송
+irreversible_ext|가입 알림 발송
+irreversible_ext|되돌릴 수 없는 작업 안내
+destructive_fs|irreversible: true 표시
+destructive_fs|Delete: 항목을 본다
+destructive_fs|unlink( 호출을 본다
+destructive_fs|rm -rf 를 쓴다
+destructive_fs|path.join 을 쓴다
+destructive_fs|filesystem 접근을 본다
+destructive_fs|fs.unlink 를 쓴다
+destructive_fs|fs.rm 을 쓴다
+payment_pii|payment 화면을 본다
+payment_pii|billing 화면을 본다
+payment_pii|pii 필드를 본다
+payment_pii|개인정보 안내를 고친다
+payment_pii|주민등록 번호 칸을 본다
+payment_pii|credit card 칸을 본다
+public_api|api-spec.md 를 고친다
+public_api|/api/ 경로를 본다
+public_api|openapi 문서를 본다
+public_api|public api 문서를 본다
+public_api|엔드포인트 설명을 고친다
+infra|.github/workflows 를 본다
+infra|Dockerfile 을 본다
+infra|terraform 설정을 본다
+infra|kubernetes 설정을 본다
+infra|k8s 설정을 본다
+infra|helm 차트를 본다
+infra|deploy 안내를 고친다
+external_exec|subprocess 를 쓴다
+external_exec|child_process 를 쓴다
+external_exec|os.system 을 쓴다
+external_exec|exec( 호출을 본다
+external_exec|bash -c 로 돌린다
+external_exec|Runtime.exec 를 쓴다
+cross_service|cross-service 호출을 본다
+cross_service|microservice 구성을 본다
+cross_service|message queue 를 쓴다
+cross_service|sqs 를 쓴다
+cross_service|kafka 를 쓴다
+cross_service|external api 를 부른다
+KW
+[ -z "$kw_bad" ] && [ "$kw_total" -ge 95 ] && ok "K5 ★ 위험 낱말 ${kw_total}개 — 낱말마다 그 종류의 신호로 풀 판정(rc 3)" || no "K5" "total=$kw_total 빠짐:$kw_bad"
+
+
+# ── N 통합 절차 (20261114 · 기본값) — 위험 신호는 갈래가 아니라 켤 단계를 정한다 ──
+export SPECOPS_UNIFIED_PATH=1
+n=$(_repo uni)
+out=$(_bp "$n" lane "로그인 권한 검사를 바꾼다"); rc=$?
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -qx 'LANE: basic' && printf '%s\n' "$out" | grep -q '^SIGNALS: .*auth' && ok "N1 ★ 가벼운 신호(인증) → basic + SIGNALS 줄 (rc 0)" || no "N1" "rc=$rc $out"
+_r2() {  # <repo> — spec 에 데이터 보존 수용 기준(AC-R-2)을 더한다
+  awk '/^## 4\. / { print "### AC-R-2: 데이터 보존 — 주문 행\n\n**우선순위**: must\n**Given** 주문 3행\n**When** 컬럼을 더한다\n**Then** 3행이 그대로 읽힌다\n**검증 방법**: bash scripts/tests/test-count.sh\n" } { print }' "$1/.specops/$FID/spec.md" > "$1/.specops/$FID/spec.new" && mv "$1/.specops/$FID/spec.new" "$1/.specops/$FID/spec.md"
+}
+# 데이터 보존 기준 (20261114 점검) — DB 스키마 신호면 AC-R-2 가 있어야 승인된다
+nr=$(_repo unir2); out=$(_bp "$nr" start "$FID" "주문 테이블 컬럼 추가"); rc=$?
+[ "$rc" = 0 ] && grep -q '^### AC-R-2: 데이터 보존' "$nr/.specops/$FID/spec.md" && ok "N1c ★ 스키마 신호로 시작하면 골격에 AC-R-2(데이터 보존)가 들어간다" || no "N1c" "rc=$rc $out"
+_fill_spec "$nr" "주문 테이블 컬럼 추가"; out=$(_bp "$nr" approve "$FID"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'AC-R-2' && [ ! -e "$nr/.specops/$FID/acceptance-criteria.md" ] && ok "N1d ★ 스키마 신호인데 AC-R-2 가 없으면 approve rc 1" || no "N1d" "rc=$rc $out"
+_r2 "$nr"; out=$(_bp "$nr" approve "$FID"); rc=$?
+[ "$rc" = 0 ] && grep -q '^### AC-R-2' "$nr/.specops/$FID/acceptance-criteria.md" && ok "N1e AC-R-2 를 적으면 승인 · 수용 기준 파일에 옮겨진다" || no "N1e" "rc=$rc $out"
+n0=$(_repo unir0); _bp "$n0" start "$FID" "로그인 권한 검사를 바꾼다" >/dev/null
+grep -q 'AC-R-2' "$n0/.specops/$FID/spec.md" && no "N1f" "스키마 신호가 아닌데 AC-R-2 골격" || ok "N1f 스키마 신호가 아니면 AC-R-2 를 요구하지 않는다"
+# 신호 → 전문가 매핑 (변이: 매핑 가지를 비우면 전문가 없이 지나간다)
+nm=$(_repo unimap); i=0
+for pair in "주문 테이블 컬럼 추가|devfsd:db-designer-ko" "주문 조회 응답 형식을 바꾼다|devfsd:api-designer-ko" "add kafka consumer|devfsd:arch-designer-ko" "run child_process for lint|devfsd:security-designer-ko"; do
+  i=$((i+1)); q="${pair%%|*}"; want="${pair##*|}"
+  _bp "$nm" start "$FID" "$q" >/dev/null; _fill_spec "$nm" "$q"
+  case "$want" in *db-designer*) _r2 "$nm" ;; esac
+  out=$(_bp "$nm" approve "$FID"); rc=$?
+  [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q "^EXPERTS: .*$want" && ok "N1b.$i ★ 신호 → 전문가: $q → $want" || no "N1b.$i" "rc=$rc $out"
+  rm -rf "$nm/.specops/$FID"
+done
+i=0
+for q in "오래된 데이터 삭제 배치" "결제 취소 시 환불 호출" "개인정보 필드를 내려준다" "rm -rf 로 캐시를 지운다" "deploy 스크립트를 고친다"; do
+  i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
+  [ "$rc" = 3 ] && printf '%s' "$out" | grep -q '^LANE: full ' && ok "N2.$i ★ 무거운 신호 → full (rc 3): $q" || no "N2.$i" "rc=$rc $out"
+done
+# N2b~N2d 갈래 낱말 — 기본값(통합 절차)에서의 미탐·오탐 표 (20261114 소스 검토 · 과거 작업 327건 대조)
+#   종전 K5 표는 옛 규칙(SPECOPS_UNIFIED_PATH=0)에서만 "신호 → 풀" 을 봐서, 기본값에서 위험한 요청이 기본으로 남는 것과
+#   평범한 요청이 무겁게 가는 것을 어느 행도 보지 않았다.
+#   ① 미탐: 위험한 요청인데 신호가 없었다 → 이제 무거운 신호(풀). 추가한 형태는 과거 기본 판정 302건에서 오발 0건으로 확인한 것만이다.
+i=0
+while IFS='|' read -r want q; do
+  [ -n "$q" ] || continue
+  i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
+  [ "$rc" = 3 ] && printf '%s' "$out" | grep -qE "^LANE: full( .*)? $want( |$)" && ok "N2b.$i ★ 미탐 → full($want): $q" || no "N2b.$i" "want=$want rc=$rc $out"
+done <<'ROWS'
+irreversible_ext|운영 서버에 배포한다
+irreversible_ext|프로덕션에 배포한다
+irreversible_ext|Deploy to production
+data_move|사용자 계정을 삭제한다
+data_move|주문 내역을 전부 삭제한다
+data_move|Delete all users from the database
+data_move|Drop the orders table
+data_move|DROP TABLE users
+payment_pii|카드번호 저장 필드 추가
+payment_pii|계좌번호 입력 폼을 만든다
+payment_pii|주민번호 마스킹 처리
+payment_pii|외부 서버로 사용자 데이터를 전송한다
+irreversible_ext|Refund the order
+irreversible_ext|Charge the customer's card
+irreversible_ext|Send emails to all customers
+irreversible_ext|모든 회원에게 이메일을 발송한다
+destructive_fs|git push --force 를 실행하는 스크립트
+ROWS
+# ② 가벼운 신호(기본 경로 + 단계 켬)로 잡혀야 하는데 아무 신호도 없던 것
+i=0
+while IFS='|' read -r want q; do
+  [ -n "$q" ] || continue
+  i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
+  [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -qE "^SIGNALS:( .*)? $want( |$)" && ok "N2c.$i 미탐 → 가벼운 신호($want): $q" || no "N2c.$i" "want=$want rc=$rc $out"
+done <<'ROWS'
+auth|Remove the password check
+auth|admin 체크를 우회하게 한다
+ROWS
+# ③ 오탐: 낱말이 식별자 일부일 뿐인 것 → 무거운 신호가 아니다(과거 실측: expiredTruncated 4건 · isPkcs12DeployType · is_backfill)
+i=0
+for q in "expiredTruncated 카운트를 응답에 더한다" "isPkcs12DeployType 판정 함수를 고친다" "runDeployCycle 의 로그 문구를 바꾼다" "is_backfill 플래그 이름을 바꾼다"; do
+  i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
+  [ "$rc" = 0 ] && ok "N2d.$i ★ 식별자 일부의 낱말은 무거운 신호가 아니다: $q" || no "N2d.$i" "rc=$rc $out"
+done
+# 대조: 진짜 무거운 것은 그대로 무겁다(낱말 경계를 좁혀 정탐을 잃지 않았다)
+i=0
+for q in "jobs/backfill_candles.py 로 일봉을 백필한다" "scripts/deploy.sh 의 대상 서버를 바꾼다" "truncate orders" "orders backfill" "운영 반영 절차를 실행한다"; do
+  i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
+  [ "$rc" = 3 ] && ok "N2e.$i 대조: 정탐은 그대로 full: $q" || no "N2e.$i" "rc=$rc $out"
+done
+out=$(_bp "$n" route maintain "로그인 권한 검사를 바꾼다")
+printf '%s\n' "$out" | grep -q '^ROUTE: basic — 위험 신호(인증·권한)' && printf '%s\n' "$out" | grep -q '^NOTICE: .*계획과 전문가 검토를 켠다' && printf '%s\n' "$out" | grep -q '^PROCEDURE: ' \
+  && ok "N3 ★ route — 가벼운 신호는 기본 경로 + 켤 단계 고지" || no "N3" "$out"
+out=$(_bp "$n" route start "오래된 데이터 삭제 배치")
+printf '%s\n' "$out" | grep -q '^ROUTE: full — 위험 신호(데이터 삭제·이관)' && ok "N4 route — 무거운 신호는 풀" || no "N4" "$out"
+out=$(_bp "$n" route start "--full 목록 화면에 정렬 버튼 추가")
+printf '%s\n' "$out" | grep -q '^ROUTE: full — --full 지정' && ok "N4b route — --full 은 종전 풀 경로" || no "N4b" "$out"
+
+# 분석 문서 — 위험 신호가 걸린 유지보수만
+out=$(_bp "$n" start "$FID" "로그인 권한 검사를 바꾼다" maintain); rc=$?
+A="$n/.specops/$FID/analysis.md"
+[ "$rc" = 0 ] && [ -f "$A" ] && grep -q '^## 1. 현재 동작' "$A" && grep -q '^## 3. 깨질 수 있는 기존 동작' "$A" && printf '%s\n' "$out" | grep -q '^ANALYSIS: doc ' \
+  && ok "N5 ★ 신호 있는 유지보수 → analysis.md 골격 + ANALYSIS: doc" || no "N5" "rc=$rc $out"
+n2=$(_repo uni2); out=$(_bp "$n2" start "$FID" "로그인 권한 검사를 바꾼다"); rc=$?
+[ "$rc" = 0 ] && [ ! -e "$n2/.specops/$FID/analysis.md" ] && printf '%s\n' "$out" | grep -qx 'ANALYSIS: none' && ok "N5b 신규는 분석 문서 없음" || no "N5b" "rc=$rc $out"
+n3=$(_repo uni3); out=$(_bp "$n3" start "$FID" "줄 수 세기 명령에 옵션 추가" maintain); rc=$?
+[ "$rc" = 0 ] && [ ! -e "$n3/.specops/$FID/analysis.md" ] && printf '%s\n' "$out" | grep -q '^ANALYSIS: section' && ok "N5c 신호 없는 유지보수는 spec 의 절로 (분석 문서 없음)" || no "N5c" "rc=$rc $out"
+
+_mspec() {  # <repo> <범위 줄> — 유지보수 spec 을 채운다
+  _fill_spec "$1" "$2"
+  awk '/^### 범위 밖/ { print "### 현재 동작과 영향\n\n- analysis.md 참조.\n" } /^## 4\. / { print "### AC-R-1: 종전대로 센다\n\n**우선순위**: must\n**Given** 파일\n**When** 옵션 없이 실행한다\n**Then** 전체 줄 수를 출력한다\n**검증 방법**: bash scripts/tests/test-count.sh\n" } { print }' "$1/.specops/$FID/spec.md" \
+    | sed 's/^\*\*§기본\*\*: true$/**§기본**: true\n**§유형**: 유지보수/' > "$1/.specops/$FID/spec.new" && mv "$1/.specops/$FID/spec.new" "$1/.specops/$FID/spec.md"
+}
+_mspec "$n" "로그인 권한 검사를 고친다"
+out=$(_bp "$n" approve "$FID"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'analysis.md 에 채우지 않은' && [ ! -e "$n/.specops/$FID/acceptance-criteria.md" ] && ok "N6 ★ 채우지 않은 분석 문서 → approve rc 1" || no "N6" "rc=$rc $out"
+printf '# 분석\n\n## 1. 현재 동작\n\n- x\n' > "$A"
+out=$(_bp "$n" approve "$FID"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q "영향 범위" && ok "N6a ★ 분석 문서에 절이 빠지면 approve rc 1" || no "N6a" "rc=$rc $out"
+printf '# 분석\n\n## 1. 현재 동작\n\n- check() 가 역할을 본다.\n\n## 2. 영향 범위\n\n- 호출자 2곳.\n\n## 3. 깨질 수 있는 기존 동작\n\n- 관리자 통과.\n' > "$A"
+out=$(_bp "$n" approve "$FID"); rc=$?
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -qx 'EXPERTS: devfsd:security-designer-ko' && grep -q '/analyze 완료' "$n/.specops/session-progress.md" \
+  && ok "N6b ★ 승인 → EXPERTS 줄(인증 → 보안 전문가) · 분석 완료 기록" || no "N6b" "rc=$rc $out"
+
+# plan — 켤 단계 판정
+for bad in 0 abc "" 00 07 1000 99999999999999999999; do out=$(_bp "$n" plan "$FID" "$bad"); [ $? = 1 ] || no "N7.bad[$bad]" "$out"; done; ok "N7 ★ plan — 태스크 수는 1~999 의 정수(0 시작·큰 수 거부 — 큰 수가 상한 검사를 지나가지 않는다)"
+out=$(_bp "$n" plan "$FID" 4); rc=$?
+[ "$rc" = 3 ] && printf '%s' "$out" | grep -q 'PLAN: full' && [ ! -e "$n/.specops/$FID/plan.md" ] && [ ! -e "$n/.specops/$FID/steps.txt" ] \
+  && ok "N7b ★ 태스크 4개 이상 → rc 3 (풀 경로로) · 계획·판정 기록 없음" || no "N7b" "rc=$rc $out"
+out=$(_bp "$n" plan "$FID" 1); rc=$?
+P="$n/.specops/$FID/plan.md"
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^PLAN: yes ' && printf '%s\n' "$out" | grep -qx 'EXPERTS: devfsd:security-designer-ko' \
+  && [ "$(grep -c '^### Task ' "$P")" = 1 ] && grep -q '^## 3. 위험 신호 대응' "$P" && grep -q '^signals=.*auth' "$n/.specops/$FID/steps.txt" \
+  && ok "N7c ★ 신호가 있으면 태스크 1개여도 계획 + 위험 신호 대응 절 · 판정 기록" || no "N7c" "rc=$rc $out"
+out=$(_bp "$n" review "$FID"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'plan.md 에 채우지 않은' && ok "N8 ★ 채우지 않은 계획으로는 review 로 못 간다 (rc 1)" || no "N8" "rc=$rc $out"
+_fill_spec "$n3" "scripts/count.sh 에 옵션을 더한다"; _mspec "$n3" "scripts/count.sh 에 옵션을 더한다"; _bp "$n3" approve "$FID" >/dev/null
+out=$(_bp "$n3" plan "$FID" 1); rc=$?
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^PLAN: skip' && printf '%s\n' "$out" | grep -qx 'EXPERTS: none' && [ ! -e "$n3/.specops/$FID/plan.md" ] && [ -f "$n3/.specops/$FID/steps.txt" ] \
+  && ok "N7d ★ 태스크 1개 · 신호 없음 → 계획 건너뜀 · 전문가 없음" || no "N7d" "rc=$rc $out"
+rm -f "$n3/.specops/$FID/steps.txt"; out=$(_bp "$n3" plan "$FID" 2); rc=$?
+# 다시 실행 (20261114 주행 실측) — 손대지 않은 골격은 새 수로 다시 만들고, 건너뜀이면 지운다
+out3=$(_bp "$n3" plan "$FID" 3); [ "$(grep -c '^### Task ' "$n3/.specops/$FID/plan.md")" = 3 ] && [ "$(grep -c '^### Task ' "$n3/.specops/$FID/plan.md.prev")" = 2 ] && printf '%s' "$out3" | grep -q 'plan.md.prev 로 옮겼다' && ok "N7f ★ plan 재실행 — 자리표시가 남은 계획은 plan.md.prev 로 옮기고(지우지 않는다) 새 태스크 수로 다시 만든다" || no "N7f" "$out3"
+out1=$(_bp "$n3" plan "$FID" 1); printf '%s\n' "$out1" | grep -q '^PLAN: skip' && [ ! -e "$n3/.specops/$FID/plan.md" ] && ok "N7g ★ plan 재실행으로 건너뜀이 되면 남은 골격을 지운다(뒤에서 막히지 않는다)" || no "N7g" "$out1"
+_bp "$n3" plan "$FID" 2 >/dev/null; sed 's/{{[^}]*}}/x/g' "$n3/.specops/$FID/plan.md" > "$n3/.specops/$FID/plan.t" && mv "$n3/.specops/$FID/plan.t" "$n3/.specops/$FID/plan.md"
+out3=$(_bp "$n3" plan "$FID" 3); printf '%s\n' "$out3" | grep -q '^PLAN-NOTE: plan.md 의 태스크 칸은 2개인데 3개' && [ "$(grep -c '^### Task ' "$n3/.specops/$FID/plan.md")" = 2 ] \
+  && ok "N7h ★ 이미 채운 계획은 다시 만들지 않고 칸 수 차이만 알린다" || no "N7h" "$out3"
+rm -f "$n3/.specops/$FID/plan.md" "$n3/.specops/$FID/steps.txt"; out=$(_bp "$n3" plan "$FID" 2); rc=$?
+[ "$rc" = 0 ] && printf '%s\n' "$out" | grep -q '^PLAN: yes ' && [ "$(grep -c '^### Task ' "$n3/.specops/$FID/plan.md")" = 2 ] && ok "N7d2 ★ 경계 — 태스크 2개면 신호 없어도 계획" || no "N7d2" "rc=$rc $out"
+rm -f "$n3/.specops/$FID/plan.md"
+out=$(_bp "$n3" plan "$FID" 3); rc=$?
+[ "$rc" = 0 ] && [ "$(grep -c '^### Task ' "$n3/.specops/$FID/plan.md")" = 3 ] && ! grep -q '위험 신호 대응' "$n3/.specops/$FID/plan.md" \
+  && ok "N7e 태스크 3개 · 신호 없음 → 계획(태스크 3칸 · 신호 절 없음)" || no "N7e" "rc=$rc $out"
+
+# seal 안전망
+# 채우지 않은 계획으로 review 를 건너뛰고 봉인해도 막힌다 (20261114 주행 실측 — 종전에는 통과했다)
+printf '#!/usr/bin/env bash\nexit 0\n' > "$n/scripts/tests/test-count.sh"; chmod +x "$n/scripts/tests/test-count.sh"; printf 'x\n' > "$n/scripts/count.sh"
+mkdir -p "$n/.specops/$FID/reviews" "$n/.specops/$FID/experts"
+printf '# B\n**판정**: PASS\n' > "$n/.specops/$FID/reviews/T1-B-report.md"; printf '# C\n**Phase B 상태**: PENDING(병렬 dispatch)\n**판정**: READY_TO_MERGE\n' > "$n/.specops/$FID/reviews/T1-C-report.md"
+printf '# 보안\n## 반영\n- 반영\n' > "$n/.specops/$FID/experts/security.md"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'plan.md 에 채우지 않은' && [ ! -e "$n/.specops/$FID/tasks.md" ] && ok "N8a ★ 채우지 않은 계획은 seal 도 막는다 (rc 1)" || no "N8a" "rc=$rc $out"
+rm -rf "$n/.specops/$FID/reviews" "$n/.specops/$FID/experts"
+sed 's/{{[^}]*}}/x/g' "$P" > "$P.t" && mv "$P.t" "$P"
+printf '\n배포 워크플로는 `${{ github.sha }}` 를 쓴다.\n' >> "$P"   # 코드 표기 안의 `{{` — review·seal 이 막지 않는다
+printf '#!/usr/bin/env bash\ngrep -c . "$1"\n' > "$n/scripts/count.sh"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$n/scripts/tests/test-count.sh"; chmod +x "$n/scripts/count.sh" "$n/scripts/tests/test-count.sh"
+_bp "$n" review "$FID" >/dev/null
+grep -q '/plan 완료' "$n/.specops/session-progress.md" && ok "N8b 계획이 있으면 review 가 계획 완료를 남긴다(관제판 계획 칸)" || no "N8b"
+mkdir -p "$n/.specops/$FID/reviews"
+printf '# B\n**판정**: PASS\n' > "$n/.specops/$FID/reviews/T1-B-report.md"
+printf '# C\n**Phase B 상태**: PENDING(병렬 dispatch)\n**판정**: READY_TO_MERGE\n' > "$n/.specops/$FID/reviews/T1-C-report.md"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '전문가 보고서가 없다: experts/security.md' && [ ! -e "$n/.specops/$FID/tasks.md" ] \
+  && ok "N9 ★ 켜기로 한 전문가의 보고서 없이 seal → rc 1" || no "N9" "rc=$rc $out"
+mkdir -p "$n/.specops/$FID/experts"; : > "$n/.specops/$FID/experts/security.md"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '전문가 보고서가 없다' && ok "N9a ★ 빈 전문가 보고서 → rc 1" || no "N9a" "rc=$rc $out"
+printf '# 보안\n지적 1건\n' > "$n/.specops/$FID/experts/security.md"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q "'## 반영' 절이 없다" && ok "N9a2 ★ 반영 절 없는 전문가 보고서 → rc 1" || no "N9a2" "rc=$rc $out"
+# 전문가가 써 준 틀 그대로(반영·기각을 고르지 않음)면 봉인하지 않는다 (20261115) — 종전 검사는 `## 반영` 제목만 봤는데 그 제목은 전문가 산출 틀에 이미 있어 항상 통과했다.
+printf '# 보안\n## 지적\n- I-1 인가 누락\n## 반영 (메인 planning 이 채운다)\n- <지적 1> — 반영(plan §/Task N) | 기각(근거)\n' > "$n/.specops/$FID/experts/security.md"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'experts/security.md' && printf '%s' "$out" | grep -q '고르지 않은' && ok "N9x1 ★ 전문가 보고서의 반영 절이 틀 그대로면 seal 거부" || no "N9x1" "rc=$rc $out"
+printf '# 보안\n## 반영 (메인 planning 이 채운다)\n' > "$n/.specops/$FID/experts/security.md"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'experts/security.md' && ok "N9x2 반영 절이 비어 있으면 seal 거부" || no "N9x2" "rc=$rc $out"
+printf '# 보안\n## 반영\n- 반영\n' > "$n/.specops/$FID/experts/security.md"
+sed 's/^experts=.*/experts=/' "$n/.specops/$FID/steps.txt" > "$n/.specops/$FID/steps.t" && mv "$n/.specops/$FID/steps.t" "$n/.specops/$FID/steps.txt"
+mv "$n/.specops/$FID/experts/security.md" "$n/.specops/$FID/experts/sec.bak"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '전문가 보고서가 없다' && ok "N9a3 ★ 판정 기록의 전문가 줄을 비워도 spec 신호로 다시 구해 막는다" || no "N9a3" "rc=$rc $out"
+mv "$n/.specops/$FID/experts/sec.bak" "$n/.specops/$FID/experts/security.md"
+printf '\n### Task 2: x\n\n### Task 3: x\n\n### Task 4: x\n' >> "$P"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 3 ] && printf '%s' "$out" | grep -q 'plan.md 의 태스크가 4개' && ok "N9a4 ★ 계획에 태스크 칸이 4개 이상이면 seal rc 3 (작게 보고한 수를 믿지 않는다)" || no "N9a4" "rc=$rc $out"
+awk '/^### Task [234]: x$/ { skip = 1; next } { print }' "$P" > "$P.t" && mv "$P.t" "$P"
+mkdir -p "$n/prisma"; printf 'x\n' > "$n/prisma/schema.prisma"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 3 ] && printf '%s' "$out" | grep -q '계획 때 없던 위험 신호' && [ ! -e "$n/.specops/$FID/tasks.md" ] \
+  && ok "N9b ★ 계획 때 없던 신호(스키마 경로)가 구현에서 나오면 seal rc 3" || no "N9b" "rc=$rc $out"
+rm -rf "$n/prisma"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 0 ] && grep -q 'test_command: "bash scripts/tests/test-count.sh"' "$n/.specops/$FID/tasks.md" && ok "N9c 신호·전문가 보고서가 계획과 맞으면 seal 통과" || no "N9c" "rc=$rc $out"
+mv "$n/.specops/$FID/steps.txt" "$n/.specops/$FID/steps.bak"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'steps.txt' && ok "N9d ★ plan 을 건너뛴 seal → rc 1" || no "N9d" "rc=$rc $out"
+mv "$n/.specops/$FID/steps.bak" "$n/.specops/$FID/steps.txt"
+
+# 스위치
+unset SPECOPS_UNIFIED_PATH
+out=$(_bp "$n2" lane "로그인 권한 검사를 바꾼다"); rc=$?
+[ "$rc" = 0 ] && ok "N10 스위치를 정하지 않으면 통합 절차(기본값)" || no "N10" "rc=$rc $out"
+for v in '"false"' 'False' 'no' 'off  # 끔'; do
+  printf 'unified_path: %s\n' "$v" > "$n2/.specops/config.yaml"
+  out=$(_bp "$n2" lane "로그인 권한 검사를 바꾼다"); [ $? = 3 ] || no "N10a[$v]" "$out"
+done; ok "N10a 스위치 값의 따옴표·대소문자·no·주석을 끈 것으로 읽는다"
+printf 'unified_path: false\n' > "$n2/.specops/config.yaml"
+out=$(_bp "$n2" lane "로그인 권한 검사를 바꾼다"); rc=$?
+[ "$rc" = 3 ] && ok "N10b ★ config.yaml unified_path: false → 종전 규칙(신호 하나면 풀)" || no "N10b" "rc=$rc $out"
+out=$(cd "$n2" && SPECOPS_UNIFIED_PATH=1 bash "$BP" lane "로그인 권한 검사를 바꾼다" 2>&1); rc=$?
+[ "$rc" = 0 ] && ok "N10c 환경 변수가 config 보다 앞선다" || no "N10c" "rc=$rc $out"
+
+# ── V 봉인이 B 보고서의 판정 줄을 읽는다 (20261114 소스 검토) ──
+#   저장 훅이 -B-feedback.md 를 만드는 것은 판정이 NEEDS_FIX 일 때뿐이다. 훅이 안 돈 실행(부모 fallback 저장)에서는 그 파일이 없어
+#   NEEDS_FIX 도 감사 행에 "B PASS" 로 적혔다. 보고서의 고정 판정 줄(agents/spec-reviewer-ko.md `## 종합 판정` 첫 줄)이
+#   NEEDS_FIX 인데 feedback 이 없으면 봉인하지 않는다(rc 4 — 보고서가 없을 때와 같은 "리뷰 단계로 돌아가라").
+FID_V=20261114-bp-verdict
+rv=$(_repo vd); printf '#!/usr/bin/env bash\ngrep -c . "$1"\n' > "$rv/scripts/count.sh"; printf '#!/usr/bin/env bash\necho "PASS=1 FAIL=0"\n' > "$rv/scripts/tests/test-count.sh"
+( cd "$rv" && git add scripts && git -c user.name=t -c user.email=t@e.com commit -qm base && git branch -f main HEAD ) >/dev/null
+printf '#!/usr/bin/env bash\ngrep -c . "$1"  # 빈 줄 제외\n' > "$rv/scripts/count.sh"
+FID_KEEP2=$FID; FID=$FID_V
+_bp "$rv" start "$FID" "빈 줄 제외 옵션 추가" >/dev/null; _fill_spec "$rv"; _bp "$rv" approve "$FID" >/dev/null; _bp "$rv" plan "$FID" 1 >/dev/null
+mkdir -p "$rv/.specops/$FID/reviews"
+printf '# C\n**Phase B 상태**: PENDING(병렬 dispatch)\n**판정**: READY_TO_MERGE\n' > "$rv/.specops/$FID/reviews/T1-C-report.md"
+VCMD="bash scripts/tests/test-count.sh"
+printf '# 스펙 리뷰\n\n## 종합 판정\n\n판정: NEEDS_FIX\n\n- AC-1 UNMET\n' > "$rv/.specops/$FID/reviews/T1-B-report.md"
+out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
+[ "$rc" = 4 ] && [ ! -e "$rv/.specops/$FID/tasks.md" ] && printf '%s' "$out" | grep -q 'T1-B-feedback.md' \
+  && ok "V1 ★ 판정 줄이 NEEDS_FIX 인데 feedback 이 없다(훅이 안 돌았다) → seal rc 4 · 태스크 문서 없음 · feedback 저장 안내" || no "V1" "rc=$rc $out"
+printf '# 스펙 리뷰\n\n## 종합 판정\n\n판정: NEEDS_FIX\n' > "$rv/.specops/$FID/reviews/T1-B-feedback.md"
+out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
+[ "$rc" = 0 ] && grep -q 'BC-PAR-CHECK:T1 | - | C 폐기(B FAIL)' "$rv/.specops/$FID/dispatch-log.md" \
+  && ok "V2 NEEDS_FIX + feedback 있음 → 봉인 · 감사 행은 'C 폐기(B FAIL)'(훅이 돈 정상 경로 — 종전 동작)" || no "V2" "rc=$rc $out"
+( cd "$rv" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/check-review-audit.sh" "$FID" 2>&1 ) | grep -q '^REVIEW-AUDIT: PASS' \
+  && ok "V3 ★ 그 상태에서 기존 리뷰 감사(feedback ⇔ 폐기 교차 검사)도 PASS" || no "V3" "$(cd "$rv" && SPECOPS_ROOT=.specops bash "$PLUGIN/scripts/_internal/check-review-audit.sh" "$FID" 2>&1 | head -3)"
+rm -f "$rv/.specops/$FID/reviews/T1-B-feedback.md" "$rv/.specops/$FID/tasks.md" "$rv/.specops/$FID/dispatch-log.md"
+printf '# 스펙 리뷰\n\n## 종합 판정\n\n판정: PASS\n' > "$rv/.specops/$FID/reviews/T1-B-report.md"
+out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
+[ "$rc" = 0 ] && grep -q 'BC-PAR-CHECK:T1 | - | B PASS' "$rv/.specops/$FID/dispatch-log.md" \
+  && ok "V4 대조: 판정 줄 PASS + feedback 없음 → 봉인 · 'B PASS'" || no "V4" "rc=$rc $out"
+rm -f "$rv/.specops/$FID/tasks.md" "$rv/.specops/$FID/dispatch-log.md"
+printf '# 스펙 리뷰\n\n- 판정: NEEDS_FIX 라고 본문에 인용만 했다\n\n## 종합 판정\n\n✅ PASS\n' > "$rv/.specops/$FID/reviews/T1-B-report.md"
+out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
+[ "$rc" = 0 ] && ok "V5 판정 줄이 없는 옛 형식 보고서는 종전대로 feedback 유무로 본다(본문 인용은 판정이 아니다 — 하위 호환)" || no "V5" "rc=$rc $out"
+rm -f "$rv/.specops/$FID/tasks.md" "$rv/.specops/$FID/dispatch-log.md"
+printf '# 스펙 리뷰\n\n## 종합 판정\n\n판정: NEEDS_FIX 아님\n' > "$rv/.specops/$FID/reviews/T1-B-report.md"
+out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
+[ "$rc" = 0 ] && ok "V6 판정 줄은 줄 전체가 정확히 일치해야 한다('판정: NEEDS_FIX 아님' 은 판정이 아니다)" || no "V6" "rc=$rc $out"
+FID=$FID_KEEP2
+
+# ── BR 기본 브랜치가 main/master 가 아닌 저장소 (20261115) ──
+#   종전엔 `main|master` 일 때만 작업 브랜치를 땄다 — develop·trunk 저장소에서는 기본 브랜치 위에 그대로 커밋했다.
+_dev_repo() {  # <이름> → 기본 브랜치 develop(origin/HEAD 가 가리킨다) 위의 저장소
+  local d="$TMP/$1"; mkdir -p "$d/.specops" "$d/scripts/tests"
+  ( cd "$d" && git init -q -b develop && printf 'x\n' > README.md && printf '.specops/\n' > .gitignore \
+    && git add README.md .gitignore && git -c user.name=t -c user.email=t@e.com commit -qm init \
+    && git update-ref refs/remotes/origin/develop HEAD && git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/develop ) || return 1
+  printf '%s' "$d"
+}
+b1=$(_dev_repo br1); _bp "$b1" start "$FID" "줄 수 세기 명령에 옵션 추가" >/dev/null
+[ "$(cd "$b1" && git symbolic-ref --short HEAD)" = "feat/$FID" ] && ok "BR1 ★ 기본 브랜치 develop 위에서 start → feat/<FID> 생성" || no "BR1" "branch=$(cd "$b1" && git symbolic-ref --short HEAD)"
+b2=$(_dev_repo br2); ( cd "$b2" && git checkout -q --detach ); _bp "$b2" start "$FID" "줄 수 세기 명령에 옵션 추가" >/dev/null
+[ "$(cd "$b2" && git symbolic-ref --short -q HEAD)" = "feat/$FID" ] && ok "BR2 분리(detached) HEAD 에서 start → feat/<FID> 생성" || no "BR2" "branch=$(cd "$b2" && git symbolic-ref --short -q HEAD)"
+b3=$(_dev_repo br3); ( cd "$b3" && git checkout -q -b work ); _bp "$b3" start "$FID" "줄 수 세기 명령에 옵션 추가" >/dev/null
+[ "$(cd "$b3" && git symbolic-ref --short HEAD)" = "work" ] && ok "BR3 이미 작업 브랜치 위면 종전대로 그 브랜치를 쓴다" || no "BR3" "branch=$(cd "$b3" && git symbolic-ref --short HEAD)"
+
+# ── BR4~6 origin/HEAD 가 없는 저장소 (20261115 실주행) — `git init` + `git remote add` 로 만든 저장소는 origin/HEAD 가 없다.
+#   종전엔 develop 위에서 작업 브랜치를 만들지 않고 알림도 없었다. 리뷰 기준(BASE)·게이트의 변경 파일 조회도 함께 비었다.
+_nohead_repo() {  # <이름> <브랜치> [origin] → origin/HEAD 없는 저장소. origin 을 주면 origin/<브랜치> 추적 ref 와 원격 설정만 둔다
+  local d="$TMP/$1"; mkdir -p "$d/.specops" "$d/scripts/tests"
+  ( cd "$d" && git init -q -b "$2" && printf 'x\n' > README.md && printf '.specops/\n' > .gitignore \
+    && git add README.md .gitignore && git -c user.name=t -c user.email=t@e.com commit -qm init \
+    && { [ "${3:-}" != origin ] || { git remote add origin "$TMP/$1.remote.git" && git update-ref "refs/remotes/origin/$2" HEAD; }; } ) || return 1
+  printf '%s' "$d"
+}
+b4=$(_nohead_repo br4 develop origin); out=$(_bp "$b4" start "$FID" "줄 수 세기 명령에 옵션 추가")
+[ "$(cd "$b4" && git symbolic-ref --short HEAD)" = "feat/$FID" ] && ok "BR4 ★ origin/HEAD 없는 develop 저장소에서 start → feat/<FID> 생성" || no "BR4" "branch=$(cd "$b4" && git symbolic-ref --short HEAD) $out"
+[ "$(cd "$b4" && git symbolic-ref --short -q refs/remotes/origin/HEAD)" = "origin/develop" ] && printf '%s\n' "$out" | grep -q '^BRANCH-NOTE: .*origin/HEAD' \
+  && ok "BR4.b ★ origin/HEAD 를 develop 으로 맞추고 한 줄로 알린다(뒤 단계의 기준 ref 조회가 살아난다)" || no "BR4.b" "head=$(cd "$b4" && git symbolic-ref --short -q refs/remotes/origin/HEAD) $out"
+( cd "$b4" && printf 'y\n' >> README.md && git -c user.name=t -c user.email=t@e.com commit -qam work )
+_fill_spec "$b4"; _bp "$b4" approve "$FID" >/dev/null; _bp "$b4" plan "$FID" 1 >/dev/null
+out=$(_bp "$b4" review "$FID")
+printf '%s\n' "$out" | grep -qE '^BASE: [0-9a-f]{7,}' && ok "BR4.c ★ 그 저장소의 review 가 BASE 를 찾는다(BASE: none 아님)" || no "BR4.c" "$out"
+b5=$(_nohead_repo br5 develop); out=$(_bp "$b5" start "$FID" "줄 수 세기 명령에 옵션 추가")
+[ "$(cd "$b5" && git symbolic-ref --short HEAD)" = "feat/$FID" ] && ! (cd "$b5" && git symbolic-ref -q refs/remotes/origin/HEAD >/dev/null) \
+  && ok "BR5 원격이 없는 develop 저장소 → 브랜치는 만들고 origin/HEAD 는 만들지 않는다" || no "BR5" "branch=$(cd "$b5" && git symbolic-ref --short HEAD) $out"
+b6=$(_nohead_repo br6 release-line); ( cd "$b6" && git checkout -q -b other && git checkout -q release-line ); out=$(_bp "$b6" start "$FID" "줄 수 세기 명령에 옵션 추가")
+[ "$(cd "$b6" && git symbolic-ref --short HEAD)" = "release-line" ] && printf '%s\n' "$out" | grep -q '^BRANCH-NOTE: .*기본 브랜치를 알 수 없' \
+  && ok "BR6 ★ 기본 브랜치를 알 수 없으면 그 브랜치에서 진행하되 한 줄로 알린다(종전: 무언)" || no "BR6" "branch=$(cd "$b6" && git symbolic-ref --short HEAD) $out"
+b7=$(_repo br7); out=$(_bp "$b7" start "$FID" "줄 수 세기 명령에 옵션 추가")
+! printf '%s\n' "$out" | grep -q '^BRANCH-NOTE:' && ok "BR7 기본 브랜치를 아는 저장소의 작업 브랜치 위 → 알림 없음" || no "BR7" "$out"
+
+# ── SUB 하위 폴더에서 부른 basic-path (20261115) — 상대경로 .specops 를 못 찾아 "관할 아님" 으로 거부했다(모델이 /init-project 로 오인) ──
+sb1=$(_repo subd); mkdir -p "$sb1/packages/web"
+out=$( cd "$sb1/packages/web" && bash "$BP" start "$FID" "줄 수 세기 명령에 옵션 추가" 2>&1 ); rc=$?
+[ "$rc" = 0 ] && [ -f "$sb1/.specops/$FID/spec.md" ] && [ ! -e "$sb1/packages/web/.specops" ] \
+  && ok "SUB1 ★ 하위 폴더에서 start → 최상위 .specops 에 FID 생성" || no "SUB1" "rc=$rc $out"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -843,7 +843,7 @@ else
 fi
 
 # T30.d 새 프로젝트: 훅·스크립트가 쓰는 로컬 파일은 무시되고, 기록물은 추적 대상으로 남는다
-_ign=""; for f in pending-capture.jsonl redact-failures.log friction-log.jsonl session-progress.md.bak .init-prd-fields .init-hold; do
+_ign=""; for f in pending-capture.jsonl redact-failures.log friction-log.jsonl session-progress.md.bak .init-prd-fields .init-hold batch-20261115-0900/ACTIVE batch-20261115-0900/queue.md session-progress.md.lock.d/x; do   # batch-*/ (20261115): 일괄 실행의 표지·큐가 커밋되면 머지 뒤 끝난 batch 가 매 세션 "미완" 으로 읽힌다
   git check-ignore -q ".specops/$f" || _ign="$_ign $f"
 done
 _trk=""; for f in freelog.md session-progress.md memory/requirements.md 20261009-x/intent.md; do

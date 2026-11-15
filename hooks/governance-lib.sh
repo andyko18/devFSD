@@ -265,7 +265,7 @@ _verify_evidence_stamp() {
 _extract_declared_cmds() {
   local tasks="$1"
   [ -n "$tasks" ] && [ -r "$tasks" ] || { echo '[]'; return 0; }
-  local pat='^(cd[[:blank:]]+[A-Za-z0-9_.][A-Za-z0-9_/.-]*[[:blank:]]+&&[[:blank:]]+)?((poetry|uv|pdm|rye)[[:blank:]]+run[[:blank:]]+)?(bash[[:blank:]]+(scripts|tests?)/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*|(python[[:blank:]]+-m[[:blank:]]+)?pytest([[:blank:]][A-Za-z0-9_/.=-]*)*|(npm|pnpm|yarn)[[:blank:]]+((--dir|--filter|-C|workspace)[[:blank:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:blank:]]+)*(run[[:blank:]]+)?test(:[A-Za-z0-9._-]+)?([[:blank:]][A-Za-z0-9_/.=-]*)*|go[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|cargo[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|npx[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*|(pnpm|yarn)[[:blank:]]+exec[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*)$'
+  local pat='^(cd[[:blank:]]+[A-Za-z0-9_.][A-Za-z0-9_/.-]*[[:blank:]]+&&[[:blank:]]+)?((poetry|uv|pdm|rye)[[:blank:]]+run[[:blank:]]+)?(bash[[:blank:]]+(scripts|tests?)/[A-Za-z0-9_/.-]+\.sh([[:blank:]][A-Za-z0-9_/.=-]*)*|(python3?[[:blank:]]+-m[[:blank:]]+)?pytest([[:blank:]][A-Za-z0-9_/.=:-]*)*|(npm|pnpm|yarn)[[:blank:]]+((--dir|--filter|-C|workspace)[[:blank:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:blank:]]+)*(run[[:blank:]]+)?test(:[A-Za-z0-9._-]+)?([[:blank:]][A-Za-z0-9_/.=-]*)*|go[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|cargo[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=-]*)*|npx[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*|(pnpm|yarn)[[:blank:]]+exec[[:blank:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*([[:blank:]][A-Za-z0-9_@/.=-]*)*|(\./mvnw|mvn)([[:blank:]]+(-(pl|P|f|s)[[:blank:]]+[A-Za-z0-9_][A-Za-z0-9_/.,:-]*|-[A-Za-z0-9_.=:-]+))*[[:blank:]]+(test|verify)([[:blank:]]+-[A-Za-z0-9_/.=:#,-]+)*|(\./gradlew|gradle)([[:blank:]]+-[A-Za-z0-9_.=:-]+)*[[:blank:]]+(:?([A-Za-z0-9_-]+:)*)?(test|check)([[:blank:]]+(--tests[[:blank:]]+[A-Za-z0-9_.]+|-[A-Za-z0-9_/.=:-]+))*|dotnet[[:blank:]]+test([[:blank:]][A-Za-z0-9_/.=:-]*)*)$'
   local cmd out=""
   # ★ sed 는 **파이프 1회**만 돈다 — 종전 per-line fork 는 태스크 수에 선형이었다
   #   (실측: 30태스크 97ms · 100태스크 268ms). PreToolUse hot path 라 fork 를 O(1) 로 낮춘다.
@@ -315,9 +315,27 @@ EOF_TC
 #   `VERIFY: PASS` 를 내므로(판정기 related-suite-fresh.sh) 결과 술어는 그대로다. 앵커는 `tests/` 아래로 좁힌다(T64q6).
 # 한계: `npx <bin>`·`(pnpm|yarn) exec <bin>` 은 임의 바이너리를 받는다(`npx cowsay VERIFY` 도 인정).
 #   whitelist 와 동치라는 요구의 귀결이며, 되돌리려면 whitelist 도 함께 좁혀야 한다.
-_RUNNER_ANCHOR_PAT='(^|[;&|(\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(rtk[[:space:]]+(proxy[[:space:]]+)?)?((poetry|uv|pdm|rye)[[:space:]]+run[[:space:]]+)?(bash[[:space:]]+\S*(run-verification\.sh|tests/run-all\.sh|tests/run-related\.sh)|(python[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+((--dir|--filter|-C|workspace)[[:space:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:space:]]+)*(run[[:space:]]+)?test(:[A-Za-z0-9._-]+)?|go[[:space:]]+test|cargo[[:space:]]+test|npx[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(pnpm|yarn)[[:space:]]+exec[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*)'
+_RUNNER_ANCHOR_PAT='(^|[;&|(\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(rtk[[:space:]]+(proxy[[:space:]]+)?)?((poetry|uv|pdm|rye)[[:space:]]+run[[:space:]]+)?(bash[[:space:]]+\S*(run-verification\.sh|tests/run-all\.sh|tests/run-related\.sh)|(python3?[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+((--dir|--filter|-C|workspace)[[:space:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:space:]]+)*(run[[:space:]]+)?test(:[A-Za-z0-9._-]+)?|go[[:space:]]+test|cargo[[:space:]]+test|npx[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(pnpm|yarn)[[:space:]]+exec[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(\./mvnw|mvn)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(test|verify)|(\./gradlew|gradle)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(:?([A-Za-z0-9_-]+:)*)?(test|check)|dotnet[[:space:]]+test)'
 
+# 읽을 수 없는 줄이 섞인 transcript (20261115) — 판정 본체(_verify_exec_evidence_raw)는 jq --slurpfile 이라 깨진 줄 하나에 통째로
+#   실패해 rc 2(판정 불가 → 통과)였다. 기록 중이라 잘린 마지막 줄 하나로도 실행 증거 게이트가 흔적 없이 꺼졌다(재현 20261115).
+#   rc 2 일 때만 한 번 더 본다(hot path 추가 비용 없음): 파일이 통째로는 안 읽히면 읽을 수 있는 줄만 추려 다시 판정하고
+#   그 사실을 degraded 로 남긴다. 파일은 읽히는데 판정 불가(이벤트 0건 등)이거나 한 줄도 못 읽으면 종전대로 2 다.
 _verify_exec_evidence() {
+  local rc tmp
+  _verify_exec_evidence_raw "$@"; rc=$?
+  [ "$rc" -eq 2 ] || return "$rc"
+  [ -n "${1:-}" ] && [ -f "$1" ] && command -v jq >/dev/null 2>&1 || return 2
+  jq -n 'reduce inputs as $x (0; . + 1)' "$1" >/dev/null 2>&1 && return 2
+  tmp=$(mktemp 2>/dev/null) || return 2
+  jq -c -R 'fromjson? // empty' "$1" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 2; }
+  _verify_exec_evidence_raw "$tmp" "${2:-}"; rc=$?
+  rm -f "$tmp"
+  _log_degraded "GOVERNANCE-DEGRADED" "transcript 에 읽을 수 없는 줄이 있어 건너뛰고 판정했다(rc=$rc)" 2>/dev/null || true
+  return "$rc"
+}
+
+_verify_exec_evidence_raw() {
   local transcript="$1" fiddir="${2:-}"
   [ -n "$transcript" ] && [ -f "$transcript" ] || return 2
   # ★ 창 한정: tasks.md ∧ evidence.md 가 둘 다 있을 때만 선언 경로를 연다(post-verify 창).
@@ -613,12 +631,17 @@ _bg_pending_path() {  # $1=transcript → stdout 경로 (없으면 빈 문자열
 # staged ∪ unstaged-tracked 합집합 변경이 전부 docs 확장자면 0(면제), 아니면 1(비면제).
 # git diff HEAD = working tree vs HEAD = staged + unstaged tracked 전부 포함 (commit -a 우회 차단).
 # base branch 자동감지 — main 우선, master 차선, 없으면 실패(안전측 차단).
+# 파일 목록을 내는 git 호출은 `-c core.quotePath=false` 를 붙인다(20261115 실주행) — 기본값이면 비ASCII(한글) 경로가
+#   "docs/\355…md" 로 따옴표 이스케이프돼 확장자 판정이 빗나가고, 한글 이름 문서만 바꾼 커밋·PR 이 "코드" 로 읽혀 막혔다.
 _detect_base_branch() {
   # main·master·origin/main·origin/master 중 HEAD 에 가장 가까운(ref..HEAD 커밋 수 최소) ref — 동률이면 앞선 후보(로컬).
   #   로컬 main 만 보면, 로컬 main 이 원격보다 뒤처진 repo 에서 base...HEAD 가 원격에 쌓인 변경까지 PR 범위로 읽는다
   #   (문서뿐인 PR 이 코드 포함으로 판정돼 false-deny). risk-profile.sh rp::base_ref 와 같은 규칙이다.
-  local b n best="" best_n=""
-  for b in main master origin/main origin/master; do
+  #   origin/HEAD 가 가리키는 브랜치(기본 브랜치가 develop·trunk 인 저장소)를 후보 앞에 둔다(20261115 — scripts/_internal/base-branch.sh 와 같은 순서).
+  local b n best="" best_n="" _oh
+  _oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null) || _oh=""
+  _oh=${_oh#origin/}; case "$_oh" in main|master) _oh="" ;; esac
+  for b in ${_oh:+"$_oh" "origin/$_oh"} main master origin/main origin/master; do
     git rev-parse --verify --quiet "$b^{commit}" >/dev/null 2>&1 || continue
     n=$(git rev-list --count "$b..HEAD" 2>/dev/null) || continue
     case "$n" in ''|*[!0-9]*) continue ;; esac
@@ -671,7 +694,7 @@ is_docs_only_change() {
   if _cmd_is_pr_create_only "${1:-}"; then
     local pr_base
     pr_base=$(_detect_base_branch) || return 1
-    files=$(git diff "$pr_base"...HEAD --name-only --no-renames 2>/dev/null)
+    files=$(git -c core.quotePath=false diff "$pr_base"...HEAD --name-only --no-renames 2>/dev/null)
     [ -z "$files" ] && return 1
     _SPECOPS_SCOPE_FILES="$files"
     _files_all_docs "$files"
@@ -679,7 +702,7 @@ is_docs_only_change() {
   fi
   if _commit_scope_is_staged "${1:-}"; then
     # 안전 형태 → staged 가 곧 커밋 범위다. 빈 staged 는 fail-safe(비면제) 로 떨어진다.
-    files=$(git diff --cached --name-only --no-renames 2>/dev/null)
+    files=$(git -c core.quotePath=false diff --cached --name-only --no-renames 2>/dev/null)
     [ -z "$files" ] && return 1
     # 계측용 노출 (20260813-friction-staged-record) — 호출자가 같은 목록으로 분류할 수 있게 한다.
     #   deny 경로에서 git diff 를 재실행하지 않기 위함이며, 판정 자체에는 쓰이지 않는다.
@@ -688,20 +711,20 @@ is_docs_only_change() {
     _files_all_docs "$files"
     return $?
   fi
-  files=$(git diff HEAD --name-only --no-renames 2>/dev/null)
-  [ -z "$files" ] && files=$(git diff --cached --name-only --no-renames 2>/dev/null)
+  files=$(git -c core.quotePath=false diff HEAD --name-only --no-renames 2>/dev/null)
+  [ -z "$files" ] && files=$(git -c core.quotePath=false diff --cached --name-only --no-renames 2>/dev/null)
   # `git add -A && git commit` 류 compound 는 untracked 신규 파일도 커밋에 싣는데 git diff HEAD 는 그걸 못 본다.
   #   add 가 든 명령에 한해 untracked(비-ignore)를 합쳐, 신규 코드가 문서 dirty 뒤에 숨어 면제되는 것을 막는다.
   #   `commit -am` 처럼 add 가 없으면 untracked 는 커밋에 실리지 않으므로 합치지 않는다(과잉 차단 방지).
   if _cmd_stages_untracked "${1:-}"; then
     local untracked
-    untracked=$(git ls-files --others --exclude-standard 2>/dev/null)
+    untracked=$(git -c core.quotePath=false ls-files --others --exclude-standard 2>/dev/null)
     [ -n "$untracked" ] && files="${files:+$files$'\n'}$untracked"
   fi
   if [ -z "$files" ]; then
     local base
     base=$(_detect_base_branch) || return 1
-    files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null)
+    files=$(git -c core.quotePath=false diff "$base"...HEAD --name-only --no-renames 2>/dev/null)
   fi
   [ -z "$files" ] && return 1
   # 계측용 노출 (20260813-friction-staged-record) — 위 staged 경로와 대칭.
@@ -744,9 +767,9 @@ _commit_scope_class() {
   if [ "$#" -gt 0 ]; then
     files="$1"
   else
-    files=$(git diff --cached --name-only --no-renames 2>/dev/null); rc1=$?
+    files=$(git -c core.quotePath=false diff --cached --name-only --no-renames 2>/dev/null); rc1=$?
     if [ -z "$files" ]; then
-      files=$(git diff HEAD --name-only --no-renames 2>/dev/null); rc2=$?
+      files=$(git -c core.quotePath=false diff HEAD --name-only --no-renames 2>/dev/null); rc2=$?
       # ★ 판정 불가(git 실패)와 빈 커밋범위를 구별한다 (AC-6·AC-4).
       #   둘 다 실패면 **아무것도 출력하지 않는다** → 호출부의 조건부 병합이 필드를 생략하고
       #   집계는 `판정불가` 로 센다. 여기서 'empty' 를 내면 AC-4 가 분리한 축이 다시 뭉개진다.
@@ -914,10 +937,10 @@ EOF
 is_docs_only_audit_scope() {
   local rule_id="$1" files
   case "$rule_id" in
-    R-1) files=$(git diff HEAD~1..HEAD --name-only --no-renames 2>/dev/null) || files="" ;;
+    R-1) files=$(git -c core.quotePath=false diff HEAD~1..HEAD --name-only --no-renames 2>/dev/null) || files="" ;;
     R-2) local base
          base=$(_detect_base_branch) || return 1
-         files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null) ;;
+         files=$(git -c core.quotePath=false diff "$base"...HEAD --name-only --no-renames 2>/dev/null) ;;
     *) return 1 ;;
   esac
   _files_all_docs "$files"
@@ -940,10 +963,10 @@ is_docs_only_audit_scope() {
 _audit_scope_class() {
   local rule_id="${1:-}" files
   case "$rule_id" in
-    R-1) files=$(git diff HEAD~1..HEAD --name-only --no-renames 2>/dev/null) || return 0 ;;
+    R-1) files=$(git -c core.quotePath=false diff HEAD~1..HEAD --name-only --no-renames 2>/dev/null) || return 0 ;;
     R-2) local base
          base=$(_detect_base_branch) || return 0
-         files=$(git diff "$base"...HEAD --name-only --no-renames 2>/dev/null) || return 0 ;;
+         files=$(git -c core.quotePath=false diff "$base"...HEAD --name-only --no-renames 2>/dev/null) || return 0 ;;
     *)   return 0 ;;
   esac
   [ -z "$files" ] && { printf 'empty'; return 0; }
@@ -1052,6 +1075,14 @@ _strip_quoted_strings() {
         ch=substr(buf,i,1)
         if(mode==0){
           if(ch==BS){ out=out ch; i++; if(i<=n) out=out substr(buf,i,1) }   # \x → 2문자 verbatim
+          else if(ch=="#" && (i==1 || index(" \t\n;&|()", substr(buf,i-1,1))>0)){
+            # 낱말 머리의 # = 주석 — 줄 끝까지 그대로 옮기고 그 안의 따옴표는 인용으로 세지 않는다 (20261114).
+            #   종전엔 주석의 \047 가 인용을 열고 다른 주석의 \047 가 닫아, 사이의 실명령이 "인용 본문"으로 지워졌다
+            #   (# don\047t … git commit … # it\047s → 트리거에서 사라짐). 주석 글자는 지우지 않는다 — 지우는 쪽은
+            #   잘못 짚었을 때 실명령을 숨기지만, 남기는 쪽은 차단 우세다. 낱말 중간의 #(${x#y}·$#·a#b)는 주석이 아니다.
+            while(i<=n && substr(buf,i,1)!="\n"){ out=out substr(buf,i,1); i++ }
+            if(i<=n) out=out "\n"
+          }
           else if(ch==SQ){mode=1; out=out ch}
           else if(ch==DQ){mode=2; dbuf=""; out=out ch}
           else out=out ch

@@ -249,7 +249,7 @@ doc_has(){ # $1=파일  $2=grep 패턴  $3=TEST ID  $4=설명
 }
 doc_has hooks/CLAUDE.md 'specops-ko-anchor' "T-ord.f" "hooks/CLAUDE.md 조립 순서 계약 기재"
 doc_has README.md '조립 순서' "T-ord.g" "README.md 조립 순서 요약 기재"
-doc_has skills/context-resets-ko/SKILL.md '최후미' "T-ord.h" "context-resets-ko rehydrate 최후미 서술"
+doc_has docs/harness-principles.md '최후미' "T-ord.h" "context-resets-ko rehydrate 최후미 서술"
 doc_has hooks/CLAUDE.md '문자 10,000' "T-ord.i" "hooks/CLAUDE.md 인라인 한도(문자 10,000) 서술"
 doc_has hooks/CLAUDE.md 'UTF-16 단위' "T-ord.j" "hooks/CLAUDE.md 한도 단위 한정어(UTF-16) — 코드포인트 오해 방지"
 
@@ -311,6 +311,32 @@ for sb_j in "$SB7/s" "$deep_j"; do
   fi
 done
 rm -rf "$SB7"
+
+# ── T-deps: jq 가 없으면 세션 시작에 알린다 (20261115) ─────────────────────────────
+#   jq 가 없으면 pretool·posttool·stop 훅이 stderr 한 줄만 내고 통과한다(exit 0 의 stderr 는 사용자에게 안 보인다). 게이트가 꺼진
+#   것을 사용자도 모델도 몰랐다 — 관할 저장소(.specops 있음)에서 앵커 블록 안에 경고 1줄을 싣는다.
+SBD=$(mktemp -d); mkdir -p "$SBD/bin" "$SBD/repo/.specops" "$SBD/plain"
+for _dd in /usr/bin /bin /usr/sbin /sbin "$(dirname "$(command -v git)")" "$(dirname "$(command -v python3)")" "$(dirname "$(command -v bash)")"; do
+  for _ff in "$_dd"/*; do
+    _nn=${_ff##*/}; [ "$_nn" != jq ] && [ -x "$_ff" ] && [ ! -e "$SBD/bin/$_nn" ] && ln -s "$_ff" "$SBD/bin/$_nn"
+  done
+done
+_dctx=$( cd "$SBD/repo" && PATH="$SBD/bin" bash "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.additionalContext' )
+_a=$(printf '%s' "$_dctx" | awk '/<specops-ko-anchor>/{f=1} f{print} /<\/specops-ko-anchor>/{exit}')
+printf '%s' "$_a" | grep -q 'jq' && printf '%s' "$_a" | grep -q '게이트' \
+  && ok "T-deps.a jq 없음 + 관할 저장소 → 앵커 블록 안에 경고" || ng "T-deps.a" "anchor=$(printf '%s' "$_a" | head -c 300)"
+_dctx=$( cd "$SBD/repo" && bash "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.additionalContext' )
+printf '%s' "$_dctx" | awk '/<specops-ko-anchor>/{f=1} f{print} /<\/specops-ko-anchor>/{exit}' | grep -q 'jq' \
+  && ng "T-deps.b" "jq 가 있는데 경고가 나왔다" || ok "T-deps.b jq 있으면 경고 없음(앵커 불변)"
+_dctx=$( cd "$SBD/plain" && PATH="$SBD/bin" bash "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.additionalContext' )
+printf '%s' "$_dctx" | awk '/<specops-ko-anchor>/{f=1} f{print} /<\/specops-ko-anchor>/{exit}' | grep -q 'jq' \
+  && ng "T-deps.c" "관할 밖 저장소에 경고가 나왔다" || ok "T-deps.c .specops 없는 저장소 → 경고 없음(관할 밖)"
+#   pyyaml(또는 python3)이 없으면 태스크 문서의 YAML 을 못 읽어 검증 러너가 명령 0건이 되고 id·크기 게이트가 건너뛴다 — 같이 알린다.
+rm -f "$SBD/bin/python3"; printf '#!/bin/sh\nexit 1\n' > "$SBD/bin/python3"; chmod +x "$SBD/bin/python3"
+_dctx=$( cd "$SBD/repo" && PATH="$SBD/bin" bash "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.additionalContext' )
+printf '%s' "$_dctx" | awk '/<specops-ko-anchor>/{f=1} f{print} /<\/specops-ko-anchor>/{exit}' | grep -q 'pyyaml' \
+  && ok "T-deps.d pyyaml 없음 + 관할 저장소 → 앵커 블록 안에 경고" || ng "T-deps.d" "경고 없음"
+rm -rf "$SBD"
 
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

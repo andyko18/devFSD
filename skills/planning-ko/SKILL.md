@@ -296,6 +296,8 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 
 **전문가·리뷰어 실행 예산 (20261112)**: 이 절에서 보내는 dispatch 프롬프트(전문가 패스·plan-reviewer·이해 검사)마다 실행 상한을 **숫자로** 적는다 — 「실측(명령 실행)은 판정을 바꾸는 주장에만, **긴 명령(테스트 스위트·빌드·서버 기동) 실행은 2회 이내**, 전체 스위트(`run-all.sh` 류)는 실행하지 않는다. 파일 읽기·`grep`·`bash -n` 은 세지 않는다. 상한 때문에 확인하지 못한 주장은 `[검증 불가]` 로 적는다(추측 Critical 금지 규칙 그대로)」. `implementing-ko` 「리뷰어 실행 예산」의 lite·standard 상한을 plan 단계로 넓힌 것이다. 위험 프로파일은 decomposing 에서 계산되므로 plan 단계에서는 **보안 전문가 패스가 발동한 FID**(`check-security-design.sh` 의 `[승인 대상]`)를 strict 로 보고 상한을 적지 않는다. 부모는 에이전트 계약(`agents/*.md`) 밖의 점검을 프롬프트에 **추가하지 않는다**. 수치는 Phase B 상한(2회)을 옮긴 기본값이다 — plan 단계 실측으로 고친다.
 
+**읽기 규칙도 같은 프롬프트에 싣는다 (20261114)**: 큰 문서(plan.md·spec.md)는 절 단위(offset/limit)로 읽고 같은 문서를 통째로 두 번 읽지 않는다 — 한 번은 끝까지 읽는다(각 에이전트 정의의 「읽기 상한」). 하류 실측에서 계획 리뷰어·테스트 전문가 1회가 같은 plan.md(최대 100KB)를 통째로 반복 읽어 맥락이 약 480K 까지 갔다.
+
 **하위 단계 기록** (어디서 시간이 쓰이는지 다음 FID 부터 재기 위해 — `stage-timing.sh` 가 그대로 집계한다): plan 단계 안에서 아래 3줄을 남긴다. 결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다(재개 판독기가 구현 증거로 읽는다).
 - 자체 검토 직후: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /plan-draft 완료 "plan.md 초안 + 자체 검토"`
 - 전문가 반영 직후(발동한 패스가 있을 때): `… <FID> /plan-expert 완료 "전문가 반영 (<패스 목록>)"`
@@ -306,7 +308,7 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 비-batch 에서 plan-reviewer **1회차**를 부를 때마다 — 테스트 전문가 패스가 발동했든 아니든 — 같은 메시지의 `Agent` 호출에 `devfsd:comprehension-reviewer-ko` 를 **하나 더** 넣는다(순차 추가 금지 — 이해 검사가 plan 시간을 늘리지 않게 한다). 출처: google/elephant-goldfish-model@67353fc4 의 Comprehension 리뷰어(문서만 읽고 자기 말로 다시 쓰기).
 
 - **입력**: 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `plan.md`. 코드·memory·intent 는 주지 않는다.
-- **제외**: `§batch`(plan-reviewer DEFER)·`§lite`·`§유형: trivial`·promote(`promote-fid`)·foundation 은 부르지 않고 기록 행도 남기지 않는다. 2회차에는 부르지 않는다.
+- **제외**: `§batch`(plan-reviewer DEFER)·`§유형: trivial`·promote(`promote-fid`)·foundation 은 부르지 않고 기록 행도 남기지 않는다. 2회차에는 부르지 않는다.
 - **판정 불변**: 지적은 모두 Minor 경고다. `PLAN-REVIEW-RESULT`·cap 계산·외부 critic 입력에 넣지 않는다.
 - **저장·반영**: 돌아온 보고 전문을 부모가 `.specops/<FID>/experts/comprehension.md` 로 저장하고, plan-reviewer 지적과 한 번에 반영한다. 지적마다 같은 파일 끝 `## 반영` 에 `반영(plan §/Task N)` · `이월(spec·AC 는 읽기 전용 — 사용자 확인 필요)` · `기각(근거)` 중 1줄을 적는다. `[이해 불가]`·`[오독 위험]` 은 문서를 고쳐 반영하고, "작성자는 안다"·"맥락상 명확하다" 는 기각 사유가 될 수 없다. 이 반영만으로는 plan-reviewer 2회차를 부르지 않는다(2회차는 위 「1회차 동시 dispatch」 3번 — 1회차 Critical 이 있을 때만).
 - **모델 불가·산출 없음**: sonnet 을 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(부모가 대신 검토하지 않는다). 보고가 없으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | comprehension | comprehension-reviewer-ko | 산출 없음 | - |` 를 남기고 진행한다.
@@ -400,7 +402,7 @@ plan.md 작성 시 `templates/plan.md` 구조를 **정확히** 따른다. 특히
 
 - `templates/plan.md` — 작성 포맷 (**정확히 따를 것**, 특히 §8 Advisor 협의 기록 섹션)
 - `templates/tasks.md` — 태스크 분해 포맷
-- `skills/structured-artifacts-ko/SKILL.md` — .specops/<FID>/ 아티팩트 경로 규약
+- `docs/harness-principles.md` 「아티팩트 구조 규약」 — .specops/<FID>/ 아티팩트 경로 규약
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)
 
 ## 공유 유틸 창발 중복 경고 (P2 — 20260718 test2 회고)
@@ -437,7 +439,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /plan 완�
 
 ## Handoff 기록 (다음 skill 진입 직전 필수)
 
-`decomposing-ko` 호출 직전 `.specops/<FID>/handoffs/planning.md` 작성 (structured-artifacts-ko 규약 4필드: Decided/Rejected/Risks/Remaining).
+`decomposing-ko` 호출 직전 `.specops/<FID>/handoffs/planning.md` 작성 (「아티팩트 구조 규약」 규약 4필드: Decided/Rejected/Risks/Remaining).
 
 ## 다음 skill
 

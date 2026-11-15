@@ -85,4 +85,28 @@ EOF
 out=$(cd "$TMP" && bash "$H" "20260625-pr-feat" 2>/dev/null)
 [ "$out" = "NEW" ] && { PASS=$((PASS+1)); echo "PASS T10 DONE (PR …)→NEW"; } || { FAIL=$((FAIL+1)); echo "FAIL T10 (out=$out)"; }
 
+# T11~T13 (20261114): 종결 줄이 없어도 **이미 머지된** FID 는 귀속하지 않는다 — 사고 사례: 머지된 옛 FID 에 /freework 줄을 붙이자 그 FID 가 활성이 돼 이후 커밋이 막혔다.
+#   판정은 reconcile-check.sh 와 같다(브랜치 feat/<FID> 가 머지 커밋으로 main 에 들어감). git 이 없거나 브랜치가 없으면 종전대로 ATTACH.
+GR="$TMP/gitrepo"; mkdir -p "$GR/.specops/20260101-merged-feat" "$GR/.specops/20260101-open-feat" "$GR/.specops/20260101-nobranch-feat"   # reconcile-check 는 FID 폴더가 없으면 판정하지 않는다(실제 lifecycle FID 는 폴더가 있다)
+( cd "$GR" && git init -q -b main && git config user.email t@t && git config user.name t && git config commit.gpgsign false \
+  && printf 'x\n' > a.txt && git add a.txt && git commit -qm base \
+  && git checkout -q -b feat/20260101-merged-feat && printf 'y\n' > b.txt && git add b.txt && git commit -qm feat \
+  && git checkout -q main && printf 'z\n' > c.txt && git add c.txt && git commit -qm other \
+  && git merge -q --no-ff feat/20260101-merged-feat -m "Merge pull request #1" \
+  && git checkout -q -b feat/20260101-open-feat && printf 'w\n' > d.txt && git add d.txt && git commit -qm open && git checkout -q main ) >/dev/null 2>&1
+cat > "$GR/.specops/session-progress.md" <<'EOF'
+## 20260101-merged-feat
+- 2026-01-01 10:00 /verify PASS (종결 줄 없음)
+## 20260101-open-feat
+- 2026-01-01 11:00 /implement 진행
+## 20260101-nobranch-feat
+- 2026-01-01 12:00 /implement 진행
+EOF
+out=$(cd "$GR" && bash "$H" "20260101-merged-feat" 2>/dev/null)
+[ "$out" = "NEW" ] && { PASS=$((PASS+1)); echo "PASS T11 ★ 종결 줄 없이 머지된 FID → NEW"; } || { FAIL=$((FAIL+1)); echo "FAIL T11 (out=$out)"; }
+out=$(cd "$GR" && bash "$H" "20260101-open-feat" 2>/dev/null)
+[ "$out" = "ATTACH:20260101-open-feat" ] && { PASS=$((PASS+1)); echo "PASS T12 머지 안 된 진행 중 FID → ATTACH"; } || { FAIL=$((FAIL+1)); echo "FAIL T12 (out=$out)"; }
+out=$(cd "$GR" && bash "$H" "20260101-nobranch-feat" 2>/dev/null)
+[ "$out" = "ATTACH:20260101-nobranch-feat" ] && { PASS=$((PASS+1)); echo "PASS T13 브랜치 없는 FID → 종전대로 ATTACH(판정 못 하면 귀속)"; } || { FAIL=$((FAIL+1)); echo "FAIL T13 (out=$out)"; }
+
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"; [ "$FAIL" -eq 0 ]

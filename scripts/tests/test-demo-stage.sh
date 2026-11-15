@@ -98,7 +98,7 @@ _demo_checks() { local f=$1 perf=$2 fm all m bb ba bs blk s k t line lb
     'BATCH-DEMO-SKIP: <FID>' 'batch 오케스트레이터가 PR 을 소유' '즉시 복귀' '`## /demo` 절을 `결과: SKIP — batch`'
   _has "D1.g AUTO — 1~2단계 수행·확인 대기 안 함·가정 다이제스트로 이관 (AC-1)" "$ba" \
     '1~2단계는 수행' '확인 대기는 하지 않는다' 'PR 게이트의 가정 다이제스트' '`데모: 사용자 확인 대기`'
-  _has "D1.h SINGLE — §lite 포함·생략 금지·1~4단계 전부 (AC-1)" "$bs" '`§lite` 포함' '생략하지 않는다' '1~4단계 전부'
+  _has "D1.h SINGLE — 1~4단계 전부 (AC-1)" "$bs" '**SINGLE** → 1~4단계 전부'
   _lacks "D1.i 마커 BATCH-DEMO-SKIP 은 BATCH 갈래에만 (AC-1)" "$ba"$'\n'"$bs" 'BATCH-DEMO-SKIP'
   blk=$(printf '%s\n' "$m" | awk '/^```bash/{f=1;next} /^```/{if(f)exit} f')
   _modes "D1.j 모드 분기 조각을 픽스처 spec.md 7종에 실제 실행 — batch>auto 우선·라벨은 줄 머리만·false/lite/일괄은 SINGLE (AC-1)" "$blk"
@@ -245,11 +245,11 @@ _ctl() { local id=$1 kind=$2 src out
   else
     printf '%s\n' "$out" | grep -qE "^FAIL $5 " && ok "$id" || nope "$id" "변이가 살아남았다 — 기대 FAIL $5, 실제: $(printf '%s\n' "$out" | grep '^FAIL ' | cut -c1-40 | head -3 | tr '\n' '|')"
   fi; }
-_ctl "C0.a 항등 변이(demo) — 사본 경로로도 검사가 전부 통과 (대조군)" demo '`§lite` 포함' '`§lite` 포함' ''
+_ctl "C0.a 항등 변이(demo) — 사본 경로로도 검사가 전부 통과 (대조군)" demo '**SINGLE** → 1~4단계 전부' '**SINGLE** → 1~4단계 전부' ''
 _ctl "C0.b 항등 변이(perf) — 사본 경로로도 검사가 전부 통과 (대조군)" perf 'BATCH-PERF-DONE: <FID>' 'BATCH-PERF-DONE: <FID>' ''
 _ctl "C1.a layer 2→3 이면 D1.b FAIL" demo 'layer: 2' 'layer: 3' 'D1\.b' L
 _ctl "C1.b BATCH 마커 이름이 바뀌면 D1.f FAIL" demo 'BATCH-DEMO-SKIP: <FID>' 'BATCH-SKIP: <FID>' 'D1\.f'
-_ctl "C1.c SINGLE 의 §lite 포함 문구가 사라지면 D1.h FAIL" demo '`§lite` 포함' '' 'D1\.h'
+_ctl "C1.c SINGLE 의 1~4단계 전부 문구가 사라지면 D1.h FAIL" demo '**SINGLE** → 1~4단계 전부' '**SINGLE** →' 'D1\.h'
 _ctl "C1.d AUTO 가 확인 대기를 하도록 바뀌면 D1.g FAIL" demo '확인 대기는 하지 않는다' '확인 대기를 한다' 'D1\.g'
 _ctl "C1.e 모드 판정 정규식에서 줄 머리 앵커가 빠지면(prose 라벨 오인) D1.j FAIL" demo "-qE '^\\*\\*§auto" "-qE '\\*\\*§auto" 'D1\.j'
 _ctl "C1.f 4단계 헤딩이 하나 빠지면 D1.c FAIL" demo '## 4단계: 기록' '## 4단계 기록 생략' 'D1\.c' L

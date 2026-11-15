@@ -75,13 +75,13 @@ HEAD_SHA=$(git rev-parse HEAD)
 1. `git diff <BASE_SHA>..<HEAD_SHA> > .specops/<FID>/reviews/review.diff`
    - diff 에 비밀 (자격증명·.env·키) 포함 의심 시 위탁 생략 — `외부 critic: SKIP (비밀 보호)` 기재 (외부 모델 전송 = 외부 송신)
 2. `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/critic-ask.sh "${CLAUDE_PLUGIN_ROOT}"/templates/critic-prompt-diff.md --files .specops/<FID>/reviews/review.diff`
-3. 의견 출력 시 `.specops/<FID>/reviews/external-critic.md` 저장 → 리뷰어 dispatch 프롬프트에 **경로만** 추가 (file-based-communication)
+3. 의견 출력 시 `.specops/<FID>/reviews/external-critic.md` 저장 → 리뷰어 dispatch 프롬프트에 **경로만** 추가 (`docs/harness-principles.md` 「파일 기반 전달」)
 4. `CRITIC: SKIP/FAIL` → 미첨부 + review-request.md 에 `외부 critic: SKIP (<사유>)` 1줄 (한계 고백)
 5. **advisory**: 외부 의견은 **판정 권한 없음** — Claude 리뷰어가 비판적으로 평가할 입력 (receiving-code-review 규약 적용)
 
 ### 2. 코드 리뷰어 서브에이전트 dispatch
 
-`Agent` 도구로 `code-reviewer`(또는 `oh-my-claudecode:code-reviewer`) 서브에이전트 호출. 다음 정보를 **전체 텍스트**로 포함:
+`Agent` 도구로 `devfsd:code-reviewer-ko` 서브에이전트 호출(플러그인 밖 리뷰어는 보고서가 `reviews/` 에 저장되지 않는다). 다음 정보를 **전체 텍스트**로 포함:
 
 **필수 필드**:
 - `WHAT_WAS_IMPLEMENTED` — 방금 구축한 것
@@ -93,7 +93,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 ### 3. 피드백 대응
 
 - **Critical 이슈**: **즉시** 수정
-- **Important 이슈**: 다음 단계 진행 **전에** 수정
+- **Important 이슈**: 이번 FID 가 만든 결함이면 다음 단계 **전에** 수정, 이전부터 있던 것이면 넘긴다(`implementing-ko/dev-autonomy.md` §2)
 - **Minor 이슈**: 기록 후 나중에
 - **리뷰어가 틀렸으면**: 근거와 함께 pushback (본 스킬 `## 리뷰어가 틀렸을 때` 참조)
 
@@ -145,7 +145,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 **절대 금지**:
 - "간단하니까" 리뷰 생략
 - Critical 이슈 무시
-- Important 이슈 미해결로 진행
+- 이번 FID 가 만든 Important 이슈를 미해결로 진행
 - 타당한 기술 피드백에 논쟁
 
 **리뷰어가 틀렸을 때**:

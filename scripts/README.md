@@ -196,9 +196,10 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 - `decide <FID>` — `SPLIT: yes|no (<사유>)` · rc 0/1. `no` 가 되는 경우: `§batch` · `§lite` · trivial · `plan.md` 없음 · spec 의 `**§분리**: off`(`--no-split`) · `session_split.enabled: false` · `SPECOPS_NO_SPLIT=1` · 이미 자식 세션 안 · `claude`·`jq` 없음 · 권한 모드 미충족.
 - `run <FID> [--resume "<전달문>"]` — `claude -p` 자식 세션을 띄워 끝날 때까지 기다린다(주 세션은 백그라운드로 부른다). 자식은 `devfsd:implementing-ko` 부터 성능 게이트 판정까지 하고 PR 게이트 앞에서 멈춘다. 마지막 줄 `SPLIT-RESULT: DONE|HELD|FAILED|TIMEOUT fid=… session=… turns=… cost_usd=… minutes=…` · rc 0/10/1/124. 기록은 `.specops/<FID>/split/`(`child.jsonl` · `result.json` · `session-id` · 보류 시 `held.md`).
 - `status <FID>` — 결과 또는 실행 중 표시 + 진행 기록 끝 5줄 + 자식의 최근 도구 호출.
-- `warn-size [<transcript>]` — 현재 대화의 맥락 크기(마지막 응답의 usage — 읽지 못하면 파일 크기 근사)가 기준을 넘으면 `CONTEXT-LARGE:` 1줄. 차단하지 않는다(항상 rc 0).
+- `warn-size [<transcript>]` — `/start`·`/maintain` 0-2 가 부른다. **이 대화에서 이미 끝난 작업이 있으면** `CONTEXT-LARGE:` 1줄(현재 맥락 크기 — 마지막 응답의 usage, 읽지 못하면 파일 크기 근사). 끝난 작업의 흔적은 transcript 의 주 세션 Bash 호출 가운데 명령 위치에서 부른 `gh pr create` · `split-session.sh finish-note` · 종결 진행 기록(`session-progress-append.sh <FID> /lifecycle DONE` · `basic-path.sh done`)이 성공한 것이다(인자 속 문자열·heredoc 본문·서브에이전트 호출은 세지 않는다). 새 세션의 첫 작업에는 뜨지 않는다. 판정할 수 없으면(`jq` 없음) 종전대로 기준(`warn_context_tokens`) 초과일 때만. 차단하지 않는다(항상 rc 0).
+- `finish-note [<transcript>]` — 작업을 마친 시점에 부른다(풀 경로 `performance-test-ko` PR 생성 뒤 §5 · 기본 경로 `/basic` 9번). `SESSION-NEXT: 지금 대화가 약 NK 토큰입니다 — 다음 작업은 새 세션에서 시작하면 호출마다 다시 읽는 양이 줄어듭니다.` 1줄. 크기를 읽지 못하면(transcript 없음) 무출력. 묻지 않고 막지 않는다(항상 rc 0).
 
-설정은 `.specops/config.yaml` 의 `session_split:` 블록(환경변수 우선): `enabled` · `permission_mode`(`inherit` 기본 — 권한 옵션을 넘기지 않고 사용자 settings 를 따른다 · `auto` · `acceptEdits` · `bypassPermissions` 는 거절) · `model` · `timeout_min`(기본 180) · `max_budget_usd` · `warn_context_tokens`(기본 150000 — 새 세션 첫 호출이 48~52K 였던 실측 기준 · 0 이면 끔).
+설정은 `.specops/config.yaml` 의 `session_split:` 블록(환경변수 우선): `enabled` · `permission_mode`(`inherit` 기본 — 권한 옵션을 넘기지 않고 사용자 settings 를 따른다 · `auto` · `acceptEdits` · `bypassPermissions` 는 거절) · `model` · `timeout_min`(기본 180) · `max_budget_usd` · `warn_context_tokens`(0 이면 `warn-size`·`finish-note` 를 끈다 · 기본 150000 은 끝난 작업을 판정할 수 없을 때의 시작 고지 기준 — 새 세션 첫 호출이 48~52K 였던 실측).
 
 ## batch-state.sh · record-batch-gate.sh — `/start-all` 끝단 판정
 
@@ -210,6 +211,18 @@ bash scripts/_internal/record-batch-gate.sh <batch-dir> status   # 읽기 전용
 ```
 
 queue 의 FID 칸은 `queue-set-status.sh <queue.md> <FR-ID> <STATUS> [FID]` 가 채웁니다 — 게이트가 그 칸으로 FR 의 산출물을 찾으므로, FID 칸이 빈 행은 `IMPL_DONE` 이 될 수 없고 `batch-state.sh` 는 그런 완료 행을 `[FID 미기재]` 로 차단합니다. FR 표는 `check-fr-table.sh` 가 읽습니다(굵게·백틱으로 감싼 ID 와 접미 ID 도 FR · 못 읽은 FR 꼴 행은 `UNPARSED` 로 알림). `batch-state.sh` 는 `SKIP` 행(시드·공통부)과 requirements 의 placeholder FR 을 batch 대상에서 빼고 `[제외]` 로 밝힙니다 — 미완·드리프트로 세지 않습니다(`HELD`·`BLOCKED` 는 미완). 빼는 기준은 queue 의 SKIP 글자가 아니라 `check-fr-table.sh --classify` 입니다: 분류기가 적격이라는 FR 을 SKIP 으로 둔 행은 미완이고, 분류기를 못 돌리면 아무것도 빼지 않습니다. `record-batch-gate.sh` 는 batch 레벨 게이트 판정을 전 IMPL_DONE FID 의 evidence.md 로 전파합니다. SKIP 근거는 spec 섹션명+줄 번호 인용이 없으면 거부하고(RELEASE_READY 가 인용 없는 SKIP 을 차단하므로), 이미 기록된 인용 없는 SKIP 은 인용 있는 근거로 다시 부르면 보완합니다. `status` 는 FID·게이트별 현황(`PASS`·`SKIP`·`SKIP(BARE)`·`MISSING`)을 내고 빠진 것이 있으면 rc 1 입니다 — batch PR 게이트는 `gh pr create` 에서만 돌아, PR 없이 닫는 batch 는 이 명령이 유일한 확인 수단입니다.
+
+## pr-gate.sh — PR 생성 단계에서 물을지 판정 (읽기 전용)
+
+```bash
+bash scripts/pr-gate.sh decide <FID>   # PR-GATE: auto | auto-draft (<사유>) | ask (<사유>) — 1줄 · rc 0(사용 오류만 2)
+```
+
+- `auto` = 묻지 않고 PR 생성 · `auto-draft` = 묻지 않고 **초안** PR(데모가 `확인 필요: yes` — 사용자가 보는 결과가 바뀌었고 확인 전) · `ask` = 종전대로 묻는다.
+- `auto` 조건(전부): spec 에 `§일괄` 또는 `§기본` · `dev-decisions.md` 에 기록 스크립트 형식의 `[approval]` 줄이 있고 그 **결정 칸이 `PR 생성 포함` 으로 끝난다**(풀 경로 승인 묶음 · 기본 경로 `basic-path.sh approve` 가 남긴다 — "포함은 거절"·근거 칸에만 있는 말은 동의가 아니다).
+- `ask` 가 되는 경우: `.specops/config.yaml` 의 `pr_gate: ask` · `SPECOPS_PR_GATE=ask` · spec 없음 · `§batch` · `§auto`(무인 — 가정 다이제스트를 사람이 본다) · `--step` · 승인 기록에 PR 생성 포함이 없음(이 버전 전에 승인한 작업 포함). 판단이 서지 않으면 `ask` 다.
+- **머지는 판정 대상이 아니다** — 어느 답이어도 PR 을 만든 뒤 멈춘다.
+- 소비자: `skills/performance-test-ko/SKILL.md` 「끝 보고 + 사용자 확인」 · `commands/basic.md` 8번.
 
 ## dev-decision.sh — 개발 구간에서 묻지 않고 정한 결정의 기록·끝 보고
 
@@ -334,7 +347,7 @@ bash scripts/basic-path.sh review <FID>                     # 구현 뒤·리뷰
 bash scripts/basic-path.sh related                          # 검증에 쓸 test_command 제안 — RELATED: <명령> | RELATED: none — <사유>
 bash scripts/basic-path.sh seal <FID> "<test_command>"      # 리뷰 뒤: 변경 파일로 재판정 · tasks.md · 리뷰 감사 행 (4=리뷰 보고서 없음 · 검증 러너가 받지 않는 명령은 거부)
 bash scripts/basic-path.sh promote <FID> "<사유>"           # 풀 경로로 올린다 — 산출물을 basic-draft/ 로 보존 · /full 승격 기록 · NEXT·ARGS·PROCEDURE 안내
-bash scripts/basic-path.sh design-scope <화면 수> [new|flow] # 화면 설계 확인 범위 — none | update | approve
+bash scripts/basic-path.sh design-scope <화면 수> [new|flow] # 화면 설계 확인 범위 — none | update | approve (+ `UI:` 줄 — 목업 CSS 이식·브라우저 점검 안내)
 bash scripts/basic-path.sh done <FID> "<한 줄 요약>"        # 종결 기록
 ```
 
@@ -361,7 +374,7 @@ bash scripts/quick-fix.sh done  <FID> "<한 줄 요약>"     # 커밋 뒤 종결
 bash scripts/_internal/quick-scope.sh <FID> [<task-id>] [--explain]   # 판정기 단독 실행 (0=통과 · 3=범위 초과 · 4=리뷰 미충족)
 ```
 
-태스크 문서는 있고 명세(`spec.md`)가 없는 FID 가 quick 경로입니다. 위 receipt 게이트를 그대로 쓰되 `check-task-receipt.sh` 가 판정기를 불러 **스테이징된 변경의 범위**(구현 파일 수 · 변경 줄 수 · 고위험 신호 — 테스트·문서 제외)와 **코드 리뷰 보고서**(`reviews/<task>-C-report.md` 의 마지막 판정이 통과이고 마지막 수정보다 새것)를 함께 요구합니다. 상한 수치는 `quick-scope.sh` 머리의 상수 2개가 유일한 정의입니다. 강제는 훅이 합니다 — `seal` 의 판정은 이른 안내이고, 건너뛰어 receipt 를 직접 만들어도 커밋에서 걸립니다. quick FID 는 검증 러너(`run-verification.sh`)가 통과해도 이 판정을 받고, 스테이징된 것만 커밋하는 명령이 아니면(`-a`·경로 인자·다른 명령과 묶음) 막습니다. 범위를 넘으면 `/maintain-lite` 로 갑니다.
+태스크 문서는 있고 명세(`spec.md`)가 없는 FID 가 quick 경로입니다. 위 receipt 게이트를 그대로 쓰되 `check-task-receipt.sh` 가 판정기를 불러 **스테이징된 변경의 범위**(구현 파일 수 · 변경 줄 수 · 고위험 신호 — 테스트·문서 제외)와 **코드 리뷰 보고서**(`reviews/<task>-C-report.md` 의 마지막 판정이 통과이고 마지막 수정보다 새것)를 함께 요구합니다. 상한 수치는 `quick-scope.sh` 머리의 상수 2개가 유일한 정의입니다. 강제는 훅이 합니다 — `seal` 의 판정은 이른 안내이고, 건너뛰어 receipt 를 직접 만들어도 커밋에서 걸립니다. quick FID 는 검증 러너(`run-verification.sh`)가 통과해도 이 판정을 받고, 스테이징된 것만 커밋하는 명령이 아니면(`-a`·경로 인자·다른 명령과 묶음) 막습니다. 범위를 넘으면 `/maintain` 로 갑니다.
 
 ## record-metric.sh — 비용·수율 메타데이터 기록
 
@@ -526,6 +539,7 @@ bash scripts/stage-timing.sh --since 20260901
 bash scripts/stage-timing.sh --split --since 20260902      # transcript 범위 안만 — 어느 단계에서 사람·백그라운드 대기가 큰가
 bash scripts/stage-timing.sh --by-agent --since 20260902   # 어느 역할(구현자·리뷰어·플랜 리뷰어)의 서브에이전트 시간이 큰가
 bash scripts/stage-timing.sh --split --transcript-dir A --transcript-dir B   # 지정은 반복 가능 · 지정 없으면 git worktree 전부의 projects 디렉토리 합집합
+bash scripts/stage-timing.sh --all-worktrees --since 20261101   # 다른 worktree 의 원장도 합친다 — 겹친 줄은 한 번만 · 없으면 자기 원장만 읽고 안내 한 줄
 ```
 
 ## prompt-kinds.sh — 무정보 프롬프트 종류 집계 (관측 전용)

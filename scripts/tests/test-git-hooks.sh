@@ -843,7 +843,8 @@ _pr_case() { # $1=id·설명 $2=기대 rc $3=기대 실행(full|related|none)
 if [ -z "$_pr_base" ] || [ -z "$_pr_head" ] || [ "$_pr_base" = "$_pr_head" ]; then
   for _l in "PR.1 작업 브랜치 → 관련 스위트만" "PR.2 관련 스위트 실패 → 차단" "PR.3 기본 브랜치 push → 전체" "PR.4 관련 스위트를 고를 수 없음 → 전체" \
             "PR.5 추적 파일 미커밋 변경 → 전체" "PR.6 FORCE_FULL → 전체" "PR.7 push 커밋이 HEAD 가 아님 → 전체" "PR.8 같은 트리 통과 기록 → 건너뜀" \
-            "PR.9 통과 기록에 없는 스위트 → 다시 실행" "PR.10 태그 push → 전체" "PR.11 헬퍼 부재 → 전체"; do _t22_dead "$_l"; done
+            "PR.9 통과 기록에 없는 스위트 → 다시 실행" "PR.10 태그 push → 전체" "PR.11 헬퍼 부재 → 전체" \
+            "PR.12 다른 트리의 통과 기록 → 다시 실행" "PR.13 master 로 push → 전체"; do _t22_dead "$_l"; done
 else
   printf 'scripts/tests/test-a.sh\nscripts/tests/test-b.sh\n' > "$_fc/.specops/rr-list"
   rm -f "$_fc/.specops/rr-list-rc" "$_fc/.specops/rr-rc" "$_fc/.specops/.related-suite-pass"
@@ -879,7 +880,14 @@ else
   { printf '%s\n' "$(_fc_fp)"; echo scripts/tests/test-a.sh; } > "$_fc/.specops/.related-suite-pass"
   _pr_run refs/heads/feat "$_pr_head"
   _pr_case "PR.9 통과 기록에 없는 스위트 → 다시 실행" 0 related
+  # 지문이 지금 트리와 다르면 목록이 다 맞아도 건너뛰지 않는다 — 낡은 통과 기록으로 push 검사를 생략하지 않게 (변이: 지문 비교 삭제 → 20261113 생존 확인)
+  { echo "0000000000000000000000000000000000000000"; cat "$_fc/.specops/rr-list"; } > "$_fc/.specops/.related-suite-pass"
+  _pr_run refs/heads/feat "$_pr_head"
+  _pr_case "PR.12 다른 트리의 통과 기록 → 다시 실행" 0 related
+  ! printf '%s' "$PR_ERR" | grep -q '이미 통과' && ok "PR.12b 낡은 기록으로 '이미 통과'를 말하지 않는다" || nope "PR.12b" "$PR_ERR"
   rm -f "$_fc/.specops/.related-suite-pass"
+  _pr_run refs/heads/master "$_pr_head"
+  _pr_case "PR.13 master 로 push → 전체" 0 full
   _pr_run refs/tags/v9.9.9 "$_pr_head"
   _pr_case "PR.10 태그 push → 전체" 0 full
   rm -f "$_fc/scripts/_internal/prepush-related.sh"

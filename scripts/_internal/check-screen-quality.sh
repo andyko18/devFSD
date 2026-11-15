@@ -186,7 +186,8 @@ _rg_base() {  # $1=기준 ref(선택) → rg_base · rg_short. 실패 rc 1 + rg_
   git rev-parse --is-inside-work-tree >/dev/null 2>&1 || { rg_why='git 저장소가 아니다'; return 1; }
   if [ -z "$ref" ]; then
     # 로컬 main/master 우선, 없으면 원격 추적 브랜치(CI·worktree 에서 origin/* 만 있는 경우)
-    for b in main master origin/main origin/master; do
+    _oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true); _oh=${_oh#origin/}   # 기본 브랜치가 develop·trunk 인 저장소(20261115)
+    for b in ${_oh:+"$_oh" "origin/$_oh"} main master origin/main origin/master; do
       case "$b" in origin/*) git show-ref -q --verify "refs/remotes/$b" && break ;; *) git show-ref -q --verify "refs/heads/$b" && break ;; esac
       b=""
     done

@@ -77,7 +77,8 @@ _is_common_desc() {
 # HTML <!-- foundation-fr: FR-4, FR-27 --> 목록에 id 포함 여부
 _in_foundation_fr_list() {
   local id="$1" list
-  list=$(grep -oE '<!--[[:space:]]*foundation-fr:[[:space:]]*[^>]+-->' "$REQ" 2>/dev/null | head -1) || true
+  # 표지가 여러 개면 모두 합쳐 읽는다(20261115) — init 이 만든 빈 표지가 먼저 있고 ID 를 적은 표지를 아래에 더하면 첫 것만 읽혀 무시됐다.
+  list=$(grep -oE '<!--[[:space:]]*foundation-fr:[[:space:]]*[^>]*-->' "$REQ" 2>/dev/null | tr '\n' ' ') || true
   [ -n "$list" ] || return 1
   printf '%s' "$list" | grep -qE "(^|[^A-Za-z0-9-])${id}([^0-9]|$)"
 }
@@ -125,7 +126,7 @@ $(awk -F'|' '
   /^\|/ {
     c = $2; gsub(/[`*]/, "", c); c = trim(c)
     if (c ~ /^FR-[0-9][0-9A-Za-z]*$/) { printf "ROW\037%s\037%s\037%s\n", c, trim($3), trim($4) }
-    else if (c ~ /^FR[-_ ]?[A-Za-z]?[0-9]+[A-Za-z]*$/) { printf "UNP\037%s\n", c }
+    else if (c ~ /^FR[-_ ]?[A-Za-z]?[0-9]+[A-Za-z]*$/ || c ~ /^FR[-_ ][A-Za-z0-9][A-Za-z0-9._-]*$/) { printf "UNP\037%s\n", c }   # 둘째 꼴(20261115): FR-1.1·FR-AUTH-01·FR-M1-02 — 구분자 뒤에 점·낱말이 든 ID
   }
   # 들여쓴 표 행 — 마크다운은 표로 그리지만 이 판정기와 batch-state.sh 는 줄 시작 `|` 만 읽는다(종전부터).
   #   읽는 범위를 넓히면 queue 를 읽는 쪽들과 어긋나므로 넓히지 않는다. 대신 FR 꼴이면 알린다 — 말없이 빠지지 않게.

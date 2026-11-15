@@ -229,4 +229,17 @@ else
 fi
 rm -rf "$_neg"
 
+# T-nolabel (20261115): spec 에 §유형 줄이 **아예 없는데** analyzing 마커가 유지보수면 유지보수로 본다.
+#   spec 템플릿에 그 줄이 없어서 빠뜨리기 쉬웠고, 빠지면 이 검사가 조용히 SKIP 해 유지보수 FID 가 회귀 기준 없이 지나갔다.
+TD=$(mktemp -d); _mk "$TD" 20260806-m 유지보수
+printf '# 명세\n\n## 1. 개요\n' > "$TD/.specops/20260806-m/spec.md"
+printf '# AC\n' > "$TD/.specops/20260806-m/acceptance-criteria.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-m 2>&1); rc=$?
+[ "$rc" -eq 1 ] && printf '%s' "$out" | grep -q 'AC-R-1' && ok "T-nolabel.a §유형 줄 없음 + 마커 유지보수 → AC-R-1 요구(FAIL)" || nope "T-nolabel.a" "rc=$rc out=$out"
+printf '# 현행\n**라인 범위 합산: 3줄 → trivial**\n' > "$TD/.specops/20260806-m/current-state.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-m 2>&1); rc=$?
+[ "$rc" -eq 0 ] && ok "T-nolabel.b §유형 줄 없음 + 마커 trivial → 종전대로 SKIP" || nope "T-nolabel.b" "rc=$rc out=$out"
+rm -rf "$TD"
+grep -q '^\*\*§유형\*\*:' "$PLUGIN/templates/spec.md" && ok "T-nolabel.c spec 템플릿에 §유형 줄이 있다" || nope "T-nolabel.c" "templates/spec.md 에 §유형 줄 없음"
+
 finish

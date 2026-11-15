@@ -630,4 +630,18 @@ rm -f "$_DF"
 # 리뷰어 문서가 init 모드 표기를 요구한다(훅과 문서가 어긋나면 표지가 전부 내려간다)
 grep -q 'DESIGN-REVIEW-MODE: init' "$PLUGIN/agents/design-reviewer-ko.md" && ok "T-dr.6 design-reviewer-ko 가 init 모드 줄을 요구" || nope "T-dr.6" "에이전트 문서에 모드 줄 규칙 없음"
 
+# ── T-sub 하위 폴더 cwd (20261115 실주행) — 세션을 backend/ 같은 하위 폴더에서 열면 훅의 cwd 가 그 폴더다.
+#   종전엔 $cwd/.specops 만 보아 "FID 디렉터리 없음" 으로 저장을 건너뛰었고, 부모가 요약본을 손으로 써서 봉인을 통과했다.
+SG="$TDROOT/g"; mkdir -p "$SG/backend/src" "$SG/.specops/$FID"; git init -q "$SG"
+_sub_json=$(jq -n --arg cwd "$SG/backend" --arg m "$(_block T1 C READY_TO_MERGE '# 하위 폴더 본문')" \
+  '{hook_event_name:"SubagentStop",agent_type:"devfsd:code-reviewer-ko",cwd:$cwd,stop_hook_active:false,last_assistant_message:$m}')
+_sub_err=$(printf '%s' "$_sub_json" | env -u SPECOPS_GOVERNANCE_PROFILE SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" 2>&1 >/dev/null); _sub_rc=$?
+[ "$_sub_rc" = 2 ] && [ "$(cat "$SG/.specops/$FID/reviews/T1-C-report.md" 2>/dev/null)" = "# 하위 폴더 본문" ] && [ ! -e "$SG/backend/.specops" ] \
+  && ok "T-sub.1 ★ 하위 폴더 cwd → 저장소 최상위 .specops/<FID>/reviews 에 저장 · 하위 폴더에 .specops 미생성" || nope "T-sub.1" "rc=$_sub_rc err=$_sub_err"
+# 하위 폴더에 자기 .specops 가 있으면(모노레포 하위 프로젝트의 자기 관할) 종전대로 그곳을 쓴다
+mkdir -p "$SG/backend/.specops/$FID"; rm -rf "$SG/.specops/$FID/reviews"
+printf '%s' "$_sub_json" | env -u SPECOPS_GOVERNANCE_PROFILE SPECOPS_CONFIG="$TD/none.yaml" bash "$HOOK" >/dev/null 2>&1
+[ -f "$SG/backend/.specops/$FID/reviews/T1-C-report.md" ] && [ ! -e "$SG/.specops/$FID/reviews" ] \
+  && ok "T-sub.2 하위 폴더에 자기 .specops 가 있으면 그곳에 저장(종전)" || nope "T-sub.2" "$(cd "$SG" && find . -name '*report.md')"
+
 finish

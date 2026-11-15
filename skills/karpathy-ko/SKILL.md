@@ -62,7 +62,7 @@ specops-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직교하�
 
 **판정 기준:** 변경된 모든 줄이 사용자의 요청과 직접 연결되어야 한다.
 
-**specops-ko 연결:** verifying-evidence-ko 범위 제어, sprint-contracts-ko (AC 범위 외 변경 금지)
+**specops-ko 연결:** verifying-evidence-ko 범위 제어, 「스프린트 계약」 (AC 범위 외 변경 금지)
 
 ---
 
@@ -95,7 +95,7 @@ specops-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직교하�
 |---|---|
 | 1 코드 작성 전 사고 | 원칙 1 투명성 + 원칙 5 한계 고백 |
 | 2 단순성 우선 | YAGNI + 원칙 4 주권 |
-| 3 외과적 변경 | sprint-contracts-ko AC 범위 |
+| 3 외과적 변경 | 「스프린트 계약」 AC 범위 |
 | 4 목표 기반 실행 | acceptance-criteria.md + tdd-ko |
 
 ---
@@ -105,7 +105,7 @@ specops-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직교하�
 - `forrestchang/andrej-karpathy-skills skills/karpathy-guidelines/SKILL.md` — 원본 (MIT)
 - `skills/tdd-ko/SKILL.md` — 원칙 4와 TDD 연결
 - `skills/verifying-evidence-ko/SKILL.md` — 원칙 3·4 검증 단계
-- `skills/sprint-contracts-ko/SKILL.md` — 원칙 3 범위 계약
+- `docs/harness-principles.md` 「스프린트 계약」 — 원칙 3 범위 계약
 
 ---
 

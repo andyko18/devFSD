@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # specops-ko governance-capture — PostToolUse entrypoint
 # stdin: Claude Code PostToolUse JSON
-# stdout: { "continue": true, "additionalContext"?: "..." }
+# stdout: { "continue": true, "hookSpecificOutput"?: { "hookEventName": "PostToolUse", "additionalContext": "..." } }
+#   additionalContext 는 hookSpecificOutput 안에 둔다(20261115) — 최상위에 두면 Claude Code 가 읽지 않아 경고가 모델에 닿지 않았다.
 # 실패 내성: 내부 오류 시 exit 0 + stderr 로그. tool 흐름 무중단.
 set -uo pipefail
 
@@ -108,7 +109,7 @@ done < <(load_rules "$rules_path" "posttool" 2>/dev/null || true)
 if [ -n "$matches" ]; then
   # 300자 제한
   context=$(printf '%s' "$matches" | cut -c1-300)
-  jq -nc --arg c "$context" '{ continue: true, additionalContext: $c }'
+  jq -nc --arg c "$context" '{ continue: true, hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: $c } }'
 else
   echo '{"continue":true}'
 fi

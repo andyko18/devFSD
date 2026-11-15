@@ -468,4 +468,22 @@ printf '# spec\n' > "$_RQ/.specops/$_rq_fid/spec.md"                        # �
 [ "$_rq_rc" = 0 ] && ok "TR-Q4 같은 영수증 · 명세 있음(정식 FID) → rc 0 (범위·리뷰를 보지 않는다)" || nope "TR-Q4" "rc=$_rq_rc"
 rm -rf "$_RQ"
 
+# TR-K 한글 파일 이름 (20261115 실주행) — git 기본값(core.quotepath 켜짐)은 비ASCII 경로를 "docs/\354…" 로 낸다.
+#   종전엔 staged 목록만 이스케이프돼 영수증 outputs(실제 경로)와 어긋나 "staged outside outputs" 로 막혔고,
+#   세션이 사용자 저장소의 core.quotepath 를 꺼서 통과했다. 이 픽스처는 저장소 설정을 건드리지 않는다(기본값 그대로).
+_TK=$(mktemp -d) || exit 1
+_tk_fid=20261115-hangul-receipt
+_setup_fid "$_TK" "$_tk_fid"
+mkdir -p "$_TK/docs" && printf '규칙\n' > "$_TK/docs/주문 규칙.md"
+(cd "$_TK" && git add docs && git -c user.name=t -c user.email=t@e.com commit -qm docs)
+sed 's|outputs: \[src/foo.sh, scripts/tests/test-foo.sh\]|outputs: ["docs/주문 규칙.md"]|' "$_TK/.specops/$_tk_fid/tasks.md" > "$_TK/t.md" && mv "$_TK/t.md" "$_TK/.specops/$_tk_fid/tasks.md"
+printf '규칙 개정\n' > "$_TK/docs/주문 규칙.md"
+(cd "$_TK" && git add "docs/주문 규칙.md" && bash "$REC" "$_tk_fid" T1) >/dev/null 2>&1
+_tk_q=$(cd "$_TK" && git config --get core.quotepath || echo unset)
+_tk_err=$(cd "$_TK" && bash "$CHK" "$_tk_fid" T1 2>&1 >/dev/null); _tk_rc=$?
+[ "$_tk_rc" = 0 ] && [ "$_tk_q" = unset ] \
+  && ok "TR-K ★ 한글 파일 이름만 stage → 영수증 rc 0 (저장소 quotepath 기본값 그대로)" || nope "TR-K" "rc=$_tk_rc quotepath=$_tk_q err=$_tk_err"
+rm -rf "$_TK"
+
+
 finish

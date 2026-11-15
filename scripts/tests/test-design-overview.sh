@@ -293,6 +293,7 @@ _m1=$(_wsec "$_IP" '^[*][*]§M1 설계 완료 규약' '^[*][*]사실성 계약')
 _whas "W3.a M1 범위·공통 제외·M2 초안" "$_m1" '`[공통]`(foundation 범위)이 아닌 것이 대상' '어느 마일스톤에 속하는지 근거가 없는 화면은 M1 로 올리지 않는다' 'M2 이후 범위는' '`app-shell`·`layout`·`login`'
 _whas "W3.b 가정 표기·정합" "$_m1" '`가정:` 을 붙여 정하고 다이제스트에 싣는다' '서버를 부르는 Interaction 마다 대응 엔드포인트 행'
 _whas "W3.c 전문가 1회 → 리뷰 1회 · 재시도 1회" "$_m1" 'subagent_type: "devfsd:ui-designer-ko"' 'subagent_type: "devfsd:design-reviewer-ko"' '**1회만** 다시 dispatch' '.specops/.init-design/design-review.md'
+_whas "W3.c2 전문가 백그라운드·계측기 경로·재리뷰 범위" "$_m1" '**백그라운드로 띄우고**' '계측기 절대 경로' '그 수정이 새로 만든 불일치' '전체를 다시 판정시키지 않는다'
 _whas "W3.d 표지 2종 — 리뷰 통과분에만" "$_m1" '리뷰를 통과한 것에만 단다' 'init 설계 완료 (미확정 <N>)' '<!-- specops:init-designed: M1 -->' '리뷰를 돌리지 못했으면 아무 표지도 달지 않는다'
 _whas "W3.e graceful skip" "$_m1" '비UI KIND 는 화면 축을' '이 규약 전체를 건너뛴다'
 # 초안 표지(M2 이후)와 사실성 계약은 그대로다 — 완성하느라 근거 규칙이 풀리면 안 된다

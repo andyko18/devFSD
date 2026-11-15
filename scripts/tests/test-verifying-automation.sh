@@ -666,6 +666,35 @@ else
 fi
 rm -rf "$TMPDIR"
 
+# ── T-jvm: 하류 러너 확장 (20261115) — Java·.NET 프로젝트와 `python3 -m pytest`·pytest node id 가 PARTIAL 로 막혔다 ──
+#   허용 판정은 run-verification.sh 의 단일 줄 패턴 + `..` 가드다(basic-path·emit-context 가 같은 줄을 읽는다).
+_jv_pat=$(grep -m1 '^_WHITELIST_PAT=' "$RUN" | sed -E "s/^_WHITELIST_PAT='(.*)'\$/\1/")
+_jv_ok() { [[ "$1" =~ $_jv_pat ]] && [[ "$1" != *..* ]]; }
+for _c in 'python3 -m pytest' 'python3 -m pytest tests/ -q' 'pytest tests/test_a.py::test_b' 'pytest tests/a.py::TestX::test_y -q' \
+          'mvn test' 'mvn -q -B test' './mvnw verify' 'mvn test -Dtest=FooTest#bar' 'mvn -pl core test' \
+          './gradlew test' 'gradle check' './gradlew :app:test --tests com.x.FooTest' './gradlew -q test' \
+          'dotnet test' 'dotnet test tests/App.Tests -c Release' 'cd backend && ./gradlew test'; do
+  _jv_ok "$_c" && ok "T-jvm.a 허용: $_c" || nope "T-jvm.a" "허용돼야 한다: $_c"
+done
+#   테스트가 아닌 수명주기·임의 태스크는 여전히 막는다(배포·실행·정리).
+for _c in 'mvn deploy' 'mvn clean install' 'mvn exec:java' './gradlew bootRun' './gradlew publish' 'gradle clean' \
+          'dotnet run' 'dotnet publish' '/usr/bin/mvn test' 'mvn test; rm -rf x' './gradlew test && ./gradlew publish' \
+          'python3 -m http.server' 'python3 x.py' 'make test' '../gradlew test' 'mvn test -f ../pom.xml'; do
+  _jv_ok "$_c" && nope "T-jvm.b" "막혀야 한다: $_c" || ok "T-jvm.b 차단: $_c"
+done
+#   실제 실행 — 저장소 루트의 ./gradlew 를 러너가 그대로 실행한다.
+TMPDIR=$(mktemp -d); mkdir -p "$TMPDIR/.specops/fid-jvm"
+printf '#!/bin/sh\necho "BUILD SUCCESSFUL $*"\nexit 0\n' > "$TMPDIR/gradlew"; chmod +x "$TMPDIR/gradlew"
+printf '%s\n' '## 의존 그래프' '' '```yaml' 'tasks:' '  - id: T1' '    test_command: "./gradlew test"' '```' > "$TMPDIR/.specops/fid-jvm/tasks.md"
+out=$(cd "$TMPDIR" && bash "$RUN" fid-jvm 2>&1)
+printf '%s' "$out" | grep -q 'VERIFY: PASS' && grep -q 'BUILD SUCCESSFUL test' "$TMPDIR/.specops/fid-jvm/evidence.md" \
+  && ok "T-jvm.c ./gradlew test 실행 → VERIFY: PASS + 출력 기록" || nope "T-jvm.c" "out=$out"
+printf '#!/bin/sh\necho "FAILED"\nexit 1\n' > "$TMPDIR/gradlew"; rm -f "$TMPDIR/.specops/fid-jvm/evidence.md"
+out=$(cd "$TMPDIR" && bash "$RUN" fid-jvm 2>&1)
+printf '%s' "$out" | grep -q 'VERIFY: PASS' && nope "T-jvm.d" "실패한 gradlew 가 PASS 로 샜다: $out" || ok "T-jvm.d 실패한 ./gradlew → PASS 아님"
+rm -rf "$TMPDIR"
+
+
 echo ""
 echo "--- SUMMARY ---"
 echo "PASS=$PASS FAIL=$FAIL"

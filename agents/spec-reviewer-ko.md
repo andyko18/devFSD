@@ -29,6 +29,8 @@ tools: Read, Grep, Glob, Bash
 
 본 에이전트는 **read-only** — Write/Edit 도구 호출 금지. 5 컨텍스트 누락 시 NEEDS_CONTEXT 반환.
 
+**`기본 경로: yes` 가 프롬프트에 있으면**(`commands/basic.md` — 태스크 문서·dispatch 컨텍스트 파일이 없다): 5 컨텍스트 중 AC 는 `acceptance-criteria.md` **전체**(우선순위대로 판정), spec 은 `spec.md` 경로, 검토 대상은 프롬프트의 `BASE:` 값을 기준으로 한 `git diff <BASE>`(`BASE: none` 이면 `git diff HEAD`) 와 작업 트리 변경이다. test 명령은 받지 않는다 — 변경된 테스트 파일에서 스스로 고른 명령을, 부모가 프롬프트에 적은 실행 상한 안에서 실행한다. 이 모드에서는 5 컨텍스트 누락으로 NEEDS_CONTEXT 를 반환하지 않는다.
+
 > **Bash 행동계약 (N3)**: `tools:` 의 Bash 는 #5 test 명령 실행(AC 충족 실증) + 읽기·검증(git diff·grep) 전용. 코드·파일·git 상태 변이 명령 금지 — read-only 와 정합. test 실행은 검증이지 변이가 아니므로 read-only 위반 아님.
 
 ## 프로세스
@@ -38,7 +40,7 @@ tools: Read, Grep, Glob, Bash
 3. **변경 분석**:
    - `git diff <range>` 실행 — 무엇이 변경되었는가?
    - 각 AC 의 Given/When/Then 을 변경 코드와 1:1 매핑
-4. **AC 별 평가** — 다음 4 상태 중 하나:
+4. **AC 별 평가** — 먼저 AC 의 `**우선순위**` 줄(`must`·`should`·`nice-to-have`)을 읽는다. 줄이 없으면 `must` 로 본다(`AC-R-*` 회귀 AC 는 항상 `must`). **PASS 를 정하는 것은 `must` 뿐이다**(templates/acceptance-criteria.md §우선순위 규약 — should 는 "가능하면 충족", nice-to-have 는 "미충족 시 BLOCK 없음"). 다음 4 상태 중 하나로 평가하고 우선순위를 표에 함께 적는다:
    - **MET**: AC 의 Given/When/Then 이 코드로 명확히 충족됨
    - **PARTIAL**: 일부 충족, 명확한 갭 존재
    - **UNMET**: 코드가 AC 를 만족 안 함
@@ -70,19 +72,23 @@ tools: Read, Grep, Glob, Bash
 
 ## 종합 판정
 
-- ✅ **PASS**: 모든 담당 AC = MET (다음 단계: code-reviewer-ko Phase C 진입 권장)
-- ⚠️ **PARTIAL**: 하나 이상 PARTIAL/TEST_GAP — implementer-ko 재dispatch 권장
-- ❌ **FAIL**: 하나 이상 UNMET — 즉시 차단
+판정: PASS
+(또는)
+판정: NEEDS_FIX
+
+- **PASS**: 담당 `must` AC 가 모두 MET — 다음 단계: code-reviewer-ko Phase C 진입 권장. `should`·`nice-to-have` 가 PARTIAL/UNMET/TEST_GAP 이어도 PASS 다(위 표에 우선순위와 함께 남긴다 — 부모가 `dev-decision.sh … backlog` 로 옮긴다)
+- **NEEDS_FIX**: 담당 `must` AC 하나 이상이 PARTIAL/UNMET/TEST_GAP — implementer-ko 재dispatch
+- 판정 줄은 이 절의 **첫 줄**에 위 두 형태 중 하나로 **정확히** 쓴다(앞뒤 장식·이모지 없이 — 기계가 읽는다)
 
 ## 다음 단계
 
 - [ ] (PASS 시) Phase C — code-reviewer-ko 호출
-- [ ] (PARTIAL/FAIL 시) implementer-ko 재dispatch + 누락 AC 명시
+- [ ] (NEEDS_FIX 시) implementer-ko 재dispatch + 누락 AC 명시
 ```
 
 7. **반환** — 다음 3 상태:
-   - **PASS**: 모든 담당 AC = MET
-   - **NEEDS_FIX**: PARTIAL/UNMET/TEST_GAP — implementer-ko 재dispatch
+   - **PASS**: 담당 `must` AC 모두 MET
+   - **NEEDS_FIX**: `must` AC 의 PARTIAL/UNMET/TEST_GAP — implementer-ko 재dispatch
    - **NEEDS_CONTEXT**: 부모로부터 추가 정보 필요
 
 ## 빈 출력 규칙

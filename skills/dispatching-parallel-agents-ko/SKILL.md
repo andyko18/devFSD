@@ -5,7 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/dispatching-parallel-agents/SKILL.md
 specops_version: 2.9.0
 used_by: implementing-ko (독립 leaf 태스크 2개+ 감지 시 자동 분기)
-integrates_with: devfsd:file-based-communication-ko, devfsd:context-resets-ko
+integrates_with: docs/harness-principles.md (파일 기반 전달 · 컨텍스트 리셋)
 ---
 
 # Engine 스킬 — 병렬 서브에이전트 dispatch
@@ -192,7 +192,7 @@ implementing-ko 의 기본 순차 dispatch 경로 유지. 본 스킬 호출 안 
 
 ## 참조
 
-- 관련 스킬: `devfsd:implementing-ko` (caller), `devfsd:context-resets-ko` (fresh 세션 보장), `devfsd:file-based-communication-ko` (프롬프트는 파일 경로만)
+- 관련 스킬: `devfsd:implementing-ko` (caller), 「컨텍스트 리셋」(`docs/harness-principles.md`) (fresh 세션 보장), 「파일 기반 전달」 (프롬프트는 파일 경로만)
 
 ---
 

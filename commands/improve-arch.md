@@ -31,7 +31,7 @@ reference_upstream: specops-ko 독자 추가 (mattpocock improve-codebase-archit
 2. **`delete:` 전 확인** — 지우자고 쓰기 전에 심볼을 트리 전체(테스트·fixture·문자열/동적 참조 포함)에서 grep 한다
 3. **출력** — 가장 크게 자르는 순으로 번호를 매긴다(사용자가 "2번, 5번 고쳐" 라고 말할 수 있게): `<N>. <tag> <자를 것>. <대체>. [경로]` — 태그는 `delete:` · `stdlib:` · `native:` · `reuse:` · `yagni:` · `shrink:`. 끝에 `net: -<N> lines, -<M> deps possible.` 자를 것이 없으면 `Lean already. Ship.`
 4. **장부** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/scan-shortcuts.sh` 결과(`shortcut:` 부채)를 이어 붙인다
-5. **범위** — 과잉 설계·복잡도만 본다. 정확성·보안·성능은 범위 밖(일반 리뷰로 보낸다). 검증·에러 처리·보안·접근성, AC 가 요구하는 테스트와 한 번의 실행 가능한 자체 검사는 **절감 대상이 아니다**. 고칠 항목이 정해지면 `/maintain-lite <번호 항목>` 으로 넘긴다
+5. **범위** — 과잉 설계·복잡도만 본다. 정확성·보안·성능은 범위 밖(일반 리뷰로 보낸다). 검증·에러 처리·보안·접근성, AC 가 요구하는 테스트와 한 번의 실행 가능한 자체 검사는 **절감 대상이 아니다**. 고칠 항목이 정해지면 `/maintain <번호 항목>` 으로 넘긴다
 
 ## 사용 예
 

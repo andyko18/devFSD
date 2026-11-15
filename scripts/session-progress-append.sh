@@ -154,14 +154,33 @@ if [ ! -f "$TARGET" ]; then
 fi
 
 # 동시 쓰기 잠금 (20261115) — 아래는 읽기 → awk → 임시 파일 → mv 라, 병렬 호출이 서로의 줄을 덮어썼다(12건 중 2~5건만 남음).
-#   mkdir 은 원자적이라 잠금으로 쓴다. 약 5초(50ms × 100) 기다려도 남아 있으면 죽은 프로세스의 것으로 보고 걷어 낸다(영구 정지 금지).
-_spa_lock="$TARGET.lock.d"; _spa_i=0; _spa_max="${SPECOPS_SPA_LOCK_TRIES:-100}"
+#   mkdir 은 원자적이라 잠금으로 쓴다. 약 5초(50ms × 100) 기다려도 남아 있으면 주인(잠금 폴더의 pid)이 살아 있는지 본다 —
+#   죽었으면 걷어 내고 **다시 잡는다**, 살아 있으면 더 기다린다(상한 약 60초 — 영구 정지 금지).
+#   종전(20261115)에는 5초가 지나면 주인을 보지 않고 걷어 낸 뒤 잡았는지 확인 없이 진행했다 — 부하가 걸린 CI 에서
+#   한 건이 느려지자 뒤 순번들이 살아 있는 잠금을 빼앗아 동시에 썼다(병렬 12건 중 10건만 남음 · 20261116).
+_spa_lock="$TARGET.lock.d"; _spa_i=0; _spa_total=0
+_spa_max="${SPECOPS_SPA_LOCK_TRIES:-100}"; _spa_hard="${SPECOPS_SPA_LOCK_HARD_TRIES:-1200}"
 while ! mkdir "$_spa_lock" 2>/dev/null; do
-  _spa_i=$((_spa_i + 1))
-  if [ "$_spa_i" -ge "$_spa_max" ]; then rmdir "$_spa_lock" 2>/dev/null || true; mkdir "$_spa_lock" 2>/dev/null || true; break; fi
+  #   잠금 폴더가 없는데 못 만든다 = 남이 잡은 것이 아니라 만들 수 없는 곳이다(읽기 전용 등) — 기다려도 소용없다.
+  #   (그 사이 주인이 놓았을 수 있어 한 번 더 잡아 본다.)
+  if [ ! -d "$_spa_lock" ]; then mkdir "$_spa_lock" 2>/dev/null && break; [ -d "$_spa_lock" ] || break; fi
+  _spa_i=$((_spa_i + 1)); _spa_total=$((_spa_total + 1))
+  if [ "$_spa_i" -ge "$_spa_max" ]; then
+    _spa_i=0
+    _spa_pid=$(cat "$_spa_lock/pid" 2>/dev/null || true)
+    #   pid 가 비어 보이면 한 번 더 읽는다 — 주인이 폴더를 만들고 pid 를 적는 사이일 수 있다.
+    [ -n "$_spa_pid" ] || { sleep 0.05; _spa_pid=$(cat "$_spa_lock/pid" 2>/dev/null || true); }
+    case "$_spa_pid" in ''|*[!0-9]*) _spa_alive=0 ;; *) kill -0 "$_spa_pid" 2>/dev/null && _spa_alive=1 || _spa_alive=0 ;; esac
+    if [ "$_spa_alive" = 0 ] || [ "$_spa_total" -ge "$_spa_hard" ]; then
+      rm -rf "$_spa_lock" 2>/dev/null || true
+      [ "$_spa_total" -ge $((_spa_hard * 2)) ] && break
+    fi
+  fi
   sleep 0.05
 done
-trap 'rmdir "$_spa_lock" 2>/dev/null || true' EXIT
+{ printf '%s\n' "$$" > "$_spa_lock/pid"; } 2>/dev/null || true
+#   자기 잠금만 지운다 — 상한을 넘겨 빼앗긴 뒤 끝나는 프로세스가 새 주인의 잠금을 지우지 않게.
+trap '[ "$(cat "$_spa_lock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$_spa_lock" 2>/dev/null || true' EXIT
 
 _freework_pin
 

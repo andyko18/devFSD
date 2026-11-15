@@ -599,6 +599,19 @@ _n=$(grep -c 'par-' "$TMP_L/.specops/session-progress.md")
 mkdir "$TMP_L/.specops/session-progress.md.lock.d"
 ( cd "$TMP_L" && SPECOPS_SPA_LOCK_TRIES=5 bash "$SCRIPT" 20261115-lock /verify PASS "stale-lock" ) >/dev/null 2>&1
 grep -q 'stale-lock' "$TMP_L/.specops/session-progress.md" && ok "L3 남은 잠금이 있어도 기다린 뒤 쓴다" || fail "L3 남은 잠금 때문에 쓰지 못했다"
+#   살아 있는 주인의 잠금은 기다림이 길어져도 빼앗지 않는다 (20261116 — CI 에서 L1 이 12건 중 10건만 남았다:
+#   부하로 한 건이 느려져 뒤 순번이 5초를 넘기자 살아 있는 잠금을 걷어 내고 동시에 썼다).
+mkdir "$TMP_L/.specops/session-progress.md.lock.d"
+sleep 30 & _owner=$!
+printf '%s\n' "$_owner" > "$TMP_L/.specops/session-progress.md.lock.d/pid"
+( cd "$TMP_L" && SPECOPS_SPA_LOCK_TRIES=5 bash "$SCRIPT" 20261115-lock /verify PASS "live-lock" ) >/dev/null 2>&1 &
+_waiter=$!
+sleep 1
+if grep -q 'live-lock' "$TMP_L/.specops/session-progress.md"; then fail "L4 살아 있는 주인의 잠금을 빼앗아 썼다"; else ok "L4 ★ 주인이 살아 있으면 잠금을 빼앗지 않고 기다린다"; fi
+rm -rf "$TMP_L/.specops/session-progress.md.lock.d"; kill "$_owner" 2>/dev/null; wait "$_owner" 2>/dev/null
+wait "$_waiter"
+grep -q 'live-lock' "$TMP_L/.specops/session-progress.md" && ok "L5 주인이 놓으면 이어서 쓴다" || fail "L5 잠금이 풀린 뒤에도 쓰지 못했다"
+[ ! -e "$TMP_L/.specops/session-progress.md.lock.d" ] && ok "L6 끝난 뒤 잠금 폴더가 남지 않는다" || fail "L6 잠금 폴더 잔존"
 rm -rf "$TMP_L"
 
 echo "PASS=$PASS FAIL=$FAIL"

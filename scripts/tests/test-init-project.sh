@@ -292,6 +292,13 @@ if [ ! -f screens/home.md ] && [ ! -f screens/home.html ] \
 else
   nope "T12.a screens" "overview 누락 또는 screens 껍데기 생성됨"
 fi
+# T12.a2 — 꼬리 줄의 날짜는 bash 가 채운다 (20261116 실주행: 이 문서는 보강이 골격을 유지해 채우는 주체가 없었다)
+if ! grep -q '<YYYY-MM-DD>' .specops/memory/screens-overview.md \
+   && grep -qE '^\*작성: .* · [0-9]{4}-[0-9]{2}-[0-9]{2} · ' .specops/memory/screens-overview.md; then
+  ok "T12.a2 화면 목록 꼬리 줄 날짜 채움"
+else
+  nope "T12.a2" "꼬리 줄: $(grep '^\*작성' .specops/memory/screens-overview.md)"
+fi
 teardown_fixture
 
 # ── T13.a .specops/memory/ 이미 존재 + n → 종료 ──

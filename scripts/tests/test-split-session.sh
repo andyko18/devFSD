@@ -170,28 +170,88 @@ out=$(cd "$(_mk)" && bash "$SS" status "$F" 2>&1); rc=$?
 [ "$rc" = 0 ] && printf '%s' "$out" | grep -q '기록 없음' && ok "S2 status — 자식 기록 없음(rc 0)" || nope "S2" "rc=$rc out=$out"
 
 # ── W: warn-size ─────────────────────────────────────────────────────────
+# 시작 고지의 조건 (20261115-token-task-slice): 고정 150K 초과가 아니라 **이 대화에서 이미 끝난 작업이 있을 때**다.
+#   새 세션은 이미 100~141K 라 150K 고지가 거의 늘 뜨거나 이미 이어서 일하는 중이었다. 끝난 작업의 흔적은 transcript 의
+#   주 세션 Bash 호출(종결 고지·PR 생성·종결 진행 기록)이 성공한 것이다. 판정할 수 없으면(jq 없음) 종전 150K 기준.
 _tr() {  # <파일> <입력> <캐시읽기> <캐시생성>
   printf '{"type":"user","message":{"content":"x"}}\n{"type":"assistant","isSidechain":true,"message":{"usage":{"input_tokens":999999,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}\n{"type":"assistant","message":{"usage":{"input_tokens":%s,"cache_read_input_tokens":%s,"cache_creation_input_tokens":%s}}}\n{"type":"assistant","isSidechain":true,"message":{"usage":{"input_tokens":5,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}\n' "$2" "$3" "$4" > "$1"
 }
+_done() {  # <파일> <명령> [is_error] [sidechain] — 끝난 작업의 흔적(Bash 호출 + 결과)을 transcript 앞쪽에 넣는다
+  local f="$1" cmd="$2" err="${3:-false}" side="${4:-false}" body
+  body=$(cat "$f")
+  { jq -cn --arg c "$cmd" --argjson s "$side" '{type:"assistant",isSidechain:$s,message:{content:[{type:"tool_use",id:"tu-1",name:"Bash",input:{command:$c}}]}}'
+    jq -cn --argjson e "$err" --argjson s "$side" '{type:"user",isSidechain:$s,message:{content:[{type:"tool_result",tool_use_id:"tu-1",is_error:$e,content:"ok"}]}}'
+    printf '%s\n' "$body"; } > "$f"
+}
 _tr "$TMP/big.jsonl" 10 200000 5000
 out=$(bash "$SS" warn-size "$TMP/big.jsonl" 2>&1); rc=$?
-[ "$rc" = 0 ] && printf '%s' "$out" | grep -q '^CONTEXT-LARGE: .*205K .*기준 150K' && ok "W1 205K > 기준 150K → 1줄 고지(rc 0 — 차단 아님)" || nope "W1" "rc=$rc out=$out"
-_tr "$TMP/small.jsonl" 10 60000 1000
-out=$(bash "$SS" warn-size "$TMP/small.jsonl" 2>&1); rc=$?
-[ "$rc" = 0 ] && [ -z "$out" ] && ok "W2 61K → 침묵(서브에이전트 줄 999999 는 세지 않는다)" || nope "W2" "rc=$rc out=$out"
-out=$(SPECOPS_SPLIT_WARN_TOKENS=50000 bash "$SS" warn-size "$TMP/small.jsonl" 2>&1)
-printf '%s' "$out" | grep -q '기준 50K' && ok "W3 기준은 설정값(환경변수)" || nope "W3" "$out"
+[ "$rc" = 0 ] && [ -z "$out" ] && ok "W1 205K 라도 끝난 작업이 없으면 침묵(새 세션의 첫 작업)" || nope "W1" "rc=$rc out=$out"
+_tr "$TMP/fin.jsonl" 10 200000 5000; _done "$TMP/fin.jsonl" 'GH_TOKEN=$(gh auth token) gh pr create --draft --title x'
+out=$(bash "$SS" warn-size "$TMP/fin.jsonl" 2>&1); rc=$?
+[ "$rc" = 0 ] && printf '%s' "$out" | grep -q '^CONTEXT-LARGE: .*끝난 작업.*205K' && [ "$(printf '%s\n' "$out" | grep -c .)" = 1 ] \
+  && ok "W1b PR 을 만든 대화 → 1줄 고지(크기 표기 · rc 0)" || nope "W1b" "rc=$rc out=$out"
+_tr "$TMP/finsmall.jsonl" 10 60000 1000; _done "$TMP/finsmall.jsonl" 'bash "${CLAUDE_PLUGIN_ROOT}"/scripts/split-session.sh finish-note'
+out=$(bash "$SS" warn-size "$TMP/finsmall.jsonl" 2>&1)
+printf '%s' "$out" | grep -q '^CONTEXT-LARGE: .*61K' && ok "W1c 종결 고지를 낸 대화 → 61K 여도 고지(150K 기준과 무관)" || nope "W1c" "$out"
+for v in "bash x/scripts/session-progress-append.sh F /lifecycle DONE \"PR 생성 완료\"" "bash x/scripts/basic-path.sh done F \"요약\""; do
+  _tr "$TMP/fin2.jsonl" 10 60000 1000; _done "$TMP/fin2.jsonl" "$v"
+  out=$(bash "$SS" warn-size "$TMP/fin2.jsonl" 2>&1)
+  printf '%s' "$out" | grep -q '^CONTEXT-LARGE' && ok "W1d 종결 진행 기록 명령도 끝난 작업이다 — ${v:7:40}" || nope "W1d" "$v → $out"
+done
+_tr "$TMP/fe.jsonl" 10 200000 5000; _done "$TMP/fe.jsonl" 'gh pr create --title x' true
+out=$(bash "$SS" warn-size "$TMP/fe.jsonl" 2>&1)
+[ -z "$out" ] && ok "W1e 실패한 PR 생성(is_error)은 끝난 작업이 아니다" || nope "W1e" "$out"
+_tr "$TMP/fg.jsonl" 10 200000 5000; _done "$TMP/fg.jsonl" "grep -n 'gh pr create' skills/x.md"
+out=$(bash "$SS" warn-size "$TMP/fg.jsonl" 2>&1)
+[ -z "$out" ] && ok "W1f 명령 인자 속 문자열(grep 'gh pr create')은 세지 않는다" || nope "W1f" "$out"
+_tr "$TMP/fh.jsonl" 10 200000 5000; _done "$TMP/fh.jsonl" "$(printf "python3 - <<'EOF'\ns = '''\ngh pr create --title x\n'''\nEOF")"
+out=$(bash "$SS" warn-size "$TMP/fh.jsonl" 2>&1)
+[ -z "$out" ] && ok "W1h heredoc 본문 속 줄은 세지 않는다" || nope "W1h" "$out"
+_tr "$TMP/fb.jsonl" 10 200000 5000; _done "$TMP/fb.jsonl" 'grep -n "PR 생성\|gh pr create" commands/x.md'
+out=$(bash "$SS" warn-size "$TMP/fb.jsonl" 2>&1)
+[ -z "$out" ] && ok "W1i 정규식 속 '\\|gh pr create' 는 세지 않는다" || nope "W1i" "$out"
+_tr "$TMP/fp.jsonl" 10 200000 5000; _done "$TMP/fp.jsonl" "$(printf "git push -u origin b && gh pr create --base main --body \"\$(cat <<'EOF'\n본문\nEOF\n)\"")"
+out=$(bash "$SS" warn-size "$TMP/fp.jsonl" 2>&1)
+printf '%s' "$out" | grep -q '^CONTEXT-LARGE' && ok "W1j 본문을 heredoc 으로 넘기는 PR 생성(&& 뒤)은 센다" || nope "W1j" "$out"
+_tr "$TMP/fs.jsonl" 10 200000 5000; _done "$TMP/fs.jsonl" 'gh pr create --title x' false true
+out=$(bash "$SS" warn-size "$TMP/fs.jsonl" 2>&1)
+[ -z "$out" ] && ok "W1g 서브에이전트(사이드체인)의 호출은 이 대화의 끝난 작업이 아니다" || nope "W1g" "$out"
 sb=$(_mk); printf 'session_split:\n  warn_context_tokens: 0\n' > "$sb/.specops/config.yaml"
-out=$(cd "$sb" && bash "$SS" warn-size "$TMP/big.jsonl" 2>&1)
-[ -z "$out" ] && ok "W4 config warn_context_tokens: 0 → 끔" || nope "W4" "$out"
+out=$(cd "$sb" && bash "$SS" warn-size "$TMP/fin.jsonl" 2>&1)
+[ -z "$out" ] && ok "W4 config warn_context_tokens: 0 → 끔(끝난 작업이 있어도)" || nope "W4" "$out"
+out=$(SPECOPS_SPLIT_WARN_TOKENS=0 bash "$SS" warn-size "$TMP/fin.jsonl" 2>&1)
+[ -z "$out" ] && ok "W4b SPECOPS_SPLIT_WARN_TOKENS=0 → 끔" || nope "W4b" "$out"
 out=$(bash "$SS" warn-size "$TMP/none.jsonl" 2>&1); rc=$?
 [ "$rc" = 0 ] && [ -z "$out" ] && ok "W5 transcript 없음 → 침묵(rc 0)" || nope "W5" "rc=$rc out=$out"
+# 판정할 수 없으면(jq 없음) 종전 기준 — 파일 크기 근사가 기준을 넘을 때만
+NOJQ="$TMP/nojq"; mkdir -p "$NOJQ"
+for b in bash sh awk grep sed tail head wc tr cat dirname mktemp rm ls sort cut date env; do
+  p=$(command -v "$b" 2>/dev/null) && ln -sf "$p" "$NOJQ/$b"
+done
 head -c 2000000 /dev/zero | tr '\0' 'x' > "$TMP/raw.jsonl"
-out=$(bash "$SS" warn-size "$TMP/raw.jsonl" 2>&1)
-printf '%s' "$out" | grep -q '파일 크기 근사' && ok "W6 usage 를 읽지 못하면 파일 크기로 근사" || nope "W6" "$out"
-mkdir -p "$CLAUDE_CONFIG_DIR/projects/p1"; cp "$TMP/big.jsonl" "$CLAUDE_CONFIG_DIR/projects/p1/sess-9.jsonl"
+out=$(PATH="$NOJQ" bash "$SS" warn-size "$TMP/raw.jsonl" 2>&1)
+printf '%s' "$out" | grep -q '^CONTEXT-LARGE: .*200K .*기준 150K.*파일 크기 근사' && ok "W6 판정 불가(jq 없음) → 종전 150K 기준 · 파일 크기 근사" || nope "W6" "$out"
+out=$(PATH="$NOJQ" SPECOPS_SPLIT_WARN_TOKENS=300000 bash "$SS" warn-size "$TMP/raw.jsonl" 2>&1)
+[ -z "$out" ] && ok "W3 판정 불가일 때 기준은 설정값(환경변수 300K → 침묵)" || nope "W3" "$out"
+mkdir -p "$CLAUDE_CONFIG_DIR/projects/p1"; cp "$TMP/fin.jsonl" "$CLAUDE_CONFIG_DIR/projects/p1/sess-9.jsonl"
 out=$(CLAUDE_CODE_SESSION_ID=sess-9 bash "$SS" warn-size 2>&1)
 printf '%s' "$out" | grep -q '^CONTEXT-LARGE' && ok "W7 경로 인자 없이 세션 id 로 transcript 를 찾는다" || nope "W7" "$out"
+
+# ── N: finish-note — 작업을 마친 시점(PR 생성 직후)의 새 세션 안내 ─────────────
+out=$(bash "$SS" finish-note "$TMP/big.jsonl" 2>&1); rc=$?
+[ "$rc" = 0 ] && [ "$out" = "SESSION-NEXT: 지금 대화가 약 205K 토큰입니다 — 다음 작업은 새 세션에서 시작하면 호출마다 다시 읽는 양이 줄어듭니다." ] \
+  && ok "N1 종결 고지 1줄 — 크기 표기(rc 0)" || nope "N1" "rc=$rc out=$out"
+_tr "$TMP/small.jsonl" 10 60000 1000
+out=$(bash "$SS" finish-note "$TMP/small.jsonl" 2>/dev/null)
+printf '%s' "$out" | grep -q '^SESSION-NEXT: 지금 대화가 약 61K 토큰' && ok "N2 작은 대화도 같은 1줄(기준과 무관)" || nope "N2" "$out"
+out=$(bash "$SS" finish-note "$TMP/none.jsonl" 2>&1); rc=$?
+[ "$rc" = 0 ] && [ -z "$out" ] && ok "N3 transcript 없음 → 무출력 rc 0" || nope "N3" "rc=$rc out=$out"
+out=$(env -u CLAUDE_CODE_SESSION_ID bash "$SS" finish-note 2>&1); rc=$?
+[ "$rc" = 0 ] && [ -z "$out" ] && ok "N4 경로도 세션 id 도 없음 → 무출력 rc 0" || nope "N4" "rc=$rc out=$out"
+out=$(cd "$sb" && bash "$SS" finish-note "$TMP/big.jsonl" 2>&1)
+[ -z "$out" ] && ok "N5 config warn_context_tokens: 0 → 끔" || nope "N5" "$out"
+out=$(CLAUDE_CODE_SESSION_ID=sess-9 bash "$SS" finish-note 2>&1)
+printf '%s' "$out" | grep -q '^SESSION-NEXT: .*205K' && ok "N6 세션 id 로 transcript 를 찾는다" || nope "N6" "$out"
 
 # ── K: 배선 — skill·command 가 스크립트를 실제로 부른다 ───────────────────
 grep -q 'split-session.sh decide' "$PLUGIN/skills/decomposing-ko/SKILL.md" && grep -q 'session-split.md' "$PLUGIN/skills/decomposing-ko/SKILL.md" \
@@ -206,8 +266,16 @@ for c in start maintain; do
 done
 grep -q '§분리' "$PLUGIN/skills/specifying-ko/SKILL.md" && ok "K5 specifying-ko 가 --no-split 을 spec 라벨로 남긴다" || nope "K5" "없음"
 for c in basic start-lite maintain-lite quick-fix; do
-  ! grep -q 'split-session.sh' "$PLUGIN/commands/$c.md" && ok "K6.$c /$c 는 분리를 부르지 않는다" || nope "K6.$c" "분리 배선이 있다"
+  [ -f "$PLUGIN/commands/$c.md" ] || continue
+  ! grep -qE 'split-session\.sh"? +(decide|run)' "$PLUGIN/commands/$c.md" && ok "K6.$c /$c 는 분리를 부르지 않는다(종결 고지 finish-note 는 분리가 아니다)" || nope "K6.$c" "분리 배선이 있다"
 done
+# 종결 고지 배선 (20261115) — 두 경로의 끝(풀 경로 PR 생성 뒤 · 기본 경로 마무리)이 finish-note 를 부르고, 묻지 않는다
+for f in skills/performance-test-ko/SKILL.md commands/basic.md; do
+  grep -q 'split-session.sh finish-note' "$PLUGIN/$f" && grep -q 'SESSION-NEXT' "$PLUGIN/$f" \
+    && ok "K7 $f 가 끝 보고에 종결 고지를 부른다" || nope "K7 $f" "finish-note 배선 없음"
+done
+awk '/^### 3\. PR 생성/{p=1} p' "$PLUGIN/skills/performance-test-ko/SKILL.md" | grep -q 'finish-note' \
+  && ok "K8 performance-test-ko — 종결 고지는 PR 생성(§3) 뒤에 있다" || nope "K8" "위치"
 
 echo ""
 finish

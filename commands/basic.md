@@ -104,7 +104,7 @@ FID 는 `YYYYMMDD-<kebab-slug>` 다 — 오늘 날짜 + 요청에서 뽑은 **�
    - 통과하면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /verify PASS "evidence.md, AC N/N (/basic)"`. 보안 스캔 결과를 `evidence.md` 에 `## /security-review — <시각>` 절(결과·근거)로 남긴다.
    - 실패하면 고치고 다시 seal → 검증이다. 세 번 실패하면 `devfsd:systematic-debugging-ko`.
 8. **커밋 · PR** — `git add <파일…>` 과 `git commit` 을 따로 실행한다. 커밋·PR 은 `/start` 와 같은 훅(R-1·R-2)이 본다 — 7번의 검증 실행 출력과 진행 기록이 있어야 열린다. 막히면 우회하지 않고 사유를 고친다. PR 은 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/pr-gate.sh decide <FID>` 의 답대로 한다 — `PR-GATE: auto` 는 **묻지 않고** 만들고(4번 승인에 들어 있다), `auto-draft` 는 초안(`--draft`)으로 만들고, `ask (<사유>)` 일 때만 묻는다(y/n). **머지는 자동으로 하지 않는다** — 만든 PR 의 주소와 "머지는 확인 뒤 직접 하거나 말씀해 주세요" 를 끝 보고에 적는다. 본문에는 요약 · 테스트 계획 · 리뷰어가 찾았지만 넘긴 것 · **돌리지 않은 게이트**(아래)를 싣는다. 화면을 건드렸으면 7번의 `**브라우저**:` 줄을 그대로 옮긴다.
-9. **마무리** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh done <FID> "<한 줄 요약>"`
+9. **마무리** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh done <FID> "<한 줄 요약>"` 다음에 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/split-session.sh finish-note` 를 1회 실행한다. `SESSION-NEXT:` 줄이 나오면 끝 보고의 마지막 줄로 그대로 싣는다(다음 작업은 새 세션에서 — 고지만 하고 묻지 않는다 · 출력이 없으면 아무 말도 하지 않는다).
 
 ## 풀 경로로 올리기 (승격)
 

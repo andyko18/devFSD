@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.4.3] — 2026-11-15
+
 ### Changed
 
 - **설계 전문가 7개가 자기 검토 파일을 Edit 로 고친다**(`agents/*-designer-ko.md` — api·arch·db·req·security·test·ui). 도구가 Write 뿐이라, 검토 파일(`experts/<분야>.md`)을 다시 고칠 때마다 파일 전체를 새로 썼다. 풀 경로 재주행(20261115 · v5.4.2)에서 `test-designer-ko` 가 10~11KB 파일을 세 번 통째로 다시 써 176초를 썼고, 동시에 도는 전문가 가운데 혼자 9.6분(다음 최장 2.9분)으로 계획 단계의 임계 경로가 됐다. 쓸 수 있는 파일은 그대로 자기 검토 파일 하나다(이미 Write 가 있어 권한은 넓어지지 않는다). 처음 한 번은 Write, 다시 고칠 때는 Edit 로 바뀌는 곳만 고친다.
@@ -4139,7 +4141,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.4.2...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.4.3...HEAD
+[5.4.3]: https://github.com/andyko18/devFSD/compare/v5.4.2...v5.4.3
 [5.4.2]: https://github.com/andyko18/devFSD/compare/v5.4.1...v5.4.2
 [5.4.1]: https://github.com/andyko18/devFSD/compare/v5.4.0...v5.4.1
 [5.4.0]: https://github.com/andyko18/devFSD/compare/v5.3.0...v5.4.0

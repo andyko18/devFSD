@@ -236,13 +236,13 @@ for _p in ${_md[@]+"${_md[@]}"}; do
 done
 _un_sfx=""; [ "$_n_un" -gt 0 ] && _un_sfx=" · 미확정 ${_n_un}건"
 case "$_scan_state" in
-  clean) _title="chore(init): /init-project 부트스트랩+enrich (${n}종${_un_sfx})" ;;
+  clean) _title="chore(init): /init-project 부트스트랩+enrich (파일 ${n}개${_un_sfx})" ;;
   found)
     _left=""
     [ "${_n_ph:-0}" -gt 0 ] && _left="미채움 ${_n_ph}건"
     [ "${_n_ex:-0}" -gt 0 ] && _left="${_left}${_left:+ · }예시 블록 ${_n_ex}건"
-    _title="chore(init): /init-project 부트스트랩 (${n}종 · ${_left:-미채움 있음}${_un_sfx})" ;;
-  *) _title="chore(init): /init-project 부트스트랩 (${n}종${_un_sfx})" ;;
+    _title="chore(init): /init-project 부트스트랩 (파일 ${n}개 · ${_left:-미채움 있음}${_un_sfx})" ;;
+  *) _title="chore(init): /init-project 부트스트랩 (파일 ${n}개${_un_sfx})" ;;
 esac
 if ! out=$(git commit -q -m "$_title" -- "${cpaths[@]}" 2>&1); then
   # 기록 되돌리기 — FR-5/AC-5 는 기록을 **커밋 성공**에 조건부로 둔다(spec.md:62 "성공 시",

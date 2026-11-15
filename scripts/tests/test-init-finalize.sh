@@ -199,7 +199,7 @@ out=$(bash "$FIN" 2>&1); rc=$?
 in_commit=$(git show --name-only --format= HEAD 2>/dev/null | grep -c '^notes\.env$' || true)
 still_staged=$(git diff --cached --name-only 2>/dev/null | grep -c '^notes\.env$' || true)
 n_files=$(git show --name-only --format= HEAD 2>/dev/null | grep -c . || true)
-subj_n=$(git log -1 --format=%s 2>/dev/null | sed -n 's/.*(\([0-9][0-9]*\)종).*/\1/p')
+subj_n=$(git log -1 --format=%s 2>/dev/null | sed -n 's/.*(파일 \([0-9][0-9]*\)개[ )].*/\1/p')
 if [ "$rc" -eq 0 ] && [ "${in_commit:-1}" -eq 0 ] && [ "${still_staged:-0}" -eq 1 ] \
    && printf '%s' "$out" | grep -q 'notes\.env' && [ "$subj_n" = "$n_files" ]; then
   ok "F14 무관 staged 파일 → 커밋 제외 · staged 유지 · 출력에 고지 · 제목의 건수($subj_n)=커밋 파일 수"

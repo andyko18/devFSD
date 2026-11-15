@@ -160,7 +160,7 @@ phase_7_screens() {
   case "$PROJECT_KIND" in 1|4|5) ;; *) echo "[Phase 7] screens skip (KIND=${PROJECT_KIND})"; return ;; esac
   echo ""
   echo "[Phase 7] 초기 화면 이름 목록 (콤마/공백 구분, 비우면 skip):"
-  echo "  ※ screens/*.{md,html} 껍데기는 만들지 않음 — 본설계는 /start-all Phase 2.5 또는 /design-screen"
+  echo "  ※ screens/*.{md,html} 껍데기는 만들지 않음 — 화면 본문은 Phase 11(M1 범위) · /start-all Phase 2.5 · /design-screen"
   printf "예) home, login, dashboard: "
   local input=""
   _ask screens "초기 화면 이름"
@@ -174,6 +174,8 @@ phase_7_screens() {
   else
     cp "$PLUGIN/templates/screens-overview.md" "$ov"
     _replace_token "$ov" "<PROJECT_NAME>" "$PROJECT_NAME"
+    # 꼬리 줄 날짜 — 이 문서는 보강(Phase 11)이 골격을 유지해 다른 산출물처럼 뒤에서 채워지지 않는다(20261116 실주행).
+    _replace_token "$ov" "<YYYY-MM-DD>" "$(date +%Y-%m-%d)"
   fi
   if [ -z "${input// }" ]; then
     if [ "$keep" = "1" ]; then

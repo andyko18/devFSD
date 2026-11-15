@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **`/init-project` 실주행에서 나온 결함 3건**(풀스택 하류 1건 · 30분 · 설계 리뷰 1회차 FAIL → 재리뷰 PASS). ① 화면 목록(`screens-overview.md`)의 §2 화면 흐름·§5 인증 가드 샘플과 꼬리 줄을 채우는 주체가 없었다 — 보강이 이 문서를 "골격 유지" 로만 다뤄 설계 리뷰 1회차 Important 1건이 되고 종결 뒤에도 꼬리 줄이 미채움으로 남았다. 꼬리 줄 날짜는 bash Phase 7 이 채우고(`init-project/phases-design.sh`), 화면을 보강했으면 샘플을 실제 화면으로 바꾸도록 `commands/init-project.md` 에 적었다. ② 종결 커밋 제목이 파일 수에 "종" 을 붙였다(`26종` — 산출물은 14종이다) → `파일 N개`(`init-finalize.sh`). ③ 생성되는 `CLAUDE.md` 가 화면 상세를 "`/start-all` Phase 2.5 또는 `/design-screen`" 에서 만든다고 적어 M1 화면을 init 이 설계하는 현행과 어긋났다(`templates/CLAUDE.md` · Phase 7 안내 줄).
+
 ## [5.4.4] — 2026-11-15
 
 ### Fixed

@@ -224,6 +224,19 @@ if printf '%s\n' "$_shallow2" | grep -q 'screens-overview\.md'; then
 else
   printf 'FAIL %-6s %s\n' "T13.k" "screens-overview.md 가 얕게/스킵에 유지"; FAIL=$((FAIL+1))
 fi
+# T13.k2 — 화면 목록의 §2·§5 샘플과 꼬리 줄은 보강이 채운다 (20261116 실주행: 채우는 주체가 없어
+#   설계 리뷰 1회차 Important 1건 + 종결 뒤 미채움 1건이 됐다). 얕게 블록 안의 그 줄에서 본다.
+if printf '%s\n' "$_shallow2" | grep 'screens-overview\.md' | grep -q '§2.*§5.*꼬리'; then
+  printf 'PASS %-6s %s\n' "T13.k2" "화면 목록 §2·§5 샘플·꼬리 줄 채움 지시"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T13.k2" "화면 목록 §2·§5 샘플·꼬리 줄 채움 지시"; FAIL=$((FAIL+1))
+fi
+# T13.k3 — 생성되는 CLAUDE.md 가 화면 상세의 출처로 init(M1)을 말한다
+if grep 'screens-overview\.md' "$PLUGIN/templates/CLAUDE.md" | grep -q 'M1.*/init-project'; then
+  printf 'PASS %-6s %s\n' "T13.k3" "CLAUDE.md 템플릿 화면 상세 출처에 init(M1)"; PASS=$((PASS+1))
+else
+  printf 'FAIL %-6s %s\n' "T13.k3" "CLAUDE.md 템플릿 화면 상세 출처에 init(M1)"; FAIL=$((FAIL+1))
+fi
 # Phase 4 확정분(§1~2)은 보강이 덮지 않는다는 경계 명시
 t T12.c "Phase 4 확정분 보존 경계"    'Phase 4 확정|§1.*보존|사용자 응답.*덮어쓰기 금지' "$CMD"
 

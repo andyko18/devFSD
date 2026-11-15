@@ -57,7 +57,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 UI 프로젝트인 경우:
 - 디자인 시스템: `DESIGN.md`
-- 화면 목록: `.specops/memory/screens-overview.md` (상세 `screens/` 는 `/start-all` Phase 2.5 또는 `/design-screen`)
+- 화면 목록: `.specops/memory/screens-overview.md` (상세 `screens/` — 첫 마일스톤(M1) 화면은 `/init-project` 가 설계 · 그 밖은 `/start-all` Phase 2.5 또는 `/design-screen`)
 
 ## 작업 흐름
 

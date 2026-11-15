@@ -161,11 +161,17 @@ out=$(cd "$D" && bash "$CID" 20261021-f); rc=$?
 { printf '%s\n' "$out" | grep -qF '[역방향] src/domain/done.py:1 →' && printf '%s\n' "$out" | grep -qF '[역방향] src/domain/staged.py:1 →'; } \
   && ok "D12a FID 모드 — 분기점 이후 커밋한 파일 · 스테이징만 한 파일 포함" || nope "D12a" "$out"
 D2="$ROOT/d12b"; mkdir -p "$D2/.specops/20261021-f"; _plan "$D2/.specops/20261021-f/plan.md" "$_layers"
-( cd "$D2" && git init -q -b trunk && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m x )
+( cd "$D2" && git init -q -b release && git -c user.email=t@t -c user.name=t commit -q --allow-empty -m x )   # 기본 브랜치 이름 목록(develop·dev·trunk·development) 밖 — 분기점 없음 경로를 잰다(20261115)
 o2=$(cd "$D2" && bash "$CID" 20261021-f); r2=$?
 { [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qF '[역방향] src/domain/new.py:1 → src/adapters/db.py' && ! printf '%s\n' "$out" | grep -q 'old.py' \
   && [ "$r2" -eq 2 ] && printf '%s\n' "$o2" | grep -q '^IMPORT-DIRECTION: 판정 불가 (분기점을 구할 수 없음'; } \
   && ok "D12 FID 모드 — 분기점 이후 파일만 · 새 파일 포함 · 분기점 없음 판정 불가 rc 2" || nope "D12" "rc=$rc out=$out r2=$r2 o2=$o2"
+# D12c: 원격 없는 develop 저장소(origin/HEAD·main·master 없음 · 20261115) — develop 을 분기점으로 잡는다(종전엔 판정 불가 rc 2)
+D="$ROOT/d12c"; _grepo "$D"; ( cd "$D" && git branch -q -m main develop )
+printf 'from src.adapters.db import X\n' > "$D/src/domain/new.py"
+out=$(cd "$D" && bash "$CID" 20261021-f); rc=$?
+{ [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qF '[역방향] src/domain/new.py:1 → src/adapters/db.py' && ! printf '%s\n' "$out" | grep -q 'old.py'; } \
+  && ok "D12c ★ 원격 없는 develop 저장소 — develop 분기점 이후 파일만" || nope "D12c" "rc=$rc out=$out"
 
 # D13 (배선): 검증 러너가 evidence.md 에 절을 남기고 경고를 내지만 VERIFY PASS·rc 0 은 그대로다
 D="$ROOT/d13"; _grepo "$D"; VF=20261021-f

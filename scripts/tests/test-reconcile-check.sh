@@ -472,6 +472,11 @@ for mode in merged fresh unmerged; do
     if [ "$rc" -eq 0 ] && ! printf '%s' "$out" | grep -qF '이미 머지됨'; then ok "R39.$mode → 머지됨 오판 없음"; else no "R39.$mode" "rc=$rc out=[$out]"; fi
   fi
 done
+# R39.develop — 원격 없는 develop 저장소(origin/HEAD·main·master 없음 · 20261115)에서도 머지된 FID 를 알아본다
+fid="20260109-gm-develop"; d="$TMP/gm-develop"; mk_gitfid "$d" "$fid" merged
+( cd "$d" && git branch -q -m main develop ) >/dev/null 2>&1
+out=$( cd "$d" && SPECOPS_ROOT="$d/.specops" bash "$SCRIPT" "$fid" --hook 2>&1 ); rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qF '이미 머지됨'; then ok "R39.develop ★ 원격 없는 develop 저장소 → 이미 머지됨 안내"; else no "R39.develop" "rc=$rc out=[$out]"; fi
 # R39.nogit — git 저장소가 아니면 무출력(판정 불가는 조용히 건너뜀)
 fid="20260109-gm-nogit"; d="$TMP/gm-nogit"; mkdir -p "$d/.specops/$fid"; touch "$d/.specops/$fid/spec.md"
 printf '## %s · ok\n\n- 2026-01-05T00:00:00Z /specify 완료 (spec.md)\n' "$fid" > "$d/.specops/session-progress.md"

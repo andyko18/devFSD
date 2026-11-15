@@ -184,6 +184,14 @@ out=$(scan "$d" --base base); rc=$?
 has "$out" '^threshold	src/t\.yml:3	60 -> 50$' && has "$out" '^DOD-WEAKENING: candidates=1 ' \
   && ok "T17 순서대로 짝짓기 — 60→50 만 후보(40→45 는 조이는 방향)" || nope "T17" "rc=$rc out=$out"
 
+# T18 원격이 없는 저장소(origin/HEAD·origin/main 없음)에서 --base 없이 — 로컬 기본 브랜치 develop 을 기준으로 본다(20261115 실주행 조건).
+#   종전엔 기준이 origin/main 고정이라 "merge-base 를 구할 수 없다"(rc 2)로 끝나 리뷰어가 후보를 받지 못했다.
+d=$(mkrepo r18); git -C "$d" branch -q -m develop; git -C "$d" checkout -q -b feat
+printf 'it("adds", () => {\n  expect(add(1, 2)).toBe(3);\n});\n' > "$d/tests/add.test.ts"; git -C "$d" commit -qam f
+out=$(scan "$d"); rc=$?
+[ "$rc" -eq 1 ] && has "$out" '^assert	tests/add\.test\.ts' \
+  && ok "T18 ★ 원격 없는 develop 저장소 — --base 없이 develop 기준으로 후보를 낸다" || nope "T18" "rc=$rc out=$out"
+
 # T10 리뷰어 문서가 스캐너를 가리키고 rc 2 를 통과로 읽지 않는다고 적는다
 sec=$(awk 'index($0, "## 기준 약화 탐지") == 1 { on = 1; print; next } /^## / { on = 0 } on' "$AG")
 has "$sec" 'scripts/_internal/scan-dod-weakening\.sh' && has "$sec" 'rc 2' && has "$sec" '판정이 아니다' \

@@ -7,6 +7,8 @@
 _GOV_LIB_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # 기록 루트 판정 공용 함수 (20261106-worktree-specops-root) — 로드 실패면 _gov_apply_record_root 가 종전 동작
 . "$_GOV_LIB_DIR/../scripts/_internal/specops-root.sh" 2>/dev/null || true
+# 기본 브랜치 이름 판정 (20261115) — 로드 실패면 _detect_base_branch 가 origin/HEAD·main·master 만 본다(종전 동작)
+. "$_GOV_LIB_DIR/../scripts/_internal/base-branch.sh" 2>/dev/null || true
 _VERIFICATION_STATE_SH="$_GOV_LIB_DIR/../scripts/_internal/verification-state.sh"
 _RECORD_METRIC_SH="$_GOV_LIB_DIR/../scripts/_internal/record-metric.sh"
 _CHECK_TASK_RECEIPT_SH="$_GOV_LIB_DIR/../scripts/_internal/check-task-receipt.sh"
@@ -640,7 +642,10 @@ _detect_base_branch() {
   #   origin/HEAD 가 가리키는 브랜치(기본 브랜치가 develop·trunk 인 저장소)를 후보 앞에 둔다(20261115 — scripts/_internal/base-branch.sh 와 같은 순서).
   local b n best="" best_n="" _oh
   _oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null) || _oh=""
-  _oh=${_oh#origin/}; case "$_oh" in main|master) _oh="" ;; esac
+  _oh=${_oh#origin/}
+  #   origin/HEAD 가 없으면(원격 없는 `git init` 저장소 · 20261115 실주행) 로컬 develop·dev·trunk·development 를 이름으로 본다.
+  [ -n "$_oh" ] || ! declare -F specops_default_branch >/dev/null || _oh=$(specops_default_branch 2>/dev/null) || _oh=""
+  case "$_oh" in main|master) _oh="" ;; esac
   for b in ${_oh:+"$_oh" "origin/$_oh"} main master origin/main origin/master; do
     git rev-parse --verify --quiet "$b^{commit}" >/dev/null 2>&1 || continue
     n=$(git rev-list --count "$b..HEAD" 2>/dev/null) || continue

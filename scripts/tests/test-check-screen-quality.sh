@@ -613,6 +613,12 @@ o=$( cd "$TD/rg0" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && bash "$SCRIPT
 o=$( cd "$TD/rg0" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && bash "$SCRIPT" --regress 2>/dev/null )
 { printf '%s\n' "$o" | grep -q 'base=unknown' && printf '%s\n' "$o" | grep -qF '[scope] main·master 브랜치가 없다'; } \
   && ok "RG3.f 기준 인자 없고 main·master 없음 → unknown · [scope] 브랜치 없음 경로" || nope "RG3.f" "$o"
+# RG3.dev 원격 없는 develop 저장소(origin/HEAD·main·master 없음 · 20261115) — 기준 인자 없이 develop 을 기준으로 잡는다
+#   화면이 0개라 줄은 unknown 이지만, 사유가 "브랜치 없음" 이 아니라 "대상 0개" 여야 한다(기준을 찾고 다음 단계까지 갔다).
+( cd "$TD/rg0" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && git branch -m trunk-x develop ) >/dev/null 2>&1
+o=$( cd "$TD/rg0" && unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE && bash "$SCRIPT" --regress 2>/dev/null )
+{ ! printf '%s\n' "$o" | grep -qF 'main·master 브랜치가 없다' && printf '%s\n' "$o" | grep -qF '대상 0개'; } \
+  && ok "RG3.dev ★ 원격 없는 develop 저장소 → develop 기준을 찾는다(사유가 브랜치 없음 아님)" || nope "RG3.dev" "$o"
 
 # RG5 임계값 조정 (AC-5) — 26/30 행 ≈ 0.85
 _rg_html 26 > "$_RG/screens/a.html"

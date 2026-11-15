@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scan-dod-weakening.sh — 변경(diff)에서 품질 기준을 낮추는 후보를 결정론으로 뽑는다 (20261113-dod-weakening-scan)
-# Usage: scan-dod-weakening.sh [--base <ref>]      (기본 origin/main · 어느 폴더에서 불러도 저장소 전체를 본다 · read-only)
+# Usage: scan-dod-weakening.sh [--base <ref>]      (기본 origin/HEAD → origin/main → 로컬 develop 등 · 어느 폴더에서 불러도 저장소 전체를 본다 · read-only)
 #
 # 대상: merge-base(<ref>, HEAD) 부터 지금 작업 트리까지의 변경 + 추적하지 않는 새 파일.
 # 출력: 후보 1건에 1줄 `<클래스>\t<파일>:<줄>\t<패턴>`, 마지막 줄은 항상 요약
@@ -25,9 +25,16 @@ set -u
 export LC_ALL=C
 
 BASE="origin/main"
-# 기본 브랜치가 develop·trunk 인 저장소 — origin/HEAD 가 가리키는 브랜치를 기본 기준으로 쓴다(20261115 · --base 가 덮는다).
+# 기본 기준: origin/HEAD 가 가리키는 브랜치 → origin/main → (원격 없는 저장소) 로컬 기본 브랜치(develop 등) — --base 가 덮는다(20261115).
 _oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true)
-[ -z "$_oh" ] || BASE="$_oh"
+if [ -n "$_oh" ]; then
+  BASE="$_oh"
+elif ! git rev-parse --verify -q "origin/main^{commit}" >/dev/null 2>&1 \
+     && . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/base-branch.sh" 2>/dev/null \
+     && _oh=$(specops_default_branch 2>/dev/null); then
+  BASE="$_oh"
+fi
+unset _oh
 err() { echo "DOD-WEAKENING: ERROR $1" >&2; exit 2; }
 while [ $# -gt 0 ]; do
   case "$1" in

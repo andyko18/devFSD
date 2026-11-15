@@ -12,6 +12,7 @@
 # usage: check-screen-quality.sh <screen.md> <screen.html>
 #        check-screen-quality.sh --all            # screens/ 전체
 set -uo pipefail
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/base-branch.sh" 2>/dev/null || true   # specops_default_branch (20261115)
 
 _count() { printf '%s' "${1:-0}" | tr -d ' \n'; }
 
@@ -187,6 +188,7 @@ _rg_base() {  # $1=기준 ref(선택) → rg_base · rg_short. 실패 rc 1 + rg_
   if [ -z "$ref" ]; then
     # 로컬 main/master 우선, 없으면 원격 추적 브랜치(CI·worktree 에서 origin/* 만 있는 경우)
     _oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true); _oh=${_oh#origin/}   # 기본 브랜치가 develop·trunk 인 저장소(20261115)
+    [ -n "$_oh" ] || ! declare -F specops_default_branch >/dev/null || _oh=$(specops_default_branch 2>/dev/null) || _oh=""   # origin/HEAD 없는 저장소 — 로컬 develop 등(20261115)
     for b in ${_oh:+"$_oh" "origin/$_oh"} main master origin/main origin/master; do
       case "$b" in origin/*) git show-ref -q --verify "refs/remotes/$b" && break ;; *) git show-ref -q --verify "refs/heads/$b" && break ;; esac
       b=""

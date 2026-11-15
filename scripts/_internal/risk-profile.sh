@@ -13,6 +13,8 @@ PLUGIN=$(cd "$(dirname "$0")/../.." && pwd)
 METRIC_SH="$PLUGIN/scripts/_internal/record-metric.sh"
 # shellcheck source=/dev/null
 source "$PLUGIN/scripts/dag/parse-dag.sh" 2>/dev/null || true
+# shellcheck source=/dev/null
+source "$PLUGIN/scripts/_internal/base-branch.sh" 2>/dev/null || true
 
 rp::rank() {
   case "$1" in lite) echo 1 ;; standard) echo 2 ;; strict) echo 3 ;; *) echo 0 ;; esac
@@ -32,7 +34,10 @@ rp::base_ref() {
   local ref n best="" best_n="" _oh
   #   origin/HEAD 가 가리키는 브랜치(기본 브랜치가 develop·trunk 인 저장소)를 후보 앞에 둔다 — base-branch.sh 와 같은 순서(20261115).
   _oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null) || _oh=""
-  _oh=${_oh#origin/}; case "$_oh" in main|master) _oh="" ;; esac
+  _oh=${_oh#origin/}
+  #   origin/HEAD 가 없으면(원격 없는 `git init` 저장소) 로컬 develop·dev·trunk·development 를 이름으로 본다(20261115).
+  [ -n "$_oh" ] || ! declare -F specops_default_branch >/dev/null || _oh=$(specops_default_branch 2>/dev/null) || _oh=""
+  case "$_oh" in main|master) _oh="" ;; esac
   for ref in ${_oh:+"$_oh" "origin/$_oh"} main master origin/main origin/master; do
     git rev-parse --verify --quiet "$ref^{commit}" >/dev/null 2>&1 || continue
     n=$(git rev-list --count "$ref..HEAD" 2>/dev/null) || continue

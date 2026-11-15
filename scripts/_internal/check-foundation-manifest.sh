@@ -22,6 +22,7 @@
 #
 # fail-open: spec.md 부재·§유형 판독 불가 → 0 (무관 FID·초기 상태에 월권 금지).
 set -u
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/base-branch.sh" 2>/dev/null || true   # specops_default_branch (20261115)
 
 FID="${1:?usage: $0 <FID>}"
 SPECOPS="${SPECOPS_ROOT:-.specops}"
@@ -96,6 +97,7 @@ if [ -f "$CONTENT" ]; then
   # 덮어쓰기 경고 — base 의 manifest 에 있던 모듈명이 사라졌는가
   _base=""
   _oh=$(git -C "$ROOT" symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true); _oh=${_oh#origin/}   # 기본 브랜치가 develop·trunk 인 저장소(20261115)
+  [ -n "$_oh" ] || ! declare -F specops_default_branch >/dev/null || _oh=$(specops_default_branch "$ROOT" 2>/dev/null) || _oh=""   # origin/HEAD 없는 저장소 — 로컬 develop 등(20261115)
   for _b in ${_oh:+"$_oh"} main master; do
     if git -C "$ROOT" show-ref --verify --quiet "refs/heads/$_b" 2>/dev/null; then
       _base=$(git -C "$ROOT" merge-base HEAD "$_b" 2>/dev/null || true); break

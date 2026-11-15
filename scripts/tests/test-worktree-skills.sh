@@ -78,10 +78,28 @@ fi
 # T2.d 교차: e2e S7 기존 검증 키워드 무손상 (AC-R-3)
 E2E="$PLUGIN/skills/e2e-test-ko/SKILL.md"
 if grep -q 'V17' "$E2E" && grep -q 'branch -d' "$E2E" && grep -q 'worktree' "$E2E" \
-   && grep -q 'git checkout main' "$FIN"; then
+   && grep -q 'git checkout "\$BASE_BR"' "$FIN"; then
   PASS=$((PASS+1)); echo "PASS T2.d e2e S7 비충돌"
 else
   FAIL=$((FAIL+1)); echo "FAIL T2.d"
+fi
+
+# T2.e finishing 이 기본 브랜치를 main 으로 가정하지 않는다 (20261115 — 하류 기본 브랜치가 develop 이면 checkout·pull·판정이 빗나갔다)
+#   이름은 base-branch.sh 의 specops_default_branch 가 정하고, $BASE_BR 을 쓰는 코드블록마다 쓰기 전에 같은 줄로 구한다(블록마다 셸이 새로 뜬다).
+#   판정기에는 기본 브랜치를 넘기고, 원격이 없으면 pull 을 건너뛴다.
+_t2e_bad=$(awk '
+  /^```bash/ { on=1; def=0; blk++; next }
+  /^```/     { on=0; next }
+  on && /BASE_BR=\$\(\. "\$\{CLAUDE_PLUGIN_ROOT\}"\/scripts\/_internal\/base-branch\.sh && specops_default_branch\)/ { def=1; next }
+  on && /\$BASE_BR|"\$BASE_BR"/ && !def { print "블록" blk ":" NR }
+  on && /checkout main|pull origin main|origin\/main\.\./ { print "하드코딩:" NR }
+' "$FIN")
+if [ -z "$_t2e_bad" ] \
+   && grep -qF 'check-branch-deletable.sh "$FEAT_BRANCH" "$BASE_BR"' "$FIN" \
+   && grep -qF 'git remote get-url origin' "$FIN"; then
+  PASS=$((PASS+1)); echo "PASS T2.e finishing — 블록마다 정의 뒤 \$BASE_BR 사용 · main 하드코딩 없음 · 판정기에 기본 브랜치 · 원격 없으면 pull 건너뜀"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T2.e ($_t2e_bad)"
 fi
 
 echo "--- SUMMARY ---"

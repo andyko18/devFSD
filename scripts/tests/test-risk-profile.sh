@@ -490,6 +490,12 @@ out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
 out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
 [ "$out" = "strict" ] && jq -e '.signals.strict|index("infra")' "$TD/.specops/$FID/risk-profile.json" >/dev/null \
   && ok "T51b origin ref 부재 → 로컬 main 기준 유지(infra 신호 그대로)" || nope "T51b" "out=$out"
+# T51c: 원격도 main 도 없고 기본 브랜치가 로컬 develop 인 저장소(20261115 실주행) — develop 을 기준으로 본다.
+#   종전엔 origin/HEAD 만 봐서 기준이 비고, 이미 커밋된 변경(infra)이 판정에서 빠졌다.
+( cd "$TD" && git branch -m main develop ) >/dev/null 2>&1
+out=$(cd "$TD" && bash "$RP" compute "$FID" 2>/dev/null | tail -1)
+[ "$out" = "strict" ] && jq -e '.signals.strict|index("infra")' "$TD/.specops/$FID/risk-profile.json" >/dev/null \
+  && ok "T51c ★ 원격 없는 로컬 develop → develop 기준(커밋된 infra 신호를 본다)" || nope "T51c" "out=$out $(jq -c '.signals' "$TD/.specops/$FID/risk-profile.json" 2>/dev/null)"
 rm -rf "$TD"
 
 # T52~T58: ★ 설계 문서 "인용" 과 "변경" 의 구분 (20261008 lite 점검에서 발견)

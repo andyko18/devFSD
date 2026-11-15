@@ -6,6 +6,10 @@
 #   ③ 변경 파일 기반 위험 재판정이 비었다. 한 곳에서 같은 순서로 찾는다:
 #     origin/HEAD 가 가리키는 브랜치(원격의 기본 브랜치) → main → master → 로컬 develop·dev·trunk·development
 #   origin/HEAD 가 없는 저장소(clone 이 아니라 `git remote add` 로 붙인 경우)는 `git remote set-head origin -a` 로 만든다.
+# 한계(이름 추측): origin/HEAD·main·master 가 모두 없을 때의 로컬 develop·dev·trunk·development 는 **이름으로 고른 추측**이다.
+#   진짜 기본 브랜치가 목록 밖(release 등)인데 목록 이름의 작업 브랜치가 따로 있으면, 그 작업 브랜치를 기준으로 잘못 잡는다 —
+#   훅의 문서 면제(`_detect_base_branch`)가 그 기준 뒤의 변경만 보고 열릴 수 있다(종전엔 기준을 못 찾아 막았다). 조건이 좁아
+#   추측을 유지한다. 막으려면 `git remote set-head origin <기본 브랜치>` 로 origin/HEAD 를 두면 추측 단계에 오지 않는다.
 #
 #   specops_default_branch [<dir>]   기본 브랜치 **이름**(develop·main…) · 모르면 rc 1
 #   specops_base_candidates [<dir>]  기준 ref 후보를 한 줄에 하나씩(로컬이 먼저) — 존재 여부는 호출자가 확인한다

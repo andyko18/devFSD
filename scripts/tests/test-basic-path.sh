@@ -799,6 +799,13 @@ out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
 printf '# 보안\n지적 1건\n' > "$n/.specops/$FID/experts/security.md"
 out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
 [ "$rc" = 1 ] && printf '%s' "$out" | grep -q "'## 반영' 절이 없다" && ok "N9a2 ★ 반영 절 없는 전문가 보고서 → rc 1" || no "N9a2" "rc=$rc $out"
+# 전문가가 써 준 틀 그대로(반영·기각을 고르지 않음)면 봉인하지 않는다 (20261115) — 종전 검사는 `## 반영` 제목만 봤는데 그 제목은 전문가 산출 틀에 이미 있어 항상 통과했다.
+printf '# 보안\n## 지적\n- I-1 인가 누락\n## 반영 (메인 planning 이 채운다)\n- <지적 1> — 반영(plan §/Task N) | 기각(근거)\n' > "$n/.specops/$FID/experts/security.md"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'experts/security.md' && printf '%s' "$out" | grep -q '고르지 않은' && ok "N9x1 ★ 전문가 보고서의 반영 절이 틀 그대로면 seal 거부" || no "N9x1" "rc=$rc $out"
+printf '# 보안\n## 반영 (메인 planning 이 채운다)\n' > "$n/.specops/$FID/experts/security.md"
+out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'experts/security.md' && ok "N9x2 반영 절이 비어 있으면 seal 거부" || no "N9x2" "rc=$rc $out"
 printf '# 보안\n## 반영\n- 반영\n' > "$n/.specops/$FID/experts/security.md"
 sed 's/^experts=.*/experts=/' "$n/.specops/$FID/steps.txt" > "$n/.specops/$FID/steps.t" && mv "$n/.specops/$FID/steps.t" "$n/.specops/$FID/steps.txt"
 mv "$n/.specops/$FID/experts/security.md" "$n/.specops/$FID/experts/sec.bak"

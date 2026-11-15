@@ -56,8 +56,25 @@ rr::has_critical_item() {
 }
 
 # 판정이 NEEDS_FIX 로 **선택**됐는가 (3종 메뉴 그대로면 READY_TO_MERGE 도 함께 있다)
+#   B 보고서는 `## 종합 판정` 절의 고정 판정 줄(`판정: PASS|NEEDS_FIX` — agents/spec-reviewer-ko.md)이 있으면 그 줄이 답이다(20261115).
+#   B 는 READY_TO_MERGE 를 쓰지 않아, 통과 보고서도 틀 문구 "(NEEDS_FIX 시) 재dispatch" 하나로 미해결로 읽혔다.
 rr::needs_fix_selected() {
+  local v
+  v=$(awk '/^## 종합 판정/ { f = 1; next } f && /^## / { exit } f && /^판정: (PASS|NEEDS_FIX)$/ { print $2; exit }' "$1" 2>/dev/null)
+  case "$v" in PASS) return 1 ;; NEEDS_FIX) return 0 ;; esac
   grep -q 'NEEDS_FIX' "$1" 2>/dev/null && ! grep -q 'READY_TO_MERGE' "$1" 2>/dev/null
+}
+
+# 리뷰 지적을 받아 처리한 흔적이 **이 FID 의 진행 기록 절** 에 있는가 (20261115).
+#   종전엔 진행 기록 전체에서 `/receive-review|수용` 을 찾았다 — 다른 FID 의 줄, review-skip-pass 가 FID 마다 남기는
+#   `/receive-review 완료 "review-skip 통과 …"`, "수용 기준" 이라는 낱말로도 미해결 Critical 이 풀려 게이트가 사실상 항상 열렸다.
+rr::accepted() {  # <session-progress.md> <FID>
+  awk -v fid="$2" '
+    /^## / { f = ($2 == fid) ; next }
+    !f { next }
+    /\/receive-review/ && !/review-skip/ { ok = 1 }
+    { line = $0; gsub(/수용 기준/, "", line); if (line ~ /수용/ && line !~ /review-skip/) ok = 1 }
+    END { exit(ok ? 0 : 1) }' "$1" 2>/dev/null
 }
 
 rr::unresolved_review() {
@@ -204,7 +221,7 @@ fi
 if [ -d "$FID_DIR/reviews" ]; then
   if rr::unresolved_review "$FID_DIR/reviews"; then
     # receive-review 수용 흔적이 없으면 미승인으로 본다 (휴리스틱)
-    if ! grep -qE '/receive-review|수용' "$SPECOPS/session-progress.md" 2>/dev/null; then
+    if ! rr::accepted "$SPECOPS/session-progress.md" "$FID"; then
       crit_high=UNRESOLVED_REVIEW
       ready=0
     fi

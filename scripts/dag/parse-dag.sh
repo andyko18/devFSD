@@ -18,9 +18,10 @@
 #
 # Sourced library — caller가 set -u/-e 제어. strict mode 위임.
 
+# 탐침은 import 전에 cwd 를 경로에서 뺀다(20261115) — `-c` 는 cwd 가 import 경로 맨 앞이라 저장소의 yaml.py 가 실행됐다.
 # Python 의존 가드 — 부재 시 stderr 1회 경고 + 함수는 빈 문자열·exit 1 반환 (안전 fallback)
 __dag_check_python() {
-  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import yaml" 2>/dev/null; then
+  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]; import yaml' 2>/dev/null; then
     if [ -z "${SPECOPS_DAG_WARNED:-}" ]; then
       echo "⚠️  dag::*: python3+pyyaml 미설치 — 모든 DAG 함수 빈 결과 (순차 fallback)" >&2
       export SPECOPS_DAG_WARNED=1

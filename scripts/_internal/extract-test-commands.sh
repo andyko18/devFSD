@@ -38,7 +38,12 @@ fi
 
 # YAML 부재 또는 모든 task 가 test_command 미기재 — Step 4 라인 fallback
 fid_hint=$(basename "$(dirname "$tasks")")
-echo "WARN: $fid_hint tasks.md YAML missing test_command — falling back to Step 4 line grep" >&2
+if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]; import yaml' 2>/dev/null; then
+  # 사유를 사실대로 말한다(20261115) — 종전엔 pyyaml 이 없어도 "YAML missing test_command" 라고 해서 태스크 문서를 고치게 만들었다.
+  echo "WARN: $fid_hint python3·pyyaml 이 없어 tasks.md 의 YAML 을 읽지 못했다(pip install pyyaml) — falling back to Step 4 line grep" >&2
+else
+  echo "WARN: $fid_hint tasks.md YAML missing test_command — falling back to Step 4 line grep" >&2
+fi
 
 # (scripts|tests|test)/ — downstream 표준 테스트 배치 인정 (20260716 trivial dogfood 발견 #3:
 #   scripts/ 하드코딩은 플러그인 자기 repo 레이아웃 편향 — 외부 프로젝트 tests/ 가 추출 0건 → NO COMMANDS)

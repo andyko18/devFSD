@@ -103,7 +103,8 @@ fi
 nfiles=$(printf '%s\n' "$files" | sed '/^$/d' | wc -l | tr -d ' ')
 
 # 통합 표면 낱말 — 하나라도 보이면 APPLY (skill 이 판정한다). 짧은 영문 낱말은 낱말 경계로만 잡는다.
-INTEG_RE='(^|[^a-z])(api|ui|db|sql|rest|http|https|jwt|grpc|graphql|oauth|e2e)([^a-z]|$)|endpoint|엔드포인트|database|데이터베이스|테이블|쿼리|migration|마이그레이션|화면|페이지|컴포넌트|브라우저|렌더|라우팅|라우트|인증|인가|세션|토큰|외부|연동|webhook|웹훅|queue|메시지 큐|서버|서비스 간|모듈 간|playwright|cypress'
+#   외부 저장소·메시지·결제 서비스의 제품 이름도 신호다(20261115) — 이름만 적힌 spec("Postgres 에 저장 · Redis 캐시")이 낱말 없음으로 SKIP 됐다.
+INTEG_RE='(^|[^a-z])(api|ui|db|sql|rest|http|https|jwt|grpc|graphql|oauth|e2e|s3|sqs|sns|orm|smtp|sdk)([^a-z]|$)|postgres|mysql|mariadb|sqlite|mongo|redis|kafka|rabbitmq|dynamodb|elasticsearch|stripe|paypal|endpoint|엔드포인트|database|데이터베이스|테이블|쿼리|migration|마이그레이션|화면|페이지|컴포넌트|브라우저|렌더|라우팅|라우트|인증|인가|세션|토큰|외부|연동|webhook|웹훅|queue|메시지 큐|서버|서비스 간|모듈 간|playwright|cypress'
 INTEG_PATH_RE='(routes?|controllers?|api|migrations?|pages|components|models|schema|views)/|\.(sql|tsx|jsx|vue|svelte|html)$'
 # 성능 임계값 낱말 (performance-test-ko 의 신호 목록과 같은 종류)
 PERF_RE='[0-9] ?ms([^a-z]|$)|(^|[^a-z])(rps|tps|qps|p50|p9[059]|lcp|cls|fcp|ttfb)([^a-z]|$)|latency|throughput|응답 ?시간|처리량|동시|부하|대용량|고트래픽|번들 크기|[0-9] ?초 (이내|이하|미만)|[0-9] ?(kb|mb)([^a-z]|$)'

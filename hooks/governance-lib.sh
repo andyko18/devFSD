@@ -317,7 +317,25 @@ EOF_TC
 #   whitelist 와 동치라는 요구의 귀결이며, 되돌리려면 whitelist 도 함께 좁혀야 한다.
 _RUNNER_ANCHOR_PAT='(^|[;&|(\n])[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*(rtk[[:space:]]+(proxy[[:space:]]+)?)?((poetry|uv|pdm|rye)[[:space:]]+run[[:space:]]+)?(bash[[:space:]]+\S*(run-verification\.sh|tests/run-all\.sh|tests/run-related\.sh)|(python3?[[:space:]]+-m[[:space:]]+)?pytest|(npm|pnpm|yarn)[[:space:]]+((--dir|--filter|-C|workspace)[[:space:]]+[A-Za-z0-9_.@][A-Za-z0-9_@/.-]*[[:space:]]+)*(run[[:space:]]+)?test(:[A-Za-z0-9._-]+)?|go[[:space:]]+test|cargo[[:space:]]+test|npx[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(pnpm|yarn)[[:space:]]+exec[[:space:]]+[A-Za-z0-9_@][A-Za-z0-9_@/.-]*|(\./mvnw|mvn)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(test|verify)|(\./gradlew|gradle)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+(:?([A-Za-z0-9_-]+:)*)?(test|check)|dotnet[[:space:]]+test)'
 
+# 읽을 수 없는 줄이 섞인 transcript (20261115) — 판정 본체(_verify_exec_evidence_raw)는 jq --slurpfile 이라 깨진 줄 하나에 통째로
+#   실패해 rc 2(판정 불가 → 통과)였다. 기록 중이라 잘린 마지막 줄 하나로도 실행 증거 게이트가 흔적 없이 꺼졌다(재현 20261115).
+#   rc 2 일 때만 한 번 더 본다(hot path 추가 비용 없음): 파일이 통째로는 안 읽히면 읽을 수 있는 줄만 추려 다시 판정하고
+#   그 사실을 degraded 로 남긴다. 파일은 읽히는데 판정 불가(이벤트 0건 등)이거나 한 줄도 못 읽으면 종전대로 2 다.
 _verify_exec_evidence() {
+  local rc tmp
+  _verify_exec_evidence_raw "$@"; rc=$?
+  [ "$rc" -eq 2 ] || return "$rc"
+  [ -n "${1:-}" ] && [ -f "$1" ] && command -v jq >/dev/null 2>&1 || return 2
+  jq -n 'reduce inputs as $x (0; . + 1)' "$1" >/dev/null 2>&1 && return 2
+  tmp=$(mktemp 2>/dev/null) || return 2
+  jq -c -R 'fromjson? // empty' "$1" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 2; }
+  _verify_exec_evidence_raw "$tmp" "${2:-}"; rc=$?
+  rm -f "$tmp"
+  _log_degraded "GOVERNANCE-DEGRADED" "transcript 에 읽을 수 없는 줄이 있어 건너뛰고 판정했다(rc=$rc)" 2>/dev/null || true
+  return "$rc"
+}
+
+_verify_exec_evidence_raw() {
   local transcript="$1" fiddir="${2:-}"
   [ -n "$transcript" ] && [ -f "$transcript" ] || return 2
   # ★ 창 한정: tasks.md ∧ evidence.md 가 둘 다 있을 때만 선언 경로를 연다(post-verify 창).

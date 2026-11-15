@@ -344,6 +344,14 @@ else
   FAIL=$((FAIL+1)); echo "FAIL T6.h (out=$out)"
 fi
 
+# --- T-shadow.probe: 의존성 탐침(__dag_check_python)도 cwd 의 yaml.py 를 실행하지 않는다 (20261115) ---
+#   탐침은 `python3 -c "import yaml"` 이라 cwd 가 import 경로 맨 앞이었다 — 저장소에 yaml.py 가 있으면 DAG 함수를 부를 때마다 그 코드가 돌았다.
+_shp=$(mktemp -d); printf 'open("%s/RAN", "w").write("x")\n' "$_shp" > "$_shp/yaml.py"
+( cd "$_shp" && unset SPECOPS_DAG_WARNED && __dag_check_python >/dev/null 2>&1 )
+if [ ! -e "$_shp/RAN" ]; then PASS=$((PASS+1)); echo "PASS T-shadow.probe 탐침이 cwd 의 yaml.py 를 실행하지 않는다"
+else FAIL=$((FAIL+1)); echo "FAIL T-shadow.probe — cwd 의 yaml.py 가 실행됐다"; fi
+rm -rf "$_shp"
+
 # --- T-shadow: cwd 의 yaml.py 가 진짜 yaml 을 가리지 못한다 (20261007-yaml-cwd-shadow) ---
 # python3 stdin/-c 는 sys.path[0]='' 라 cwd 의 가짜 yaml 을 import 한다 — 가짜는 항상 단일 leaf 'FAKE' 를 돌려준다.
 _sh=$(mktemp -d); printf 'def safe_load(s):\n    return {"tasks": [{"id": "FAKE", "depends_on": []}]}\n' > "$_sh/yaml.py"

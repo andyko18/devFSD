@@ -7,6 +7,8 @@
 
 ## 1. 개요
 
+**§유형**: <신규 | 유지보수 | trivial | foundation 중 하나 — specifying-ko Step 6 의 규칙으로 정한다>
+
 **목적**: 이 기능이 해결하는 문제 한 문장.
 
 **Intent**: `.specops/FID/intent.md` — 목적·성공 판정은 intent 의 문제·기대 결과에서 도출

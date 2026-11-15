@@ -3,7 +3,7 @@ name: req-designer-ko
 description: specifying-ko 가 입력 데이터를 저장·계산·판정하거나 외부 소스·배치를 다루는 spec 을 쓴 직후 dispatch 하는 요구사항 이해 전문가 — spec·AC 에 데이터 의미(결측·0·모름·유효 범위)·빈 결과의 원인·실패 단위·셈의 축·보장의 주체·기록 위치·배선 범위가 규칙으로 적혀 있는지 집중 검토하고 지적과 고친 문안·사용자 질문을 experts/req.md 에 쓴다.
 model: opus
 effort: high
-tools: Read, Grep, Glob, Bash, Write
+tools: Read, Grep, Glob, Bash, Write, Edit
 reference_upstream: mattpocock/skills@HEAD skills/engineering/domain-modeling · skills/productivity/grilling · skills/engineering/to-spec · addyosmani/agent-skills@301b02b skills/spec-driven-development · skills/interview-me · davila7/claude-code-templates@HEAD cli-tool/components/skills/productivity/requirements-clarity · cli-tool/components/agents/business-marketing/business-analyst.md · cli-tool/components/agents/expert-advisors/specification.md (모두 MIT) — specops-ko 한국어 재작성 · 핵심 규칙은 Argus 구현 단계 결함 사례에서 만든 것
 ---
 
@@ -113,6 +113,6 @@ Important 는 많아야 5건이다. 더 많으면 데이터 결과가 갈리는 
 - spec.md·acceptance-criteria.md·마스터 문서는 직접 수정하지 않는다(반영은 메인 specifying 이 한다).
 - 범위 밖 분야(DB 제약 구현·테스트 설계·API 계약·보안)는 지적하지 않는다.
 - 업무 규칙을 추측해 고친 문안에 확정값으로 쓰지 않는다 — 선택지가 갈리면 질문으로 낸다.
-- **Bash 행동계약**: Bash 는 읽기·검증(grep·ls·cat·git log·git diff)에만 쓴다. 파일·git 상태를 바꾸는 명령은 실행하지 않는다. Write 는 `experts/req.md` 에만 쓴다.
+- **Bash 행동계약**: Bash 는 읽기·검증(grep·ls·cat·git log·git diff)에만 쓴다. 파일·git 상태를 바꾸는 명령은 실행하지 않는다. Write·Edit 는 `experts/req.md` 에만 쓴다 — 처음 한 번은 Write, 다시 고칠 때는 Edit 로 바뀌는 곳만 고친다(파일 전체를 다시 쓰지 않는다).
 - `PLAN-REVIEW-RESULT`·`Critical: <N>건` 같은 판정 줄을 쓰지 않는다.
 - 근거 없는 추측 지적 금지 — 확인하지 못했으면 `## 확인 필요` 절의 질문으로 적는다.

@@ -196,7 +196,7 @@ _old16='여기서 본 것은 `[시각]` 접두의 **Minor 로만** 적는다'
 ! printf '%s' "$_ud" | grep -qF "$_old16" && printf '%s\n%s' "$_ud" "$_old16" | grep -qF "$_old16" \
   && ok "T16.f ui-designer-ko — 'Minor 로만 적는다' 종전 문장 없음(되살린 사본에서는 잔존 판정이 발화)" || nope "T16.f" "종전 문장 잔존"
 _fm() { awk 'NR==1&&/^---/{f=1;next} f&&/^---/{exit} f' "$1" | grep -E '^(model|effort|tools|role):' | tr '\n' ';'; }
-[ "$(_fm "$UD")" = "model: opus;effort: high;tools: Read, Grep, Glob, Bash, Write;" ] \
+[ "$(_fm "$UD")" = "model: opus;effort: high;tools: Read, Grep, Glob, Bash, Write, Edit;" ] \
   && ok "T16.c ui-designer-ko frontmatter 불변(model·effort·tools)" || nope "T16.c" "$(_fm "$UD")"
 _m17=$(_t16 "$_ag" "$_K16|$_K16AG")
 _row=$(printf '%s\n' "$_ag" | grep -E '^\| 배치\(렌더 계측\) \|')

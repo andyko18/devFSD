@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.3.0] — 2026-11-15
+
 ### Changed
 
 - **구현자가 태스크 문서 전체 대신 자기 태스크 절만 읽는다**(`scripts/dag/emit-context.sh` · `agents/implementer-ko.md` · `templates/dispatch-context.md` · `skills/implementing-ko/SKILL.md`). 행동 변경. `emit-context.sh` 가 문맥 파일을 쓸 때 `tasks.md` 의 `## Task N`(또는 `### Task N` · `## 태스크 N`) 절을 잘라 `dispatch/<task-id>-task.md` 로 함께 쓰고, 문맥 파일 §2 에 `태스크 본문:` 경로 1줄을 싣는다. 구현자 정의는 그 파일을 읽고 `tasks.md` 전체는 읽지 않게 바뀌었다. 절 판정은 `check-foundation-reuse.sh` 와 같은 규칙(2~3단 제목 · 코드 펜스 밖)이고, 절은 다음 2단 이하 제목 또는 번호가 다른 태스크 제목 직전까지다(같은 번호의 `### Task N — 둘째 사이클` 은 같은 절). task id 와 절 번호의 대응도 같다 — 절 번호가 id 에 없으면(번호 어긋남) 어느 것도 자르지 않는다. 절을 못 찾거나 같은 번호 절이 둘이면 그 태스크는 파일을 만들지 않고(재실행 때 옛 파일은 지운다) 표준 오류에 `emit-context: NOTE` 1줄 — **emit 은 실패하지 않고**, 구현자는 종전대로 `tasks.md` 에서 절을 찾는다. `tasks.md` 형식과 `decomposing-ko` 의 "태스크마다 테스트 코드·시그니처를 다시 적는다" 규칙은 그대로다(자른 절이 혼자 읽히는 전제).
@@ -4077,7 +4079,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.2.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.3.0...HEAD
+[5.3.0]: https://github.com/andyko18/devFSD/compare/v5.2.1...v5.3.0
 [5.2.1]: https://github.com/andyko18/devFSD/compare/v5.2.0...v5.2.1
 [5.2.0]: https://github.com/andyko18/devFSD/compare/v5.1.0...v5.2.0
 [5.1.0]: https://github.com/andyko18/devFSD/compare/v5.0.0...v5.1.0

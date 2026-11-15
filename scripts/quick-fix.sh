@@ -46,7 +46,7 @@ case "$ACTION" in
   seal)
     [ -d "$SPECOPS/$FID" ] || _die "$FID 폴더가 없다 — 먼저 start 를 실행한다"
     case "$ARG" in *'"'*|*'\'*) _die "test_command 에 따옴표·역슬래시를 쓸 수 없다" ;; esac
-    staged=$(git diff --cached --name-only --no-renames 2>/dev/null) || _die "git diff 실패"
+    staged=$(git -c core.quotePath=false diff --cached --name-only --no-renames 2>/dev/null) || _die "git diff 실패"   # 한글 파일 이름을 실제 경로로(영수증 outputs)
     [ -n "$staged" ] || _die "스테이징된 변경이 없다 — 이번 수정에 넣을 파일을 git add 한 뒤 다시 실행한다"
 
     # 이른 안내 — 범위·리뷰. 넘으면 아무것도 쓰지 않고 멈춘다.

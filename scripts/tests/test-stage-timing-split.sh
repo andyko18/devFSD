@@ -618,5 +618,24 @@ ck "T9.a 겹침 없는 행에서 작업+사람+백그라운드+기타 = 합계(�
 ck "T9.b 열 합 불변식의 정확한 값: 작업 6 · 사람 4 · 백그라운드 2 · 기타 8 (초 조각 385·225·110·480 → 큰 나머지법)" "$(row '/x 완료')" "20 6 4 2 8"
 ck "T9.c 미분류(U) 260초·1건은 기타에 합산되고 푸터에 4분·1건으로 표시 · 머리행에 모델 열이 없다" "$(cnt '기타 중 미분류 4분 · 미분류 트리거 1건')|$(printf '%s\n' "$OUT" | grep -E '단계$' | grep -c 모델)" "1|0"
 
+# ══ T12 하위 폴더에서 연 세션 (20261115 실주행) — `backend/` 에서 연 주 세션은 '<루트 인코딩>-backend' 디렉토리에 모인다 ══
+#   종전엔 루트·worktree 인코딩 디렉토리만 읽어 주 세션 구간이 전부 기타로 빠졌다. 이웃 폴더(r11-x — 이름 앞부분이 같다)의 세션은 cwd 가 밖이라 넣지 않는다.
+R11="$SB/r11"; mkdir -p "$R11/backend" "$R11/.specops" "$SB/r11-x" && (cd "$R11" && git init -q && git -c user.name=t -c user.email=t@e.com commit -q --allow-empty -m init)
+cp "$SB/r10x/session-progress.md" "$R11/.specops/session-progress.md"
+R11P=$(cd "$R11" && pwd -P); ENC11=$(printf '%s' "$R11P" | sed 's/[^A-Za-z0-9]/-/g'); R11X=$(cd "$SB/r11-x" && pwd -P)
+mktr "$SB/cfg11/projects/$ENC11/s1.jsonl" < "$SB/td1/s1.jsonl"
+mktr "$SB/cfg11/projects/$ENC11-backend/s2.jsonl" <<T11B
+{"type":"user","timestamp":"2026-10-01T10:16:00.000Z","isMeta":false,"cwd":"$R11P/backend","origin":{"kind":"human"},"message":{"role":"user","content":"BODY-E"}}
+{"type":"system","subtype":"turn_duration","timestamp":"2026-10-01T10:26:00.000Z","durationMs":600000}
+{"type":"user","timestamp":"2026-10-01T10:30:00.000Z","isMeta":false,"origin":{"kind":"human"},"message":{"role":"user","content":"BODY-F"}}
+T11B
+mktr "$SB/cfg11/projects/$ENC11-x/s3.jsonl" <<T11X
+{"type":"user","timestamp":"2026-10-01T10:16:00.000Z","isMeta":false,"cwd":"$R11X","origin":{"kind":"human"},"message":{"role":"user","content":"BODY-G"}}
+{"type":"system","subtype":"turn_duration","timestamp":"2026-10-01T10:29:00.000Z","durationMs":780000}
+T11X
+OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfg11" SPECOPS_ROOT="$R11/.specops" "$BASH_BIN" "$ST" --split 2>"$SB/err"); RC=$?
+ck "T12.a ★ 하위 폴더(backend) 세션 디렉토리를 함께 읽는다 → 2개 읽음 · 그 구간이 작업 10 · 사람 4 로 분류(기타 1분뿐)" "$RC|$(cnt 'transcript 디렉토리 2개 읽음')|$(row '/tasks 완료')" "0|1|15 10 4 0 1"
+ck "T12.b 이름 앞부분만 같은 이웃 폴더(r11-x) 세션은 cwd 가 작업 트리 밖이라 읽지 않는다" "$(cnt "$ENC11-x")" "0"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

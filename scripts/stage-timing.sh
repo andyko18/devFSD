@@ -142,6 +142,21 @@ $CP
           else TDIR_MISS=$((TDIR_MISS + 1)); continue; fi
           DUP=0; for X in "${TDIRS[@]:-}"; do [ "$X" = "$HIT" ] && DUP=1; done   # IFS 가 개행이라 ${TDIRS[*]} 문자열 대조는 쓸 수 없다
           [ "$DUP" = 1 ] || TDIRS+=("$HIT")
+          # 하위 폴더에서 연 세션 (20261115 실주행) — `backend/` 에서 세션을 열면 그 폴더 경로로 인코딩된 디렉토리에 모인다
+          #   (루트 이름 뒤에 '-<하위 경로>'). 이름 앞부분만으로는 이웃 폴더(repo-x)와 구별할 수 없으니, 그 디렉토리 세션 기록의
+          #   구조 필드 cwd 가 이 작업 트리 안(CP 자신 또는 CP/…)일 때만 더한다. 본문은 읽지 않는다.
+          #   이 루프는 set -f · IFS=개행 아래라 글롭 대신 find 로 찾는다(인코딩 이름은 영숫자·'-'·비ASCII 뿐이라 -name 패턴이 안전하다).
+          SUBPAT=(-name "$EB-*"); [ -z "$EC" ] || [ "$EC" = "$EB" ] || SUBPAT+=(-o -name "$EC-*")   # IFS 가 개행이라 낱말 나누기에 기대지 않는다
+          for SUB in $(find "$PROJ_ROOT" -mindepth 1 -maxdepth 1 -type d \( "${SUBPAT[@]}" \) 2>/dev/null); do
+            [ -d "$SUB" ] || continue
+            DUP=0; for X in "${TDIRS[@]:-}"; do [ "$X" = "$SUB" ] && DUP=1; done
+            [ "$DUP" = 0 ] || continue
+            SUBF=$(find "$SUB" -maxdepth 1 -type f -name '*.jsonl' 2>/dev/null | head -1)
+            [ -n "$SUBF" ] || continue
+            SUBCWD=$(head -50 "$SUBF" 2>/dev/null | jq -r 'select(.cwd? != null) | .cwd' 2>/dev/null | head -1)
+            SUBCWD=$(cd "$SUBCWD" 2>/dev/null && pwd -P) || continue
+            case "$SUBCWD" in "$CP"/*) TDIRS+=("$SUB") ;; esac
+          done
         done
         set +f; IFS=$OLD_IFS
         if [ "${#TDIRS[@]}" -gt 0 ]; then TDIR="${TDIRS[0]}"

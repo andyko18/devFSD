@@ -32,7 +32,7 @@ fi
 transcript=$(echo "$input" | jq -r '.transcript_path // empty' 2>/dev/null)
 [ -n "$transcript" ] && [ -f "$transcript" ] || safe_exit
 
-changed=$(cd "$cwd" && git diff HEAD --name-only 2>/dev/null)
+changed=$(cd "$cwd" && git -c core.quotePath=false diff HEAD --name-only 2>/dev/null)   # 한글 파일 이름을 편집 경로와 같은 모양으로
 [ -z "$changed" ] && safe_exit
 
 edits=$(read_recent_tool_events "$transcript" 50 2>/dev/null \

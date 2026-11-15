@@ -4,6 +4,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+실주행(20261115 · v5.4.0) — 희생용 하류 프로젝트(Gradle · 기본 브랜치 `develop` · 한글·공백 경로 · `git init` + `git remote add` · 하위 폴더 `backend/` 에서 세션 시작)에서 `/start` 기본 경로를 실제 세션으로 끝까지 돌려 나온 2건.
+
+- **세션을 하위 폴더에서 열어도 리뷰 보고서가 저장된다**(`scripts/_internal/specops-root.sh` 새 `_sr_top_dir` · `specops_root_dir`). 리뷰 저장 훅(`hooks/save-review-report.sh`)은 훅 입력의 cwd 아래 `.specops` 만 보았다 — 세션을 `backend/` 에서 열면 "FID 디렉터리 없음" 으로 저장을 건너뛰었고, 부모가 요약본을 손으로 써서 봉인을 통과했다(리뷰어 원문이 남지 않는다). cwd 에 `.specops` 가 없고 작업 트리 최상위에 있으면 최상위를 쓴다. 하위 폴더에 자기 `.specops` 가 있으면 종전대로 그곳이다.
+- **`origin/HEAD` 가 없는 저장소에서도 작업 브랜치를 만든다**(`scripts/_internal/base-branch.sh` 새 `specops_prepare_branch_base` · `basic-path.sh` · `quick-fix.sh`). clone 이 아니라 `git init` + `git remote add` 로 만든 저장소는 `origin/HEAD` 가 없어, `develop` 위에서 말없이 그대로 진행했고 리뷰 기준(`BASE: none`)과 게이트의 변경 파일 조회도 비었다. 기본 브랜치 후보에 로컬 `develop`·`dev`·`trunk`·`development` 를 더했고, 그렇게 알아낸 브랜치의 `origin/<브랜치>` 가 있으면 `origin/HEAD` 를 맞춘다(`git remote set-head` — 네트워크 없음). 끝내 모르면 `BRANCH-NOTE:` 한 줄로 알린다.
+
 ## [5.4.0] — 2026-11-15
 
 ### Fixed

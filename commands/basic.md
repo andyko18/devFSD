@@ -48,7 +48,7 @@ reference_upstream: specops-ko 독자 추가 (commands/start.md 와 commands/qui
 FID 는 `YYYYMMDD-<kebab-slug>` 다 — 오늘 날짜 + 요청에서 뽑은 **영문 소문자·숫자·하이픈** 2~5낱말(예: `20261114-login-permission-fix`). 요청이 한글이면 뜻을 영어로 옮겨 짓고, 못 정하면 `feature-<HHMM>` 을 쓴다(스크립트는 그 밖의 글자가 든 FID 를 거부한다).
 
 1. **시작** — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh start <FID> "<요청 한 줄>" [maintain]`
-   요청 문장으로 갈래를 판정하고, FID 폴더·진행 기록·spec 골격(`.specops/<FID>/spec.md`)을 만든다. 기본 브랜치 위면 브랜치를 만든다.
+   요청 문장으로 갈래를 판정하고, FID 폴더·진행 기록·spec 골격(`.specops/<FID>/spec.md`)을 만든다. 기본 브랜치 위면 브랜치를 만든다. `BRANCH-NOTE:` 줄이 나오면(origin/HEAD 를 맞췄거나 기본 브랜치를 알 수 없음) 사용자에게 그대로 보인다.
    - **유지보수**(`/maintain` 에서 왔거나 이미 있는 코드·동작을 고치는 요청)면 끝에 `maintain` 을 붙인다 — 골격에 `**§유형**: 유지보수` · `### 현재 동작과 영향` 절 · `### AC-R-1`(기존 동작 유지)이 더해지고 4번 승인이 셋을 검사한다. 분석 단계(`analyzing-ko`)는 돌리지 않는다 — 2번에서 코드를 읽으며 그 절을 채운다.
    - **`ANALYSIS: doc <경로>`** 가 나오면(위험 신호가 걸린 유지보수) spec 보다 **먼저** 그 분석 문서를 채운다 — 코드를 읽고 현재 동작(파일:줄) · 영향 범위(부르는 곳·같은 데이터와 계약을 쓰는 곳·관련 테스트) · 깨질 수 있는 기존 동작과 지키는 방법을 사실만 적는다. spec 의 `### 현재 동작과 영향` 절에는 요지와 `analysis.md` 참조를 적는다. 사용자 확인은 4번 승인에서 spec 과 함께 받는다(따로 멈추지 않는다). `ANALYSIS: section` 은 종전대로 spec 의 절로 쓴다.
    - 종료 코드 **3** = 풀 신호 → 만든 것이 없다. "위험 신호 <무엇> — 풀 경로로 진행" 1줄을 알리고 풀 경로로 들어간다(신규 `devfsd:specifying-ko` · 유지보수 `devfsd:analyzing-ko` 에 `<!-- entry: maintain -->` 첫 줄 — `commands/start.md`·`commands/maintain.md` 의 풀 경로 절차).

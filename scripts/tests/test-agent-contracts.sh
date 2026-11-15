@@ -94,10 +94,10 @@ PY
   out=$(cd "$R" && bash "$PLUGIN/scripts/basic-path.sh" review "$FID" 2>&1)
   printf '%s\n' "$out" | grep -qx "BASE: $main_sha" \
     && ok "G2 기본 브랜치 위에서도 BASE: 는 HEAD(커밋 안 한 변경만 보이는 기준)" || nope "G2" "out=$out"
-  R2="$SB/r2"; mkdir -p "$R2" && ( cd "$R2" && git init -q -b trunk . && git -c user.name=t -c user.email=t@e.com -c commit.gpgsign=false commit -q --allow-empty -m init && mkdir -p .specops && cp -R "$R/.specops/$FID" .specops/ && cp "$R/.specops/session-progress.md" .specops/ )
+  R2="$SB/r2"; mkdir -p "$R2" && ( cd "$R2" && git init -q -b release-line . && git -c user.name=t -c user.email=t@e.com -c commit.gpgsign=false commit -q --allow-empty -m init && mkdir -p .specops && cp -R "$R/.specops/$FID" .specops/ && cp "$R/.specops/session-progress.md" .specops/ )
   out=$(cd "$R2" && bash "$PLUGIN/scripts/basic-path.sh" review "$FID" 2>&1); rc=$?
   [ "$rc" = 0 ] && printf '%s\n' "$out" | grep -qE '^BASE: none' \
-    && ok "G3 기본 브랜치(main·master·origin/HEAD)를 못 찾으면 BASE: none 으로 알린다(리뷰를 막지 않는다)" || nope "G3" "rc=$rc out=$out"
+    && ok "G3 기본 브랜치(origin/HEAD·main·master·develop 류 이름)를 못 찾으면 BASE: none 으로 알린다(리뷰를 막지 않는다)" || nope "G3" "rc=$rc out=$out"
 else
   nope "G1~G3" "픽스처: basic-path.sh start 가 spec 을 만들지 못했다"
 fi

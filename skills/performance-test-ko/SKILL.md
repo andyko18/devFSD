@@ -178,7 +178,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /performan
 
 PASS 또는 SKIP + session-progress append 완료 후 PR 생성 게이트를 진행한다.
 
-**분리된 자식 세션이면 여기서 멈춘다 (20261112)**: `[ "${SPECOPS_SPLIT_CHILD:-}" = 1 ]` 이면(Bash 로 확인 — `scripts/split-session.sh run` 이 띄운 세션) 아래 게이트(데모·PR 질문·PR 생성)를 **진행하지 않는다**. 마지막 메시지를 요약 5줄 이내와 `SPLIT-CHILD-DONE: <FID>` 줄로 끝낸다 — 데모와 PR 생성 여부는 사용자가 있는 주 세션이 진행한다.
+**분리된 자식 세션이면 여기서 멈춘다 (20261112)**: `[ "${SPECOPS_SPLIT_CHILD:-}" = 1 ]` 이면(Bash 로 확인 — `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/split-session.sh run` 이 띄운 세션) 아래 게이트(데모·PR 질문·PR 생성)를 **진행하지 않는다**. 마지막 메시지를 요약 5줄 이내와 `SPLIT-CHILD-DONE: <FID>` 줄로 끝낸다 — 데모와 PR 생성 여부는 사용자가 있는 주 세션이 진행한다.
 
 **3-way 분기 확인**:
 

@@ -13,6 +13,7 @@
 #   SPECOPS_ROOT 를 직접 정했으면 쓸 수 없다(rc 2 — 어느 저장소의 worktree 인지 정할 수 없다).
 # --split: Claude Code transcript 의 구조 필드(turn_duration·origin.kind — turn_duration 이 없는 파일은 턴 끝 표지 stop_hook_summary 와 어시스턴트 기록 시각)로 각 구간을 작업·사람·백그라운드·기타로 쪼갠다.
 #   transcript 본문은 읽지 않는다 — 읽는 일은 scripts/_internal/transcript-turns.sh(프라이버시 경계) 한 곳이 맡는다.
+#   예외 하나(20261115): 하위 폴더 세션 디렉토리를 고를 때 그 디렉토리 첫 세션 파일 앞 50줄에서 구조 필드 `cwd` 만 jq 로 읽는다.
 # --by-agent: --split 을 내포하고, 서브에이전트 transcript(세션폴더/subagents/agent-ID.jsonl + .meta.json)의 구조 필드로
 #   서브에이전트 역할별 소요 표를 --split 표 뒤에 더한다. 읽는 일은 scripts/_internal/agent-spans.sh(프라이버시 경계) 한 곳이 맡는다.
 set -u
@@ -154,6 +155,7 @@ $CP
             SUBF=$(find "$SUB" -maxdepth 1 -type f -name '*.jsonl' 2>/dev/null | head -1)
             [ -n "$SUBF" ] || continue
             SUBCWD=$(head -50 "$SUBF" 2>/dev/null | jq -r 'select(.cwd? != null) | .cwd' 2>/dev/null | head -1)
+            [ -n "$SUBCWD" ] || continue   # cd "" 는 성공하고 현재 폴더를 준다 — 빈 값을 작업 트리 안으로 오인하지 않는다
             SUBCWD=$(cd "$SUBCWD" 2>/dev/null && pwd -P) || continue
             case "$SUBCWD" in "$CP"/*) TDIRS+=("$SUB") ;; esac
           done

@@ -637,5 +637,12 @@ OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfg11" SPECOPS_ROOT="$R11/.
 ck "T12.a ★ 하위 폴더(backend) 세션 디렉토리를 함께 읽는다 → 2개 읽음 · 그 구간이 작업 10 · 사람 4 로 분류(기타 1분뿐)" "$RC|$(cnt 'transcript 디렉토리 2개 읽음')|$(row '/tasks 완료')" "0|1|15 10 4 0 1"
 ck "T12.b 이름 앞부분만 같은 이웃 폴더(r11-x) 세션은 cwd 가 작업 트리 밖이라 읽지 않는다" "$(cnt "$ENC11-x")" "0"
 
+# T12.c cwd 필드가 없는 이웃 디렉토리 — 작업 트리 안에서 실행해도(빈 cwd → 현재 폴더로 오인하던 자리) 넣지 않는다
+mktr "$SB/cfg11/projects/$ENC11-y/s4.jsonl" <<'T11Y'
+{"type":"system","subtype":"turn_duration","timestamp":"2026-10-01T10:29:00.000Z","durationMs":780000}
+T11Y
+OUT=$(cd "$R11/backend" && TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfg11" SPECOPS_ROOT="$R11/.specops" "$BASH_BIN" "$ST" --split 2>"$SB/err"); RC=$?
+ck "T12.c cwd 필드 없는 이웃 디렉토리는 작업 트리 안에서 실행해도 넣지 않는다 → 여전히 2개 읽음" "$RC|$(cnt 'transcript 디렉토리 2개 읽음')|$(cnt "$ENC11-y")" "0|1|0"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.4.2] — 2026-11-15
+
 ### Fixed
 
 풀 경로 실주행(20261115 · v5.4.1) — 같은 희생용 하류 프로젝트(Gradle · `develop` · 한글·공백 경로 · 하위 폴더 `backend/` 에서 세션 시작)에서 `/start` 풀 경로를 실제 세션으로 PR 직전까지 돌려 나온 2건. 주행: 23.5분 · 사람 입력 1회(승인) · 분리 자식 세션 정상 완료.
@@ -4133,7 +4135,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.4.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.4.2...HEAD
+[5.4.2]: https://github.com/andyko18/devFSD/compare/v5.4.1...v5.4.2
 [5.4.1]: https://github.com/andyko18/devFSD/compare/v5.4.0...v5.4.1
 [5.4.0]: https://github.com/andyko18/devFSD/compare/v5.3.0...v5.4.0
 [5.3.0]: https://github.com/andyko18/devFSD/compare/v5.2.1...v5.3.0

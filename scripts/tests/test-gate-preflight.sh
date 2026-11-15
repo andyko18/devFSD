@@ -125,5 +125,24 @@ grep -q '{from: verifying-evidence-ko, to: security-review-ko}' "$PLUGIN/hooks/c
   && ! grep -q '{from: verifying-evidence-ko, to: requesting-code-review-ko}' "$PLUGIN/hooks/chain.yaml" \
   && ok "D4 chain primary edge: verifying-evidence-ko → security-review-ko" || no "D4"
 
+# G-ext (20261115) — 외부 저장소·메시지·결제 서비스 이름만 적힌 spec 도 통합 표면이다.
+#   낱말표에 제품 이름이 없어 "Postgres 에 저장 · Redis 캐시 · Kafka" 만 쓴 spec 이 "낱말이 없다" 로 SKIP 됐다(생략 방향 오판).
+_ge=0
+for w in 'Postgres 에 주문을 저장한다' 'Redis 로 결과를 캐시한다' 'Kafka 로 이벤트를 보낸다' 'S3 에 파일을 올린다' 'Stripe 로 청구한다' 'MongoDB 컬렉션을 읽는다' 'SQS 에서 메시지를 받는다' 'RabbitMQ 소비자를 더한다'; do
+  d=$(_mk "ge$_ge" "# spec
+## 2. 범위
+- $w
+## 5. 비기능 요구 (NFR)
+- 없음" src/job.py); _ge=$((_ge+1))
+  out=$(_run "$d" "$FID"); printf '%s\n' "$out" | grep -q '^GATE integration APPLY ' && ok "G-ext 통합 신호: $w" || no "G-ext" "$w → $(printf '%s' "$out" | grep integration)"
+done
+#   낱말 경계 — 다른 낱말의 일부(s3 ⊂ css3 · sqs ⊂ squash 아님 확인용 'mysqsx')는 신호가 아니다.
+d=$(_mk gex "# spec
+## 2. 범위
+- css3 전환 효과와 mysqsx 값을 고친다
+## 5. 비기능 요구 (NFR)
+- 없음" src/job.py)
+out=$(_run "$d" "$FID"); printf '%s\n' "$out" | grep -q '^GATE integration SKIP ' && ok "G-ext.neg 짧은 낱말은 경계로만(css3·mysqsx 는 신호 아님)" || no "G-ext.neg" "$(printf '%s' "$out" | grep integration)"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

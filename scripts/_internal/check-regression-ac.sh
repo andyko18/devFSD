@@ -28,6 +28,13 @@ CS="$SPECOPS/$FID/current-state.md"
 need_r1=0
 grep -qE '^\*\*§유형\*\*:[[:space:]]*유지보수' "$SPEC" 2>/dev/null && need_r1=1
 
+# §유형 줄이 아예 없는 spec (20261115) — analyzing 마커가 유지보수(합산 >5줄)면 유지보수로 본다. 라벨을 빠뜨린 것만으로
+#   회귀 기준 검사가 SKIP 되던 구멍이다(템플릿에 그 줄이 없었다). 명시 라벨(신규·trivial·foundation)이 있으면 종전 판정 그대로다.
+if [ "$need_r1" -eq 0 ] && [ -f "$CS" ] && ! grep -qE '^\*\*§유형\*\*:' "$SPEC" 2>/dev/null \
+   && grep -qE '라인 범위 합산.*→[[:space:]]*유지보수' "$CS" 2>/dev/null; then
+  need_r1=1
+fi
+
 need_r2=0
 # ⚠️ **양성 마커**만 본다 — 문자열 존재(`grep -q '스키마 override'`)로 판정하면
 #   analyzing-ko 가 "**스키마 override**: 미발동 — …" 이라고 **부정문으로 근거를 남길 때**

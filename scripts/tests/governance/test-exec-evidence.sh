@@ -758,5 +758,19 @@ case "$_cause" in
 esac
 rm -f "$_sch"
 
+# ── T-brk: 읽을 수 없는 줄이 섞인 transcript (20261115) ─────────────────────────
+#   종전엔 jq --slurpfile 이 통째로 실패해 rc 2(판정 불가 → 통과)였다 — 깨진 줄 하나나 쓰는 중이라 잘린 마지막 줄 하나로
+#   실행 증거 게이트가 흔적 없이 꺼졌다. 읽을 수 있는 줄만으로 판정한다. 한 줄도 못 읽으면 종전대로 2.
+_brk=$(mktemp) || exit 1
+{ cat "$FIX/exec-evidence-absent.jsonl"; printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"x"'; } > "$_brk"
+_verify_exec_evidence "$_brk"; ck "T-brk.a 증거 없는 transcript + 잘린 마지막 줄 → 1 (게이트가 꺼지지 않는다)" 1 $?
+{ printf '%s\n' 'not json at all {{{'; cat "$FIX/exec-evidence-absent.jsonl"; } > "$_brk"
+_verify_exec_evidence "$_brk"; ck "T-brk.b 증거 없는 transcript + 깨진 줄 → 1" 1 $?
+{ cat "$FIX/exec-evidence-pass.jsonl"; printf '%s' '{"type":"user","message":{"content":[{"type":"tool_res'; } > "$_brk"
+_verify_exec_evidence "$_brk"; ck "T-brk.c 증거 있는 transcript + 잘린 마지막 줄 → 0 (정직한 실행을 막지 않는다)" 0 $?
+printf '%s\n' 'garbage' '{{{' > "$_brk"
+_verify_exec_evidence "$_brk"; ck "T-brk.d 한 줄도 읽을 수 없으면 → 2 (판정 불가 — 종전)" 2 $?
+rm -f "$_brk"
+
 echo "PASS=$pass FAIL=$fail"
 [ "$fail" -eq 0 ]

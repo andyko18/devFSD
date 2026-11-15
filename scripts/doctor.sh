@@ -449,7 +449,7 @@ _chk_deps() {
   if ! command -v jq >/dev/null 2>&1; then
     miss="jq"; note=" — 거버넌스 비활성"; fixcmd="brew install jq"
   fi
-  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import yaml" 2>/dev/null; then
+  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c 'import sys; sys.path[:] = [p for p in sys.path if p not in ("", ".")]; import yaml' 2>/dev/null; then
     miss="${miss}${miss:+,}python3/pyyaml"
     note="${note} · governance 항목이 config 킬스위치를 탐지 못 함"
     # PEP 668(externally-managed) 환경에서는 맨 `pip3 install` 이 거부된다 — 그때의 길을 같이 적는다.

@@ -17,9 +17,19 @@
 - **유지보수 분석의 호출자·테스트 탐색이 저장소 전체를 본다**(`skills/analyzing-ko/SKILL.md` — `git grep`). 종전 명령은 이 플러그인의 폴더(`commands/ skills/ hooks/ scripts/`)만 보아 하류에서는 늘 "호출자 없음" 이었다.
 - **spec 을 git 이 무시하는 경로에 쓰면 커밋하지 않는다**(`skills/specifying-ko/SKILL.md`) · **기획서 자동 발견이 zsh 에서도 돈다**(`commands/init-project.md` — `find`).
 
+소스 검토(20261115) — **틀리게 통과하던 곳**. 행동 변경.
+
+- **대화 기록에 읽을 수 없는 줄이 있어도 실행 증거 게이트가 꺼지지 않는다**(`hooks/governance-lib.sh` `_verify_exec_evidence`). 깨진 줄 하나나 기록 중이라 잘린 마지막 줄 하나에 판정이 "불가 → 통과" 가 되어 커밋이 흔적 없이 열렸다(재현). 읽을 수 있는 줄만 추려 다시 판정하고 그 사실을 degraded 로 남긴다. 한 줄도 못 읽으면 종전대로 판정 불가다.
+- **posttool 경고가 모델에 닿는다**(`hooks/posttool-governance.sh`). `additionalContext` 를 최상위에 내고 있었는데 Claude Code 는 `hookSpecificOutput` 안의 것만 읽는다(공식 훅 문서 대조) — R-1·R-2·R-3 경고가 기록만 되고 모델에는 전달되지 않았다. 알림 훅(`hooks/notify.sh`)은 실제 입력 필드 `notification_type` 을 읽는다(종전 `.matcher` 는 입력에 없어 권한 대기 알림이 늘 "입력 대기" 였다).
+- **`jq`·`pyyaml` 이 없으면 세션 시작에 알린다**(`hooks/session-start.sh` — 관할 저장소에서만). `jq` 가 없으면 훅 3종이 판정하지 못하고 통과시키는데 사용자도 모델도 몰랐다. `pyyaml` 이 없을 때 검증 러너가 "YAML missing test_command" 라고 틀린 사유를 말하던 것도 고쳤다(`extract-test-commands.sh`). DAG 의존성 탐침이 작업 폴더의 `yaml.py` 를 실행하던 것(`scripts/dag/parse-dag.sh` · `doctor.sh`)도 막았다.
+- **전문가 보고서의 반영 절을 내용으로 본다**(`scripts/basic-path.sh` seal). 종전 검사는 `## 반영` 제목만 봤는데 그 제목은 전문가 산출 틀에 이미 있어 항상 통과했다. 항목이 없거나 틀 그대로(`<지적 N>` · `반영(…) | 기각(…)` 둘 다 남음)면 봉인하지 않는다.
+- **릴리즈 준비 판정의 미해결 리뷰**(`scripts/_internal/release-ready.sh`). 수용 흔적을 진행 기록 전체에서 `/receive-review|수용` 으로 찾아, 다른 작업의 줄 · 작업마다 남는 건너뜀 기록(`review-skip 통과`) · "수용 기준" 이라는 낱말로도 미해결 Critical 이 풀렸다(사실상 항상 해제). 그 작업의 절 안에서 건너뜀이 아닌 기록만 친다. 스펙 리뷰 보고서는 고정 판정 줄(`판정: PASS|NEEDS_FIX`)을 먼저 읽는다 — 통과 보고서가 틀 문구의 `NEEDS_FIX` 낱말로 미해결이 되던 것과 반대 방향을 함께 막는다.
+- **spec 에 `§유형` 줄이 없으면 분석 표지로 유지보수를 판정한다**(`scripts/_internal/check-regression-ac.sh` · `templates/spec.md` 에 그 줄 추가). 줄을 빠뜨리는 것만으로 회귀 기준 검사가 SKIP 됐다.
+- **통합 게이트가 외부 서비스 이름을 신호로 읽는다**(`scripts/_internal/gate-preflight.sh` — postgres·mysql·mongo·redis·kafka·rabbitmq·s3·sqs·stripe 등). "Postgres 에 저장 · Redis 캐시" 만 적힌 spec 이 "낱말 없음" 으로 SKIP 됐다.
+
 ### Tests/CI
 
-- `test-agent-contracts.sh` 의 `($n곳)` 이 `LANG` 이 설정된 bash 3.2 에서 `unbound variable` 로 죽던 것(`${n}곳`). 새 단언: `test-verifying-automation.sh` T-jvm(34) · `test-basic-path.sh` Z9k·BR1~3·SUB1 · `test-specops-root.sh` SR-50~53 · `test-plugin-paths.sh` P19 · `test-lib.sh` T-base.f·g · `test-quick-fix.sh` S1.c2 · `test-init-project-enrich.sh` T10.h·i.
+- `test-agent-contracts.sh` 의 `($n곳)` 이 `LANG` 이 설정된 bash 3.2 에서 `unbound variable` 로 죽던 것(`${n}곳`). 새 단언: `test-verifying-automation.sh` T-jvm(34) · `test-basic-path.sh` Z9k·BR1~3·SUB1 · `test-specops-root.sh` SR-50~53 · `test-plugin-paths.sh` P19 · `test-lib.sh` T-base.f·g · `test-quick-fix.sh` S1.c2 · `test-init-project-enrich.sh` T10.h·i · `test-exec-evidence.sh` T-brk · `test-session-start-order.sh` T-deps · `test-parse-dag.sh` T-shadow.probe · `test-basic-path.sh` N9x1·2 · `test-release-ready.sh` RR-16b~g · `test-regression-ac.sh` T-nolabel · `test-gate-preflight.sh` G-ext. `test-hooks.sh` 는 posttool 출력을 `hookSpecificOutput` 형태로 읽는다.
 
 ## [5.3.0] — 2026-11-15
 

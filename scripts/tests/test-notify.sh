@@ -21,7 +21,7 @@ if echo "$out" | grep -qE "입력 대기 · 20260615-notify-hook /implement$"; t
 else FAIL=$((FAIL+1)); echo "FAIL T1.a ($out)"; fi
 
 # T1.b AC-2: permission_prompt → 권한 대기 · FID (step 누설 없음 — end-anchor 단언)
-out2=$(printf '{"matcher":"permission_prompt","cwd":"%s"}' "$TD" | SPECOPS_CONFIG="$TD/none.yaml" SPECOPS_NOTIFY_DRYRUN=1 bash "$NOTIFY")
+out2=$(printf '{"notification_type":"permission_prompt","cwd":"%s"}' "$TD" | SPECOPS_CONFIG="$TD/none.yaml" SPECOPS_NOTIFY_DRYRUN=1 bash "$NOTIFY")
 if echo "$out2" | grep -qE "권한 대기 · 20260615-notify-hook$"; then
   PASS=$((PASS+1)); echo "PASS T1.b AC-2 permission 메시지(step 제외)"
 else FAIL=$((FAIL+1)); echo "FAIL T1.b ($out2)"; fi

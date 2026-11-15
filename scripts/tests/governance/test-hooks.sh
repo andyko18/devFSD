@@ -7,12 +7,14 @@ FIXTURES="$PLUGIN/scripts/tests/governance/fixtures"
 HOOK="$PLUGIN/hooks/posttool-governance.sh"
 
 # T8.a R-1 트리거 → additionalContext + friction-log append
+#   출력 형태(20261115): additionalContext 는 hookSpecificOutput 안에 hookEventName 과 함께 둔다 — 최상위에 두면 Claude Code 가 읽지 않아
+#   R-1·R-2·R-3 경고가 모델에 닿지 않았다(공식 훅 문서 대조).
 tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
 cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
 cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
 stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"PostToolUse", tool_name:"Bash", tool_input:{command:"git commit -m \"x\""}, tool_response:{} }')
 out=$(echo "$stdin_json" | bash "$HOOK" 2>/dev/null); rc=$?
-has_r1=$(echo "$out" | jq -e '.continue == true and (.additionalContext | contains("R-1"))' >/dev/null 2>&1 && echo 1 || echo 0)
+has_r1=$(echo "$out" | jq -e '.continue == true and .hookSpecificOutput.hookEventName == "PostToolUse" and (.hookSpecificOutput.additionalContext | contains("R-1"))' >/dev/null 2>&1 && echo 1 || echo 0)
 log_path=".specops/20260424-newest-feature/friction-log.jsonl"
 if [ "$rc" -eq 0 ] && [ "$has_r1" -eq 1 ] && [ -f "$log_path" ] && jq -e '.rule_id == "R-1"' "$log_path" >/dev/null; then
   PASS=$((PASS+1)); echo "PASS T8.a R-1 additionalContext + append"
@@ -27,7 +29,7 @@ cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
 sed 's/20260101-x/20260424-newest-feature/g' "$FIXTURES/transcripts/r1-commit-with-verify.jsonl" > transcript.jsonl   # 러너가 **이 샌드박스의 FID** 를 검증한 것으로 — 다른 FID 의 PASS 는 증거가 아니다
 stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"PostToolUse", tool_name:"Bash", tool_input:{command:"git commit -m \"x\""}, tool_response:{} }')
 out=$(echo "$stdin_json" | bash "$HOOK" 2>/dev/null); rc=$?
-has_context=$(echo "$out" | jq -e 'has("additionalContext")' >/dev/null 2>&1 && echo 1 || echo 0)
+has_context=$(echo "$out" | jq -e '(.hookSpecificOutput // {}) | has("additionalContext")' >/dev/null 2>&1 && echo 1 || echo 0)
 continue_ok=$(echo "$out" | jq -e '.continue == true' >/dev/null 2>&1 && echo 1 || echo 0)
 if [ "$rc" -eq 0 ] && [ "$continue_ok" -eq 1 ] && [ "$has_context" -eq 0 ]; then
   PASS=$((PASS+1)); echo "PASS T8.b 매칭 없음 → continue only"
@@ -54,7 +56,7 @@ cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
 cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
 stdin_json=$(jq -nc --arg tp "$tmp/transcript.jsonl" '{ session_id:"s1", transcript_path:$tp, hook_event_name:"PostToolUse", tool_name:"Bash", tool_input:{command:"git commit -m \"x\""}, tool_response:{} }')
 out=$(echo "$stdin_json" | bash "$HOOK" 2>/dev/null)
-ctx_len=$(echo "$out" | jq -r '.additionalContext // ""' | wc -c | tr -d ' ')
+ctx_len=$(echo "$out" | jq -r '.hookSpecificOutput.additionalContext // ""' | wc -c | tr -d ' ')
 if [ "$ctx_len" -le 301 ]; then  # wc -c 는 trailing newline 포함, +1 허용
   PASS=$((PASS+1)); echo "PASS T8.d additionalContext ≤ 300"
 else
@@ -187,7 +189,7 @@ while IFS='|' read -r _exp _c; do
   cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
   cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
   _o=$(_post Bash "$_c")
-  _got=$(printf '%s' "$_o" | jq -r '.additionalContext // ""' 2>/dev/null | grep -oE 'R-[12]' | sort -u | tr '\n' ' ' | sed 's/ $//')
+  _got=$(printf '%s' "$_o" | jq -r '.hookSpecificOutput.additionalContext // ""' 2>/dev/null | grep -oE 'R-[12]' | sort -u | tr '\n' ' ' | sed 's/ $//')
   [ "$_got" = "$_exp" ] || _i_bad="$_i_bad [$_c: got='$_got' exp='$_exp']"
   cd "$PLUGIN"; rm -rf "$tmp"
 done <<'CORPUS'
@@ -226,7 +228,7 @@ else
     cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
     cp "$FIXTURES/transcripts/r1-commit-without-verify.jsonl" transcript.jsonl
     _o=$(_post Bash "git commit -m x" "$T/hooks/posttool-governance.sh")
-    printf '%s' "$_o" | jq -e '.additionalContext | contains("R-1")' >/dev/null 2>&1 \
+    printf '%s' "$_o" | jq -e '.hookSpecificOutput.additionalContext | contains("R-1")' >/dev/null 2>&1 \
       || _j_bad="$_j_bad [$_dmg: out=$_o]"
     cd "$PLUGIN"; rm -rf "$tmp" "$T"
   done
@@ -242,7 +244,7 @@ tmp=$(mktemp -d); cd "$tmp"; mkdir -p .specops
 cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
 cp "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" transcript.jsonl
 _o=$(_post Skill "devfsd:planning-ko")
-if printf '%s' "$_o" | jq -e '.additionalContext | contains("R-3")' >/dev/null 2>&1; then
+if printf '%s' "$_o" | jq -e '.hookSpecificOutput.additionalContext | contains("R-3")' >/dev/null 2>&1; then
   PASS=$((PASS+1)); echo "PASS T8.k Skill 선언 부재 → R-3 기록 유지"
 else
   FAIL=$((FAIL+1)); echo "FAIL T8.k (out=$_o)"
@@ -257,7 +259,7 @@ for _p in "$_tc8_old" other; do
   cp "$FIXTURES/session-progress-basic.md" .specops/session-progress.md
   sed "s/devfsd:/$_p:/g" "$FIXTURES/transcripts/r3-skill-without-declaration.jsonl" > transcript.jsonl
   _o=$(_post Skill "$_p:planning-ko")
-  _has=0; printf '%s' "$_o" | jq -e '.additionalContext | contains("R-3")' >/dev/null 2>&1 && _has=1
+  _has=0; printf '%s' "$_o" | jq -e '.hookSpecificOutput.additionalContext | contains("R-3")' >/dev/null 2>&1 && _has=1
   if [ "$_p" = other ]; then
     if [ "$_has" = 0 ]; then PASS=$((PASS+1)); echo "PASS TC.8n other 접두사 Skill → R-3 기록 없음"
     else FAIL=$((FAIL+1)); echo "FAIL TC.8n (out=$_o)"; fi
@@ -345,7 +347,7 @@ for _l_case in big cont; do
 $_l_big"; else _l_c='git commit -m "x" \
   --no-verify'; fi
   _o=$(_post Bash "$_l_c")
-  _got=$(printf '%s' "$_o" | jq -r '.additionalContext // ""' 2>/dev/null | grep -oE 'R-[12]' | sort -u | tr '\n' ' ' | sed 's/ $//')
+  _got=$(printf '%s' "$_o" | jq -r '.hookSpecificOutput.additionalContext // ""' 2>/dev/null | grep -oE 'R-[12]' | sort -u | tr '\n' ' ' | sed 's/ $//')
   [ "$_got" = "R-1" ] || _l_bad="$_l_bad [$_l_case: got='$_got']"
   cd "$PLUGIN"; rm -rf "$tmp"
 done

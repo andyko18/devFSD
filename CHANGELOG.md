@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.4.1] — 2026-11-15
+
 ### Fixed
 
 실주행(20261115 · v5.4.0) — 희생용 하류 프로젝트(Gradle · 기본 브랜치 `develop` · 한글·공백 경로 · `git init` + `git remote add` · 하위 폴더 `backend/` 에서 세션 시작)에서 `/start` 기본 경로를 실제 세션으로 끝까지 돌려 나온 2건.
@@ -4124,7 +4126,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.4.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.4.1...HEAD
+[5.4.1]: https://github.com/andyko18/devFSD/compare/v5.4.0...v5.4.1
 [5.4.0]: https://github.com/andyko18/devFSD/compare/v5.3.0...v5.4.0
 [5.3.0]: https://github.com/andyko18/devFSD/compare/v5.2.1...v5.3.0
 [5.2.1]: https://github.com/andyko18/devFSD/compare/v5.2.0...v5.2.1

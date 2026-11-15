@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.4.4] — 2026-11-15
+
 ### Fixed
 
 - **원격이 없는 저장소에서 기본 브랜치 `develop` 을 기준으로 본다**(`hooks/governance-lib.sh` · `scripts/_internal/risk-profile.sh` · `check-screen-quality.sh` · `check-foundation-manifest.sh` · `reconcile-check.sh` · `scan-dod-weakening.sh` · `check-api-contract.sh` · `check-security-design.sh` · `check-import-direction.sh` · `skills/finishing-a-development-branch-ko`). v5.4.1 에서 작업 브랜치를 따는 쪽은 로컬 `develop`·`dev`·`trunk`·`development` 를 기본 브랜치로 알게 됐지만, 기준 ref 를 찾는 나머지 9곳은 여전히 `origin/HEAD`·`main`·`master` 만 봤다. `git init` 으로 만들고 원격을 붙이지 않은 `develop` 저장소에서 ① 훅이 기준을 못 찾아 문서만 바꾼 PR 도 면제하지 않았고 ② 위험 재판정이 이미 커밋된 변경을 빼먹었고(커밋한 `.github/workflows` 가 `standard` 로 읽힘) ③ 기준 약화 스캐너가 `merge-base 를 구할 수 없다 — base=origin/main`(rc 2)으로 끝났고 ④ API 계약·보안 설계 검사가 바뀐 행 대신 전체 행을 봤고 ⑤ 의존 방향 검사가 "분기점을 구할 수 없음"(판정 불가)으로 끝났고 ⑥ 머지된 FID 를 미완으로, 사라진 공통부 모듈을 무경고로, 화면 회귀 기준을 "브랜치 없음" 으로 읽었다. 이제 `origin/HEAD` 가 없을 때 `base-branch.sh` 의 `specops_default_branch` 로 채운다(이름 목록 밖 브랜치만 있으면 종전대로 판정 실패). finishing skill 은 `git checkout main`·`git pull origin main`·`origin/main..` 대신 블록마다 기본 브랜치를 구하고, 원격이 없으면 로컬 기본 브랜치와 비교하고 pull 을 건너뛴다. 한계: 이름 추측이 틀리면(진짜 기본 브랜치가 목록 밖인데 목록 이름의 작업 브랜치가 있음) 훅의 문서 면제가 열리는 쪽으로 틀릴 수 있다 — `base-branch.sh` 머리에 해소법(`git remote set-head`)을 적었다. 잠금: `test-lib` T-base.h·i(T-base.c 기대값 `dev` 로 — 범위가 비어 면제는 호출부가 막는다) · `test-risk-profile` T51c · `test-scan-dod-weakening` T18 · `test-api-contract` A11c · `test-security-design` S5c · `test-import-direction` D12c(D12 의 분기점 없음 픽스처는 목록 밖 `release` 로) · `test-reconcile-check` R39.develop · `test-check-screen-quality` RG3.dev · `test-foundation-manifest` T14.i2 · `test-worktree-skills` T2.e.
@@ -4146,7 +4148,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.4.3...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.4.4...HEAD
+[5.4.4]: https://github.com/andyko18/devFSD/compare/v5.4.3...v5.4.4
 [5.4.3]: https://github.com/andyko18/devFSD/compare/v5.4.2...v5.4.3
 [5.4.2]: https://github.com/andyko18/devFSD/compare/v5.4.1...v5.4.2
 [5.4.1]: https://github.com/andyko18/devFSD/compare/v5.4.0...v5.4.1

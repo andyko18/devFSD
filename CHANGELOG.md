@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.4.0] — 2026-11-15
+
 ### Fixed
 
 소스 검토(20261115 · v5.3.0) — **하류 프로젝트에서 처음 돌릴 때 막히는 곳**. 이 플러그인은 자기 저장소 모양(`main` 브랜치 · 저장소 최상위 · bash 테스트 · 영문 파일 이름)을 하류에 가정하고 있었다. 행동 변경.
@@ -4115,7 +4117,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.3.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.4.0...HEAD
+[5.4.0]: https://github.com/andyko18/devFSD/compare/v5.3.0...v5.4.0
 [5.3.0]: https://github.com/andyko18/devFSD/compare/v5.2.1...v5.3.0
 [5.2.1]: https://github.com/andyko18/devFSD/compare/v5.2.0...v5.2.1
 [5.2.0]: https://github.com/andyko18/devFSD/compare/v5.1.0...v5.2.0

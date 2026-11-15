@@ -27,9 +27,18 @@
 - **spec 에 `§유형` 줄이 없으면 분석 표지로 유지보수를 판정한다**(`scripts/_internal/check-regression-ac.sh` · `templates/spec.md` 에 그 줄 추가). 줄을 빠뜨리는 것만으로 회귀 기준 검사가 SKIP 됐다.
 - **통합 게이트가 외부 서비스 이름을 신호로 읽는다**(`scripts/_internal/gate-preflight.sh` — postgres·mysql·mongo·redis·kafka·rabbitmq·s3·sqs·stripe 등). "Postgres 에 저장 · Redis 캐시" 만 적힌 spec 이 "낱말 없음" 으로 SKIP 됐다.
 
+소스 검토(20261115) — **종단 주행에서 나온 것과 상태가 꼬이던 곳**. 임시 하류 프로젝트(기본 브랜치 `develop` · 한글·공백 경로 · Gradle · 하위 폴더 호출)에서 기본 경로를 스크립트로 끝까지 밀어 확인했다(LLM 단계는 손으로 대신). 행동 변경.
+
+- **한글 이름의 문서만 바꾼 커밋·PR 이 문서 면제를 받는다**(`hooks/governance-lib.sh` — 파일 목록 호출 12곳에 `core.quotePath=false`). 주행에서 발견: `docs/할인 안내.md` 하나를 스테이징하면 `EXEMPT=no REASON=code` 였다(경로가 따옴표 이스케이프돼 확장자 판정이 빗나감).
+- **진행 기록의 동시 쓰기가 줄을 잃지 않는다**(`scripts/session-progress-append.sh` — mkdir 잠금). 병렬 12건 중 2~5건만 남았다. 약 5초 넘게 남은 잠금은 죽은 것으로 보고 걷어 낸다.
+- **일괄 실행 폴더를 하류 저장소가 커밋하지 않는다**(`scripts/_internal/init-project/phases-artifacts.sh` — `.specops/.gitignore` 템플릿에 `batch-*/` · `*.lock.d/`). 진행 표지(`ACTIVE`)·큐가 커밋되면 머지 뒤에도 끝난 batch 가 매 세션 "미완" 으로 안내됐다.
+- **공통부 FR 표지가 여러 개면 모두 읽는다** · **점·낱말이 든 FR ID 를 조용히 빼지 않는다**(`scripts/_internal/check-fr-table.sh`). 빈 표지 아래에 더한 표지가 무시돼 공통부 FR 이 일반 기능으로 올랐고, `FR-1.1`·`FR-AUTH-01` 꼴은 경고 없이 batch 에서 빠졌다(이제 `UNPARSED` 로 알린다).
+- **`/log` 메모가 명령으로 실행되지 않는다**(`commands/log.md` — 따옴표 붙은 heredoc). 메모 속 백틱·`$( )` 가 셸에서 실행됐다. 가정 다이제스트 머리말의 같은 오류(`collect-assumptions.sh`)도 고쳤다.
+- **재진입 코드 리뷰가 이 플러그인의 리뷰어를 부른다**(`skills/requesting-code-review-ko/SKILL.md`) · **구현을 재개하면 끝난 태스크를 영수증에서 복원한다**(`skills/implementing-ko/SKILL.md`).
+
 ### Tests/CI
 
-- `test-agent-contracts.sh` 의 `($n곳)` 이 `LANG` 이 설정된 bash 3.2 에서 `unbound variable` 로 죽던 것(`${n}곳`). 새 단언: `test-verifying-automation.sh` T-jvm(34) · `test-basic-path.sh` Z9k·BR1~3·SUB1 · `test-specops-root.sh` SR-50~53 · `test-plugin-paths.sh` P19 · `test-lib.sh` T-base.f·g · `test-quick-fix.sh` S1.c2 · `test-init-project-enrich.sh` T10.h·i · `test-exec-evidence.sh` T-brk · `test-session-start-order.sh` T-deps · `test-parse-dag.sh` T-shadow.probe · `test-basic-path.sh` N9x1·2 · `test-release-ready.sh` RR-16b~g · `test-regression-ac.sh` T-nolabel · `test-gate-preflight.sh` G-ext. `test-hooks.sh` 는 posttool 출력을 `hookSpecificOutput` 형태로 읽는다.
+- `test-agent-contracts.sh` 의 `($n곳)` 이 `LANG` 이 설정된 bash 3.2 에서 `unbound variable` 로 죽던 것(`${n}곳`). 새 단언: `test-verifying-automation.sh` T-jvm(34) · `test-basic-path.sh` Z9k·BR1~3·SUB1 · `test-specops-root.sh` SR-50~53 · `test-plugin-paths.sh` P19 · `test-lib.sh` T-base.f·g · `test-quick-fix.sh` S1.c2 · `test-init-project-enrich.sh` T10.h·i · `test-exec-evidence.sh` T-brk · `test-session-start-order.sh` T-deps · `test-parse-dag.sh` T-shadow.probe · `test-basic-path.sh` N9x1·2 · `test-release-ready.sh` RR-16b~g · `test-regression-ac.sh` T-nolabel · `test-gate-preflight.sh` G-ext. `test-hooks.sh` 는 posttool 출력을 `hookSpecificOutput` 형태로 읽는다. 3단계 새 단언: `test-scope-explain.sh` T-se.ko · `test-session-progress-append.sh` L1~3 · `test-fr-foundation-scope.sh` T-multi · `test-fr-placeholder-guard.sh` T-idshape · `test-init-project.sh` T30.d.
 
 ## [5.3.0] — 2026-11-15
 

@@ -16,8 +16,12 @@ reference_upstream: specops-ko 독자 추가
 
 실행:
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "$ARGUMENTS" --tags freelog,manual
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "$(cat <<'SPECOPS_LOG_EOF'
+$ARGUMENTS
+SPECOPS_LOG_EOF
+)" --tags freelog,manual
 ```
+메모는 따옴표 붙은 heredoc 으로 넘긴다 — 큰따옴표에 바로 넣으면 메모 속 백틱·`$( )` 가 명령으로 실행된다.
 기록 후 "기록함: <요약>" 1줄 보고.
 
 ---

@@ -67,11 +67,11 @@ grep -E '^review_mode:' .specops/<FID>/tasks.md
 ## 프로세스 (다단계 wave — dag::find_ready 기반 · end-loaded 기본)
 
 ```
-플랜 + tasks.md 1회 읽기 → review_mode 판정 (부재=end-loaded) → TodoWrite 생성
+플랜 + tasks.md 1회 읽기 → review_mode 판정 (부재=end-loaded) → 할 일 목록 생성
     ↓
 DAG 초기화 (bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dag/parse-dag.sh)
     yaml=$(dag::extract_yaml .specops/<FID>/tasks.md)
-    done=""   ← 완료 task id 집합 (공백 구분 문자열, 초기 빈)
+    done=""   ← 완료 task id 집합 (공백 구분). **재개면** `receipts/<tid>.json` 이 있는 tid 로 채운다
     ↓
 [WAVE LOOP — Phase A only when end-loaded] ──────────────────
 ready=$(dag::find_ready "$yaml" $done)

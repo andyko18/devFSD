@@ -193,4 +193,23 @@ n=$(printf '%s\n' "$out" | grep -c '^UNPARSED|')
   && ok "T12b UNPARSED 오탐 없음(FRAME 2·묶음 참조·추적·FRONT-1·들여쓴 일반 행) · 밑줄 ID·들여쓴 FR 행은 알림(적격 아님)" || nope "T12b" "n=$n out=$(printf '%s' "$out" | tr '\n' ' ')"
 rm -rf "$TD"
 
+# T-idshape (20261115): 점·낱말이 든 ID(`FR-1.1`·`FR-AUTH-01`·`FR-M1-02`)는 못 읽는 꼴이다 — 조용히 빼지 않고 UNPARSED 로 알린다.
+#   종전엔 ROW 도 UNPARSED 도 아니어서 건수·경고 어디에도 없이 batch 에서 빠졌다.
+TD=$(mktemp -d)
+_req "$TD/.specops/memory/requirements.md" <<'EOF'
+| ID | 요구사항 | 마일스톤 | 우선순위 | 상태 |
+|---|---|---|---|---|
+| FR-5 | 주문 목록 조회 | M1 | must | (TBD) |
+| FR-1.1 | 점이 든 ID | M1 | must | (TBD) |
+| FR-AUTH-01 | 낱말이 든 ID | M1 | must | (TBD) |
+| FR-M1-02 | 마일스톤이 든 ID | M1 | must | (TBD) |
+| FRAMEWORK | ID 가 아닌 낱말 | M1 | must | (TBD) |
+EOF
+out=$(cd "$TD" && bash "$CHK" --classify 2>&1); rc=$?
+n=$(printf '%s\n' "$out" | grep -c '^UNPARSED|')
+[ "$n" -eq 3 ] && printf '%s\n' "$out" | grep -q '^UNPARSED|.*FR-1\.1' && printf '%s\n' "$out" | grep -q '^UNPARSED|.*FR-AUTH-01' \
+  && ! printf '%s\n' "$out" | grep -q '^UNPARSED|.*FRAMEWORK' \
+  && ok "T-idshape ★ FR-1.1·FR-AUTH-01·FR-M1-02 → UNPARSED 3건(낱말 FRAMEWORK 는 아님)" || nope "T-idshape" "rc=$rc n=$n out=$(printf '%s' "$out" | tr '\n' ' ')"
+rm -rf "$TD"
+
 finish

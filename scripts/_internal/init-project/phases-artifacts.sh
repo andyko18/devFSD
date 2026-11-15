@@ -231,6 +231,8 @@ redact-failures.log
 friction-log.jsonl
 *.bak
 *.lock.d/
+*.lock
+*.lock.reap/
 .init-*
 # 일괄 실행(/start-all)의 진행 표지·큐·촬영본 — 커밋되면 머지 뒤에도 끝난 batch 가 "미완" 으로 읽힌다.
 batch-*/

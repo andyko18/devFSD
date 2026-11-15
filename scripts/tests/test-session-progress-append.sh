@@ -594,24 +594,48 @@ done
 wait
 _n=$(grep -c 'par-' "$TMP_L/.specops/session-progress.md")
 [ "$_n" = 12 ] && ok "L1 ★ 병렬 12건 → 12줄 모두 남는다" || fail "L1 병렬 12건 중 ${_n}건만 남았다"
-[ ! -e "$TMP_L/.specops/session-progress.md.lock.d" ] && ok "L2 잠금 폴더가 남지 않는다" || fail "L2 잠금 폴더 잔존"
+_lk="$TMP_L/.specops/session-progress.md.lock"
+_lk_gone() { [ ! -e "$_lk" ] && [ ! -L "$_lk" ] && [ ! -e "$_lk.reap" ]; }   # 잠금은 pid 를 가리키는 심볼릭 링크라 -e 만으로는 못 본다
+_lk_gone && ok "L2 잠금이 남지 않는다" || fail "L2 잠금 잔존"
 #   죽은 프로세스가 남긴 잠금은 기다린 뒤 걷어 내고 쓴다(영구 정지 금지).
-mkdir "$TMP_L/.specops/session-progress.md.lock.d"
+ln -s 99999999 "$_lk"
 ( cd "$TMP_L" && SPECOPS_SPA_LOCK_TRIES=5 bash "$SCRIPT" 20261115-lock /verify PASS "stale-lock" ) >/dev/null 2>&1
-grep -q 'stale-lock' "$TMP_L/.specops/session-progress.md" && ok "L3 남은 잠금이 있어도 기다린 뒤 쓴다" || fail "L3 남은 잠금 때문에 쓰지 못했다"
+grep -q 'stale-lock' "$TMP_L/.specops/session-progress.md" && _lk_gone && ok "L3 죽은 주인의 잠금은 기다린 뒤 걷어 내고 쓴다" || fail "L3 남은 잠금 때문에 쓰지 못했다(또는 잠금 잔존)"
 #   살아 있는 주인의 잠금은 기다림이 길어져도 빼앗지 않는다 (20261116 — CI 에서 L1 이 12건 중 10건만 남았다:
 #   부하로 한 건이 느려져 뒤 순번이 5초를 넘기자 살아 있는 잠금을 걷어 내고 동시에 썼다).
-mkdir "$TMP_L/.specops/session-progress.md.lock.d"
 sleep 30 & _owner=$!
-printf '%s\n' "$_owner" > "$TMP_L/.specops/session-progress.md.lock.d/pid"
+ln -s "$_owner" "$_lk"
 ( cd "$TMP_L" && SPECOPS_SPA_LOCK_TRIES=5 bash "$SCRIPT" 20261115-lock /verify PASS "live-lock" ) >/dev/null 2>&1 &
 _waiter=$!
 sleep 1
 if grep -q 'live-lock' "$TMP_L/.specops/session-progress.md"; then fail "L4 살아 있는 주인의 잠금을 빼앗아 썼다"; else ok "L4 ★ 주인이 살아 있으면 잠금을 빼앗지 않고 기다린다"; fi
-rm -rf "$TMP_L/.specops/session-progress.md.lock.d"; kill "$_owner" 2>/dev/null; wait "$_owner" 2>/dev/null
+rm -f "$_lk"; kill "$_owner" 2>/dev/null; wait "$_owner" 2>/dev/null
 wait "$_waiter"
 grep -q 'live-lock' "$TMP_L/.specops/session-progress.md" && ok "L5 주인이 놓으면 이어서 쓴다" || fail "L5 잠금이 풀린 뒤에도 쓰지 못했다"
-[ ! -e "$TMP_L/.specops/session-progress.md.lock.d" ] && ok "L6 끝난 뒤 잠금 폴더가 남지 않는다" || fail "L6 잠금 폴더 잔존"
+_lk_gone && ok "L6 끝난 뒤 잠금이 남지 않는다" || fail "L6 잠금 잔존"
+#   죽은 잠금을 여럿이 동시에 걷어 내도 줄이 사라지지 않는다 (리뷰 재현: 한쪽이 새로 잡은 잠금을 다른 쪽이 낡은 판정으로 지워 27~29/30).
+#   기다림 상한을 1회로 줄여 모든 대기자가 걷어 내기 경로를 밟게 한다.
+_l7_bad=0
+for _r in 1 2 3; do
+  ln -s 99999999 "$_lk"
+  for _i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30; do
+    ( cd "$TMP_L" && SPECOPS_SPA_LOCK_TRIES=1 bash "$SCRIPT" 20261115-lock /implement 진행 "reap$_r-$_i" ) >/dev/null 2>&1 &
+  done
+  wait
+  _n=$(grep -c "reap$_r-" "$TMP_L/.specops/session-progress.md")
+  [ "$_n" = 30 ] || _l7_bad="$_r:$_n"
+done
+[ "$_l7_bad" = 0 ] && _lk_gone && ok "L7 ★ 죽은 잠금을 30건이 동시에 걷어 내도 30줄 모두 남는다(3회)" || fail "L7 걷어 내기 경합에서 줄 유실 (회차:남은 수 = $_l7_bad)"
+#   주인이 살아 있어도 하드 상한을 넘기면 걷어 내고 쓴다(영구 정지 금지 — pid 재사용·멈춘 주인).
+sleep 30 & _owner=$!
+ln -s "$_owner" "$_lk"
+( cd "$TMP_L" && SPECOPS_SPA_LOCK_TRIES=2 SPECOPS_SPA_LOCK_HARD_TRIES=6 bash "$SCRIPT" 20261115-lock /verify PASS "hard-cap" ) >/dev/null 2>&1
+kill "$_owner" 2>/dev/null; wait "$_owner" 2>/dev/null
+grep -q 'hard-cap' "$TMP_L/.specops/session-progress.md" && _lk_gone && ok "L8 하드 상한을 넘기면 살아 있는 주인의 잠금도 걷어 내고 쓴다" || fail "L8 하드 상한 뒤에도 쓰지 못했다(또는 잠금 잔존)"
+#   죽은 프로세스가 남긴 걷어 내기 뮤텍스(1분 넘은 것)는 치우고 진행한다.
+ln -s 99999999 "$_lk"; mkdir "$_lk.reap"; touch -t 202001010000 "$_lk.reap"
+( cd "$TMP_L" && SPECOPS_SPA_LOCK_TRIES=2 bash "$SCRIPT" 20261115-lock /verify PASS "stale-reap" ) >/dev/null 2>&1
+grep -q 'stale-reap' "$TMP_L/.specops/session-progress.md" && _lk_gone && ok "L9 낡은 걷어 내기 뮤텍스가 있어도 쓴다" || fail "L9 낡은 뮤텍스 때문에 쓰지 못했다(또는 잔존)"
 rm -rf "$TMP_L"
 
 echo "PASS=$PASS FAIL=$FAIL"

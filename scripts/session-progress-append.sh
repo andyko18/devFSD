@@ -154,33 +154,52 @@ if [ ! -f "$TARGET" ]; then
 fi
 
 # 동시 쓰기 잠금 (20261115) — 아래는 읽기 → awk → 임시 파일 → mv 라, 병렬 호출이 서로의 줄을 덮어썼다(12건 중 2~5건만 남음).
-#   mkdir 은 원자적이라 잠금으로 쓴다. 약 5초(50ms × 100) 기다려도 남아 있으면 주인(잠금 폴더의 pid)이 살아 있는지 본다 —
-#   죽었으면 걷어 내고 **다시 잡는다**, 살아 있으면 더 기다린다(상한 약 60초 — 영구 정지 금지).
-#   종전(20261115)에는 5초가 지나면 주인을 보지 않고 걷어 낸 뒤 잡았는지 확인 없이 진행했다 — 부하가 걸린 CI 에서
-#   한 건이 느려지자 뒤 순번들이 살아 있는 잠금을 빼앗아 동시에 썼다(병렬 12건 중 10건만 남음 · 20261116).
-_spa_lock="$TARGET.lock.d"; _spa_i=0; _spa_total=0
+#   잠금 = 주인의 pid 를 가리키는 심볼릭 링크(20261116). `ln -s` 는 원자적이고 이미 있으면 실패하며, 만들어지는 순간부터
+#   주인이 읽힌다(폴더를 만들고 pid 를 적는 방식은 그 사이에 "주인 없는 잠금" 으로 보이는 틈이 있었다).
+#   약 5초(50ms × 100) 기다려도 남아 있으면 주인이 살아 있는지 본다 — 죽었을 때만 걷어 낸다. 살아 있어도 하드 상한
+#   (약 60초)을 넘기면 걷어 낸다(영구 정지 금지 — 멈춘 주인·pid 재사용). 걷어 낸 쪽도 **다시 잡아야** 쓴다.
+#   걷어 내기는 전용 뮤텍스(`.reap`) 안에서 주인을 다시 읽어 판정 때와 같을 때만 한다 — 뮤텍스가 없으면 한 대기자가
+#   새로 잡은 잠금을 다른 대기자가 낡은 판정으로 지운다(리뷰 재현: 병렬 30건 중 27~29건).
+#   종전(20261115)에는 5초가 지나면 주인을 보지 않고 걷어 낸 뒤 잡았는지 확인 없이 진행했다(CI 에서 12건 중 10건).
+_spa_lock="$TARGET.lock"; _spa_reap="$TARGET.lock.reap"; _spa_i=0; _spa_total=0; _spa_held=0
 _spa_max="${SPECOPS_SPA_LOCK_TRIES:-100}"; _spa_hard="${SPECOPS_SPA_LOCK_HARD_TRIES:-1200}"
-while ! mkdir "$_spa_lock" 2>/dev/null; do
-  #   잠금 폴더가 없는데 못 만든다 = 남이 잡은 것이 아니라 만들 수 없는 곳이다(읽기 전용 등) — 기다려도 소용없다.
+_spa_owner() { readlink "$_spa_lock" 2>/dev/null || true; }
+#   kill -0 은 남의 프로세스에 EPERM 을 낸다(살아 있는데 실패) — ps 로 한 번 더 본다.
+_spa_alive() {
+  case "$1" in ''|*[!0-9]*) return 1 ;; esac
+  kill -0 "$1" 2>/dev/null || ps -p "$1" >/dev/null 2>&1
+}
+#   $1 = 판정 때 읽은 주인. 뮤텍스 안에서 주인이 그대로일 때만 지운다. 죽은 프로세스가 남긴 뮤텍스(1분 넘음)는 치운다.
+_spa_reap_lock() {
+  #   주인이 비어 읽혔으면 그 사이 잠금이 풀린 것이다 — 걷어 낼 것이 없다. 여기서 지우면 "빈 값 = 빈 값" 확인과
+  #   rm 사이에 새로 잡은 주인의 잠금이 지워진다(부하 아래 병렬 30건 중 29건).
+  [ -n "$1" ] || return 0
+  if ! mkdir "$_spa_reap" 2>/dev/null; then
+    [ -n "$(find "$_spa_reap" -maxdepth 0 -mmin +1 2>/dev/null)" ] && rmdir "$_spa_reap" 2>/dev/null
+    return 0
+  fi
+  [ "$(_spa_owner)" = "$1" ] && rm -f "$_spa_lock" 2>/dev/null
+  rmdir "$_spa_reap" 2>/dev/null || true
+}
+while :; do
+  if ln -s "$$" "$_spa_lock" 2>/dev/null; then _spa_held=1; break; fi
+  #   잠금이 없는데 못 만든다 = 남이 잡은 것이 아니라 만들 수 없는 곳이다(읽기 전용 등) — 기다려도 소용없다.
   #   (그 사이 주인이 놓았을 수 있어 한 번 더 잡아 본다.)
-  if [ ! -d "$_spa_lock" ]; then mkdir "$_spa_lock" 2>/dev/null && break; [ -d "$_spa_lock" ] || break; fi
+  if [ ! -L "$_spa_lock" ]; then
+    if ln -s "$$" "$_spa_lock" 2>/dev/null; then _spa_held=1; break; fi
+    [ -L "$_spa_lock" ] || break
+  fi
   _spa_i=$((_spa_i + 1)); _spa_total=$((_spa_total + 1))
-  if [ "$_spa_i" -ge "$_spa_max" ]; then
+  [ "$_spa_total" -ge $((_spa_hard * 3)) ] && break   # 걷어 내기조차 안 되는 곳 — 잠금 없이 쓴다(영구 정지 금지)
+  if [ "$_spa_i" -ge "$_spa_max" ] || [ "$_spa_total" -ge "$_spa_hard" ]; then
     _spa_i=0
-    _spa_pid=$(cat "$_spa_lock/pid" 2>/dev/null || true)
-    #   pid 가 비어 보이면 한 번 더 읽는다 — 주인이 폴더를 만들고 pid 를 적는 사이일 수 있다.
-    [ -n "$_spa_pid" ] || { sleep 0.05; _spa_pid=$(cat "$_spa_lock/pid" 2>/dev/null || true); }
-    case "$_spa_pid" in ''|*[!0-9]*) _spa_alive=0 ;; *) kill -0 "$_spa_pid" 2>/dev/null && _spa_alive=1 || _spa_alive=0 ;; esac
-    if [ "$_spa_alive" = 0 ] || [ "$_spa_total" -ge "$_spa_hard" ]; then
-      rm -rf "$_spa_lock" 2>/dev/null || true
-      [ "$_spa_total" -ge $((_spa_hard * 2)) ] && break
-    fi
+    _spa_pid=$(_spa_owner)
+    if [ "$_spa_total" -ge "$_spa_hard" ] || ! _spa_alive "$_spa_pid"; then _spa_reap_lock "$_spa_pid"; fi
   fi
   sleep 0.05
 done
-{ printf '%s\n' "$$" > "$_spa_lock/pid"; } 2>/dev/null || true
-#   자기 잠금만 지운다 — 상한을 넘겨 빼앗긴 뒤 끝나는 프로세스가 새 주인의 잠금을 지우지 않게.
-trap '[ "$(cat "$_spa_lock/pid" 2>/dev/null)" = "$$" ] && rm -rf "$_spa_lock" 2>/dev/null || true' EXIT
+#   자기 잠금만 지운다 — 하드 상한으로 빼앗긴 뒤 끝나는 프로세스가 새 주인의 잠금을 지우지 않게.
+trap '[ "$_spa_held" = 1 ] && [ "$(_spa_owner)" = "$$" ] && rm -f "$_spa_lock" 2>/dev/null || true' EXIT
 
 _freework_pin
 

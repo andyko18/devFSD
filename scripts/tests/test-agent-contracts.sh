@@ -42,7 +42,7 @@ has "$CR" '기본 경로: yes' \
 
 # ── 기본 경로 호출 쪽 ──
 n=$(grep -cF '기본 경로: yes' "$BA")
-[ "$n" -ge 2 ] && ok "C1 basic.md 가 두 리뷰어 프롬프트에 '기본 경로: yes' 를 적는다($n곳)" || nope "C1" "basic.md 의 '기본 경로: yes' $n곳 (2곳 필요)"
+[ "$n" -ge 2 ] && ok "C1 basic.md 가 두 리뷰어 프롬프트에 '기본 경로: yes' 를 적는다(${n}곳)" || nope "C1" "basic.md 의 '기본 경로: yes' ${n}곳 (2곳 필요)"
 grep -qF 'BASE:' "$BA" && ! grep -qF '`git diff <base>...HEAD`' "$BA" \
   && ok "C2 ★ basic.md 의 diff 기준이 정의 없는 <base> 가 아니라 스크립트가 내는 BASE: 줄이다" || nope "C2" "<base> 잔존 또는 BASE: 언급 없음"
 grep -qE 'should.*nice-to-have.*backlog|backlog.*should.*nice-to-have' "$BA" \
@@ -64,7 +64,7 @@ grep -qF '체크박스로 다음 태스크 식별' "$IM" \
 
 # ── 감사 3종 · 템플릿 ──
 n=$(grep -cE 'model: "sonnet"' "$SS")
-[ "$n" -ge 3 ] && ok "E1 /security-scan --self-config 가 red·blue·auditor 호출에 model: \"sonnet\" 을 적는다($n곳)" || nope "E1" "model: \"sonnet\" $n곳 (3곳 필요)"
+[ "$n" -ge 3 ] && ok "E1 /security-scan --self-config 가 red·blue·auditor 호출에 model: \"sonnet\" 을 적는다(${n}곳)" || nope "E1" "model: \"sonnet\" ${n}곳 (3곳 필요)"
 grep -qF 'verdict = BLOCK' "$AC" && nope "F1 AC 템플릿" "어느 에이전트도 내지 않는 verdict = BLOCK 잔존" || ok "F1 AC 템플릿에 없는 판정 낱말(verdict = BLOCK)이 없다"
 has "$AC" 'check-regression-ac.sh' \
   && ok "F2 회귀 AC 누락은 실제로 막는 스크립트(check-regression-ac.sh)로 안내한다" || nope "F2" "스크립트 안내 없음"

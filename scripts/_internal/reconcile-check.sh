@@ -101,7 +101,8 @@ _emit_completeness_warnings() {  # $1=FID 디렉토리 $2=줄 접두어
 # (tip 이 first-parent 체인 위)와 fast-forward·squash 머지는 보수적으로 "머지됨 아님"(한계).
 merged_into=""
 if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
-  for _r in refs/remotes/origin/main refs/heads/main refs/remotes/origin/master refs/heads/master; do
+  _oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true); _oh=${_oh#origin/}   # 기본 브랜치가 develop·trunk 인 저장소(20261115)
+  for _r in ${_oh:+"refs/remotes/origin/$_oh" "refs/heads/$_oh"} refs/remotes/origin/main refs/heads/main refs/remotes/origin/master refs/heads/master; do
     git show-ref --verify --quiet "$_r" && { mref="$_r"; break; }
   done
   if [ -n "${mref:-}" ]; then
@@ -175,7 +176,8 @@ evidence=0
 impl_ev=0
 [ -f "$FID_DIR/dispatch-log.md" ] && grep -qE 'DONE|IMPL' "$FID_DIR/dispatch-log.md" 2>/dev/null && impl_ev=1
 if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
-  base=$(git show-ref --verify --quiet refs/heads/main && echo main || { git show-ref --verify --quiet refs/heads/master && echo master; })
+  _oh2=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true); _oh2=${_oh2#origin/}
+  base=$( { [ -n "$_oh2" ] && git show-ref --verify --quiet "refs/heads/$_oh2" && echo "$_oh2"; } || { git show-ref --verify --quiet refs/heads/main && echo main; } || { git show-ref --verify --quiet refs/heads/master && echo master; })
   if [ -n "$base" ] && git show-ref --verify --quiet "refs/heads/feat/$FID"; then
     n=$(git rev-list --count "$base..feat/$FID" 2>/dev/null || echo 0)
     [ "${n:-0}" -gt 0 ] 2>/dev/null && impl_ev=1

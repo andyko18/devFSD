@@ -95,7 +95,8 @@ if [ -f "$CONTENT" ]; then
 
   # 덮어쓰기 경고 — base 의 manifest 에 있던 모듈명이 사라졌는가
   _base=""
-  for _b in main master; do
+  _oh=$(git -C "$ROOT" symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true); _oh=${_oh#origin/}   # 기본 브랜치가 develop·trunk 인 저장소(20261115)
+  for _b in ${_oh:+"$_oh"} main master; do
     if git -C "$ROOT" show-ref --verify --quiet "refs/heads/$_b" 2>/dev/null; then
       _base=$(git -C "$ROOT" merge-base HEAD "$_b" 2>/dev/null || true); break
     fi

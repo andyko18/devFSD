@@ -203,7 +203,7 @@ used_by: using-specops-ko, /start, /start-foundation, /start-all, /start-all-aut
    - 반영 완료 후 Step 6 진행
    **[계약 칸 점검 — 경고 전용 (20261021)]**: `api-spec.md` 를 고쳤으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-api-contract.sh <FID>` 를 한 번 실행한다(바꾼 행만 · Status 열·오류 형식·오류 코드·목록 정책·멱등 정책·rate limit·버전 전략). `WARN` 줄이 있으면 대화형은 사용자에게 보여 주고 지금 채울지 묻는다. 막지 않는다 — 종료 코드와 무관하게 Step 6 진행(같은 판정을 검증 러너가 evidence.md `### api-contract` 에 다시 남긴다). **보안 칸**: `api-spec.md` 또는 `data-model.md` 를 고쳤으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-security-design.sh <FID>` 를 한 번 실행한다(바꾼 행의 Auth 칸·URL 민감정보·응답 민감 필드 · 인증 방식·권한 모델·CORS·CSRF·개인정보 분류·보존·삭제 칸 · 위험 기능 결정) — `WARN` 은 위와 같이 다루고, 이것도 막지 않는다(같은 판정을 검증 러너가 evidence.md `### security-design` 에 다시 남긴다).
    **[통합 뷰 갱신 — 5.5·5.6 직후 1회]**: 5.5·5.6 에서 화면·인터페이스를 만들거나 고쳤으면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/design-overview.sh` 를 1회 실행해 출력된 경로를 알리고 사용자 검토(8) 질문(§일괄 은 승인 묶음)에 싣는다. rc≠0 은 1줄 알림만(막지 않는다). batch 분기면 실행하지 않는다(Phase 2.5-E 몫).
-6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋
+6. **설계 문서 작성** — `.specops/<FID>/spec.md` + `acceptance-criteria.md`로 저장하고 커밋(git 이 무시하는 경로면 커밋 생략 — `git check-ignore -q`)
    - **AC 필수 필드 (기계 검증)** — AC 블록마다 `### AC-<n>: <제목>` 헤더 + **Given·When·Then·우선순위** 를 반드시 채운다. `**우선순위**` 값은 `must`·`should`·`nice-to-have` 중 하나. 판정 SoT = `scripts/_internal/check-ac-format.sh` (구현 직전 `emit-context.sh` 가 자동 호출 — 미충족 시 dispatch 가 열리지 않는다). **`**우선순위**` 는 서식이 아니라 스위치다** — 없으면 `emit-context` 의 must AC 역방향 커버리지 검사가 그 AC 를 보지 못해, 필수 AC 가 태스크 매핑 없이 통과하고 영영 구현되지 않는다. 쓰지 않는 템플릿 골격 AC(`<...>`·`...`)는 **남기지 말고 삭제**한다(골격 잔존도 차단 대상).
    - **AC 개수 상한 (should — 하드 게이트가 아니다)** — 코드 변경이 **50줄 미만이면 AC 6건**을 넘기지 않는 것을 권고한다. 넘어간다면 **계약이 아니라 설명을 쓰고 있는지** 의심하라. AC 가 늘면 plan·tasks·리뷰 대상이 함께 늘어 **비용이 곱으로 번진다** (실측 20260808: 코드 **18줄** 변경에 AC **12건** → plan 558줄·tasks 468줄·plan-reviewer 2회 dispatch). `check-ac-format.sh` 는 개수를 **검사하지 않는다** — 계약이 진짜로 필요하면 6건을 넘겨도 된다. 이 상한은 **되묻는 장치**지 금지가 아니다. (반대 방향 주의: 상한을 지키려고 **must AC 를 빠뜨리면** `emit-context` 의 역방향 커버리지가 막는다 — 줄일 것은 AC 개수가 아니라 **설명으로 쓴 AC** 다.)
    - **Intent 추적**: spec §1 에 `**Intent**: .specops/<FID>/intent.md` 를 적고, §1 목적·성공 판정을 intent 의 문제·기대 결과에서 도출한다
@@ -397,7 +397,7 @@ spec §NFR 의 호환성 항목 (`bash 4+`, `Python 3.10+`, `Node.js 18+` 등) �
 
 - 검증된 설계(스펙)를 `.specops/<FID>/spec.md`로 작성
   - 사용자 선호가 있다면 그 경로 우선
-- 커밋 (`git add` + 메시지 "spec: <topic>")
+- 커밋 (`git add` + 메시지 "spec: <topic>" · 무시 경로면 생략)
 
 ### 스펙 자체 검토
 

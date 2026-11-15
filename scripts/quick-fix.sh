@@ -32,10 +32,12 @@ case "$ARG" in *$'\n'*) _die "설명·명령은 한 줄이어야 한다" ;; esac
 case "$ACTION" in
   start)
     mkdir -p "$SPECOPS/$FID" || _die "FID 폴더를 만들 수 없다"
-    cur=$(git symbolic-ref --short HEAD 2>/dev/null || true)
-    case "$cur" in
-      main|master) bash "$PLUGIN/scripts/git-branch-create.sh" "$FID" || _die "브랜치를 만들 수 없다" ;;
-    esac
+    # 기본 브랜치(main·master·origin/HEAD 가 가리키는 develop 등) 위거나 분리(detached) HEAD 면 작업 브랜치를 딴다(20261115 — base-branch.sh).
+    # shellcheck source=/dev/null
+    . "$PLUGIN/scripts/_internal/base-branch.sh" || _die "base-branch.sh 를 읽을 수 없다"
+    if specops_on_default_branch; then
+      bash "$PLUGIN/scripts/git-branch-create.sh" "$FID" || _die "브랜치를 만들 수 없다"
+    fi
     bash "$APPEND" "$FID" /quick-fix 시작 "$ARG" "$ARG" >/dev/null || _die "진행 기록을 남길 수 없다"
     echo "QUICK-FIX: STARTED $FID"
     ;;

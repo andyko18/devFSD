@@ -173,6 +173,12 @@ printf '%s' "$st" | grep -q 'PASS' && ok "Z6 판정 SoT(verification-state) = PA
 out=$(_bp "$d" seal "$FID" "bash scripts/tests/test-count.sh"); [ "$(grep -c 'BC-PAR-CHECK:T1' "$d/.specops/$FID/dispatch-log.md")" = 1 ] \
   && ok "Z8 다시 seal 해도 감사 행이 중복되지 않는다" || no "Z8"
 _bp "$d" seal "$FID" 'bash "x".sh' >/dev/null; [ $? = 1 ] && ok "Z9 test_command 의 따옴표 거부" || no "Z9"
+# 한글(비ASCII) 파일 이름 (20261115) — git 기본값은 그런 경로를 "docs/\352…" 로 따옴표 이스케이프해 내서, seal 이 "따옴표가 든 이름" 으로 영구 거부했다.
+mkdir -p "$d/docs"; printf 'x\n' > "$d/docs/가이드.md"; printf 'y\n' > "$d/scripts/도움말.sh"; ( cd "$d" && git add scripts/도움말.sh )
+out=$(_bp "$d" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" = 0 ] && grep -q '"docs/가이드.md"' "$t" && grep -q '"scripts/도움말.sh"' "$t" \
+  && ok "Z9k ★ 한글 파일 이름(미추적·스테이징)이 있어도 seal 통과 · outputs 에 원문 이름" || no "Z9k" "rc=$rc $out"
+rm -f "$d/docs/가이드.md"; ( cd "$d" && git rm -q --cached scripts/도움말.sh ); rm -f "$d/scripts/도움말.sh"
 out=$(_bp "$d" "done" "$FID" "빈 줄 제외 옵션"); grep -q '/lifecycle DONE' "$d/.specops/session-progress.md" && ok "Z10 done → 종결 기록" || no "Z10" "$out"
 
 # ── R 관련 스위트로 검증 (20261112 speed) ──
@@ -291,7 +297,9 @@ out=$(_bp "$m" approve "$FID"); rc=$?
 awk '/^## 4\. / { print "### AC-R-1: 옵션 없이는 종전대로 센다\n\n**우선순위**: must\n**Given** {{기존 전제}}\n**When** 옵션 없이 실행한다\n**Then** 종전과 같은 수를 출력한다\n**검증 방법**: bash scripts/tests/test-count.sh\n" } { print }' "$MS" > "$MS.t" && mv "$MS.t" "$MS"
 out=$(_bp "$m" approve "$FID"); rc=$?
 [ "$rc" = 1 ] && ok "M6 AC-R-1 에 자리표시가 남으면 승인 거부" || no "M6" "rc=$rc $out"
-sed -i.bak 's/{{기존 전제}}/빈 줄이 든 파일/' "$MS"; rm -f "$MS.bak"
+# 코드 표기(백틱·코드 펜스) 안의 `{{` 는 자리표시가 아니다 (20261115) — Vue·Jinja·GitHub Actions 를 말하는 spec 이 영구 거부됐다.
+sed -i.bak 's/{{기존 전제}}/빈 줄이 든 파일(화면은 `{{ count }}` 로 표시)/' "$MS"; rm -f "$MS.bak"
+printf '\n```yaml\ntoken: ${{ secrets.TOKEN }}\n```\n' >> "$MS"
 out=$(_bp "$m" approve "$FID"); rc=$?
 [ "$rc" = 0 ] && grep -q '^### AC-R-1: ' "$m/.specops/$FID/acceptance-criteria.md" \
   && ( cd "$m" && bash "$PLUGIN/scripts/_internal/check-regression-ac.sh" "$FID" 2>&1 | grep -q '^REGRESSION-AC: PASS' ) \
@@ -774,6 +782,7 @@ out=$(_bp "$n" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
 [ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'plan.md 에 채우지 않은' && [ ! -e "$n/.specops/$FID/tasks.md" ] && ok "N8a ★ 채우지 않은 계획은 seal 도 막는다 (rc 1)" || no "N8a" "rc=$rc $out"
 rm -rf "$n/.specops/$FID/reviews" "$n/.specops/$FID/experts"
 sed 's/{{[^}]*}}/x/g' "$P" > "$P.t" && mv "$P.t" "$P"
+printf '\n배포 워크플로는 `${{ github.sha }}` 를 쓴다.\n' >> "$P"   # 코드 표기 안의 `{{` — review·seal 이 막지 않는다
 printf '#!/usr/bin/env bash\ngrep -c . "$1"\n' > "$n/scripts/count.sh"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$n/scripts/tests/test-count.sh"; chmod +x "$n/scripts/count.sh" "$n/scripts/tests/test-count.sh"
 _bp "$n" review "$FID" >/dev/null
@@ -863,6 +872,28 @@ printf '# 스펙 리뷰\n\n## 종합 판정\n\n판정: NEEDS_FIX 아님\n' > "$r
 out=$(_bp "$rv" seal "$FID" "$VCMD"); rc=$?
 [ "$rc" = 0 ] && ok "V6 판정 줄은 줄 전체가 정확히 일치해야 한다('판정: NEEDS_FIX 아님' 은 판정이 아니다)" || no "V6" "rc=$rc $out"
 FID=$FID_KEEP2
+
+# ── BR 기본 브랜치가 main/master 가 아닌 저장소 (20261115) ──
+#   종전엔 `main|master` 일 때만 작업 브랜치를 땄다 — develop·trunk 저장소에서는 기본 브랜치 위에 그대로 커밋했다.
+_dev_repo() {  # <이름> → 기본 브랜치 develop(origin/HEAD 가 가리킨다) 위의 저장소
+  local d="$TMP/$1"; mkdir -p "$d/.specops" "$d/scripts/tests"
+  ( cd "$d" && git init -q -b develop && printf 'x\n' > README.md && printf '.specops/\n' > .gitignore \
+    && git add README.md .gitignore && git -c user.name=t -c user.email=t@e.com commit -qm init \
+    && git update-ref refs/remotes/origin/develop HEAD && git symbolic-ref refs/remotes/origin/HEAD refs/remotes/origin/develop ) || return 1
+  printf '%s' "$d"
+}
+b1=$(_dev_repo br1); _bp "$b1" start "$FID" "줄 수 세기 명령에 옵션 추가" >/dev/null
+[ "$(cd "$b1" && git symbolic-ref --short HEAD)" = "feat/$FID" ] && ok "BR1 ★ 기본 브랜치 develop 위에서 start → feat/<FID> 생성" || no "BR1" "branch=$(cd "$b1" && git symbolic-ref --short HEAD)"
+b2=$(_dev_repo br2); ( cd "$b2" && git checkout -q --detach ); _bp "$b2" start "$FID" "줄 수 세기 명령에 옵션 추가" >/dev/null
+[ "$(cd "$b2" && git symbolic-ref --short -q HEAD)" = "feat/$FID" ] && ok "BR2 분리(detached) HEAD 에서 start → feat/<FID> 생성" || no "BR2" "branch=$(cd "$b2" && git symbolic-ref --short -q HEAD)"
+b3=$(_dev_repo br3); ( cd "$b3" && git checkout -q -b work ); _bp "$b3" start "$FID" "줄 수 세기 명령에 옵션 추가" >/dev/null
+[ "$(cd "$b3" && git symbolic-ref --short HEAD)" = "work" ] && ok "BR3 이미 작업 브랜치 위면 종전대로 그 브랜치를 쓴다" || no "BR3" "branch=$(cd "$b3" && git symbolic-ref --short HEAD)"
+
+# ── SUB 하위 폴더에서 부른 basic-path (20261115) — 상대경로 .specops 를 못 찾아 "관할 아님" 으로 거부했다(모델이 /init-project 로 오인) ──
+sb1=$(_repo subd); mkdir -p "$sb1/packages/web"
+out=$( cd "$sb1/packages/web" && bash "$BP" start "$FID" "줄 수 세기 명령에 옵션 추가" 2>&1 ); rc=$?
+[ "$rc" = 0 ] && [ -f "$sb1/.specops/$FID/spec.md" ] && [ ! -e "$sb1/packages/web/.specops" ] \
+  && ok "SUB1 ★ 하위 폴더에서 start → 최상위 .specops 에 FID 생성" || no "SUB1" "rc=$rc $out"
 
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

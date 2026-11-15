@@ -1,6 +1,7 @@
 # 구현 직전 세션 분리 (decomposing-ko 보조 문서)
 
 > `skills/decomposing-ko/SKILL.md` `## 다음 skill` 에서 참조. `split-session.sh decide` 가 `SPLIT: yes` 일 때만 읽는다.
+> **경로**: 이 문서는 Read 로 읽힌다 — 명령에 적힌 플러그인 루트 변수(CLAUDE_PLUGIN_ROOT)는 치환되지 않고 Bash 에도 없다. 이 파일 경로에서 `/skills/` 앞까지(플러그인 루트 절대경로)로 바꿔 실행한다.
 
 ## 왜 나누는가
 

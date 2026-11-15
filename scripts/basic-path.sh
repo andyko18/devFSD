@@ -34,9 +34,12 @@ BASIC_HARD_SIGNALS="data_move irreversible_ext payment_pii destructive_fs infra"
 BASIC_SCREEN_APPROVAL_MIN=3   # 이 수 이상의 화면을 고치면 화면 스펙·목업을 먼저 만들고 승인받는다(근거 얇은 기본값 — 여기 한 곳에서 고친다)
 
 ACTION="${1:-}"
-SPECOPS="${SPECOPS_ROOT:-.specops}"
 # risk-profile.sh 는 source 되면 PLUGIN·SPECOPS 를 자기 기준($0 의 두 단계 위)으로 다시 잡는다 — 이 스크립트는 한 단계 위가 루트라 이름을 달리 쓴다.
 BP_ROOT=$(cd "$(dirname "$0")/.." && pwd)
+# 하위 폴더에서 불려도 작업 트리 최상위의 .specops 를 쓴다(20261115 — specops-root.sh specops_top_enter). 폴더를 옮기므로 자기 경로(BP_ROOT)를 먼저 잡는다.
+# shellcheck source=/dev/null
+. "$BP_ROOT/scripts/_internal/specops-root.sh" 2>/dev/null && { specops_top_enter || true; }
+SPECOPS="${SPECOPS_ROOT:-.specops}"
 BP_SPECOPS="$SPECOPS"
 APPEND="$BP_ROOT/scripts/session-progress-append.sh"
 
@@ -204,11 +207,18 @@ _runner_accepts() {  # <test_command> → rc 0 = 받는다 · 1 = 받지 않는�
   [[ "$1" =~ $pat ]] && [[ "$1" != *..* ]]
 }
 
+# 채우지 않은 자리표시(`{{…}}`)가 남았는가 — 코드 펜스와 인라인 코드(백틱) 안은 보지 않는다 (20261115).
+#   골격의 자리표시는 늘 맨 글자로 적힌다. 문서 전체에서 `{{` 를 찾으면 Vue·Jinja·GitHub Actions(`${{ … }}`)를 말하는 spec·계획이
+#   영구 거부됐다 — 그런 표기는 백틱이나 코드 펜스로 감싸 적는다.
+_ph_left() {
+  awk '/^[[:space:]]*(```|~~~)/ { f = !f; next } f { next } { gsub(/`[^`]*`/, "") } /\{\{/ { found = 1; exit } END { exit !found }' "$1" 2>/dev/null
+}
+
 _changed_files() {
   # shellcheck source=/dev/null
   . "$BP_ROOT/scripts/_internal/risk-profile.sh" 2>/dev/null || return 1
   SPECOPS="$BP_SPECOPS"
-  { rp::collect_files; git ls-files -o --exclude-standard 2>/dev/null; } | sed '/^$/d' | grep -v '^\.specops/' | sort -u
+  { rp::collect_files; git -c core.quotePath=false ls-files -o --exclude-standard 2>/dev/null; } | sed '/^$/d' | grep -v '^\.specops/' | sort -u
 }
 
 # 관련 스위트 — 이 저장소가 스위트 매핑(scripts/tests/run-related.sh)을 가질 때만 변경 파일이 닿는 스위트를 고른다.
@@ -318,10 +328,12 @@ case "$ACTION" in
     [ "$rc" = 0 ] || { _full_msg ""; exit 3; }
     soft=$(printf '%s\n' "$lo" | sed -n 's/^SIGNALS: //p')
     mkdir -p "$SPECOPS/$FID" || _die "FID 폴더를 만들 수 없다"
-    cur=$(git symbolic-ref --short HEAD 2>/dev/null || true)
-    case "$cur" in
-      main|master) bash "$BP_ROOT/scripts/git-branch-create.sh" "$FID" || _die "브랜치를 만들 수 없다" ;;
-    esac
+    # 기본 브랜치(main·master·origin/HEAD 가 가리키는 develop 등) 위거나 분리(detached) HEAD 면 작업 브랜치를 딴다(20261115 — base-branch.sh).
+    # shellcheck source=/dev/null
+    . "$BP_ROOT/scripts/_internal/base-branch.sh" || _die "base-branch.sh 를 읽을 수 없다"
+    if specops_on_default_branch; then
+      bash "$BP_ROOT/scripts/git-branch-create.sh" "$FID" || _die "브랜치를 만들 수 없다"
+    fi
     if [ ! -f "$SPECOPS/$FID/spec.md" ]; then
       sed "s|{{FID}}|$FID|g" "$BP_ROOT/templates/spec-basic.md" > "$SPECOPS/$FID/spec.md" || _die "spec 골격을 쓸 수 없다"
       if [ "$MODE" = maintain ]; then
@@ -366,13 +378,13 @@ case "$ACTION" in
     for sec in '목표' '범위' '수용 기준'; do
       grep -qE "^## .*${sec}" "$SPEC" || _die "spec.md 에 '## … ${sec}' 절이 없다"
     done
-    grep -q '{{' "$SPEC" && _die "spec.md 에 채우지 않은 자리표시({{…}})가 남아 있다"
+    _ph_left "$SPEC" && _die "spec.md 에 채우지 않은 자리표시({{…}})가 남아 있다(글자 그대로 적어야 하는 여는 중괄호 둘은 백틱으로 감싼다)"
     if grep -qE '^\*\*§유형\*\*:[[:space:]]*유지보수' "$SPEC"; then
       grep -qE '^### .*현재 동작' "$SPEC" || _die "유지보수 spec 에 '### 현재 동작과 영향' 절이 없다"
       grep -qE '^### AC-R-1' "$SPEC" || _die "유지보수 spec 에 기존 동작 유지 수용 기준(### AC-R-1)이 없다"
     fi
     if [ -f "$SPECOPS/$FID/analysis.md" ]; then
-      grep -q '{{' "$SPECOPS/$FID/analysis.md" && _die "analysis.md 에 채우지 않은 자리표시({{…}})가 남아 있다 — 분석을 먼저 끝낸다"
+      _ph_left "$SPECOPS/$FID/analysis.md" && _die "analysis.md 에 채우지 않은 자리표시({{…}})가 남아 있다(글자 그대로 적어야 하는 여는 중괄호 둘은 백틱으로 감싼다) — 분석을 먼저 끝낸다"
       for sec in '현재 동작' '영향 범위' '깨질 수 있는'; do
         grep -qE "^## .*${sec}" "$SPECOPS/$FID/analysis.md" || _die "analysis.md 에 '## … ${sec}' 절이 없다"
       done
@@ -431,7 +443,7 @@ case "$ACTION" in
     printf 'tasks=%s\nsignals=%s\nexperts=%s\n' "$N" "$soft" "$ex" > "$D/steps.txt" || _die "판정 기록을 쓸 수 없다"
     # 다시 실행했을 때 — 손대지 않은 골격(자리표시가 남은 plan.md)은 새 수로 다시 만들고, 이미 채운 계획은 건드리지 않고 칸 수만 알린다.
     #   지우지 않고 plan.md.prev 로 옮긴다 — 절반쯤 채운 계획이나 `${{ … }}` 를 적은 계획을 잃지 않게(코드 리뷰).
-    if [ -f "$D/plan.md" ] && grep -q '{{' "$D/plan.md"; then
+    if [ -f "$D/plan.md" ] && _ph_left "$D/plan.md"; then
       mv -f "$D/plan.md" "$D/plan.md.prev" || _die "이전 계획을 옮길 수 없다"
       echo "PLAN-NOTE: 자리표시가 남은 이전 plan.md 를 plan.md.prev 로 옮겼다 — 적어 둔 내용이 있으면 거기서 가져온다"
     fi
@@ -469,7 +481,7 @@ case "$ACTION" in
     #   `/implement` 줄은 훅이 코드 변경 시각으로 읽는다(governance-lib.sh _verify_passed_in_progress) — 검증보다 앞에 남으므로 뜻이 맞다.
     FID="${2:-}"; [ -n "$FID" ] || _die "usage: $0 review <FID>"; _fid_ok "$FID"
     [ -f "$SPECOPS/$FID/acceptance-criteria.md" ] || _die "acceptance-criteria.md 가 없다 — start → approve 를 먼저 실행한다"
-    [ ! -f "$SPECOPS/$FID/plan.md" ] || ! grep -q '{{' "$SPECOPS/$FID/plan.md" || _die "plan.md 에 채우지 않은 자리표시({{…}})가 남아 있다 — 계획을 끝내고 구현한 뒤 다시 실행한다"
+    [ ! -f "$SPECOPS/$FID/plan.md" ] || ! _ph_left "$SPECOPS/$FID/plan.md" || _die "plan.md 에 채우지 않은 자리표시({{…}})가 남아 있다(글자 그대로 적어야 하는 여는 중괄호 둘은 백틱으로 감싼다) — 계획을 끝내고 구현한 뒤 다시 실행한다"
     # 계획이 있었으면 여기서 끝났다고 남긴다 — 관제판이 계획 단계를 ✓ 로 바꾼다(없으면 그 단계는 보이지 않는다).
     [ ! -f "$SPECOPS/$FID/plan.md" ] || bash "$APPEND" "$FID" /plan 완료 "계획·전문가 반영 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
     bash "$APPEND" "$FID" /implement 완료 "주 세션 직접 구현 (/basic)" >/dev/null || _die "진행 기록을 남길 수 없다"
@@ -523,7 +535,7 @@ case "$ACTION" in
         grep -qE '^## .*반영' "$D/experts/$r.md" || _die "experts/$r.md 에 '## 반영' 절이 없다 — 지적마다 반영·기각을 1줄씩 적은 뒤 다시 실행한다"
       done
       # 채우지 않은 계획으로는 봉인하지 않는다 — review 를 건너뛰면 그 검사를 지나칠 수 있었다(20261114 주행 실측).
-      [ ! -f "$D/plan.md" ] || ! grep -q '{{' "$D/plan.md" || _die "plan.md 에 채우지 않은 자리표시({{…}})가 남아 있다 — 계획을 끝낸 뒤 다시 실행한다"
+      [ ! -f "$D/plan.md" ] || ! _ph_left "$D/plan.md" || _die "plan.md 에 채우지 않은 자리표시({{…}})가 남아 있다(글자 그대로 적어야 하는 여는 중괄호 둘은 백틱으로 감싼다) — 계획을 끝낸 뒤 다시 실행한다"
       # 계획의 태스크 칸 수가 상한 이상이면 풀 경로다 — plan 에 작은 수를 주고 계획에 태스크를 더 적는 길을 막는다.
       if [ -f "$D/plan.md" ]; then
         tn=$(grep -cE '^### Task ' "$D/plan.md")
@@ -546,7 +558,7 @@ case "$ACTION" in
     # 검증 러너가 받지 않는 명령으로 봉인하면 검증에서야 `VERIFY: PARTIAL — whitelist 미통과` 로 걸린다(20261112 실측: related 의 `none — …` 안내문).
     _runner_accepts "$ARG"; rc=$?
     [ "$rc" != 2 ] || _die "검증 러너의 허용 형식을 읽을 수 없다(run-verification.sh)"
-    [ "$rc" = 0 ] || _die "test_command 를 검증 러너가 받지 않는다: '$ARG' — 실행할 테스트 명령을 준다(bash scripts|tests/….sh · pytest · npm|pnpm|yarn test · go test · cargo test · npx <bin>). related 가 none 이면 프로젝트의 테스트 명령 전체를 쓴다."
+    [ "$rc" = 0 ] || _die "test_command 를 검증 러너가 받지 않는다: '$ARG' — 실행할 테스트 명령을 준다(bash scripts|tests/….sh · pytest · npm|pnpm|yarn test · go test · cargo test · mvn|./mvnw test|verify · gradle|./gradlew test|check · dotnet test · npx <bin>). related 가 none 이면 프로젝트의 테스트 명령 전체를 쓴다."
     [ -f "$D/reviews/T1-B-report.md" ] && [ -f "$D/reviews/T1-C-report.md" ] \
       || { echo "basic-path: 리뷰 보고서가 없다 — spec-reviewer-ko·code-reviewer-ko 를 tid=T1 로 호출한 뒤 다시 실행한다" >&2; exit 4; }
     # B 보고서의 종합 판정을 읽는다 (20261114). 저장 훅이 T1-B-feedback.md 를 만드는 것은 판정이 NEEDS_FIX 일 때뿐인데, 훅이 안 돈 실행

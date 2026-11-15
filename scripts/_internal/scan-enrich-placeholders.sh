@@ -16,6 +16,8 @@
 #      · <feature> 경로/테스트 표기 · "<UI 기능>" · "<첫 기능>"
 #      · 백틱 단독 표기 <FID>·<fid>·<name>·<task-id> — 채움 대상이 아닌 문서 본문 표기
 #      (`<화면A>`·`<화면B>` 는 화면 목록에서 도출 가능한 실 보강 대상 — 제외하지 않음)
+#      · 코드 표기 (20261115): 제네릭 타입(`Optional<String>` — 영숫자 2자 이상 바로 뒤의 꺾쇠, 중첩 포함)과 HTML 태그(`<button>`·`<div class="x">`).
+#        요청 원문·현재 동작 서술에 흔하고 자리표시가 아니다. `_<description>`·`T<N>` 처럼 앞이 `_`·한 글자면 종전대로 잡는다.
 set -u
 [ $# -ge 1 ] || { echo "Usage: $0 <file...>" >&2; exit 2; }
 
@@ -36,6 +38,8 @@ out=$(grep -HnE "$_PH" "$@" 2>/dev/null \
         -e 's|"<UI 기능>"|"UI-기능"|g' \
         -e 's|"<첫 기능>"|"첫-기능"|g' \
   | sed -E 's/`<(FID|fid|name|task-id)>`//g' \
+  | sed -E -e ':g' -e 's/([A-Za-z0-9]{2})<[^<>]*>/\1/' -e 'tg' \
+           -e 's#<(a|b|i|p|br|hr|div|span|button|input|form|label|select|option|table|thead|tbody|tr|td|th|ul|ol|li|h[1-6]|img|nav|header|footer|main|section|article|textarea|script|style|html|body|head|link|meta|svg|path|canvas|pre|code|em|strong|small|iframe|video|audio)([[:space:]][^<>]*)?/?>##g' \
   | grep -E "$_PH")
 
 # ── 예시 블록 잔존 검출 (20260806) ───────────────────────────────────────────

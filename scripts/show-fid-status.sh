@@ -8,6 +8,11 @@ FID="${1:-}"
 
 # worktree 에서 불러도 FID 기록이 메인에만 있으면 메인을 읽는다
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/specops-root.sh" 2>/dev/null && specops_root_export "${FID:-}"
+# 하위 폴더에서 불려도 작업 트리 최상위의 .specops 를 읽는다(20261115) — 읽기 전용이라 폴더는 옮기지 않는다.
+if [ -z "${SPECOPS_ROOT:-}" ] && [ ! -e .specops ]; then
+  _sfs_top=$(git rev-parse --show-toplevel 2>/dev/null || true)
+  [ -n "$_sfs_top" ] && [ -d "$_sfs_top/.specops" ] && SPECOPS_ROOT="$_sfs_top/.specops"
+fi
 
 # 테스트 환경 오버라이드 (SPECOPS_ROOT 미설정 시 기본 .specops)
 SPECOPS="${SPECOPS_ROOT:-.specops}"

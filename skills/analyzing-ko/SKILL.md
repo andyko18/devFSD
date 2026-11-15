@@ -108,15 +108,11 @@ grep -n "^## \|^### \|^def \|^function \|^class \|^export " \
 ### Step 2: current-state.md §2 — 호출자/의존 매핑 (AC-11)
 
 ```bash
-# 호출자 탐색 (파일명·심볼명으로)
-grep -rn "source .*<target-basename>\|import.*<symbol>\|<symbol>" \
-  commands/ skills/ hooks/ scripts/ \
-  --include="*.md" --include="*.sh" \
-  --include="*.py" --include="*.ts" \
-  2>/dev/null | grep -v "^Binary" | head -20
+# 호출자 탐색 (파일명·심볼명 — 추적 파일 전체)
+git grep -nE "<target-basename>|<symbol>" -- . ':!<target-file>' | head -20
 
 # 의존 탐색 (target 파일 내 외부 참조)
-grep -E "^source |^\. |^import |^require " <target-file> 2>/dev/null | head -10
+grep -nE "^[[:space:]]*(source |\. |import |from |require|#include|use |using )" <target-file> | head -10
 ```
 
 동적 호출자(runtime 결정)는 정적 분석으로 미식별 — 이 경우 `> 한계: 동적 호출자 — 정적 분석 불가` 명시 (AC-14).
@@ -126,12 +122,9 @@ grep -E "^source |^\. |^import |^require " <target-file> 2>/dev/null | head -10
 ### Step 3: current-state.md §3 — 기존 테스트 커버리지 (AC-11)
 
 ```bash
-# 대상 파일명·심볼명으로 테스트 파일 탐색
-find scripts/tests -name "*.sh" 2>/dev/null \
-  | xargs grep -l "<target-basename>" 2>/dev/null
-
-find . \( -name "test_*.py" -o -name "*.test.ts" \) -print0 2>/dev/null \
-  | xargs -0 grep -l "<symbol>" 2>/dev/null
+# 대상 파일명·심볼명을 언급하는 테스트 파일 (추적 파일 전체)
+git grep -lE "<target-basename>|<symbol>" -- . \
+  | grep -iE '(^|/)(tests?|__tests__|spec)/|[._-](test|spec)\.|(^|/)test[_-]|Tests?\.(java|kt|cs)$' | head -20
 
 # 커버되지 않는 경로: 탐색 결과 없으면
 echo "> 관련 테스트 파일 없음 — 회귀 AC 추가 권고"

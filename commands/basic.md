@@ -12,6 +12,8 @@ reference_upstream: specops-ko 독자 추가 (commands/start.md 와 commands/qui
 
 # /basic <만들거나 고칠 것 한 줄>
 
+> **경로**: `/start`·`/maintain`·자연어 진입은 이 문서를 Read 로 읽는다 — 그때 명령에 적힌 플러그인 루트 변수(CLAUDE_PLUGIN_ROOT)는 치환되지 않고 Bash 에도 없다. 이 파일 경로에서 `/commands/` 앞까지(플러그인 루트 절대경로)로 바꿔 실행한다.
+
 ## 목적
 
 `/quick-fix` 로는 크고 풀 경로로는 무거운 **보통 작업**을 빠르게 끝낸다. **`/start`·`/maintain`·자연어 진입은 무거운 위험 신호가 없으면 이 경로를 자동으로 고른다**(`basic-path.sh route`) — `/basic` 은 이 경로를 직접 지정하는 명령이다. 신규·유지보수를 가리지 않는다(유지보수는 아래 1번의 `maintain`).

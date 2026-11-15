@@ -84,5 +84,25 @@ if [ -n "$shits" ]; then
   echo "  → 그 스크립트의 플러그인 루트 변수를 앞에 붙이세요 (예: bash \"\$PLUGIN/scripts/_internal/<이름>.sh\")."
   exit 1
 fi
+# 다섯째 표면 — Read 로 읽는 보조 문서 (20261115).
+#   Skill 도구·슬래시 명령으로 실리는 본문은 플러그인 루트 변수가 치환되지만, **Read 로 읽는 파일은 치환되지 않고 Bash 환경에도
+#   그 변수가 없다**(실측 unset). 모델이 적힌 대로 치면 `bash /scripts/x.sh` 가 된다(승인 기록·세션 분리 명령이 첫 실행에서 실패).
+#   대상: skills/<x>/ 의 SKILL.md 가 아닌 .md · `basic-path.sh route` 가 Read 시키는 commands/basic.md · templates/screen-design-guide.md.
+#   그 변수를 쓰는 문서는 "플러그인 루트 절대경로"로 바꿔 실행하라는 안내를 가져야 한다.
+rhits=""
+while IFS= read -r _f; do
+  [ -f "$_f" ] || continue
+  command grep -q 'CLAUDE_PLUGIN_ROOT' "$_f" 2>/dev/null || continue
+  command grep -q '플러그인 루트 절대경로' "$_f" 2>/dev/null || rhits="${rhits}${_f}"$'\n'
+done <<EOF_RD
+$( { find skills -type f -name '*.md' ! -name 'SKILL.md' ! -name 'CLAUDE.md' 2>/dev/null \
+      | command grep -vE '^skills/(release-ko|e2e-test-ko)/'; echo commands/basic.md; echo templates/screen-design-guide.md; } | LC_ALL=C sort)
+EOF_RD
+if [ -n "$rhits" ]; then
+  echo "PLUGIN-PATHS: FAIL — Read 로 읽는 보조 문서가 플러그인 루트 변수를 쓰는데 치환 안내가 없다(Read 는 치환하지 않는다):"
+  printf '%s' "$rhits" | sed 's/^/  /'
+  echo "  → 문서 머리에 '명령의 플러그인 루트 변수는 플러그인 루트 절대경로(이 파일 경로에서 /skills/ 앞까지)로 바꿔 실행한다' 를 적으세요."
+  exit 1
+fi
 echo "PLUGIN-PATHS: OK"
 exit 0

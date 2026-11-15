@@ -4,6 +4,23 @@
 
 ## [Unreleased]
 
+### Fixed
+
+소스 검토(20261115 · v5.3.0) — **하류 프로젝트에서 처음 돌릴 때 막히는 곳**. 이 플러그인은 자기 저장소 모양(`main` 브랜치 · 저장소 최상위 · bash 테스트 · 영문 파일 이름)을 하류에 가정하고 있었다. 행동 변경.
+
+- **Java·.NET 프로젝트의 테스트 명령을 검증 러너가 받는다**(`scripts/_internal/run-verification.sh` · `record-task-receipt.sh` · `hooks/governance-lib.sh`). `mvn|./mvnw [옵션] test|verify` · `gradle|./gradlew [:모듈:]test|check [--tests <클래스>]` · `dotnet test` · `python3 -m pytest` · pytest node id(`a.py::test_b`). 종전에는 전부 `VERIFY: PARTIAL` 이라 커밋이 막혔다. 수명주기 단계는 test·verify·check 로 고정하고 뒤 인자는 옵션만 받는다(`mvn test deploy`·`gradlew test publish` 는 여전히 거부). `make` 와 `go test ./...` 는 종전대로 미지원이다(래퍼 `bash scripts/test.sh` 를 쓴다).
+- **한글 파일 이름이 있어도 기본 경로를 봉인한다**(`scripts/basic-path.sh` · `scripts/_internal/risk-profile.sh`). git 이 비ASCII 경로를 따옴표로 이스케이프해 내서 "따옴표가 든 파일 이름" 으로 영구 거부됐다.
+- **기본 브랜치가 `main`·`master` 가 아닌 저장소**(새 `scripts/_internal/base-branch.sh` — `origin/HEAD` 가 가리키는 브랜치 → main → master). `develop` 저장소에서 기본·quick 경로가 작업 브랜치를 만들지 않고 그 자리에 커밋했고, 기준 ref 를 못 찾아 문서만 바꾼 PR 이 막혔다. 분리(detached) HEAD 에서도 작업 브랜치를 만든다. 적용: `basic-path.sh` · `quick-fix.sh` · `governance-lib.sh` · `risk-profile.sh` · `reconcile-check.sh` · `check-foundation-merged.sh` · `check-foundation-manifest.sh` · `check-screen-quality.sh` · `scan-dod-weakening.sh`. `origin/HEAD` 가 없는 저장소는 `git remote set-head origin -a` 가 필요하다.
+- **하위 폴더에서 부른 스크립트가 작업 트리 최상위의 `.specops` 를 쓴다**(`scripts/_internal/specops-root.sh` `specops_top_enter` · `basic-path.sh` · `show-fid-status.sh`). `cd packages/web` 뒤에 부르면 진행 기록이 하위 폴더에 새 `.specops` 를 만들었고(관할 분열) 검증 러너·기본 경로는 "없다" 로 끝났다. 현재 폴더에 `.specops` 가 있으면 옮기지 않는다.
+- **코드 표기를 "채우지 않은 자리표시" 로 읽지 않는다**. 기본 경로(`basic-path.sh`)는 코드 펜스·백틱 안의 `{{` 를 건너뛴다(Vue·Jinja·GitHub Actions 를 말하는 spec 이 승인·봉인에서 영구 거부됐다). `scan-enrich-placeholders.sh` 는 제네릭 타입(`Optional<String>`)과 HTML 태그(`<button>`)를 건너뛴다(요청 원문에 그런 글자가 있으면 intent·유지보수 baseline 검사가 FAIL 해 구현 dispatch 가 막혔다).
+- **Read 로 읽는 보조 문서의 플러그인 루트 변수**(`skills/specifying-ko/once-approval.md` · `decomposing-ko/session-split.md` · `implementing-ko/dev-autonomy.md` · `commands/basic.md` · `templates/screen-design-guide.md`). Read 는 그 변수를 치환하지 않고 Bash 에도 없어, 적힌 대로 치면 `bash /scripts/…` 였다(승인 기록·세션 분리 명령). 문서 머리에 절대경로로 바꿔 실행하라는 안내를 넣고 `check-plugin-paths.sh` 다섯째 표면이 빠진 문서를 잡는다.
+- **유지보수 분석의 호출자·테스트 탐색이 저장소 전체를 본다**(`skills/analyzing-ko/SKILL.md` — `git grep`). 종전 명령은 이 플러그인의 폴더(`commands/ skills/ hooks/ scripts/`)만 보아 하류에서는 늘 "호출자 없음" 이었다.
+- **spec 을 git 이 무시하는 경로에 쓰면 커밋하지 않는다**(`skills/specifying-ko/SKILL.md`) · **기획서 자동 발견이 zsh 에서도 돈다**(`commands/init-project.md` — `find`).
+
+### Tests/CI
+
+- `test-agent-contracts.sh` 의 `($n곳)` 이 `LANG` 이 설정된 bash 3.2 에서 `unbound variable` 로 죽던 것(`${n}곳`). 새 단언: `test-verifying-automation.sh` T-jvm(34) · `test-basic-path.sh` Z9k·BR1~3·SUB1 · `test-specops-root.sh` SR-50~53 · `test-plugin-paths.sh` P19 · `test-lib.sh` T-base.f·g · `test-quick-fix.sh` S1.c2 · `test-init-project-enrich.sh` T10.h·i.
+
 ## [5.3.0] — 2026-11-15
 
 ### Changed

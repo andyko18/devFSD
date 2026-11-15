@@ -293,6 +293,12 @@ out=$(cd "$TD" && bash "$CHK" 20260806-fnd 2>&1); rc=$?
 printf '| 모듈 | 경로 |\n|---|---|\n| 라우팅 | `src/router.ts` |\n| 인증 | `src/auth.ts` |\n| 결제 | `src/router.ts` |\n' > "$TD/.specops/memory/foundation-manifest.md"
 out=$(cd "$TD" && bash "$CHK" 20260806-fnd 2>&1)
 ! printf '%s' "$out" | grep -q '사라졌다' && ok "T14.j 행 추가만 → 경고 없음" || nope "T14.j" "out=$out"
+# T14.i2: 원격 없는 develop 저장소(origin/HEAD·main·master 없음 · 20261115)에서도 사라진 모듈을 알린다
+( cd "$TD" && git branch -q -m main develop ) >/dev/null 2>&1
+printf '| 모듈 | 경로 |\n|---|---|\n| 라우팅 | `src/router.ts` |\n' > "$TD/.specops/memory/foundation-manifest.md"
+out=$(cd "$TD" && bash "$CHK" 20260806-fnd 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qx '  - 인증' \
+  && ok "T14.i2 ★ 원격 없는 develop 저장소 — base(develop) 에서 사라진 모듈(인증)을 지목" || nope "T14.i2" "rc=$rc out=$out"
 rm -rf "$TD"
 
 # T14.k: 공통부 FR 의 `관련 spec` 칸이 비어 있으면 적는 명령을 알린다(차단 아님) · 다 적혀 있으면 침묵

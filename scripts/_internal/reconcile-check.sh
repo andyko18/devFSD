@@ -7,6 +7,7 @@
 # 배경: 정체 후 재개 시 session-progress 단독은 현실을 과소보고한다(주 breadcrumb 만 읽으면 "미구현"
 #   오판). git·dispatch·산출물로 진짜 frontier 를 계산해 desync 를 경고하고 재개점을 준다.
 set -u
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/base-branch.sh" 2>/dev/null || true   # specops_default_branch (20261115)
 
 FID="${1:-}"
 MODE="${2:-}"
@@ -102,6 +103,7 @@ _emit_completeness_warnings() {  # $1=FID 디렉토리 $2=줄 접두어
 merged_into=""
 if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
   _oh=$(git symbolic-ref --short -q refs/remotes/origin/HEAD 2>/dev/null || true); _oh=${_oh#origin/}   # 기본 브랜치가 develop·trunk 인 저장소(20261115)
+  [ -n "$_oh" ] || ! declare -F specops_default_branch >/dev/null || _oh=$(specops_default_branch 2>/dev/null) || _oh=""   # origin/HEAD 없는 저장소 — 로컬 develop 등(20261115)
   for _r in ${_oh:+"refs/remotes/origin/$_oh" "refs/heads/$_oh"} refs/remotes/origin/main refs/heads/main refs/remotes/origin/master refs/heads/master; do
     git show-ref --verify --quiet "$_r" && { mref="$_r"; break; }
   done

@@ -27,6 +27,7 @@
 #   (그 밖의 루트·이름공간 패키지는 외부로 읽힌다 — 누락이지 오탐은 아니다). TS `import { type A }`(지정자 전부 타입)는 런타임 간선으로 본다.
 #   순환은 최상위 import 만 본다 — 들여쓴 import(함수 안·if TYPE_CHECKING·try)와 TS `import type`·동적 import 는 순환 간선에서 뺀다(방향 판정에는 넣는다).
 set -u
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/base-branch.sh" 2>/dev/null || true   # specops_default_branch (20261115)
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 PLAN=""; FILES=""; ROOT=""; FID=""
@@ -77,9 +78,10 @@ if [ -n "$FID" ]; then
     b=$(_git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)
     [ -n "$b" ] || { _git show-ref -q --verify refs/heads/main && b=main; }
     [ -n "$b" ] || { _git show-ref -q --verify refs/heads/master && b=master; }
+    [ -n "$b" ] || ! declare -F specops_default_branch >/dev/null || b=$(specops_default_branch "$ROOT" 2>/dev/null) || b=""   # 원격 없는 develop 저장소(20261115)
     [ -n "$b" ] && base=$(_git merge-base HEAD "$b" 2>/dev/null || true)
   fi
-  [ -n "$base" ] || cant "분기점을 구할 수 없음(review-base.sha·기본 브랜치 origin/HEAD·main·master 부재 또는 공통 조상 없음)"
+  [ -n "$base" ] || cant "분기점을 구할 수 없음(review-base.sha·기본 브랜치 origin/HEAD·main·master·develop 등 부재 또는 공통 조상 없음)"
   FILES="$TMP/files"; SEP=nul
   # 파일로 받고 종료 코드를 따로 본다 — 파이프는 git 의 실패를 "바뀐 파일 없음"으로 읽게 만든다.
   #   -z: 따옴표·줄바꿈이 든 파일 이름도 그대로 받는다(인용된 이름은 경로로 풀리지 않아 조용히 빠진다).

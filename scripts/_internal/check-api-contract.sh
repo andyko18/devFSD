@@ -28,6 +28,7 @@
 # 표 행 규칙(경로·상태코드)은 §1 Markdown 엔드포인트 표만 본다. OpenAPI·GraphQL·RPC 본문은 해석하지 않는다(정책 칸 규칙만 돈다).
 # `<!-- specops:example:start -->` … `end` 안의 예시 행은 보지 않는다.
 set -u
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/base-branch.sh" 2>/dev/null || true   # specops_default_branch (20261115)
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 SPEC=""; FID=""; ALL=0
@@ -71,6 +72,7 @@ if [ -n "$FID" ] && [ "$ALL" -eq 0 ]; then
     b=$(git -C "$top" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)
     [ -n "$b" ] || { git -C "$top" show-ref -q --verify refs/heads/main && b=main; }
     [ -n "$b" ] || { git -C "$top" show-ref -q --verify refs/heads/master && b=master; }
+    [ -n "$b" ] || ! declare -F specops_default_branch >/dev/null || b=$(specops_default_branch "$top" 2>/dev/null) || b=""   # 원격 없는 develop 저장소(20261115)
     [ -n "$b" ] && base=$(git -C "$top" merge-base HEAD "$b" 2>/dev/null || true)
     if [ -n "$base" ]; then
       CHANGED="$TMP/changed"

@@ -1,6 +1,6 @@
 ---
 name: finishing-a-development-branch-ko
-description: feature branch 작업 완료 후 worktree 정리·branch 삭제·main 동기화를 체계적으로 수행하는 Lifecycle 최종 정리 스킬
+description: feature branch 작업 완료 후 worktree 정리·branch 삭제·기본 브랜치 동기화를 체계적으로 수행하는 Lifecycle 최종 정리 스킬
 layer: 2
 reference_upstream: obra/superpowers@v5.1.0 skills/finishing-a-development-branch/SKILL.md
 specops_version: 1.61.0
@@ -11,7 +11,9 @@ used_by: using-git-worktrees-ko (짝 스킬 — 작업 완료 후 호출), perfo
 
 ## 개요
 
-feature branch 작업·PR 머지가 완료된 후 **worktree 제거 → local/remote branch 삭제 → main 동기화** 순서로 저장소를 클린 상태로 복원한다.
+feature branch 작업·PR 머지가 완료된 후 **worktree 제거 → local/remote branch 삭제 → 기본 브랜치 동기화** 순서로 저장소를 클린 상태로 복원한다.
+
+**기본 브랜치는 `main` 으로 가정하지 않는다** — 하류 저장소는 `develop`·`trunk` 일 수 있다. 아래 코드블록마다 첫 줄의 `BASE_BR=…` 로 구한다(`origin/HEAD` → `main` → `master` → 로컬 `develop`·`dev`·`trunk`·`development` · 끝내 모르면 `main`). 블록마다 셸이 새로 뜨므로 그 줄을 빼지 않는다.
 
 **핵심 원칙**: 미머지 브랜치 강제 삭제 금지. remote 삭제는 반드시 사용자 확인 후.
 
@@ -60,11 +62,13 @@ echo "PR state: $PR_STATE"
 **gh CLI 미가용 시 (fallback)**:
 ```bash
 # squash-merge 에서는 git log 가 커밋 남아있음을 정상 보고 — 완전한 확인 불가
+BASE_BR=$(. "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/base-branch.sh && specops_default_branch) || BASE_BR=main
 MERGE_CONFIRMED_BY_GH=false
 FEAT_BRANCH=$(git branch --show-current)
-UNMERGED=$(git log origin/main.."$FEAT_BRANCH" --oneline 2>/dev/null | wc -l | tr -d ' ')
+CMP="origin/$BASE_BR"; git rev-parse --verify -q "$CMP^{commit}" >/dev/null || CMP="$BASE_BR"   # 원격이 없으면 로컬 기본 브랜치와 비교
+UNMERGED=$(git log "$CMP".."$FEAT_BRANCH" --oneline 2>/dev/null | wc -l | tr -d ' ')
 if [ "$UNMERGED" -gt 0 ]; then
-  echo "경고: origin/main 에 없는 커밋 ${UNMERGED}건. PR이 머지됐나요? [y/n]"
+  echo "경고: $CMP 에 없는 커밋 ${UNMERGED}건. PR이 머지됐나요? [y/n]"
   # squash-merge 시 이 경고는 오탐 가능 — 사용자 응답 대기
 fi
 ```
@@ -96,13 +100,14 @@ worktree가 없으면 "worktree 없음 — 스킵" 출력 후 다음 단계.
 ### Step 4: 로컬 feature branch 삭제
 
 ```bash
+BASE_BR=$(. "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/base-branch.sh && specops_default_branch) || BASE_BR=main
 FEAT_BRANCH=$(git branch --show-current)
 
-# main으로 먼저 이동 (판정기는 현재 체크아웃 브랜치를 거부한다)
-git checkout main
+# 기본 브랜치로 먼저 이동 (판정기는 현재 체크아웃 브랜치를 거부한다)
+git checkout "$BASE_BR"
 
 # ★ 삭제 안전 판정 — 판정기가 SoT (20260806 기계화)
-bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-branch-deletable.sh "$FEAT_BRANCH" main || {
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-branch-deletable.sh "$FEAT_BRANCH" "$BASE_BR" || {
   echo "HARD GATE: 삭제 금지 — 위 사유 확인 후 재실행"
   exit 1
 }
@@ -125,12 +130,16 @@ git push origin --delete "$FEAT_BRANCH"
 # n 시: "remote branch 유지. 나중에 수동 삭제: git push origin --delete $FEAT_BRANCH"
 ```
 
-### Step 6: main 동기화
+### Step 6: 기본 브랜치 동기화
 
 ```bash
-git checkout main
-git pull origin main
-echo "main 동기화 완료"
+BASE_BR=$(. "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/base-branch.sh && specops_default_branch) || BASE_BR=main
+git checkout "$BASE_BR"
+if git remote get-url origin >/dev/null 2>&1; then
+  git pull origin "$BASE_BR" && echo "$BASE_BR 동기화 완료"
+else
+  echo "원격(origin) 없음 — pull 건너뜀 · 로컬 $BASE_BR 그대로"
+fi
 ```
 
 ### Step 7: 정리 확인

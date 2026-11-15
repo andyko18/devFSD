@@ -29,6 +29,7 @@
 #   plan 의 펜스 안(태스크의 테스트 픽스처 코드 등)에 든 `## 2. 파일 구조`·경로는 신호가 아니다.
 # 바뀐 행을 구하는 블록은 check-api-contract.sh 와 같다 — 한쪽을 고치면 다른 쪽도 고친다.
 set -u
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/base-branch.sh" 2>/dev/null || true   # specops_default_branch (20261115)
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 SPEC=""; FID=""; DM=""; PLAN=""; TASKS=""; ALL=0; EXTRA=0
@@ -83,6 +84,7 @@ if [ -n "$FID" ] && [ "$ALL" -eq 0 ] && [ -n "$SPEC_P" ]; then
     b=$(git -C "$top" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null || true)
     [ -n "$b" ] || { git -C "$top" show-ref -q --verify refs/heads/main && b=main; }
     [ -n "$b" ] || { git -C "$top" show-ref -q --verify refs/heads/master && b=master; }
+    [ -n "$b" ] || ! declare -F specops_default_branch >/dev/null || b=$(specops_default_branch "$top" 2>/dev/null) || b=""   # 원격 없는 develop 저장소(20261115)
     [ -n "$b" ] && base=$(git -C "$top" merge-base HEAD "$b" 2>/dev/null || true)
     if [ -n "$base" ]; then
       CHANGED="$TMP/changed"

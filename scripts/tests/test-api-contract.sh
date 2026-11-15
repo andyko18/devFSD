@@ -175,6 +175,20 @@ out2=$(cd "$D2" && bash "$CAC" 20261021-f); rc2=$?
   && ! printf '%s\n' "$out" | grep -q '\[범위\]' \
   && [ "$rc2" -eq 0 ] && printf '%s\n' "$out2" | grep -qF 'createLegacy' && printf '%s\n' "$out2" | grep -qF '[범위] 전체 행'; } \
   && ok "A11 FID 모드 — 추적 중이면 바뀐 행만 · 추적 밖이면 전체 행 + [범위]" || nope "A11" "rc=$rc out=$out rc2=$rc2 out2=$out2"
+# A11c: 원격 없는 develop 저장소(origin/HEAD·main·master 없음 · 20261115) — 분기점을 develop 으로 잡아 바뀐 행만 본다
+D="$ROOT/a11c"; mkdir -p "$D/.specops/memory"
+_spec "$D/.specops/memory/api-spec.md" "$_ok_rows
+| POST | \`/v1/createLegacy\` | Bearer | — | — | 201 | 옛 위반 |"
+( cd "$D" && git init -q -b develop && git add -A && git -c user.email=t@t -c user.name=t commit -qm init && git checkout -qb feat )
+python3 - "$D/.specops/memory/api-spec.md" "$ROOT/newrow" <<'PY2'
+import sys
+p,n=sys.argv[1],sys.argv[2]; s=open(p).read(); r=open(n).read()
+s=s.replace("| 옛 위반 |\n","| 옛 위반 |\n"+r,1); open(p,"w").write(s)
+PY2
+out=$(cd "$D" && bash "$CAC" 20261021-f); rc=$?
+{ [ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qF '[경로] POST /v1/createNew' && ! printf '%s\n' "$out" | grep -qF 'createLegacy' \
+  && ! printf '%s\n' "$out" | grep -q '\[범위\]'; } \
+  && ok "A11c ★ 원격 없는 develop 저장소 — develop 분기점 이후 바뀐 행만" || nope "A11c" "rc=$rc out=$out"
 
 # A12 (배선): 검증 러너가 evidence.md 에 절을 남기고 경고를 내지만 VERIFY PASS·rc 0 은 그대로다
 D="$ROOT/a12"; VF=20261021-f; mkdir -p "$D/.specops/memory" "$D/.specops/$VF" "$D/scripts/tests"

@@ -239,6 +239,19 @@ out2=$(cd "$D2" && bash "$CSD" 20261021-f); rc2=$?
 { [ "$rc" -eq 0 ] && _has "$out" '[인증] GET /v1/fresh' && ! _has "$out" '/v1/legacy' && ! _has "$out" '[범위]' \
   && [ "$rc2" -eq 0 ] && _has "$out2" '[인증] GET /v1/fresh' && _has "$out2" '[인증] GET /v1/legacy' && _has "$out2" '[범위] 전체 행'; } \
   && ok "S5 FID 모드 — 추적 중이면 바뀐 행만 · 추적 밖이면 전체 행 + [범위]" || nope "S5" "rc=$rc out=$out rc2=$rc2 out2=$out2"
+# S5c: 원격 없는 develop 저장소(origin/HEAD·main·master 없음 · 20261115) — 분기점을 develop 으로 잡아 바뀐 행만 본다
+D="$ROOT/s5c"; mkdir -p "$D/.specops/memory"
+_api "$D/.specops/memory/api-spec.md" "$_ok_rows
+| GET | \`/v1/legacy\` |  | — | — | 200 | 옛 빈칸 |"
+( cd "$D" && git init -q -b develop && git add -A && git -c user.email=t@t -c user.name=t commit -qm init && git checkout -qb feat )
+python3 - "$D/.specops/memory/api-spec.md" <<'PY2'
+import sys
+p=sys.argv[1]; s=open(p).read()
+s=s.replace("| 옛 빈칸 |\n","| 옛 빈칸 |\n| GET | `/v1/fresh` |  | — | — | 200 | 새 빈칸 |\n",1); open(p,"w").write(s)
+PY2
+out=$(cd "$D" && bash "$CSD" 20261021-f); rc=$?
+{ [ "$rc" -eq 0 ] && _has "$out" '[인증] GET /v1/fresh' && ! _has "$out" '/v1/legacy' && ! _has "$out" '[범위]'; } \
+  && ok "S5c ★ 원격 없는 develop 저장소 — develop 분기점 이후 바뀐 행만" || nope "S5c" "rc=$rc out=$out"
 
 # ── S6 배선 — 검증 러너·specifying·verifying (AC-6) ──
 D="$ROOT/s6"; VF=20261021-f; mkdir -p "$D/.specops/memory" "$D/.specops/$VF" "$D/scripts/tests"

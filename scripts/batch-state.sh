@@ -94,7 +94,14 @@ fi
 placeholder_ids=""; skip_ok_ids=""; cls_out=""
 _chk="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/check-fr-table.sh"
 if [ -f "$_chk" ]; then
-  cls_out=$(bash "$_chk" --classify "$REQ" 2>/dev/null | grep -E '^(ELIGIBLE|SKIP)\|' || true)
+  # queue 머리말의 `> milestone: <M>`(init-batch-queue.sh 가 쓴다)이 있으면 같은 범위로 분류한다 —
+  #   범위 밖 FR 의 `SKIP (다른 마일스톤)` 행을 미완으로 세지 않게. 줄이 없으면(종전 queue·`--all`) 전 마일스톤.
+  _ms=$(sed -n 's/^>[[:space:]]*milestone:[[:space:]]*\([^|[:space:]][^|]*\)$/\1/p' "$QUEUE" 2>/dev/null | head -1 | sed 's/[[:space:]]*$//')
+  if [ -n "$_ms" ]; then
+    cls_out=$(bash "$_chk" --classify --milestone "$_ms" "$REQ" 2>/dev/null | grep -E '^(ELIGIBLE|SKIP)\|' || true)
+  else
+    cls_out=$(bash "$_chk" --classify "$REQ" 2>/dev/null | grep -E '^(ELIGIBLE|SKIP)\|' || true)
+  fi
 fi
 if [ -n "$cls_out" ]; then
   # 같은 id 가 ELIGIBLE 로도 나오면(표에 실 행과 placeholder 행이 겹침) batch 대상이다 — 빼지 않는다.
@@ -156,7 +163,7 @@ if [ -n "$queue_rows" ]; then
     st = ""
     for (i = NF; i >= 1; i--) { if (qnorm($i) != "") { st = qnorm($i); break } }
     id = qnorm($2)
-    if (st ~ /^SKIP([^A-Za-z0-9_]|$)/ && index(ENVIRON["SKIP_OK"], " " id " ")) print "  - " id ": SKIP (시드·공통부 — 분류기 판정)"
+    if (st ~ /^SKIP([^A-Za-z0-9_]|$)/ && index(ENVIRON["SKIP_OK"], " " id " ")) print "  - " id ": SKIP (시드·공통부·다른 마일스톤 — 분류기 판정)"
   }')
 fi
 if [ -n "$skipped" ] || [ -n "$excluded_ph" ]; then

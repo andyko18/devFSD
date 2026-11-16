@@ -935,6 +935,34 @@ EOF
 bash "$SCRIPT" "$TMP/c2/.specops/batch-z" "$TMP/c2/req.md" >/dev/null 2>&1; code=$?
 [ "$code" -eq 0 ] && ok "T3.d 대조 — 중복을 없애면 exit 0" || nope "T3.d" "exit=$code"
 
+# ── 마일스톤 범위 (20261116) — queue 머리말 `> milestone: <M>` 이 있으면 범위 밖 FR 의 SKIP 은 미완이 아니다 ──
+mkdir -p "$TMP/ms/.specops/batch-m"
+cat > "$TMP/ms/req.md" <<'EOF'
+| ID | 요구사항 | 마일스톤 | 우선순위 | 관련 spec |
+|---|---|---|---|---|
+| FR-7 | 회의실 목록 | M1 | must | (TBD) |
+| FR-8 | 예약 현황 | M1 | must | (TBD) |
+| FR-12 | 회의실 관리 | M2 | should | M2 시점에 분해 |
+EOF
+_ms_queue() {   # $1 = 머리말 줄(빈 값이면 없음) · $2 = FR-8 Status
+  { printf '# batch-m 큐\n\n'; [ -n "$1" ] && printf '%s\n\n' "$1"
+    printf '| FR-ID | FID | FR 설명(1줄) | Status |\n|---|---|---|---|\n'
+    printf '| FR-7 | 20260101-a | 회의실 목록 | MERGED |\n| FR-8 | 20260101-b | 예약 현황 | %s |\n' "$2"
+    printf '| FR-12 | — | (다른 마일스톤 — M2) | SKIP |\n'; } > "$TMP/ms/.specops/batch-m/queue.md"
+}
+_ms_queue '> milestone: M1' MERGED
+out=$(bash "$SCRIPT" "$TMP/ms/.specops/batch-m" "$TMP/ms/req.md" 2>&1); code=$?
+[ "$code" -eq 0 ] && ! echo "$out" | grep -qF '[미완]' && echo "$out" | grep -q 'FR-12: SKIP' \
+  && ok "MS.a 범위 줄이 있으면 다른 마일스톤 SKIP 은 미완이 아니다(제외 목록에는 보인다)" || nope "MS.a" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+_ms_queue '' MERGED
+out=$(bash "$SCRIPT" "$TMP/ms/.specops/batch-m" "$TMP/ms/req.md" 2>&1); code=$?
+[ "$code" -eq 1 ] && echo "$out" | grep -q 'FR-12: SKIP — requirements 에서는 batch 대상 FR' \
+  && ok "MS.b 범위 줄이 없으면 종전대로 미완(적격 FR 을 SKIP 으로 바꿔 완료를 만들 수 없다)" || nope "MS.b" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+_ms_queue '> milestone: M1' SKIP
+out=$(bash "$SCRIPT" "$TMP/ms/.specops/batch-m" "$TMP/ms/req.md" 2>&1); code=$?
+[ "$code" -eq 1 ] && echo "$out" | grep -q 'FR-8: SKIP — requirements 에서는 batch 대상 FR' && ! echo "$out" | grep -q 'FR-12: SKIP — requirements' \
+  && ok "MS.c 범위 안(M1) FR 의 SKIP 은 범위 줄이 있어도 미완" || nope "MS.c" "exit=$code out=$(echo "$out" | tr '\n' ' ')"
+
 echo ""
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

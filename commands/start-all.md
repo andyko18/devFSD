@@ -22,6 +22,8 @@ reference_upstream: specops-ko 독자 추가
 
 0. **기본 동작과 `--step`** — 인자가 `--step` 으로 시작하면 그 낱말을 떼고 `--step` 모드(아래 각 Phase 의 기존 동작 — FR 마다 묻고 Phase 2·2.5-E 에서 승인)로 돈다. 없으면 `§일괄` 모드: 질문은 Phase 1a·1c 의 묶음 2회(회당 많아야 4개), 승인은 Phase 2.5-E 의 승인 묶음 1회이고 그 사이는 묻지 않는다(규칙 원본 `skills/specifying-ko/once-approval.md`). 모드는 Phase 0 의 queue.md 생성 직후 헤더에 `mode: 일괄` 또는 `mode: step` 1줄로 남기고, 재진입하면 그 줄을 읽어 같은 모드로 돈다 — 줄이 없는 기존 ACTIVE queue(이 변경 전 batch)는 `step` 으로 보고, 재진입 인자에 `--step` 이 있으면 줄을 `mode: step` 으로 바꾼다(인자가 이긴다 · 반대로는 바꾸지 않는다). 그래도 멈추는 곳: plan-review·design-review Critical cap · 2.5-C Critical 충돌 · 비가역(HELD) · 보안 Critical/High · Phase 3 미완 · batch PR. `/start-all-auto` 는 이 절과 무관하다(auto 변형 문단이 따로 있다). `§auto` 분기(모드 문단과 A2 의 best-guess 포함)는 `/start-all-auto` 로 들어왔을 때만 적용한다(그 queue 에는 `mode:` 줄이 없다) — `mode: 일괄` batch 에서는 FR spec 라벨로 판정하지 않는다.
 
+0b. **마일스톤 범위** — 기본은 **적격 FR 이 있는 가장 이른 마일스톤 하나**다(`/init-project` 가 설계를 끝낸 범위가 M1 이고, 뒤 마일스톤 FR 은 "M2 시점에 분해"·`<미확정 — 근거 필요>` 인 채 표에 올라 있다 — 하류 실측 20261116: M1 5건을 돌리려는데 대상이 10건). 인자가 `--milestone <이름>` 으로 시작하면 그 마일스톤, `--all` 로 시작하면 전 마일스톤이다(그 낱말은 떼고 나머지를 본다 · `--step` 과 함께 쓸 수 있다). 범위는 Phase 0 스텝 5 의 `init-batch-queue.sh` 가 정해 queue 머리말 `> milestone: <M>` 1줄에 적는다 — 손으로 고르지 않는다. 범위 밖 FR 은 queue 에 `SKIP (다른 마일스톤 — <M>)` 행으로 남고, 스크립트가 낸 `QUEUE-INIT: SCOPE —` 줄을 사용자에게 그대로 보인다(묻지 않는다). 재진입(queue REUSE)은 처음 정한 범위 그대로다. 마일스톤 칸이 비었거나 한 종류뿐인 표는 종전과 같다(전부 대상). 이 표가 끝난 마일스톤을 따로 표시하지 않으므로 다음 마일스톤은 `--milestone <이름>` 으로 부른다.
+
 ### Phase 0 — 준비
 
 1. **batch-id 결정 — 재개 키는 날짜가 아니라 `ACTIVE` 마커다**
@@ -69,6 +71,7 @@ reference_upstream: specops-ko 독자 추가
    - `ELIGIBLE|<id>|<desc>|<M>` → queue Status=`PENDING`
    - `SKIP|<id>|placeholder|` → queue에 넣지 않거나 Status=`SKIP` + 설명 `(placeholder)`
    - `SKIP|<id>|seed-decomposed|<M>` → Status=`SKIP`, 설명에 `(마일스톤 시드 — 세부 FR로 분해됨)`
+   - `SKIP|<id>|later-milestone|<M>` → Status=`SKIP`, 설명에 `(다른 마일스톤 — <M>)` — 위 0b 의 범위를 준 분류(`--classify --milestone <first|이름>`)에서만 나온다. 이 스텝의 맨 `--classify` 출력에는 없다(범위는 스텝 5 의 초기화 스크립트가 건다)
    - `SKIP|<id>|foundation-scope|<M>` → Status=`SKIP`, 설명에 `(공통부 — /start-foundation 담당)` — 설명 선두 `[공통]`/`**[공통]**` 또는 `<!-- foundation-fr: FR-N,… -->`
    - `SUMMARY|…|eligible=0|…` 이고 실 FR≥1 이면 → "batch 대상 FR 0건"(시드·공통부만 남음) 안내 후 **중단**. 공통만이면 `/start-foundation` 완주(또는 기능 FR 추가) 후 재실행.
    - 시드·공통부 SKIP ≥1 이면 queue 상단에 사유 2–3줄 기재(Argus queue 헤더 패턴)
@@ -112,8 +115,11 @@ reference_upstream: specops-ko 독자 추가
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/init-batch-queue.sh \
      ".specops/$BATCH_ID"
+   # 0b 의 인자가 있을 때만: --milestone <이름> 또는 --milestone all 을 batch-dir 앞에 준다(기본 = first)
    ```
-   - `QUEUE-INIT: CREATED` → 신규 표(ELIGIBLE→PENDING · seed-decomposed/foundation-scope→SKIP · placeholder 행 생략).
+   - `QUEUE-INIT: SCOPE — …` → 범위와 제외 건수. 사용자에게 그대로 보인다.
+   - `QUEUE-INIT: FAIL — 마일스톤 '<이름>' 에 batch 대상 FR 0건` → 이름이 표에 없다. 출력의 마일스톤 목록을 보이고 **중단**.
+   - `QUEUE-INIT: CREATED` → 신규 표(ELIGIBLE→PENDING · seed-decomposed/foundation-scope/later-milestone→SKIP · placeholder 행 생략).
    - `QUEUE-INIT: REUSE` → 기존 `queue.md` **불변**(재개 — PENDING/PLAN_DONE 보존). 재분류·덮어쓰기 금지.
    - `QUEUE-INIT: FAIL` → Phase 0 **중단**(eligible=0 · requirements 부재 · classify 실패).
    - ACTIVE 마커는 위와 **병치**(스크립트는 queue만 담당).

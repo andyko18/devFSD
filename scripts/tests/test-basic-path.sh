@@ -261,8 +261,9 @@ done
 for c in start-all start-all-auto start-foundation; do
   ! grep -q 'basic-path.sh' "$PLUGIN/commands/$c.md" && ok "G9.$c ★ /$c 는 갈래 판정을 부르지 않는다(종전 풀 경로 그대로)" || no "G9.$c" "배선이 있다"
 done
-( cd "$PLUGIN" && git diff --quiet main -- commands/start-all.md commands/start-all-auto.md commands/start-foundation.md 2>/dev/null ); rc=$?
-[ "$rc" != 1 ] && ok "G9.diff 일괄·무인·공통부 명령 파일은 main 과 같다(비교 불가면 건너뜀 rc=$rc)" || no "G9.diff" "main 과 다르다"
+# G9.diff 삭제(20261116): "세 명령 파일이 main 과 같다" 는 갈래 자동 판정 PR 한 건의 범위 확인이었다 — 스위트에 남으면
+#   그 파일을 정당하게 고치는 모든 브랜치가 로컬에서 깨진다(main 이 없는 CI 에서는 건너뛰어 보이지도 않았다).
+#   지키려던 것(일괄·무인·공통부는 갈래 판정을 부르지 않는다)은 위 G9.<명령> 3건이 본다.
 out=$(_bp "$nd" route start "정렬 버튼 추가"); printf '%s\n' "$out" | head -1 | grep -q '^ROUTE: full — .*\.specops 가 없다' && [ ! -e "$nd/.specops" ] \
   && ok "G10 .specops 없는 저장소 → 풀(관할은 풀 경로가 연다) · 아무것도 만들지 않는다" || no "G10" "$out"
 _route start "" >/dev/null 2>&1; rc1=$?; _route start "--full" >/dev/null 2>&1; rc2=$?; _route other "x" >/dev/null 2>&1; rc3=$?

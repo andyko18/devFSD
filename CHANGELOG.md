@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **검증 러너가 실행 환경을 증거에 남기고, 머신 전용 환경 파일을 읽는다**(`scripts/_internal/verify-env.sh` · `run-verification.sh`). 하류 실주행(`/start-foundation` · Colima · 사내 SSL 검사)에서 모델이 테스트 호출마다 `DOCKER_HOST`·`JAVA_TOOL_OPTIONS` 를 손으로 붙여 `VERIFY: PASS` 를 냈는데 증거에는 맨 명령만 남았고, 새 셸에서는 같은 명령이 24건 중 21건 실패했다. 이제 ① 테스트에 영향을 주는 변수 가운데 설정된 것을 출처(`셸`·`local-env`)와 함께 `evidence.md` 에 적고(비밀번호류·URL 자격 증명은 가림) 셸에서만 온 값이 있으면 알린다 ② `.specops/local-env`(`이름=값` · 커밋하지 않는 파일)의 허용된 이름만 export 한다 — 다음 세션이 맨 명령 그대로 통과한다. 허용 목록 밖 이름(`PATH`·`LD_PRELOAD` 등)과, git 작업 트리 안의 추적되지 않는 실제 파일이 아닌 것(추적 파일·심볼릭 링크·git 밖 사본)은 쓰지 않고 경고하며, 값은 글자 그대로 쓴다(확장·명령 치환 없음). 보안 경계가 아니라 재현성 장치다 — 목록 안의 변수도 테스트 동작을 바꿀 수 있어, 막는 대신 기록한다. 새 프로젝트의 `.specops/.gitignore` 에 `local-env` 를 더했다. 상세는 `scripts/README.md` 「실행 환경」.
+
 ## [5.4.5] — 2026-11-16
 
 ### Fixed

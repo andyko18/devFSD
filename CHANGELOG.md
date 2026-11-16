@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.7.0] — 2026-11-16
+
 ### Changed
 
 - **`/start-all`·`/start-all-auto` 가 마일스톤 하나만 대상으로 삼는다**(기본 = 적격 FR 이 있는 가장 이른 마일스톤). `/init-project` 는 M1 범위만 설계를 끝내고 뒤 마일스톤 FR 은 "M2 시점에 분해"·`<미확정 — 근거 필요>` 인 채 표에 올리는데, batch 는 그 FR 까지 전부 대상으로 잡았다(하류 실측 20261116 — M1 5건을 돌리려는데 대상 10건). 범위 밖 FR 은 queue 에 `SKIP (다른 마일스톤 — <M>)` 행으로 남고 초기화가 `QUEUE-INIT: SCOPE —` 1줄로 알린다(묻지 않는다). 다른 마일스톤은 `--milestone <이름>`, 종전처럼 전부는 `--all`. 표에 없는 이름은 있는 마일스톤 목록과 함께 중단한다. 마일스톤 칸이 비었거나 한 종류뿐인 표는 종전과 같다. `check-fr-table.sh --classify --milestone <이름|first>`(옵션이 없으면 출력 불변) · `init-batch-queue.sh --milestone <이름|first|all>` · `batch-state.sh` 는 queue 머리말 `> milestone:` 줄을 읽어 같은 범위로 판정한다(범위 줄이 없는 종전 queue 는 그대로). **알고 둔 한계**: 표가 끝난 마일스톤을 표시하지 않아, M1 을 끝낸 뒤에도 기본값은 M1 이다 — 다음 마일스톤은 이름으로 부른다.
@@ -4182,7 +4184,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.6.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.0...HEAD
+[5.7.0]: https://github.com/andyko18/devFSD/compare/v5.6.1...v5.7.0
 [5.6.1]: https://github.com/andyko18/devFSD/compare/v5.6.0...v5.6.1
 [5.6.0]: https://github.com/andyko18/devFSD/compare/v5.5.0...v5.6.0
 [5.5.0]: https://github.com/andyko18/devFSD/compare/v5.4.5...v5.5.0

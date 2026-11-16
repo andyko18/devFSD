@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.7.2] — 2026-11-16
+
 ### Fixed
 
 - **`/start-all` 초기화 출력이 범위 문장을 글로 적으라고 직접 지시한다**. 5.7.1 재진입(20261116 · 표본 1건)에서 queue 머리말 `> scope:` 줄은 기록됐지만, 모델은 초기화 직후 그 문장을 여전히 글로 옮기지 않았다 — 명령 문서의 긴 불릿 속 지시는 먹지 않았다. `init-batch-queue.sh` 가 `QUEUE-INIT: SCOPE —` 줄 바로 뒤에 `QUEUE-INIT: SAY — 다음 도구를 부르기 전에 위 SCOPE 문장을 응답 글 1줄로 그대로 적는다…` 를 출력한다(범위가 줄었을 때만). 효과는 재진입으로 재 본다.
@@ -4194,7 +4196,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.2...HEAD
+[5.7.2]: https://github.com/andyko18/devFSD/compare/v5.7.1...v5.7.2
 [5.7.1]: https://github.com/andyko18/devFSD/compare/v5.7.0...v5.7.1
 [5.7.0]: https://github.com/andyko18/devFSD/compare/v5.6.1...v5.7.0
 [5.6.1]: https://github.com/andyko18/devFSD/compare/v5.6.0...v5.6.1

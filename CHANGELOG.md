@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.6.1] — 2026-11-16
+
 ### Changed
 
 - **계획 단계의 전문가 반영을 두 가지로 가볍게 했다**(`skills/planning-ko/SKILL.md` 「1회차 동시 dispatch」 2번). `/start-foundation` 하류 실주행 2건의 계획 턴(32분·$15.8 / 67분·$33.7)을 분해해 품질 대가가 없는 두 후보를 골랐다. ① **기다리는 동안 먼저 돌아온 전문가 산출을 읽고 반영·기각을 정해 `## 반영` 줄까지 미리 쓴다** — 임계 경로(테스트 전문가 15~17분) 앞의 유휴 약 6분을 쓴다. `plan.md` 자체는 전원이 돌아온 뒤 한 번에 고친다(다른 에이전트가 그 파일을 읽는 도중 바뀌지 않게). ② **`plan.md` 는 고칠 자리만 Edit 로 고친다** — 수천 줄 문서 전체를 다시 Write 하지 않는다(1회차에서 전문 재작성 2회, 출력 약 5만 토큰·3~4분씩). 절감은 추정이다(합쳐 6~10분) — 다음 실주행에서 재 본다. 전문가의 advisor 호출은 건드리지 않았다: 20건 호출의 조언 본문이 암호화돼 읽을 수 없어 가치를 재지 못했다.
@@ -4172,7 +4174,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.6.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.6.1...HEAD
+[5.6.1]: https://github.com/andyko18/devFSD/compare/v5.6.0...v5.6.1
 [5.6.0]: https://github.com/andyko18/devFSD/compare/v5.5.0...v5.6.0
 [5.5.0]: https://github.com/andyko18/devFSD/compare/v5.4.5...v5.5.0
 [5.4.5]: https://github.com/andyko18/devFSD/compare/v5.4.4...v5.4.5

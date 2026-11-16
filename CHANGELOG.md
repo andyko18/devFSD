@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.6.0] — 2026-11-16
+
 ### Added
 
 - **브라우저 점검에 예상한 응답 선언**(`scripts/_internal/ui-probe.cjs` `--expect "<4xx> <메서드> <경로>"` · 화면 기록의 `expect`). 하류 실주행(SSO 로그인)에서 로그인 화면이 로그인 여부를 보려고 부른 `/api/v1/me` 의 401 — 계약에 적힌 응답 — 을 크로미움이 콘솔 오류로 남겨 통합 게이트가 FAIL 했고, 선언할 길이 없어 인증이 있는 화면은 전부 막혔다. 선언에 맞은 응답과 그 콘솔 줄은 실패로 세지 않고 출력에 `예상한 응답` 으로 남긴다. 좁게만 받는다: 4xx 상태 하나 · 메서드 하나 · 정확한 경로 하나(5xx·와일드카드·쿼리는 rc 2) · 점검하는 화면과 같은 origin 의 응답만. 화면 기록에는 실제로 맞은 선언만 남는다. 앱이 낸 콘솔 오류는 주소가 같아도 그대로 세고, 콘솔 줄은 맞은 응답 건수만큼만 뺀다(같은 경로의 다른 메서드까지 지우지 않는다). 쓰이지 않은 선언은 `나오지 않은 선언` 으로 알린다. `integration-test-ko` 는 spec·api-spec 이 계약으로 적은 응답만 선언하라고 적는다.
@@ -4166,7 +4168,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.5.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.6.0...HEAD
+[5.6.0]: https://github.com/andyko18/devFSD/compare/v5.5.0...v5.6.0
 [5.5.0]: https://github.com/andyko18/devFSD/compare/v5.4.5...v5.5.0
 [5.4.5]: https://github.com/andyko18/devFSD/compare/v5.4.4...v5.4.5
 [5.4.4]: https://github.com/andyko18/devFSD/compare/v5.4.3...v5.4.4

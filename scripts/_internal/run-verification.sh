@@ -158,12 +158,25 @@ if [ -z "$commands" ]; then
   exit 1
 fi
 
+# 실행 환경 (20261116) — 머신 전용 환경 파일(.specops/local-env)을 적용하고, 테스트에 영향을 주는 변수를 증거에 남긴다.
+#   모델이 호출 셸에 손으로 붙인 변수로만 통과하면 증거의 맨 명령은 새 셸에서 재현되지 않는다(하류 실주행 — verify-env.sh 머리).
+#   도우미가 없으면(구 설치본 혼재) 종전대로 돈다.
+_ve_env_note=""
+if [ -f "$PLUGIN/scripts/_internal/verify-env.sh" ]; then
+  # shellcheck source=/dev/null
+  . "$PLUGIN/scripts/_internal/verify-env.sh"
+  ve_apply ".specops/local-env"
+  _ve_env_note=$(ve_shell_names)
+fi
+
 mkdir -p "$(dirname "$EVIDENCE")"
 {
   echo ""
   echo "## run-verification.sh ($(date '+%Y-%m-%d %H:%M:%S'))"
   echo ""
+  command -v ve_report >/dev/null 2>&1 && ve_report
 } >> "$EVIDENCE"
+[ -z "$_ve_env_note" ] || echo "NOTE: 이 검증은 셸에 설정된 환경 변수($_ve_env_note)와 함께 돌았다 — 새 셸에는 없는 값이라 다음 세션에서 결과가 다를 수 있다. 이 머신에서 늘 필요한 값이면 .specops/local-env 에 '이름=값' 으로 적는다(커밋하지 않는 파일 · 검증 러너가 읽는다 · 값은 글자 그대로라 \$HOME 같은 확장은 안 된다)." >&2
 
 # 러너별 선두 앵커 — 각 패턴이 ^ 로 고정되어 임의 명령 실행 차단 (AC-2).
 # bash: 기존 동작 보존(scripts/*.sh 한정). 그 외 러너는 표준 호출형만 허용.

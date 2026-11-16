@@ -694,6 +694,70 @@ out=$(cd "$TMPDIR" && bash "$RUN" fid-jvm 2>&1)
 printf '%s' "$out" | grep -q 'VERIFY: PASS' && nope "T-jvm.d" "실패한 gradlew 가 PASS 로 샜다: $out" || ok "T-jvm.d 실패한 ./gradlew → PASS 아님"
 rm -rf "$TMPDIR"
 
+# ── T-env 실행 환경 기록과 로컬 환경 파일 (20261116 — 하류 실주행: 모델이 테스트 호출마다 DOCKER_HOST·JAVA_TOOL_OPTIONS 를
+#   손으로 붙여 VERIFY: PASS 를 냈는데 증거에는 맨 명령만 남았고, 새 셸에서는 24건 중 21건이 실패했다).
+_env_fix() { # 픽스처: ./gradlew 가 자기가 본 환경을 찍는다
+  TMPDIR=$(mktemp -d); mkdir -p "$TMPDIR/.specops/fid-env"
+  printf '#!/bin/sh\necho "DH=${DOCKER_HOST:-unset} JTO=${JAVA_TOOL_OPTIONS:-unset} TC=${TESTCONTAINERS_RYUK_DISABLED:-unset} FOO=${FOO:-unset} PX=${HTTPS_PROXY:-unset}"\nexit 0\n' > "$TMPDIR/gradlew"; chmod +x "$TMPDIR/gradlew"
+  printf '%s\n' '## 의존 그래프' '' '```yaml' 'tasks:' '  - id: T1' '    test_command: "./gradlew test"' '```' > "$TMPDIR/.specops/fid-env/tasks.md"
+}
+_env_run() { # 셸 쪽 변수를 지운 깨끗한 바탕에서 러너 실행 — 인자는 `env` 에 줄 추가 대입
+  ( cd "$TMPDIR" && env -u DOCKER_HOST -u DOCKER_CONTEXT -u JAVA_HOME -u JAVA_TOOL_OPTIONS -u JDK_JAVA_OPTIONS -u GRADLE_USER_HOME -u GRADLE_OPTS -u MAVEN_OPTS \
+      -u NODE_OPTIONS -u NODE_EXTRA_CA_CERTS -u SSL_CERT_FILE -u REQUESTS_CA_BUNDLE -u HTTP_PROXY -u HTTPS_PROXY -u NO_PROXY -u http_proxy -u https_proxy -u no_proxy \
+      -u TZ -u TESTCONTAINERS_RYUK_DISABLED -u FOO "$@" bash "$RUN" fid-env 2>&1 )
+}
+_ev() { cat "$TMPDIR/.specops/fid-env/evidence.md" 2>/dev/null; }
+# a. 로컬 환경 파일의 값이 테스트 명령에 전달되고 증거에 출처와 함께 남는다
+_env_fix; printf '# 이 머신 전용\nDOCKER_HOST=unix:///x/docker.sock\nTESTCONTAINERS_RYUK_DISABLED=true\n' > "$TMPDIR/.specops/local-env"
+out=$(_env_run)
+printf '%s' "$out" | grep -q 'VERIFY: PASS' && _ev | grep -q 'DH=unix:///x/docker.sock' && _ev | grep -q 'TC=true' \
+  && _ev | grep -q '실행 환경' && _ev | grep 'DOCKER_HOST' | grep -q 'local-env' \
+  && ok "T-env.a 로컬 환경 파일 → 테스트 명령에 전달 · 증거에 출처(local-env) 기록" || nope "T-env.a" "out=$out ev=$(_ev | head -12)"
+rm -rf "$TMPDIR"
+# b. 셸에만 있는 값은 증거에 남고, 새 셸에서는 다를 수 있다고 알린다
+_env_fix; out=$(_env_run DOCKER_HOST=unix:///shell.sock)
+_ev | grep 'DOCKER_HOST' | grep -q '셸' && _ev | grep -q 'unix:///shell.sock' && printf '%s' "$out" | grep 'NOTE' | grep -q 'local-env' \
+  && ok "T-env.b 셸에만 있는 값 → 증거에 기록 + 새 셸 주의 안내" || nope "T-env.b" "out=$out ev=$(_ev | head -12)"
+rm -rf "$TMPDIR"
+# c. 셸과 파일에 둘 다 있으면 셸이 이긴다(이번 세션이 직접 준 값)
+_env_fix; printf 'DOCKER_HOST=unix:///file.sock\n' > "$TMPDIR/.specops/local-env"; out=$(_env_run DOCKER_HOST=unix:///shell.sock)
+_ev | grep -q 'DH=unix:///shell.sock' && ok "T-env.c 셸 값이 파일 값보다 우선" || nope "T-env.c" "ev=$(_ev | head -12)"
+rm -rf "$TMPDIR"
+# d. 허용 목록 밖 이름은 적용하지 않고 알린다 — PATH 로 가짜 러너를 끼우는 길을 막는다
+_env_fix; mkdir "$TMPDIR/evil"; printf 'PATH=%s/evil\nLD_PRELOAD=/x.so\nFOO=1\nDOCKER_HOST=unix:///ok.sock\n' "$TMPDIR" > "$TMPDIR/.specops/local-env"
+out=$(_env_run)
+_ev | grep -q 'FOO=unset' && _ev | grep -q 'DH=unix:///ok.sock' && printf '%s' "$out" | grep 'WARN' | grep -q 'PATH' \
+  && printf '%s' "$out" | grep 'WARN' | grep -q 'LD_PRELOAD' && printf '%s' "$out" | grep -q 'VERIFY: PASS' \
+  && ok "T-env.d 허용 목록 밖(PATH·LD_PRELOAD·FOO) → 미적용 + 경고 · 허용된 줄은 적용" || nope "T-env.d" "out=$out ev=$(_ev | head -12)"
+rm -rf "$TMPDIR"
+# e. 증거의 실행 환경 줄은 비밀번호·자격 증명을 가린다
+_env_fix; printf 'JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStore=/t/ca -Djavax.net.ssl.trustStorePassword=hunter2pw\nHTTPS_PROXY=http://alice:s3cretpw@proxy.local:8080\n' > "$TMPDIR/.specops/local-env"
+out=$(_env_run); _envblk=$(_ev | awk '/실행 환경/{f=1} f&&/^### /{exit} f')
+printf '%s' "$_envblk" | grep -q 'trustStore=/t/ca' && ! printf '%s' "$_envblk" | grep -q 'hunter2pw' && ! printf '%s' "$_envblk" | grep -q 's3cretpw' \
+  && printf '%s' "$_envblk" | grep -q 'proxy.local:8080' \
+  && ok "T-env.e 실행 환경 기록에서 비밀번호·프록시 자격 증명 가림(경로·호스트는 남김)" || nope "T-env.e" "blk=$_envblk"
+rm -rf "$TMPDIR"
+# f. 해당 변수가 하나도 없으면 아무것도 덧붙이지 않는다(잡음 금지)
+_env_fix; out=$(_env_run)
+! _ev | grep -q '실행 환경' && ! printf '%s' "$out" | grep -q 'local-env' && printf '%s' "$out" | grep -q 'VERIFY: PASS' \
+  && ok "T-env.f 해당 변수 없음 → 기록·안내 없음" || nope "T-env.f" "out=$out"
+rm -rf "$TMPDIR"
+# g. git 이 추적하는 local-env 는 쓰지 않는다(커밋된 파일이 다른 사람의 검증 환경을 바꾸지 못하게)
+_env_fix; printf 'DOCKER_HOST=unix:///tracked.sock\n' > "$TMPDIR/.specops/local-env"
+( cd "$TMPDIR" && git init -q . && git add -f .specops/local-env && git -c user.email=t@t -c user.name=t commit -qm x ) >/dev/null 2>&1
+out=$(_env_run)
+_ev | grep -q 'DH=unset' && printf '%s' "$out" | grep 'WARN' | grep -q '추적' \
+  && ok "T-env.g 추적되는 local-env → 미적용 + 경고" || nope "T-env.g" "out=$out ev=$(_ev | head -8)"
+rm -rf "$TMPDIR"
+# h. 값은 글자 그대로다 — 명령 치환·변수 확장을 하지 않는다
+_env_fix; printf 'DOCKER_HOST=$(touch pwned)`touch pwned2`$HOME\n' > "$TMPDIR/.specops/local-env"
+out=$(_env_run)
+[ ! -e "$TMPDIR/pwned" ] && [ ! -e "$TMPDIR/pwned2" ] && _ev | grep -qF 'DH=$(touch pwned)`touch pwned2`$HOME' \
+  && ok "T-env.h local-env 값은 글자 그대로(명령 치환·확장 없음)" || nope "T-env.h" "out=$out ev=$(_ev | head -8)"
+rm -rf "$TMPDIR"
+# i. 새 프로젝트의 .specops/.gitignore 가 local-env 를 무시한다
+grep -qx 'local-env' "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh" \
+  && ok "T-env.i init 의 .specops/.gitignore 에 local-env" || nope "T-env.i" "phases-artifacts.sh 에 local-env 줄 없음"
 
 echo ""
 echo "--- SUMMARY ---"

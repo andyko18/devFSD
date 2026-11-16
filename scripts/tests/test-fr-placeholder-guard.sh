@@ -212,4 +212,40 @@ n=$(printf '%s\n' "$out" | grep -c '^UNPARSED|')
   && ok "T-idshape ★ FR-1.1·FR-AUTH-01·FR-M1-02 → UNPARSED 3건(낱말 FRAMEWORK 는 아님)" || nope "T-idshape" "rc=$rc n=$n out=$(printf '%s' "$out" | tr '\n' ' ')"
 rm -rf "$TD"
 
+# ── 마일스톤 범위 (20261116) — 옵션이 없으면 종전과 같고, 있으면 다른 마일스톤의 적격 FR 만 SKIP 으로 바뀐다 ──
+TD=$(mktemp -d); R="$TD/req.md"
+cat > "$R" <<'EOF'
+| ID | 요구사항 | 마일스톤 | 우선순위 | 관련 spec |
+|---|---|---|---|---|
+| FR-7 | 회의실 목록 | M1 | must | (TBD) |
+| FR-9 | <한 줄> | M2 | nice | (TBD) |
+| FR-12 | 회의실 관리 | M2 | should | (TBD) |
+| FR-20 | 마일스톤 없는 기능 |  | nice | (TBD) |
+EOF
+base=$(bash "$CHK" --classify "$R" 2>&1)
+printf '%s\n' "$base" | grep -qx 'ELIGIBLE|FR-12|회의실 관리|M2' \
+  && printf '%s\n' "$base" | grep -qx 'SUMMARY|real=3|eligible=3|seed_skip=0|placeholder=1|foundation_skip=0' \
+  && ok "T-ms.a 옵션이 없으면 종전 출력 그대로(SUMMARY 에 붙는 칸 없음)" || nope "T-ms.a" "out=$(printf '%s' "$base" | tr '\n' ' ')"
+out=$(bash "$CHK" --classify --milestone first "$R" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && printf '%s\n' "$out" | grep -qx 'ELIGIBLE|FR-7|회의실 목록|M1' \
+  && printf '%s\n' "$out" | grep -qx 'SKIP|FR-12|later-milestone|M2' \
+  && printf '%s\n' "$out" | grep -qx 'ELIGIBLE|FR-20|마일스톤 없는 기능|' \
+  && printf '%s\n' "$out" | grep -qx 'SKIP|FR-9|placeholder|' \
+  && printf '%s\n' "$out" | grep -qx 'SUMMARY|real=3|eligible=2|seed_skip=0|placeholder=1|foundation_skip=0|milestone=M1|milestone_skip=1|milestone_match=1' \
+  && ok "T-ms.b ★ first → M1 만 적격 · M2 는 later-milestone · 빈 칸은 적격 · placeholder 사유는 그대로" || nope "T-ms.b" "rc=$rc out=$(printf '%s' "$out" | tr '\n' ' ')"
+out=$(bash "$CHK" --classify --milestone=M2 "$R" 2>&1)
+printf '%s\n' "$out" | grep -qx 'SKIP|FR-7|later-milestone|M1' && printf '%s\n' "$out" | grep -qx 'ELIGIBLE|FR-12|회의실 관리|M2' \
+  && printf '%s\n' "$out" | grep -q '|milestone=M2|milestone_skip=1|milestone_match=1$' \
+  && ok "T-ms.c 이름 지정(--milestone=M2) → 그 마일스톤만 적격" || nope "T-ms.c" "out=$(printf '%s' "$out" | tr '\n' ' ')"
+out=$(bash "$CHK" --classify --milestone M9 "$R" 2>&1)
+printf '%s\n' "$out" | grep -q '|milestone=M9|milestone_skip=2|milestone_match=0$' \
+  && ok "T-ms.d 표에 없는 이름 → milestone_match=0(부르는 쪽이 오타로 판정)" || nope "T-ms.d" "out=$(printf '%s' "$out" | tr '\n' ' ')"
+out=$(bash "$CHK" --classify --milestone 2>&1); rc1=$?
+out2=$(bash "$CHK" --classify --milestone 'M1|x' "$R" 2>&1); rc2=$?
+[ "$rc1" -eq 2 ] && [ "$rc2" -eq 2 ] && ok "T-ms.e 값 없는 --milestone · 칸 구분자가 든 값 → rc 2" || nope "T-ms.e" "rc1=$rc1 rc2=$rc2 out=$out out2=$out2"
+out=$(bash "$CHK" --milestone first "$R" 2>&1)
+printf '%s\n' "$out" | grep -q '마일스톤 범위 M1: 대상 2건 · 다른 마일스톤 SKIP 1건 — FR-12(M2)' \
+  && ok "T-ms.f 사람용 요약에도 범위 1줄" || nope "T-ms.f" "out=$out"
+rm -rf "$TD"
+
 finish

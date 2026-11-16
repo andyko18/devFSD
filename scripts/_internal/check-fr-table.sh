@@ -22,17 +22,34 @@
 # 공통부 SKIP (20260812): 설명 선두 [공통] 또는 <!-- foundation-fr: FR-N,... --> 목록에
 #   있으면 SKIP|…|foundation-scope — /start-all 이 공통 FR 을 PENDING 에 넣지 않는다(선택 A).
 #   bash 3.2 호환 (연관 배열 미사용 — macOS /bin/bash).
+#
+# 마일스톤 범위 (20261116): `--milestone <이름|first>` 를 주면 그 마일스톤의 FR 만 ELIGIBLE 로 남기고
+#   다른 마일스톤의 적격 FR 은 `SKIP|<id>|later-milestone|<M>` 으로 낸다(사유 이름은 `later` 지만 이름으로 고른 범위의 앞 마일스톤도 같다).
+#   SUMMARY 끝에 `|milestone=<M>|milestone_skip=<N>|milestone_match=<그 마일스톤의 적격 FR 수>`.
+#   `first` = 적격 FR 이 있는 가장 이른 마일스톤(값이 전부 `<글자><숫자>` 꼴이면 숫자가 가장 작은 것 · 아니면 표에 먼저 나온 것).
+#   마일스톤 칸이 빈 FR 은 범위와 무관하게 ELIGIBLE 이다(거를 근거가 없다). 옵션이 없으면 종전대로 전부 본다.
+#   왜: `/init-project` 는 M1 범위만 설계를 끝내는데 `/start-all` 은 M2·M3 FR("M2 시점에 분해"·`<미확정>`)까지
+#   한 batch 에 넣었다(하류 실측 20261116 — M1 5건을 돌리려는데 대상 10건).
 set -u
 
 CLASSIFY=0
 REQ=""
+MS_SCOPE=""
+_want_ms=0
 for arg in "$@"; do
+  if [ "$_want_ms" -eq 1 ]; then MS_SCOPE="$arg"; _want_ms=0; continue; fi
   case "$arg" in
     --classify) CLASSIFY=1 ;;
+    --milestone) _want_ms=1 ;;
+    --milestone=*) MS_SCOPE="${arg#--milestone=}" ;;
     -*) echo "FR-TABLE: unknown option: $arg" >&2; exit 2 ;;
     *) REQ="$arg" ;;
   esac
 done
+[ "$_want_ms" -eq 1 ] && { echo "FR-TABLE: --milestone 값 필요" >&2; exit 2; }
+# 범위 값은 SUMMARY·queue 표에 그대로 실린다 — 칸 구분자·줄바꿈이 든 값은 받지 않는다.
+case "$MS_SCOPE" in *"|"*|*"
+"*) echo "FR-TABLE: --milestone 값에 | 나 줄바꿈을 쓸 수 없다" >&2; exit 2 ;; esac
 
 if [ -z "$REQ" ]; then
   for c in ".specops/memory/requirements.md" "requirements.md"; do
@@ -200,10 +217,46 @@ while IFS='|' read -r kind id desc ms; do
   echo "ELIGIBLE|${id}|${desc}|${ms}" >>"$classify_out"
 done <"$tmp"
 
+# 마일스톤 범위 — 적격 판정이 끝난 뒤에 건다(시드·공통부·placeholder 는 범위와 무관하게 종전 사유 그대로).
+ms_sfx=""; ms_skip=0; ms_skip_ids=""; ms_resolved=""; ms_match=0
+if [ -n "$MS_SCOPE" ]; then
+  ms_resolved="$MS_SCOPE"
+  if [ "$MS_SCOPE" = "first" ]; then
+    # 적격 FR 의 마일스톤(빈 칸 제외)을 나온 순서대로. 전부 <글자><숫자> 꼴이면 숫자가 가장 작은 것, 아니면 첫 번째.
+    ms_resolved=$(awk -F'|' '$1 == "ELIGIBLE" && $NF != "" { if (!($NF in seen)) { seen[$NF] = 1; order[++n] = $NF } }
+      END {
+        if (n == 0) exit
+        allnum = 1
+        for (i = 1; i <= n; i++) if (order[i] !~ /^[^0-9]*[0-9]+$/) allnum = 0
+        best = order[1]
+        if (allnum) {
+          bv = order[1]; gsub(/[^0-9]/, "", bv); bv += 0
+          for (i = 2; i <= n; i++) { v = order[i]; gsub(/[^0-9]/, "", v); v += 0; if (v < bv) { bv = v; best = order[i] } }
+        }
+        print best
+      }' "$classify_out")
+  fi
+  if [ -n "$ms_resolved" ]; then
+    scoped=$(mktemp)
+    # 설명 칸에는 `|` 가 올 수 없다(표 구분자) — 마지막 칸이 마일스톤이다.
+    awk -F'|' -v want="$ms_resolved" 'BEGIN { OFS = "|" }
+      $1 == "ELIGIBLE" && $NF != "" && $NF != want { print "SKIP", $2, "later-milestone", $NF; next }
+      { print }' "$classify_out" >"$scoped"
+    cat "$scoped" >"$classify_out"; rm -f "$scoped"
+    ms_skip=$(grep -c '^SKIP|[^|]*|later-milestone|' "$classify_out" || true)
+    ms_skip_ids=$(awk -F'|' '$1 == "SKIP" && $3 == "later-milestone" { printf "%s%s(%s)", (n++ ? ", " : ""), $2, $4 }' "$classify_out")
+    eligible=$(grep -c '^ELIGIBLE|' "$classify_out" || true)
+    # 그 마일스톤에 실제로 걸린 적격 FR 수 — 0 이면 이름이 표에 없다(오타). 마일스톤 칸이 빈 FR 은 세지 않는다.
+    ms_match=$(awk -F'|' -v want="$ms_resolved" '$1 == "ELIGIBLE" && $NF == want { n++ } END { print n + 0 }' "$classify_out")
+  fi
+  # `first` 인데 마일스톤 칸이 전부 비었으면 거를 것이 없다 — 범위 표시는 `-`.
+  ms_sfx="|milestone=${ms_resolved:--}|milestone_skip=${ms_skip}|milestone_match=${ms_match}"
+fi
+
 if [ "$CLASSIFY" -eq 1 ]; then
   cat "$classify_out"
   while IFS= read -r u; do [ -n "$u" ] && echo "UNPARSED|${u}"; done <"$unp_tmp"
-  echo "SUMMARY|real=${real}|eligible=${eligible}|seed_skip=${seed_skip}|placeholder=${ph}|foundation_skip=${foundation_skip}${unp_sfx}"
+  echo "SUMMARY|real=${real}|eligible=${eligible}|seed_skip=${seed_skip}|placeholder=${ph}|foundation_skip=${foundation_skip}${unp_sfx}${ms_sfx}"
   exit 0
 fi
 
@@ -211,5 +264,6 @@ echo "FR-TABLE: PASS — 실 FR ${real}건"
 [ "$ph" -gt 0 ] && echo "  경고: placeholder ${ph}건 (${ph_ids}) — batch 대상에서 제외하거나 채우세요"
 [ "$seed_skip" -gt 0 ] && echo "  시드 SKIP ${seed_skip}건: ${seed_ids} (같은 마일스톤 세부 FR 존재 — batch PENDING 제외)"
 [ "$foundation_skip" -gt 0 ] && echo "  공통부 SKIP ${foundation_skip}건: ${foundation_ids} (/start-foundation 담당 — batch PENDING 제외)"
+[ "$ms_skip" -gt 0 ] && echo "  마일스톤 범위 ${ms_resolved}: 대상 ${eligible}건 · 다른 마일스톤 SKIP ${ms_skip}건 — ${ms_skip_ids}"
 [ -n "$unp_warn" ] && echo "$unp_warn"
 exit 0

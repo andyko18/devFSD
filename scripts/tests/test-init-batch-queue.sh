@@ -206,6 +206,8 @@ grep -qx '> milestone: M1' "$q" && ok "T11c 머리말에 범위 1줄(batch-state
 printf '%s\n' "$out" | grep -q '^QUEUE-INIT: SCOPE — 마일스톤 M1 대상 3건 · 다른 마일스톤 제외 2건(M2 1건 · M3 1건)' \
   && printf '%s\n' "$out" | grep -q '/start-all --all' \
   && ok "T11d 초기화 출력에 범위·제외 건수·뒤집는 법" || nope "T11d" "out=$out"
+printf '%s\n' "$out" | grep -q '^QUEUE-INIT: SAY — 다음 도구를 부르기 전에' \
+  && ok "T11h 범위가 줄었으면 출력에 글로 적으라는 지시 줄" || nope "T11h" "out=$out"
 # T11f 같은 문장이 queue 머리말에 남는다 — 묶음 메시지가 queue 에서 읽어 싣는다(도구 출력은 사용자에게 접혀 보인다)
 _sc=$(printf '%s\n' "$out" | sed -n 's/^QUEUE-INIT: SCOPE — //p')
 [ -n "$_sc" ] && [ "$(grep -c '^> scope: ' "$q")" -eq 1 ] && grep -qxF "> scope: $_sc" "$q" \

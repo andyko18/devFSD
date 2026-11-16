@@ -117,7 +117,7 @@ reference_upstream: specops-ko 독자 추가
      ".specops/$BATCH_ID"
    # 0b 의 인자가 있을 때만: --milestone <이름> 또는 --milestone all 을 batch-dir 앞에 준다(기본 = first)
    ```
-   - `QUEUE-INIT: SCOPE — …` → 범위와 제외 건수. **다음 도구를 부르기 전에** `SCOPE —` 뒤 문장을 응답 글 1줄로 그대로 적는다 — 도구 출력은 사용자 화면에 접혀 보여, 글로 옮기지 않으면 범위가 줄어든 것을 사용자가 모른다(하류 실측 20261116: 출력에만 있고 글에는 없었다). 같은 문장이 queue 머리말 `> scope:` 줄에 남는다 — 이 batch 에서 사용자에게 보내는 묶음 메시지(1a 질문 · 1c 확인 · Phase 2 게이트 · 2.5-E 승인 · batch PR 확인)는 **첫 줄에 그 줄을 매번 그대로** 싣는다(재진입·긴 턴 뒤에도 queue 에서 읽는다 · 줄이 없으면 싣지 않는다).
+   - `QUEUE-INIT: SCOPE — …` → 범위와 제외 건수(바로 뒤 `QUEUE-INIT: SAY —` 줄이 같은 지시를 출력으로 되풀이한다). **다음 도구를 부르기 전에** `SCOPE —` 뒤 문장을 응답 글 1줄로 그대로 적는다 — 도구 출력은 사용자 화면에 접혀 보여, 글로 옮기지 않으면 범위가 줄어든 것을 사용자가 모른다(하류 실측 20261116: 출력에만 있고 글에는 없었다). 같은 문장이 queue 머리말 `> scope:` 줄에 남는다 — 이 batch 에서 사용자에게 보내는 묶음 메시지(1a 질문 · 1c 확인 · Phase 2 게이트 · 2.5-E 승인 · batch PR 확인)는 **첫 줄에 그 줄을 매번 그대로** 싣는다(재진입·긴 턴 뒤에도 queue 에서 읽는다 · 줄이 없으면 싣지 않는다).
    - `QUEUE-INIT: FAIL — 마일스톤 '<이름>' 에 batch 대상 FR 0건` → 이름이 표에 없다. 출력의 마일스톤 목록을 보이고 **중단**.
    - `QUEUE-INIT: CREATED` → 신규 표(ELIGIBLE→PENDING · seed-decomposed/foundation-scope/later-milestone→SKIP · placeholder 행 생략).
    - `QUEUE-INIT: REUSE` → 기존 `queue.md` **불변**(재개 — PENDING/PLAN_DONE 보존). 재분류·덮어쓰기 금지.

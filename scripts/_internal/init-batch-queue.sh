@@ -211,5 +211,6 @@ TBL
 
 echo "QUEUE-INIT: CREATED ($QUEUE) eligible=$eligible"
 [ -n "$scope_msg" ] && echo "QUEUE-INIT: SCOPE — $scope_msg"
+[ -n "$scope_msg" ] && echo "QUEUE-INIT: SAY — 다음 도구를 부르기 전에 위 SCOPE 문장을 응답 글 1줄로 그대로 적는다(도구 출력은 사용자 화면에 접혀 보인다)"
 [ -n "$unp_list" ] && echo "QUEUE-INIT: WARN — 해석하지 못한 FR 행 ${unp_n}건: ${unp_list} (FR 처럼 보이나 ID 형식이 다르거나 들여쓴 행이라 큐에 넣지 않았다 — queue 머리말에 기록)"
 exit 0

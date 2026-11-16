@@ -172,6 +172,13 @@ done <<EOF
 $classify_raw
 EOF
 
+# 범위 안내 1문장 — queue 머리말 `> scope:` 와 출력 `QUEUE-INIT: SCOPE —` 가 같은 글을 쓴다.
+scope_msg=""
+if [ "$ms_skip" -gt 0 ]; then
+  others=$(printf '%s\n' "$classify_raw" | awk -F'|' '$1 == "SKIP" && $3 == "later-milestone" { c[$4]++; if (!($4 in s)) { s[$4] = 1; o[++n] = $4 } } END { for (i = 1; i <= n; i++) printf "%s%s %d건", (i > 1 ? " · " : ""), o[i], c[o[i]] }')
+  scope_msg="마일스톤 ${ms_name} 대상 ${eligible}건 · 다른 마일스톤 제외 ${ms_skip}건(${others}). 다른 마일스톤은 /start-all --milestone <이름>, 전부는 /start-all --all"
+fi
+
 {
   printf '# %s 큐\n\n' "$BATCH_NAME"
   cat <<'HDR'
@@ -183,6 +190,8 @@ HDR
     # batch-state.sh 가 읽는 줄 — 꼴을 바꾸면 그쪽 정규식도 같이 바꾼다.
     printf '> milestone: %s\n\n' "$ms_name"
   fi
+  # 사용자에게 보내는 묶음 메시지가 그대로 싣는 줄(도구 출력은 접혀 보여 출력만으로는 전달되지 않는다).
+  [ -n "$scope_msg" ] && printf '> scope: %s\n\n' "$scope_msg"
   if [ -n "$unp_list" ]; then
     # 표 행으로 쓰지 않는다(`|` 로 시작하면 batch-state 가 FR 행으로 읽는다) — 머리말 산문 한 줄.
     printf '> **해석하지 못한 FR 행** %s건: %s — requirements 에서 줄 맨 앞 `| FR-<숫자> |` 꼴로 고친 뒤 이 큐에 추가하세요(지금은 batch 대상이 아니다).\n\n' "$unp_n" "$unp_list"
@@ -201,9 +210,6 @@ TBL
 } >"$QUEUE"
 
 echo "QUEUE-INIT: CREATED ($QUEUE) eligible=$eligible"
-if [ "$ms_skip" -gt 0 ]; then
-  others=$(printf '%s\n' "$classify_raw" | awk -F'|' '$1 == "SKIP" && $3 == "later-milestone" { c[$4]++; if (!($4 in s)) { s[$4] = 1; o[++n] = $4 } } END { for (i = 1; i <= n; i++) printf "%s%s %d건", (i > 1 ? " · " : ""), o[i], c[o[i]] }')
-  echo "QUEUE-INIT: SCOPE — 마일스톤 ${ms_name} 대상 ${eligible}건 · 다른 마일스톤 제외 ${ms_skip}건(${others}). 다른 마일스톤은 /start-all --milestone <이름>, 전부는 /start-all --all"
-fi
+[ -n "$scope_msg" ] && echo "QUEUE-INIT: SCOPE — $scope_msg"
 [ -n "$unp_list" ] && echo "QUEUE-INIT: WARN — 해석하지 못한 FR 행 ${unp_n}건: ${unp_list} (FR 처럼 보이나 ID 형식이 다르거나 들여쓴 행이라 큐에 넣지 않았다 — queue 머리말에 기록)"
 exit 0

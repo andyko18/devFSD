@@ -206,6 +206,14 @@ grep -qx '> milestone: M1' "$q" && ok "T11c 머리말에 범위 1줄(batch-state
 printf '%s\n' "$out" | grep -q '^QUEUE-INIT: SCOPE — 마일스톤 M1 대상 3건 · 다른 마일스톤 제외 2건(M2 1건 · M3 1건)' \
   && printf '%s\n' "$out" | grep -q '/start-all --all' \
   && ok "T11d 초기화 출력에 범위·제외 건수·뒤집는 법" || nope "T11d" "out=$out"
+# T11f 같은 문장이 queue 머리말에 남는다 — 묶음 메시지가 queue 에서 읽어 싣는다(도구 출력은 사용자에게 접혀 보인다)
+_sc=$(printf '%s\n' "$out" | sed -n 's/^QUEUE-INIT: SCOPE — //p')
+[ -n "$_sc" ] && [ "$(grep -c '^> scope: ' "$q")" -eq 1 ] && grep -qxF "> scope: $_sc" "$q" \
+  && ok "T11f ★ 머리말 scope 줄 = 출력 SCOPE 문장(글자 그대로 1줄)" || nope "T11f" "sc=$_sc q=$(sed -n 1,10p "$q" | tr '\n' ' ')"
+# batch-state.sh 가 범위를 읽는 정규식(그 파일 99행과 같은 꼴)이 scope 줄에 걸리지 않고 M1 하나만 낸다
+_ms=$(sed -n 's/^>[[:space:]]*milestone:[[:space:]]*\([^|[:space:]][^|]*\)$/\1/p' "$q")
+[ "$_ms" = "M1" ] \
+  && ok "T11g scope 줄이 있어도 batch-state 의 범위 읽기는 M1 하나" || nope "T11g" "ms=$_ms"
 # 시드·공통부는 범위와 무관하게 종전 사유 그대로
 grep -q '^| FR-1 | — | (마일스톤 시드 — 세부 FR로 분해됨) | SKIP |$' "$q" && grep -q '^| FR-2 | — | (마일스톤 시드 — 세부 FR로 분해됨) | SKIP |$' "$q" \
   && grep -q '^| FR-4 | — | (공통부 — /start-foundation 담당) | SKIP |$' "$q" \
@@ -226,7 +234,7 @@ rm -rf "$TD"
 TD=$(mktemp -d); _ms_req "$TD"
 out=$(cd "$TD" && bash "$INIT" --milestone all ".specops/batch-t13" 2>&1); rc=$?
 q="$TD/.specops/batch-t13/queue.md"
-[ "$rc" -eq 0 ] && [ "$(grep -c '| PENDING |$' "$q")" -eq 5 ] && ! grep -q 'milestone:' "$q" && ! grep -q '다른 마일스톤' "$q" \
+[ "$rc" -eq 0 ] && [ "$(grep -c '| PENDING |$' "$q")" -eq 5 ] && ! grep -q 'milestone:' "$q" && ! grep -q '다른 마일스톤' "$q" && ! grep -q '^> scope:' "$q" \
   && ! printf '%s\n' "$out" | grep -q 'SCOPE' \
   && ok "T13 --milestone all → 전 마일스톤 PENDING(종전) · 범위 표시 없음" || nope "T13" "rc=$rc out=$out q=$(tr '\n' ' ' < "$q")"
 rm -rf "$TD"

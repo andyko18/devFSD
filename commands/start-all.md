@@ -117,7 +117,7 @@ reference_upstream: specops-ko 독자 추가
      ".specops/$BATCH_ID"
    # 0b 의 인자가 있을 때만: --milestone <이름> 또는 --milestone all 을 batch-dir 앞에 준다(기본 = first)
    ```
-   - `QUEUE-INIT: SCOPE — …` → 범위와 제외 건수. 사용자에게 그대로 보인다.
+   - `QUEUE-INIT: SCOPE — …` → 범위와 제외 건수. **다음 도구를 부르기 전에** `SCOPE —` 뒤 문장을 응답 글 1줄로 그대로 적는다 — 도구 출력은 사용자 화면에 접혀 보여, 글로 옮기지 않으면 범위가 줄어든 것을 사용자가 모른다(하류 실측 20261116: 출력에만 있고 글에는 없었다). 같은 문장이 queue 머리말 `> scope:` 줄에 남는다 — 이 batch 에서 사용자에게 보내는 묶음 메시지(1a 질문 · 1c 확인 · Phase 2 게이트 · 2.5-E 승인 · batch PR 확인)는 **첫 줄에 그 줄을 매번 그대로** 싣는다(재진입·긴 턴 뒤에도 queue 에서 읽는다 · 줄이 없으면 싣지 않는다).
    - `QUEUE-INIT: FAIL — 마일스톤 '<이름>' 에 batch 대상 FR 0건` → 이름이 표에 없다. 출력의 마일스톤 목록을 보이고 **중단**.
    - `QUEUE-INIT: CREATED` → 신규 표(ELIGIBLE→PENDING · seed-decomposed/foundation-scope/later-milestone→SKIP · placeholder 행 생략).
    - `QUEUE-INIT: REUSE` → 기존 `queue.md` **불변**(재개 — PENDING/PLAN_DONE 보존). 재분류·덮어쓰기 금지.
@@ -133,7 +133,7 @@ reference_upstream: specops-ko 독자 추가
 `mode: 일괄` 이 아니면(`--step`·`/start-all-auto`) 건너뛴다. `questions.md` 에 `## 1a` 절이 이미 있으면(재진입) 건너뛴다.
 
 1. PENDING FR 전체 행과 `.specops/memory/*` 를 읽고(결정 원장 확정 주제는 `check-decisions-ledger.sh` 로 확인해 뺀다), 답에 따라 FR 의 설계·AC 가 달라지는 질문만 고른다.
-2. 많아야 4개를 한 메시지로 묻는다 — 질문마다 관련 FR · 선택지와 영향 1줄 · 추천과 근거 1줄을 맨 앞에(AskUserQuestion 이 있으면 그것으로). 넘는 것은 묻지 않고 Phase 1 체인이 ASSUMED 로 정한다. 물을 것이 없으면 건너뛴다.
+2. 많아야 4개를 한 메시지로 묻는다(첫 줄은 queue 머리말 `> scope:` 줄 — 있으면) — 질문마다 관련 FR · 선택지와 영향 1줄 · 추천과 근거 1줄을 맨 앞에(AskUserQuestion 이 있으면 그것으로). 넘는 것은 묻지 않고 Phase 1 체인이 ASSUMED 로 정한다. 물을 것이 없으면 건너뛴다.
 3. `.specops/<BATCH_ID>/questions.md` 의 `## 1a` 절에 질문 · 추천 · 답 · 관련 FR 을 적는다. 답은 Phase 1 args 의 `결정:` 줄로 그 FR 에 전한다.
 
 ### Phase 1 — 전 FR spec→decompose (대화형)
@@ -167,7 +167,7 @@ reference_upstream: specops-ko 독자 추가
 `mode: 일괄` 이 아니면(`--step`·`/start-all-auto`) 건너뛴다. 전 FR 이 PLAN_DONE 일 때:
 
 1. 이 batch 의 전 FID `clarifications.md` 에서 머리줄에 `BLOCKING · ASSUMED` 가 있는 블록을 모은다(queue.md 의 FID 칸 기준 · clarifying-ko Q-block 형식과 같은 문자열).
-2. 영향이 큰 것(아키텍처·저장소·핵심 입출력 먼저)부터 많아야 4개를 한 메시지로 묻는다 — 추측값을 추천으로 맨 앞에. 0건이면 건너뛴다.
+2. 영향이 큰 것(아키텍처·저장소·핵심 입출력 먼저)부터 많아야 4개를 한 메시지로 묻는다(첫 줄은 queue 머리말 `> scope:` 줄 — 있으면) — 추측값을 추천으로 맨 앞에. 0건이면 건너뛴다.
 3. 답이 추측과 같으면 그 블록의 `status` 를 `RESOLVED` 로 바꾼다. 머리줄의 ` · ASSUMED` 도 뗀다(재진입한 1c 가 다시 모으지 않게).
 4. 다르면 **그 FR 만** 다시 돈다: clarifications 블록을 답·`RESOLVED` 로 고침(머리줄의 ` · ASSUMED` 도 뗀다) → 답이 AC 를 바꾸면 acceptance-criteria.md 에 append → `devfsd:planning-ko` 를 그 FID 로 호출(§batch 라 plan-reviewer DEFER) → decomposing → `BATCH-PHASE1-DONE` → `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <FID> order "1c 답 변경 → clarify·plan·decompose 재실행" "<질문>: <추측> → <답>"`. 재실행이 plan 에서 실패하면 그 FR 을 HELD 로 바꾸지 않고 queue 상태와 FID 칸을 그대로 두며(PENDING 으로 되돌리면 재진입이 FID 를 새로 만든다), Phase 2 에 들어가지 않고 사용자에게 1줄 보고한다 — 재진입하면 1c 4번부터 그 FR 을 다시 돈다.
 5. 묻지 못한 나머지는 ASSUMED 그대로 두고 `questions.md` 의 `## 1c` 절에 질문 · 추천(추측) · 답(또는 `미질문 — ASSUMED`)을 적는다.
@@ -320,7 +320,7 @@ reference_upstream: specops-ko 독자 추가
    - `n` → A/B 수정 후 D부터 재개 (리뷰 재실행)
    - `y` → F
 3. **[§auto 모드]**: D가 PASS(또는 Important-only cap 자동통과)면 본 게이트 **자동 통과**. Critical cap 정지 시 E에 도달하지 않는다. 화면·IF·design-review 결과는 batch PR 다이제스트에 집계.
-4. **[§일괄 모드] — 유일한 승인 묶음**: 1 의 항목에 더해 ① `.specops/<BATCH_ID>/questions.md` 의 1a·1c 답 ② 이 batch 의 PLAN_DONE FID 마다 `clarifications.md` 의 머리줄 `· ASSUMED` 또는 `status: ASSUMED` 인 블록과 spec `**자동 결정 …**` 줄을 직접 모은 목록(`collect-assumptions.sh` 는 IMPL_DONE FID 만 집계해 이 시점에는 0건이다 — batch PR 게이트에서 쓴다) ③ 승인 뒤 자동 진행(Phase 3 → 통합·E2E·성능 → batch PR) ④ 그래도 멈추는 곳(plan·design Critical cap · 보안 Critical/High · Phase 3 HELD·미완 · batch PR) ⑤ plan·design 리뷰가 Important 만 남긴 cap(§auto 와 같이 지나간 것)을 한 메시지에 싣고 2 의 질문으로 묻는다. 승인되면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <대표 FID> approval "batch 승인 묶음 승인" "<요지>"` 1줄. `n` 은 2 와 같다. 이 batch 의 FR spec 에 `**§auto**: true` 가 있어도(§일괄 이 셋째 줄로 넣은 것) 3 을 적용하지 않는다 — 판정은 queue.md 의 `mode:` 줄이다. D 가 SKIP 이어도(A·B 모두 SKIP) 이 묶음은 묻는다 — 1 의 design-review 요약·화면·IF 칸은 `해당 없음`.
+4. **[§일괄 모드] — 유일한 승인 묶음**: 첫 줄에 queue 머리말 `> scope:` 줄(있으면)을 그대로 싣고, 1 의 항목에 더해 ① `.specops/<BATCH_ID>/questions.md` 의 1a·1c 답 ② 이 batch 의 PLAN_DONE FID 마다 `clarifications.md` 의 머리줄 `· ASSUMED` 또는 `status: ASSUMED` 인 블록과 spec `**자동 결정 …**` 줄을 직접 모은 목록(`collect-assumptions.sh` 는 IMPL_DONE FID 만 집계해 이 시점에는 0건이다 — batch PR 게이트에서 쓴다) ③ 승인 뒤 자동 진행(Phase 3 → 통합·E2E·성능 → batch PR) ④ 그래도 멈추는 곳(plan·design Critical cap · 보안 Critical/High · Phase 3 HELD·미완 · batch PR) ⑤ plan·design 리뷰가 Important 만 남긴 cap(§auto 와 같이 지나간 것)을 한 메시지에 싣고 2 의 질문으로 묻는다. 승인되면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <대표 FID> approval "batch 승인 묶음 승인" "<요지>"` 1줄. `n` 은 2 와 같다. 이 batch 의 FR spec 에 `**§auto**: true` 가 있어도(§일괄 이 셋째 줄로 넣은 것) 3 을 적용하지 않는다 — 판정은 queue.md 의 `mode:` 줄이다. D 가 SKIP 이어도(A·B 모두 SKIP) 이 묶음은 묻는다 — 1 의 design-review 요약·화면·IF 칸은 `해당 없음`.
 
 #### F. design 산출물 커밋 → Phase 3
 

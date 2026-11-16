@@ -304,8 +304,8 @@ FID 를 `.worktrees/<FID>` 에서 구현할 때 기록 스크립트가 worktree 
 **실행 환경** (`_internal/verify-env.sh` · 20261116): 사내망·Colima·특정 JDK 처럼 테스트가 환경 변수 없이는 돌지 않는 머신이 있습니다. 러너는 실행 전에 `.specops/local-env`(`이름=값` 한 줄에 하나 · `#` 주석 · 커밋하지 않는 머신 전용 파일)를 읽어 **허용된 이름만** export 하고, 테스트에 영향을 주는 변수 가운데 설정된 것을 출처(`셸`·`local-env`)와 함께 `evidence.md` 에 적습니다(비밀번호류 대입과 URL 자격 증명은 가림). 셸에서만 온 값이 있으면 "새 셸에서는 결과가 다를 수 있다" 를 알립니다.
 - 받는 이름: `JAVA_HOME` · `JAVA_TOOL_OPTIONS` · `JDK_JAVA_OPTIONS` · `GRADLE_USER_HOME` · `GRADLE_OPTS` · `MAVEN_OPTS` · `DOCKER_HOST` · `DOCKER_CONTEXT` · `NODE_OPTIONS` · `NODE_EXTRA_CA_CERTS` · `SSL_CERT_FILE` · `REQUESTS_CA_BUNDLE` · 프록시 6종 · `TZ` · `TESTCONTAINERS_*`. `PATH`·`LD_PRELOAD` 등 그 밖의 이름은 쓰지 않고 경고합니다.
 - 셸에 이미 있는 값은 덮지 않습니다. 값은 글자 그대로입니다(`$HOME` 확장·명령 치환 없음 — 절대 경로로 적습니다).
-- git 이 추적하는 `local-env` 는 쓰지 않습니다. `/init-project` 가 만드는 `.specops/.gitignore` 에 `local-env` 가 들어 있고, 구 프로젝트는 그 줄을 직접 더합니다.
-- 성격은 보안 경계가 아니라 재현성입니다 — 허용된 변수로도 테스트 동작은 바뀔 수 있고 같은 일은 호출 셸의 export 로도 됩니다. 그래서 무엇으로 돌았는지를 증거에 남깁니다.
+- git 작업 트리 안의, git 이 추적하지 않는 실제 파일만 씁니다 — 추적되는 파일·심볼릭 링크(파일 또는 `.specops` 폴더)·git 밖 사본은 쓰지 않고 경고합니다. `/init-project` 가 만드는 `.specops/.gitignore` 에 `local-env` 가 들어 있고, 구 프로젝트는 그 줄을 직접 더합니다.
+- **보안 경계가 아니라 재현성 장치입니다.** 목록 안의 변수도 실행기나 테스트 동작을 바꿀 수 있습니다(가짜 `java` 를 가리키는 `JAVA_HOME` 이면 테스트 없이 통과합니다) — 같은 일은 호출 셸의 export 로도 됩니다. 막지 않는 대신 무엇으로 돌았는지를 증거에 남깁니다. 셸에서만 온 값의 안내는 `local-env` 가 아직 없을 때만 냅니다(기록은 늘 남습니다).
 
 훅 쪽은 `hooks/governance-lib.sh` 끝의 `_gov_git_target`·`_gov_cmd_moves_git`·`_gov_apply_git_target`·`_gov_target_note` 가 맡습니다: 입력 `cwd` 가 같은 저장소의 다른 작업 트리면 `.specops`·관할은 프로젝트 폴더, git 조회만 그 worktree 로 돌립니다(명령이 `cd`·`-C`·`GIT_DIR=` 등으로 스스로 대상을 옮기면 추정하지 않고 종전 판정). 조회 스크립트(`verification-state.sh current` 등)를 훅과 **같은 값**으로 보려면 메인 폴더에서 `GIT_DIR`·`GIT_WORK_TREE` 를 붙입니다 — deny 사유가 그 형태를 적어 줍니다.
 

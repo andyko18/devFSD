@@ -166,7 +166,8 @@ if [ -f "$PLUGIN/scripts/_internal/verify-env.sh" ]; then
   # shellcheck source=/dev/null
   . "$PLUGIN/scripts/_internal/verify-env.sh"
   ve_apply ".specops/local-env"
-  _ve_env_note=$(ve_shell_names)
+  #   안내는 local-env 가 아직 없을 때만 — JAVA_HOME·TZ·프록시는 개발 셸에 흔해, 매번 내면 읽히지 않는다(기록은 늘 남는다).
+  [ -e ".specops/local-env" ] || _ve_env_note=$(ve_shell_names)
 fi
 
 mkdir -p "$(dirname "$EVIDENCE")"

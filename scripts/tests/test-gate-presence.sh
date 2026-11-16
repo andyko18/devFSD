@@ -1000,6 +1000,7 @@ _l_cce=""; [ -n "$_l_cc" ] && _l_cce=$(awk -v s="$_l_cc" 'NR>s && /^### /{print 
 _cc=""; { [ -n "$_l_cc" ] && [ -n "$_l_cce" ]; } && _cc=$(sed -n "$((_l_cc+1)),$((_l_cce-1))p" "$_PL")
 _miss=""
 for _n in '**항상** 적용한다' '한 메시지의 `Agent` 호출 2개' '둘 다 같은 plan.md' '둘의 지적을 한 번에 plan.md 에 반영' \
+  '기다리는 동안 먼저 돌아온 산출(`experts/*.md`)을 읽고 반영·기각을 정해' '`plan.md` 는 건드리지 않는다 — 다른 에이전트가 아직 그 파일을 읽는 중이다' '고칠 자리만 Edit 로 고친다 — 문서 전체를 다시 Write 하지 않는다' \
   '**1회차에 Critical 이 있을 때만** 부른다' "grep -qE '^Critical:[[:space:]]*0([^0-9]|\$)' .specops/<FID>/plan-review.md" 'Critical 이 있는 것으로 본다' '**2회차 없이 진행**한다' \
   '반영할 수 없는 Important' '진행하지 않고 사용자에게 묻는다' '3회차 없음' '1회차 Critical 합 72건 · 2회차 Critical 합 14건' \
   '`| <N> | <ISO-8601> | test-review-parallel | - | 동시 dispatch | test-designer-ko · plan-reviewer-ko(1회차) |`' \

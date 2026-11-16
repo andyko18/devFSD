@@ -146,7 +146,7 @@ ne=1; for o in "$a1" "$a2" "$a3"; do printf '%s\n' "$o" | grep -q '^UI-PROBE: SK
 FK="$TMP/fakepw"; mkdir -p "$FK/node_modules/playwright-core" "$FK/node_modules/axe-core"
 : > "$FK/node_modules/axe-core/index.js"; : > "$FK/node_modules/axe-core/axe.min.js"
 cat > "$FK/node_modules/playwright-core/index.js" <<'EOF'
-// 가짜 Playwright — 화면별 결과는 FAKE_PW_FIX(slug → {fail, overflow, violations, layout, layoutThrow, layoutThrowAt, responses, requestfailed}), 컨텍스트마다 FAKE_PW_LOG 에 {width, storageState} 한 줄
+// 가짜 Playwright — 화면별 결과는 FAKE_PW_FIX(slug → {fail, overflow, violations, layout, layoutThrow, layoutThrowAt, responses, requestfailed, console}), 컨텍스트마다 FAKE_PW_LOG 에 {width, storageState} 한 줄
 const fs = require('fs'), path = require('path');
 const FIX = process.env.FAKE_PW_FIX ? JSON.parse(fs.readFileSync(process.env.FAKE_PW_FIX, 'utf8')) : {};
 const log = (o) => { if (process.env.FAKE_PW_LOG) fs.appendFileSync(process.env.FAKE_PW_LOG, JSON.stringify(o) + '\n'); };
@@ -164,6 +164,7 @@ exports.chromium = { launch: async () => ({
         if (f.fail) throw new Error('boom');
         for (const r of f.responses || []) for (const fn of H.response || []) fn({ status: () => r.status, url: () => r.url, request: () => ({ method: () => r.method || 'GET' }) });
         for (const r of f.requestfailed || []) for (const fn of H.requestfailed || []) fn({ url: () => r.url, method: () => r.method || 'GET', failure: () => (r.error ? { errorText: r.error } : null) });
+        for (const c of f.console || []) for (const fn of H.console || []) fn({ type: () => c.type || 'error', text: () => c.text, location: () => ({ url: c.url || '' }) });
       },
       evaluate: async (fn, arg) => {
         const f = FIX[slug(url)] || {};
@@ -597,6 +598,48 @@ _int=$(cat "$INT")
 
 # U4f — integration-test-ko 가 요청 실패 경고 줄을 evidence 로 옮기라 하고 판정 불변을 적는다
 grep -F '`요청 실패 경고` 줄' "$INT" | grep -qF '판정 불변' && ok "U4f integration-test-ko — 요청 실패 경고 줄 · 판정 불변" || no "U4f" "문구 없음"
+
+# U12 — 예상한 응답 선언 (20261116 하류 실주행: 로그인 화면이 로그인 여부를 보려고 부른 /api/v1/me 의 401 은 계약인데,
+#   크로미움이 2xx 아닌 응답을 콘솔 오류로 남겨 점검이 FAIL 했고 선언할 길이 없었다 — 인증 있는 화면은 전부 막힌다).
+ME401='{"login":{"responses":[{"status":401,"url":"http://h:1/api/v1/me"}],"console":[{"text":"Failed to load resource: the server responded with a status of 401 (Unauthorized)","url":"http://h:1/api/v1/me"}]}}'
+# a. 선언이 없으면 종전대로 FAIL (콘솔 오류 1 × 3폭)
+fix "$ME401"; out=$(fk --out "$TMP/e1" http://h:1/login 2>&1); rc=$?
+[ "$rc" -eq 1 ] && has "$out" '콘솔 오류 3' && ok "U12a 선언 없음 → 401 콘솔 오류로 FAIL (종전 동작)" || no "U12a" "rc=$rc [$out]"
+# b. 선언하면 콘솔 오류·요청 실패에서 빠지고 PASS — 무엇을 예상으로 처리했는지 출력에 남는다
+out=$(fk --out "$TMP/e2" --expect '401 GET /api/v1/me' http://h:1/login 2>&1); rc=$?
+[ "$rc" -eq 0 ] && has "$out" 'UI-PROBE: PASS' && has "$out" '콘솔 오류 0' && has "$out" '예상한 응답 3' && has "$out" '예상한 응답: 401 GET http://h:1/api/v1/me' \
+  && ! has "$out" '요청 실패' && ok "U12b 선언 → PASS · 요약과 줄에 예상 응답 기록 · 요청 실패 경고에서 제외" || no "U12b" "rc=$rc [$out]"
+# c. 선언과 다른 상태·경로·메서드는 그대로 실패로 센다 (선언이 넓게 번지지 않는다)
+fix '{"login":{"responses":[{"status":500,"url":"http://h:1/api/v1/me"},{"status":401,"url":"http://h:1/api/v1/other"},{"status":401,"url":"http://h:1/api/v1/me","method":"POST"}],"console":[{"text":"Failed to load resource: the server responded with a status of 500 (Internal Server Error)","url":"http://h:1/api/v1/me"},{"text":"Failed to load resource: the server responded with a status of 401 (Unauthorized)","url":"http://h:1/api/v1/other"},{"text":"TypeError: x is not a function","url":"http://h:1/api/v1/me"}]}}'
+out=$(fk --out "$TMP/e3" --expect '401 GET /api/v1/me' http://h:1/login 2>&1); rc=$?
+[ "$rc" -eq 1 ] && has "$out" '콘솔 오류 9' && has "$out" '요청 실패 9' && ! has "$out" '예상한 응답:' && has "$out" '나오지 않은 선언: 401 GET /api/v1/me' \
+  && ok "U12c 다른 상태(500)·다른 경로·다른 메서드·앱 오류(TypeError) → 그대로 FAIL · 쓰이지 않은 선언을 알림" || no "U12c" "rc=$rc [$out]"
+# c2. 콘솔 줄에는 메서드가 없다 — GET 선언이 같은 경로의 POST 401 콘솔 오류까지 지우지 않는다(맞은 응답 건수만큼만 뺀다)
+fix '{"login":{"responses":[{"status":401,"url":"http://h:1/api/v1/me"},{"status":401,"url":"http://h:1/api/v1/me","method":"POST"}],"console":[{"text":"Failed to load resource: the server responded with a status of 401 (Unauthorized)","url":"http://h:1/api/v1/me"},{"text":"Failed to load resource: the server responded with a status of 401 (Unauthorized)","url":"http://h:1/api/v1/me"}]}}'
+out=$(fk --out "$TMP/e3b" --expect '401 GET /api/v1/me' http://h:1/login 2>&1); rc=$?
+[ "$rc" -eq 1 ] && has "$out" '콘솔 오류 3' && has "$out" '예상한 응답 3' && has "$out" '요청 실패 3' \
+  && ok "U12c2 GET 선언 → 같은 경로 POST 401 의 콘솔 오류는 남는다" || no "U12c2" "rc=$rc [$out]"
+# c3. 같은 경로라도 다른 서버(origin)의 4xx 는 지우지 않는다(리뷰 재현: 선언 하나가 다른 포트의 같은 경로까지 지웠다)
+fix '{"login":{"responses":[{"status":401,"url":"http://h:1/api/v1/me?a=1"},{"status":401,"url":"http://other:9/api/v1/me"}],"console":[{"text":"Failed to load resource: the server responded with a status of 401 (Unauthorized)","url":"http://h:1/api/v1/me?a=1"},{"text":"Failed to load resource: the server responded with a status of 401 (Unauthorized)","url":"http://other:9/api/v1/me"}]}}'
+out=$(fk --out "$TMP/e3c" --expect '401 GET /api/v1/me' http://h:1/login 2>&1); rc=$?
+[ "$rc" -eq 1 ] && has "$out" '콘솔 오류 3' && has "$out" '예상한 응답 3' && has "$out" '요청 실패 경고: 401 GET http://other:9/api/v1/me' \
+  && ok "U12c3 같은 origin 의 응답만 맞춘다(쿼리는 무시) · 다른 서버의 같은 경로는 그대로 FAIL" || no "U12c3" "rc=$rc [$out]"
+# d. 받는 꼴: 4xx 상태 + 메서드 + 정확한 경로 하나. 5xx·와일드카드·쿼리·형식 오류는 rc 2
+bad=0; for e in '500 GET /api/v1/me' '401 GET /api/*' '401 GET /api/v1/me?x=1' '401 /api/v1/me' 'GET /api/v1/me' '401 GET api/v1/me' '200 GET /x' '401 get /x'; do
+  fk --out "$TMP/e4" --expect "$e" http://h:1/login >/dev/null 2>&1; [ $? -eq 2 ] || bad="$bad [$e]"; done
+[ "$bad" = 0 ] && ok "U12d 5xx·와일드카드·쿼리·형식 오류 선언 → rc 2 (게이트를 넓게 끄는 선언을 받지 않는다)" || no "U12d" "받아들여짐:$bad"
+# e. 선언은 화면 기록에 남고, 다음 실행은 플래그 없이도 적용한다 (커밋되는 파일이라 리뷰에 보인다)
+fix "$ME401"; rm -f "$TMP/me.json"
+fk --out "$TMP/e5" --memory "$TMP/me.json" --expect '401 GET /api/v1/me' --expect '404 GET /typo' http://h:1/login >/dev/null 2>&1   # 쓰이지 않은 선언(/typo)은 기록에 남지 않아야 한다
+out=$(fk --out "$TMP/e5" --memory "$TMP/me.json" 2>&1); rc=$?
+[ "$rc" -eq 0 ] && [ "$(node -e 'console.log(JSON.stringify(require(process.argv[1]).expect))' "$TMP/me.json")" = '["401 GET /api/v1/me"]' ] && has "$out" '예상한 응답 3' \
+  && ok "U12e 실제로 맞은 선언만 화면 기록(expect)에 남고 다음 실행에 적용(쓰이지 않은 선언은 굳지 않는다)" || no "U12e" "rc=$rc mem=$(cat "$TMP/me.json" 2>/dev/null) [$out]"
+# f. 기록의 선언이 깨진 꼴이면 기록 전체를 못 읽은 것으로 본다(조용히 넓어지지 않는다)
+printf '{"baseUrl":"http://h:1","routes":["/login"],"expect":["401 GET /api/*"]}' > "$TMP/me-bad.json"
+out=$(fk --out "$TMP/e6" --memory "$TMP/me-bad.json" 2>&1); rc=$?
+[ "$rc" -eq 2 ] && has "$out" '기록을 읽지 못함' && ok "U12f 기록의 선언이 받는 꼴이 아니면 rc 2" || no "U12f" "rc=$rc [$out]"
+# g. integration-test-ko 가 선언의 조건(계약에 적힌 응답만)을 적는다
+grep -F -- '--expect' "$INT" | grep -qF '계약' && ok "U12g integration-test-ko — 예상 응답 선언은 계약에 적힌 응답만" || no "U12g" "문구 없음"
 
 echo "── test-ui-probe: PASS=$PASS FAIL=$FAIL SKIP=$SKIPPED ──"
 [ "$FAIL" -eq 0 ]

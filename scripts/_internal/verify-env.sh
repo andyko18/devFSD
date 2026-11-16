@@ -44,7 +44,7 @@ _ve_mask() {
 }
 
 ve_apply() { # <파일>
-  local file="$1" line name val bad="" badfmt=0
+  local file="$1" line name val bad="" badfmt=0 stale=""
   [ -e "$file" ] || [ -L "$file" ] || return 0
   if [ -L "$file" ] || [ -L "$(dirname "$file")" ] || [ ! -f "$file" ]; then
     echo "WARN: $file 을 쓰지 않는다 — 심볼릭 링크(파일 또는 폴더)이거나 일반 파일이 아니다. 머신 전용 환경은 이 저장소 안의 실제 파일로 둔다" >&2
@@ -70,11 +70,16 @@ ve_apply() { # <파일>
     fi
     #   셸에 이미 있으면(빈 값 포함) 그대로 둔다
     [ -z "${!name+x}" ] || continue
+    #   경로를 가리키는 변수인데 그 경로가 없으면 낡은 값이다(JDK 를 바꿨다 · 임시 신뢰 저장소가 지워졌다) — 적용하지 않는다.
+    case "$name" in JAVA_HOME|GRADLE_USER_HOME|SSL_CERT_FILE|NODE_EXTRA_CA_CERTS|REQUESTS_CA_BUNDLE)
+      if [ ! -e "$val" ]; then stale="$stale $name"; continue; fi ;;
+    esac
     export "$name=$val" 2>/dev/null || { badfmt=$((badfmt + 1)); continue; }
     _VE_FROM_FILE="$_VE_FROM_FILE$name "
   done < "$file"
   [ -z "$bad" ] || echo "WARN: $file 의 다음 이름은 쓰지 않았다(허용 목록 밖 —$bad). 받는 이름: $_VE_NAMES TESTCONTAINERS_*" >&2
   [ "$badfmt" -eq 0 ] || echo "WARN: $file 에서 '이름=값' 꼴이 아닌 줄 ${badfmt}개를 건너뛰었다" >&2
+  [ -z "$stale" ] || echo "WARN: $file 의 다음 값은 가리키는 경로가 없어 쓰지 않았다(낡은 값 —$stale). 그 줄을 고치거나 지운다" >&2
   return 0
 }
 
@@ -107,4 +112,53 @@ ve_shell_names() {
     case "$_VE_FROM_FILE" in *" $n "*) ;; *) out="$out${out:+ }$n" ;; esac
   done
   printf '%s' "$out"
+}
+
+# ve_save <파일> — 통과한 검증에서 셸에만 있던 값을 local-env 로 남긴다(파일이 아직 없을 때만).
+#   모델에게 안내만 하면 쓰지 않는다(하류 2회차 실주행: 안내 줄이 자식 세션에 2번 떴지만 파일은 만들어지지 않았다).
+#   통과한 실행의 값만 굳힌다 — 호출자가 PASS 를 확정한 뒤 부른다. 판정·종료 코드에 영향을 주지 않는다(전부 fail-open).
+#   저장하지 않는 값: 가림 대상(비밀번호·토큰·자격 증명이 든 값)·줄바꿈이 든 값 — 이름만 알린다.
+#   커밋되지 않게: 이미 무시되는 경로가 아니면 이 저장소의 .git/info/exclude(로컬 전용)에 한 줄 더한다. 추적 파일은 건드리지 않는다.
+# 저장해도 되는 값인가 — 가림보다 넓게 본다(증거에는 가려서 적으면 되지만, 파일에는 평문이 남는다).
+#   비밀로 보이는 낱말(pass·pwd·pw·secret·token·credential·key·login·auth·sig·pat·user(name)=)이 들었거나
+#   URL·프록시 값에 `이름:암호@` 가 들었으면 저장하지 않는다. `ssh://deploy@host` 처럼 이름만 있는 것은 저장한다.
+#   한계: 낱말 없이 값만 띄운 비밀은 못 잡는다 — 비밀은 환경 변수 값에 넣지 않는 것이 원칙이다.
+_ve_sensitive() {
+  case "$1" in *$'\n'*|*$'\r'*) return 0 ;; esac
+  printf '%s' "$1" | grep -Eiq 'pass|pwd|(^|[^a-z])pw([^a-z]|$)|secret|token|credential|key|login|auth|sig=|(^|[^a-z])pat([^a-z]|$)|user(name)?=|bearer|basic ' && return 0
+  printf '%s' "$1" | grep -Eq '(://|^)[^/@[:space:]]+:[^/@[:space:]]*@' && return 0
+  return 1
+}
+
+ve_save() { # <파일>
+  local file="$1" names n v keep="" skip="" body="" excl
+  [ ! -e "$file" ] && [ ! -L "$file" ] || return 0
+  [ -d "$(dirname "$file")" ] && [ ! -L "$(dirname "$file")" ] || return 0
+  git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
+  names=$(ve_shell_names)
+  [ -n "$names" ] || return 0
+  for n in $names; do
+    v="${!n-}"
+    if _ve_sensitive "$v"; then skip="$skip${skip:+ }$n"; continue; fi
+    body="$body$n=$v
+"
+    keep="$keep${keep:+ }$n"
+  done
+  if [ -n "$keep" ]; then
+    if ! git check-ignore -q -- "$file" 2>/dev/null; then
+      excl=$(git rev-parse --git-path info/exclude 2>/dev/null) || excl=""
+      #   같은 줄이 이미 있으면 더하지 않는다. 파일이 줄바꿈 없이 끝나면 줄바꿈부터 쓴다(사용자의 마지막 규칙에 이어 붙지 않게).
+      if [ -n "$excl" ] && ! grep -qxF -- "/$file" "$excl" 2>/dev/null; then
+        mkdir -p "$(dirname "$excl")" 2>/dev/null
+        if [ -s "$excl" ] && [ -n "$(tail -c 1 "$excl" 2>/dev/null)" ]; then printf '\n' >> "$excl" 2>/dev/null; fi
+        printf '%s\n' "/$file" >> "$excl" 2>/dev/null
+      fi
+      git check-ignore -q -- "$file" 2>/dev/null || { echo "NOTE: 이 검증은 셸에만 있는 환경 변수($names)와 함께 통과했다 — $file 을 git 이 무시하게 만들지 못해 저장하지 않았다(.specops/.gitignore 에 local-env 를 더한 뒤 '이름=값' 으로 적으면 다음 세션이 그대로 쓴다)" >&2; return 0; }
+    fi
+    ( umask 077; { printf '# 이 머신 전용 실행 환경 — 검증 러너가 통과한 실행의 셸 값을 저장했다(커밋하지 않는다 · 값은 글자 그대로)\n'; printf '%s' "$body"; } > "$file" ) 2>/dev/null || return 0
+    echo "NOTE: 이 검증은 셸에만 있던 환경 변수와 함께 통과했다 — 다음 세션(새 셸)도 같은 값으로 돌도록 $file 에 저장했다: $keep${skip:+ · 저장하지 않음(비밀·줄바꿈이 든 값 — 필요하면 직접 설정): $skip}" >&2
+  else
+    echo "NOTE: 이 검증은 셸에만 있는 환경 변수($skip)와 함께 통과했다 — 비밀이나 줄바꿈이 든 값이라 $file 에 저장하지 않았다. 새 셸에서는 결과가 다를 수 있다" >&2
+  fi
+  return 0
 }

@@ -796,6 +796,56 @@ printf '%s' "$out" | grep -q 'VERIFY: PASS' && ! _ev | grep -q '^### forged' && 
   && [ "$(_ev | grep -c '^exit: 0')" = 1 ] \
   && ok "T-env.o 줄바꿈 든 값 → 정상 실행 · 증거에 가짜 줄 없음" || nope "T-env.o" "out=$out ev=$(_ev | head -14)"
 rm -rf "$TMPDIR"
+# p. 통과한 검증의 셸 값은 러너가 local-env 에 저장한다 — 모델에게 맡기면 쓰지 않는다(하류 2회차 실주행: 안내 줄이 2번 떴지만 파일 0개)
+_env_fix; out=$(_env_run DOCKER_HOST=unix:///shell.sock TESTCONTAINERS_RYUK_DISABLED=true)
+_le="$TMPDIR/.specops/local-env"
+grep -qx 'DOCKER_HOST=unix:///shell.sock' "$_le" 2>/dev/null && grep -qx 'TESTCONTAINERS_RYUK_DISABLED=true' "$_le" \
+  && ( cd "$TMPDIR" && git check-ignore -q .specops/local-env ) && [ "$(stat -f %Lp "$_le" 2>/dev/null || stat -c %a "$_le")" = 600 ] \
+  && printf '%s' "$out" | grep 'NOTE' | grep -q 'local-env' \
+  && ok "T-env.p 통과 → 셸 값을 local-env 에 저장(600 · git 무시 처리 · 안내 1줄)" || nope "T-env.p" "out=$out file=$(cat "$_le" 2>&1)"
+rm -f "$TMPDIR/.specops/fid-env/evidence.md"; out=$(_env_run)
+printf '%s' "$out" | grep -q 'VERIFY: PASS' && _ev | grep -q 'DH=unix:///shell.sock' && _ev | grep 'DOCKER_HOST' | grep -q 'local-env' \
+  && ok "T-env.p2 다음 실행(새 셸)은 저장된 값으로 돈다" || nope "T-env.p2" "out=$out ev=$(_ev | head -8)"
+rm -rf "$TMPDIR"
+# q. 비밀이 든 값·줄바꿈이 든 값은 저장하지 않는다(이름만 알린다) — 저장할 것이 없으면 파일을 만들지 않는다
+_env_fix; out=$(_env_run 'JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStorePassword=hunter2pw' "TZ=$(printf 'UTC\nX')")
+[ ! -e "$TMPDIR/.specops/local-env" ] && printf '%s' "$out" | grep 'NOTE' | grep -q 'JAVA_TOOL_OPTIONS' && ! printf '%s' "$out" | grep -q 'hunter2pw' \
+  && ok "T-env.q 비밀·줄바꿈 든 값 → 저장 안 함 · 이름만 안내 · 값 미노출" || nope "T-env.q" "out=$out file=$(cat "$TMPDIR/.specops/local-env" 2>&1)"
+rm -rf "$TMPDIR"
+# q2. 가림은 못 잡지만 비밀로 보이는 꼴도 저장하지 않는다 · 이름만 있는 URL(ssh://deploy@host)과 평범한 값은 저장한다
+_env_fix; out=$(_env_run 'MAVEN_OPTS=-Dpassword hunter2' 'GRADLE_OPTS=-Dhttp.proxyUser=bob -Dsonar.login=abc' 'NODE_OPTIONS=--api.key=zzz' 'HTTPS_PROXY=http://u:p@px:1' \
+  'DOCKER_HOST=ssh://deploy@host' 'JDK_JAVA_OPTIONS=-Duser.timezone=UTC -Xmx1g' 'TZ=Asia/Seoul')
+_le="$TMPDIR/.specops/local-env"; _bad=""
+for _w in hunter2 bob abc zzz 'u:p'; do grep -q -- "$_w" "$_le" 2>/dev/null && _bad="$_bad $_w"; done
+[ -z "$_bad" ] && grep -qx 'DOCKER_HOST=ssh://deploy@host' "$_le" && grep -qx 'JDK_JAVA_OPTIONS=-Duser.timezone=UTC -Xmx1g' "$_le" && grep -qx 'TZ=Asia/Seoul' "$_le" \
+  && ok "T-env.q2 비밀로 보이는 꼴 5종 미저장 · 평범한 값 3종 저장" || nope "T-env.q2" "bad=$_bad file=$(cat "$_le" 2>&1)"
+rm -rf "$TMPDIR"
+# t. .git/info/exclude 가 줄바꿈 없이 끝나도 사용자의 마지막 규칙을 깨지 않는다 · 같은 줄을 두 번 쓰지 않는다
+_env_fix; mkdir -p "$TMPDIR/.git/info"; printf 'foo' > "$TMPDIR/.git/info/exclude"
+out=$(_env_run DOCKER_HOST=unix:///s.sock); rm -f "$TMPDIR/.specops/local-env"; out=$(_env_run DOCKER_HOST=unix:///s.sock)
+[ "$(cat "$TMPDIR/.git/info/exclude")" = "$(printf 'foo\n/.specops/local-env')" ] && [ -f "$TMPDIR/.specops/local-env" ] \
+  && ok "T-env.t exclude 줄바꿈 없는 끝 → 규칙 보존 · 중복 줄 없음" || nope "T-env.t" "exclude=[$(cat "$TMPDIR/.git/info/exclude")]"
+rm -rf "$TMPDIR"
+# u. 경로를 가리키는 값인데 그 경로가 없으면(낡은 값) 적용하지 않고 알린다
+_env_fix; printf 'JAVA_HOME=/no/such/jdk-%s\nDOCKER_HOST=unix:///ok.sock\n' "$$" > "$TMPDIR/.specops/local-env"
+out=$(_env_run)
+! _ev | grep -q 'JAVA_HOME' && _ev | grep -q 'DH=unix:///ok.sock' && printf '%s' "$out" | grep 'WARN' | grep -q 'JAVA_HOME' \
+  && ok "T-env.u 없는 경로를 가리키는 JAVA_HOME → 미적용 + 경고" || nope "T-env.u" "out=$out ev=$(_ev | head -8)"
+rm -rf "$TMPDIR"
+# r. 실패한 검증은 저장하지 않는다(통하지 않은 환경을 굳히지 않는다)
+_env_fix; printf '#!/bin/sh\nexit 1\n' > "$TMPDIR/gradlew"; out=$(_env_run DOCKER_HOST=unix:///bad.sock)
+[ ! -e "$TMPDIR/.specops/local-env" ] && ok "T-env.r 실패한 검증 → 저장 안 함" || nope "T-env.r" "file=$(cat "$TMPDIR/.specops/local-env" 2>&1)"
+rm -rf "$TMPDIR"
+# s. 이미 무시되는 경로면 .git/info/exclude 를 건드리지 않는다 · git 밖이면 저장하지 않는다
+_env_fix; printf 'local-env\n' > "$TMPDIR/.specops/.gitignore"; _ex_before=$(cat "$TMPDIR/.git/info/exclude" 2>/dev/null)
+out=$(_env_run DOCKER_HOST=unix:///s.sock)
+[ -f "$TMPDIR/.specops/local-env" ] && [ "$(cat "$TMPDIR/.git/info/exclude" 2>/dev/null)" = "$_ex_before" ] \
+  && ok "T-env.s 이미 무시되는 경로 → exclude 무변경" || nope "T-env.s" "out=$out"
+rm -rf "$TMPDIR"
+_env_fix; rm -rf "$TMPDIR/.git"; out=$(_env_run DOCKER_HOST=unix:///s.sock)
+[ ! -e "$TMPDIR/.specops/local-env" ] && printf '%s' "$out" | grep -q 'VERIFY: PASS' \
+  && ok "T-env.s2 git 밖 → 저장 안 함(판정은 그대로)" || nope "T-env.s2" "out=$out"
+rm -rf "$TMPDIR"
 # i. 새 프로젝트의 .specops/.gitignore 가 local-env 를 무시한다
 grep -qx 'local-env' "$PLUGIN/scripts/_internal/init-project/phases-artifacts.sh" \
   && ok "T-env.i init 의 .specops/.gitignore 에 local-env" || nope "T-env.i" "phases-artifacts.sh 에 local-env 줄 없음"

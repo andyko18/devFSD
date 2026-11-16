@@ -800,7 +800,7 @@ rm -rf "$TMPDIR"
 _env_fix; out=$(_env_run DOCKER_HOST=unix:///shell.sock TESTCONTAINERS_RYUK_DISABLED=true)
 _le="$TMPDIR/.specops/local-env"
 grep -qx 'DOCKER_HOST=unix:///shell.sock' "$_le" 2>/dev/null && grep -qx 'TESTCONTAINERS_RYUK_DISABLED=true' "$_le" \
-  && ( cd "$TMPDIR" && git check-ignore -q .specops/local-env ) && [ "$(stat -f %Lp "$_le" 2>/dev/null || stat -c %a "$_le")" = 600 ] \
+  && ( cd "$TMPDIR" && git check-ignore -q .specops/local-env ) && [ "$(stat -c %a "$_le" 2>/dev/null || stat -f %Lp "$_le")" = 600 ] \
   && printf '%s' "$out" | grep 'NOTE' | grep -q 'local-env' \
   && ok "T-env.p 통과 → 셸 값을 local-env 에 저장(600 · git 무시 처리 · 안내 1줄)" || nope "T-env.p" "out=$out file=$(cat "$_le" 2>&1)"
 rm -f "$TMPDIR/.specops/fid-env/evidence.md"; out=$(_env_run)

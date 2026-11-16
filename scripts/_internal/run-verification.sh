@@ -161,13 +161,10 @@ fi
 # 실행 환경 (20261116) — 머신 전용 환경 파일(.specops/local-env)을 적용하고, 테스트에 영향을 주는 변수를 증거에 남긴다.
 #   모델이 호출 셸에 손으로 붙인 변수로만 통과하면 증거의 맨 명령은 새 셸에서 재현되지 않는다(하류 실주행 — verify-env.sh 머리).
 #   도우미가 없으면(구 설치본 혼재) 종전대로 돈다.
-_ve_env_note=""
 if [ -f "$PLUGIN/scripts/_internal/verify-env.sh" ]; then
   # shellcheck source=/dev/null
   . "$PLUGIN/scripts/_internal/verify-env.sh"
   ve_apply ".specops/local-env"
-  #   안내는 local-env 가 아직 없을 때만 — JAVA_HOME·TZ·프록시는 개발 셸에 흔해, 매번 내면 읽히지 않는다(기록은 늘 남는다).
-  [ -e ".specops/local-env" ] || _ve_env_note=$(ve_shell_names)
 fi
 
 mkdir -p "$(dirname "$EVIDENCE")"
@@ -177,7 +174,6 @@ mkdir -p "$(dirname "$EVIDENCE")"
   echo ""
   command -v ve_report >/dev/null 2>&1 && ve_report
 } >> "$EVIDENCE"
-[ -z "$_ve_env_note" ] || echo "NOTE: 이 검증은 셸에 설정된 환경 변수($_ve_env_note)와 함께 돌았다 — 새 셸에는 없는 값이라 다음 세션에서 결과가 다를 수 있다. 이 머신에서 늘 필요한 값이면 .specops/local-env 에 '이름=값' 으로 적는다(커밋하지 않는 파일 · 검증 러너가 읽는다 · 값은 글자 그대로라 \$HOME 같은 확장은 안 된다)." >&2
 
 # 러너별 선두 앵커 — 각 패턴이 ^ 로 고정되어 임의 명령 실행 차단 (AC-2).
 # bash: 기존 동작 보존(scripts/*.sh 한정). 그 외 러너는 표준 호출형만 허용.
@@ -498,6 +494,9 @@ if [ "$executed" -eq 0 ]; then
 fi
 if [ "$all_pass" = "1" ]; then
   _record_result PASS
+  #   통과한 실행의 셸 값을 머신 전용 파일로 남긴다(파일이 없을 때만 · fail-open) — verify-env.sh ve_save.
+  #   판정 줄보다 **앞**에 둔다: 출력의 마지막 줄이 `VERIFY: PASS` 라는 계약을 소비자가 읽는다(test-reuse-metrics R6).
+  command -v ve_save >/dev/null 2>&1 && ve_save ".specops/local-env"
   echo "VERIFY: PASS"
   # 재사용·복제 관측 (FID 20261013-reuse-dup-metrics) — 판정을 **낸 뒤** 1회. 관측 전용·fail-open:
   #   스크립트 부재·측정 실패·기록 실패·시간초과(30초에서 끊는다 — 기록 없음)는 위 판정 줄과 아래 종료 코드에 영향을 주지 않는다(출력도 버린다).

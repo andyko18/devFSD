@@ -19,6 +19,9 @@ function isOrigin(s) {
   try { const u = new URL(s); return (u.protocol === 'http:' || u.protocol === 'https:') && u.origin === s; } catch (_) { return false; }
 }
 
+// 예상한 응답 선언 한 줄의 꼴 — 4xx 상태 · 메서드 · 정확한 경로(와일드카드·쿼리·조각 없음)
+const EXPECT_RE = /^(4\d\d) (GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) (\/[^\s?#*]*)$/;
+
 function loadMemory(file) {
   const r = readJson(file);
   if (r.state !== 'ok') return r;
@@ -27,6 +30,9 @@ function loadMemory(file) {
   if (!isOrigin(m.baseUrl)) return { state: 'broken', reason: 'baseUrl 이 http(s) origin 이 아니다' };
   if (!Array.isArray(m.routes) || m.routes.length === 0 || !m.routes.every((x) => typeof x === 'string' && x.startsWith('/'))) {
     return { state: 'broken', reason: 'routes 가 비어 있지 않은 경로 문자열 배열이 아니다' };
+  }
+  if ('expect' in m && !(Array.isArray(m.expect) && m.expect.every((x) => typeof x === 'string' && EXPECT_RE.test(x)))) {
+    return { state: 'broken', code: 'expect', reason: 'expect 가 "<4xx 상태> <메서드> <경로>" 문자열 배열이 아니다' };
   }
   return { state: 'ok', value: m };
 }
@@ -58,6 +64,8 @@ function mergeMemory(existing, run) {
   const storageState = run.storageState || prev.storageState;
   if (startCmd) out.startCmd = startCmd;
   if (storageState) out.storageState = storageState;
+  const expect = [...new Set([...(prev.expect || []), ...(run.expect || [])])];
+  if (expect.length) out.expect = expect;
   return out;
 }
 
@@ -116,4 +124,4 @@ function requestLabel(u) {
   return base.slice(0, 160);
 }
 
-module.exports = { readJson, loadMemory, memoryUrls, describeUrls, mergeMemory, parseBaseline, compareBaseline, mergeBaseline, writeJson, requestLabel };
+module.exports = { readJson, loadMemory, memoryUrls, describeUrls, mergeMemory, parseBaseline, compareBaseline, mergeBaseline, writeJson, requestLabel, EXPECT_RE };

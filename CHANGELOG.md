@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **인라인 우회 표식은 커밋·PR 생성 명령에 붙어 있어야 열린다 (행동 변경)**. `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=… true && git commit` 처럼 표식이 다른 명령에 붙은 꼴은 뒤의 커밋까지 통째로 열렸다. 이제 막고, 표식을 커밋 바로 앞으로 옮기라고 안내한다 — `cd <폴더> && SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='…' git commit …`. **표식을 줄 맨 앞에 두고 `cd … &&` 를 잇던 꼴도 막힌다.** `.specops` 가 없는 저장소는 종전대로 묻지 않는다 (PR #360).
+
+### Fixed
+
+- **`env` 접두 우회가 거짓 차단되지 않는다** — `env SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=… git commit` 은 사유까지 적은 정직한 우회인데 `env` 한 낱말 때문에 막혔다 (PR #360).
+- **아무것도 커밋하지 않는 커밋 명령은 판정하지 않는다** — `git commit --dry-run …`(`commit` 바로 뒤) · 유일한 인자로 준 `--help`·`-h` 가 검증 없이 막혀 우회 습관을 불렀다. 진짜 커밋이 함께 있거나 역슬래시·주석·치환·`--no-d…` 가 보이면 종전대로 판정한다 (PR #360).
+
 ## [5.7.5] — 2026-11-17
 
 ### Fixed

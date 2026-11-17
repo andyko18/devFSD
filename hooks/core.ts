@@ -8,6 +8,9 @@ import type {
   Architect,
   Board,
   Bucket,
+  CmdBoard,
+  CmdFr,
+  CmdStep,
   Check,
   Gate,
   Layout,
@@ -49,7 +52,7 @@ export const DEFAULT_ARCHITECT: Architect = { consults: [], ids: [], seen: [], l
 const ZERO: Tally = { rule: 0, ask: 0, cleared: 0, deny: 0 }
 export const DEFAULT_GATE: Gate = { recent: [], totals: { file: ZERO, shell: ZERO, other: ZERO } }
 export const DEFAULT_TURN: Turn = { edits: 0, errorStreak: 0, errors: 0, isReviewing: false, startedAt: 0, costAtStart: null }
-export const DEFAULT_VIEW: View = { expanded: null, gateOpen: null, layout: null }
+export const DEFAULT_VIEW: View = { expanded: null, gateOpen: null, layout: null, demo: null }
 export const DEFAULT_ROSTER: Roster = { architectTypes: [] }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -761,4 +764,140 @@ export const stageProgress = (stages: readonly StageMark[]) => {
     next: at >= 0 ? stages[at + 1]?.label ?? null : null,
     isDone,
   }
+}
+
+// ---------------------------------------------------------------- devFSD: 명령별 관제판
+/** 명령 종류 → 머리줄에 쓰는 슬래시 명령 이름. */
+export const CMD_NAME: Record<CmdBoard['kind'], string> = {
+  init: '/init-project',
+  foundation: '/start-foundation',
+  batch: '/start-all',
+  start: '/start',
+  maintain: '/maintain',
+  quick: '/quick-fix',
+}
+
+/** 명령 고유 색 — `theme` 은 사용자의 테마 색 이름, `pastel` 은 어두운 터미널에 맞춘 고정 색. */
+export const CMD_COLORS: Record<Palette, Record<CmdBoard['kind'], string>> = {
+  theme: { init: 'merged', foundation: 'suggestion', batch: 'warning', start: 'success', maintain: 'permission', quick: 'claude' },
+  pastel: { init: '#b794ff', foundation: '#6ea8ff', batch: '#ffa24d', start: '#5fe0a0', maintain: '#f2d14e', quick: '#4fdbe3' },
+}
+
+/** 한글·한자·전각 글자는 터미널에서 두 칸이다 — 흐름 줄이 몇 줄로 접히는지 셀 때 쓴다. */
+export const wideWidth = (s: string) =>
+  [...s].reduce((n, ch) => {
+    const c = ch.codePointAt(0) ?? 0
+    const isWide = (c >= 0x1100 && c <= 0x115f) || (c >= 0x2e80 && c <= 0xa4cf) || (c >= 0xac00 && c <= 0xd7a3) || (c >= 0xf900 && c <= 0xfaff) || (c >= 0xff00 && c <= 0xff60)
+    return n + (isWide ? 2 : 1)
+  }, 0)
+
+/** 흐름 줄의 단계 — 명령이 자기 흐름을 주면 그것, 아니면 이 작업의 단계 막대를 옮긴 것. */
+export const cmdFlow = (cmd: CmdBoard, stages: readonly StageMark[]): CmdStep[] =>
+  cmd.steps.length > 0
+    ? cmd.steps
+    : stages.map(s => ({
+        label: s.label,
+        mark: s.isCurrent ? (s.mark === '✗' ? 'fail' : 'cur') : s.mark === '✓' ? 'done' : s.mark === '–' ? 'skip' : s.mark === '✗' ? 'fail' : s.mark === '!' ? 'warn' : 'todo',
+      }))
+
+/** 흐름의 진행률(0~100) · 몇 번째 단계인가 · 지금 단계와 다음 단계. 지금 단계는 `cur` 가 먼저다 — 없을 때만 실패·경고 단계. */
+export const cmdProgress = (flow: readonly CmdStep[]) => {
+  const done = flow.filter(s => s.mark === 'done' || s.mark === 'skip').length
+  const cur = flow.findIndex(s => s.mark === 'cur')
+  const at = cur >= 0 ? cur : flow.findIndex(s => s.mark === 'fail' || s.mark === 'warn')
+  const isDone = flow.length > 0 && done === flow.length
+  return {
+    pct: flow.length > 0 ? Math.round((done / flow.length) * 100) : 0,
+    step: isDone ? flow.length : at >= 0 ? at + 1 : done,
+    total: flow.length,
+    current: at >= 0 ? flow[at]?.label ?? null : null,
+    next: at >= 0 ? flow[at + 1]?.label ?? null : null,
+    isDone,
+  }
+}
+
+/** 지금 단계 칸(명령 색 바탕)의 글자색 — 고정 색 팔레트는 어두운 글자라야 읽힌다(밝은 글자는 대비 1.2~1.9). */
+export const CMD_INK: Record<Palette, string> = { theme: 'text', pastel: '#0b0e14' }
+
+/** 흐름 한 조각의 칸 수 — 앞 연결선 4칸(첫 조각은 없음) + 이름 + 표시(지금 단계는 `▶ 이름 ` 로 3칸 더). */
+export const flowPieceWidth = (s: CmdStep, i: number) => (i === 0 ? 0 : 4) + wideWidth(s.label) + (s.mark === 'cur' || s.mark === 'fail' ? 4 : 1)
+
+/** 흐름 줄이 `room` 칸에서 접히는 줄 수(조각은 쪼개지지 않는다). */
+export const flowRows = (flow: readonly CmdStep[], room: number) => {
+  let rows = flow.length > 0 ? 1 : 0
+  let used = 0
+  flow.forEach((s, i) => {
+    const w = flowPieceWidth(s, i)
+    if (used > 0 && used + w > room) {
+      rows += 1
+      used = w
+    } else used += w
+  })
+  return rows
+}
+
+/** FR 목록에서 보일 줄 — 지금 FR 을 가운데 두고 `max` 줄까지. 가려진 수를 함께 준다. */
+export const frWindow = (frs: readonly CmdFr[], max: number): { shown: CmdFr[]; hidden: number } => {
+  if (frs.length <= max) return { shown: [...frs], hidden: 0 }
+  const at = Math.max(0, frs.findIndex(f => f.mark === 'cur'))
+  const start = Math.max(0, Math.min(frs.length - max, at - Math.floor(max / 2)))
+  return { shown: frs.slice(start, start + max), hidden: frs.length - max }
+}
+
+export const CMD_FR_MAX = 5
+
+/** 명령별 구성의 본문 줄 수(테두리·BG·작업 줄 제외) — 화면 줄 수 계산이 그리는 코드와 같은 값을 쓰게 한 곳에 둔다. */
+export const cmdBodyRows = (cmd: CmdBoard, stages: readonly StageMark[], room: number) => {
+  const flow = cmdFlow(cmd, stages)
+  const fr = frWindow(cmd.frs, CMD_FR_MAX)
+  return 2 + flowRows(flow, room) + fr.shown.length + (fr.hidden > 0 ? 1 : 0) + cmd.rows.length + (cmd.kind === 'batch' && stages.length > 0 ? 1 : 0)
+}
+
+/** `/devfsd demo` 가 도는 순서. */
+export const DEMO_ORDER: readonly CmdBoard['kind'][] = ['init', 'foundation', 'batch', 'start', 'maintain', 'quick']
+
+const DEMO_HINT = { left: [{ text: '미리보기 — /devfsd demo off 로 끈다', tone: 'd' as const }], right: [] }
+const demoSteps = (names: string, cur: number): CmdStep[] => names.split(' ').map((label, i) => ({ label: label.replace(/_/g, ' '), mark: i < cur ? 'done' : i === cur ? 'cur' : 'todo' }))
+
+/** 미리보기용 예시 구성 — 실제 작업 없이 여섯 명령의 화면을 본다. 수치·이름은 예시다. */
+export const DEMO_BOARDS: Record<CmdBoard['kind'], CmdBoard> = {
+  init: {
+    kind: 'init', title: '프로젝트 초기화 (예시)', steps: demoSteps('준비 답변 골격 인터뷰 보강 리뷰 승인 종결', 4), frs: [],
+    rows: [DEMO_HINT, { left: [{ text: '답변 3분 · 골격 1분 · 인터뷰 4분', tone: 'd' }], right: [] }],
+  },
+  foundation: {
+    kind: 'foundation', title: '공통부 FR-5 (예시)', steps: demoSteps('명세 명확화 설계 분해 구현 검증 보안 통합 성능 데모 PR', 2), frs: [],
+    rows: [DEMO_HINT, { left: [{ text: '계획 │', tone: 'd' }, { text: ' 초안' }, { text: '✓', tone: 'k' }, { text: ' 전문가●', tone: 'k' }, { text: ' 리뷰○ 확정○', tone: 'd' }], right: [] }],
+  },
+  batch: {
+    kind: 'batch', title: '일괄 묶음 1/5 (예시)', steps: demoSteps('준비 FR_명세 계획_리뷰 통합_설계 구현 통합 PR', 4),
+    frs: [
+      { mark: 'done', id: 'FR-7', text: '회의실 목록 조회', note: '' },
+      { mark: 'cur', id: 'FR-8', text: '날짜별 예약 현황', note: '' },
+      { mark: 'todo', id: 'FR-9', text: '예약 생성', note: '' },
+      { mark: 'todo', id: 'FR-10', text: '예약 취소', note: '' },
+      { mark: 'hold', id: 'FR-11', text: '알림 발송', note: '보류' },
+    ],
+    rows: [DEMO_HINT],
+  },
+  start: {
+    kind: 'start', title: '신규 기능 (예시)', steps: demoSteps('명세 구현 리뷰 검증 PR', 3), frs: [],
+    rows: [DEMO_HINT, { left: [{ text: '갈래', tone: 'd' }, { text: ' 기본 ' }, { text: '· 위험 신호 없음 · 태스크 1', tone: 'd' }], right: [] }],
+  },
+  maintain: {
+    kind: 'maintain', title: '유지보수 (예시)', steps: demoSteps('분석 명세 구현 리뷰 검증 PR', 2), frs: [],
+    rows: [DEMO_HINT, { left: [{ text: '기존 동작 보존', tone: 'd' }, { text: ' 회귀 기준 1건' }], right: [{ text: '○ 검증 전', tone: 'd' }] }],
+  },
+  quick: {
+    kind: 'quick', title: '몇 줄 수정 (예시)', steps: demoSteps('시작 수정 테스트 리뷰 커밋', 2), frs: [],
+    rows: [DEMO_HINT, { left: [{ text: '범위 상한', tone: 'd' }, { text: ' 파일 2 · 줄 20' }], right: [{ text: '범위 안', tone: 'g' }] }],
+  },
+}
+
+/** `/devfsd demo [이름]` 의 다음 미리보기 — 이름이 있으면 그것, `off` 면 끔, 없으면 순서대로 다음. 모르는 이름은 undefined. */
+export const nextDemo = (now: CmdBoard['kind'] | null | undefined, arg: string): CmdBoard['kind'] | null | undefined => {
+  if (arg === 'off') return null
+  if (arg === '') return DEMO_ORDER[(now ? DEMO_ORDER.indexOf(now) + 1 : 0) % DEMO_ORDER.length] ?? null
+  const byName = DEMO_ORDER.find(k => k === arg || CMD_NAME[k] === `/${arg}` || CMD_NAME[k] === arg)
+  return byName
 }

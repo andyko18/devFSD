@@ -116,7 +116,7 @@ export type Receipt = {
 
 export type Layout = 'auto' | 'compact' | 'wide' | 'mini'
 
-export type View = { expanded: string | null; gateOpen: Bucket | null; layout: Layout | null }
+export type View = { expanded: string | null; gateOpen: Bucket | null; layout: Layout | null; /** devFSD: 미리보기 중인 명령(`/devfsd demo`) — 실제 진행 대신 그 명령의 예시 구성을 그린다. */ demo?: CmdBoard['kind'] | null }
 
 export type Roster = { architectTypes: string[] }
 
@@ -141,6 +141,21 @@ export type StageMark = {
   isCurrent?: boolean
 }
 
+/** devFSD: 명령별 관제판 — scripts/_internal/board-mode.sh 의 출력을 옮긴 것(관제판은 이것이 있을 때만 명령별로 그린다). */
+export type CmdSeg = { text: string; tone?: 'k' | 'd' | 'g' | 'w' | 'b' }
+export type CmdStep = { label: string; mark: 'done' | 'cur' | 'todo' | 'skip' | 'fail' | 'warn' }
+export type CmdFr = { mark: 'done' | 'cur' | 'todo' | 'hold' | 'block'; id: string; text: string; note: string }
+export type CmdBoard = {
+  kind: 'init' | 'foundation' | 'batch' | 'start' | 'maintain' | 'quick'
+  title: string
+  /** 명령 흐름 — 비어 있으면 이 작업(FID)의 단계 막대를 흐름으로 쓴다. */
+  steps: CmdStep[]
+  frs: CmdFr[]
+  rows: { left: CmdSeg[]; right: CmdSeg[] }[]
+  /** 지금 단계가 시작된 시각(ms) — 초기화만 싣는다. */
+  since?: number
+}
+
 export type CiCheck = { name: string; bucket: 'pass' | 'pending' | 'fail' | 'skipping' | 'cancel' }
 
 export type Board = {
@@ -154,6 +169,8 @@ export type Board = {
   lane?: string
   /** devFSD: 현재 브랜치 PR 의 CI 잡 — ciWatch 를 켠 세션만 채운다. */
   ci?: CiCheck[]
+  /** devFSD: 어느 명령이 도는가에 맞춘 구성 — 판정할 수 없으면 없다(종전 표시). */
+  cmd?: CmdBoard
   activityAt?: number // 마지막 활동 시각(ms) — 훅 이벤트·출력 파일 중 늦은 쪽
   working?: boolean // 메인 턴이 열려 있는 동안 true (시계가 계속 돌게)
 }

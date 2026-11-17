@@ -17,6 +17,8 @@ import {
   stagesOf,
   verifyWord,
   withVerifyMark,
+  cmdBoardOf,
+  segsOf,
 } from './progress-pane'
 
 const PANE = {
@@ -594,6 +596,8 @@ const PROG_DONE = '# p\n\n## 20261104-b · x\n\n- 2026-11-04 10:09 /lifecycle DO
 
 type Run = { argv: string[]; init?: Record<string, unknown> }
 
+const BOARD_MODE = '/scripts/_internal/board-mode.sh'
+
 /** 관할 repo(`/repo`) 세계: progress 는 `/repo` 에만 있고, process.run 호출을 모두 기록한다. */
 const verifyWorld = (on: PaneOn) => {
   const w = {
@@ -611,6 +615,8 @@ const verifyWorld = (on: PaneOn) => {
     seen: [] as boolean[],
     spec: undefined as string | undefined, // 그 FID 의 spec.md 본문 — 없으면 ENOENT(일괄 판정이 돌지 않는다)
     batch: { exitCode: 0, stdout: '', stderr: '' },
+    mode: { exitCode: 0, stdout: '', stderr: '' }, // board-mode.sh 의 답 — 비어 있으면 명령별 구성이 없다(종전 표시)
+    modeRuns: [] as Run[], // board-mode.sh 호출은 따로 센다 — 표시용 읽기라 검증기 호출 수와 섞지 않는다
   }
   on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
   on('clock.every', () => ({ value: undefined }))
@@ -630,6 +636,11 @@ const verifyWorld = (on: PaneOn) => {
   on('tool.call', async () => { await drain(); w.toolDone = true; return w.reply as never })
   on('process.run', async (_, e) => {
     const run = e as unknown as Run
+    if (String(run.argv[1]).endsWith(BOARD_MODE)) {
+      w.modeRuns.push({ argv: [...run.argv], init: run.init })
+
+      return { value: w.mode }
+    }
     w.runs.push({ argv: [...run.argv], init: run.init })
     if (run.argv[0] === 'git') return { value: w.git }
     if (String(run.argv[1]).endsWith('/scripts/_internal/batch-progress.sh')) return { value: w.batch }
@@ -1420,6 +1431,7 @@ const recordWorld = (on: PaneOn, files: Record<string, string>, fidDirs: string[
   on('tool.call', () => ({ result: {}, text: 'ok' }))
   on('process.run', (_, e) => {
     const run = e as unknown as Run
+    if (String(run.argv[1]).endsWith(BOARD_MODE)) return { value: { exitCode: 0, stdout: '', stderr: '' } }
     runs.push({ argv: [...run.argv], init: run.init })
 
     return { value: run.argv[0] === 'git' ? { exitCode: 0, stdout: '/repo/.git/worktrees/wt\n', stderr: '' } : STALE_OUT }
@@ -1562,4 +1574,52 @@ test('devFSD: a batch FR (spec labelled §batch, queue counted by the script) sh
   const after = await rowsOn($, SURFACES[0])
   expect(after[0]).toBe('devFSD · 20261104-b')
   expect(after[1]).toBe(BAR_B)
+})
+
+// ---------------------------------------------------------------- devFSD: 명령별 구성 (20261118-console-command-board)
+
+const MODE_INIT = ['MODE\tinit\t프로젝트 초기화', 'STEP\tdone\t준비', 'STEP\tcur\t답변', 'STEP\ttodo\t골격', 'ROW\t{d|준비 1분}\t', 'SINCE\t1700000000', ''].join('\n')
+
+test('devFSD: board-mode 출력은 종류·흐름·FR·줄·시각으로 읽히고, 모르는 종류·MODE 없는 출력은 버린다', () => {
+  expect(segsOf('{d|갈래} 기본 {k|●}{g|✓}')).toEqual([{ text: '갈래', tone: 'd' }, { text: ' 기본 ' }, { text: '●', tone: 'k' }, { text: '✓', tone: 'g' }])
+  expect(segsOf('')).toEqual([])
+  expect(cmdBoardOf(MODE_INIT)).toEqual({
+    kind: 'init',
+    title: '프로젝트 초기화',
+    steps: [{ label: '준비', mark: 'done' }, { label: '답변', mark: 'cur' }, { label: '골격', mark: 'todo' }],
+    frs: [],
+    rows: [{ left: [{ text: '준비 1분', tone: 'd' }], right: [] }],
+    since: 1_700_000_000_000,
+  })
+  const batch = cmdBoardOf('MODE\tbatch\t일괄 묶음 1/2\nFR\tdone\tFR-7\t목록\t\nFR\thold\tFR-9\t알림\t보류\nFR\twhat\tFR-1\tx\t\nSTEP\tzzz\tx\n')
+  expect(batch?.frs).toEqual([{ mark: 'done', id: 'FR-7', text: '목록', note: '' }, { mark: 'hold', id: 'FR-9', text: '알림', note: '보류' }]) // 모르는 표시의 줄은 버린다
+  expect(batch?.steps).toEqual([])
+  expect(cmdBoardOf('')).toBeUndefined()
+  expect(cmdBoardOf('STEP\tdone\tx\n')).toBeUndefined() // MODE 가 없다
+  expect(cmdBoardOf('MODE\tsecret\tx\n')).toBeUndefined() // 모르는 종류
+})
+
+// 상태에 실린 모양은 관제판 그리기 테스트(console.test.ts 「명령별 구성」)가 본다 — 여기서는 스크립트를 어떻게 부르는지만 본다.
+test('devFSD: 작업(FID)이 있으면 board-mode 를 그 FID 와 기록 폴더로 부른다 — 갱신 때마다 다시', async ($, on) => {
+  const w = verifyWorld(on)
+  w.mode = { exitCode: 0, stdout: 'MODE\tmaintain\t유지보수\n', stderr: '' }
+  await begin($, w)
+  expect(w.modeRuns.length).toBe(1)
+  expect(w.modeRuns[0]?.argv[0]).toBe('bash')
+  expect(w.modeRuns[0]?.argv.slice(2)).toEqual(['20261104-b'])
+  expect(w.modeRuns[0]?.init?.cwd).toBe('/repo')
+  expect(w.modeRuns[0]?.init?.timeoutMs).toBe(3_000)
+  await $.tool.call(editCall('toolu_mode1'))
+  await drain()
+  expect(w.modeRuns.length).toBe(2)
+})
+
+test('devFSD: 작업(FID)이 없어도 board-mode 를 인자 없이 부른다 — /init-project 는 끝날 때까지 작업을 만들지 않는다', async ($, on) => {
+  const w = verifyWorld(on)
+  w.progress = '# p\n'
+  w.mode = { exitCode: 0, stdout: MODE_INIT, stderr: '' }
+  await begin($, w)
+  expect(w.modeRuns.at(-1)?.argv.length).toBe(2) // bash + 스크립트 — FID 인자가 없다
+  expect(w.modeRuns.at(-1)?.init?.cwd).toBe('/repo')
+  expect(w.runs.length).toBe(0) // 검증기는 부르지 않는다
 })

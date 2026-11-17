@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.7.5] — 2026-11-17
+
 ### Fixed
 
 - **위험한 요청이 흔한 다른 말씨로 적히면 기본 경로로 가던 것을 잡는다 (갈래 낱말 15문장)**. "prod DB 직접 수정"·"데이터를 새 구조로 이관" 은 데이터 삭제·이관, "운영에 올려줘"·"production 에 푸시해줘"·"모든 회원에게 메일 보내기" 는 되돌릴 수 없는 외부 작업으로 풀 경로에 간다. "CSRF 보호를 끄는"·"CORS 전체 허용"·"관리자 페이지 공개"·"접근 제한 해제" 는 보안 전문가를, "users 테이블에 age 추가" 는 DB 전문가를 켠다(기본 경로 그대로). 과거 spec 398건 대조에서 판정이 바뀐 것은 0건이다. "알림을 보낸다"(앱 안 알림)·"문자열을 보낸다" 는 일부러 넣지 않았다 (PR #358).
@@ -4221,7 +4223,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.4...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.5...HEAD
+[5.7.5]: https://github.com/andyko18/devFSD/compare/v5.7.4...v5.7.5
 [5.7.4]: https://github.com/andyko18/devFSD/compare/v5.7.3...v5.7.4
 [5.7.3]: https://github.com/andyko18/devFSD/compare/v5.7.2...v5.7.3
 [5.7.2]: https://github.com/andyko18/devFSD/compare/v5.7.1...v5.7.2

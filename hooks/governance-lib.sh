@@ -69,7 +69,8 @@ _FC_JQ_DEF='
         end;
 '
 
-: "${_SPECOPS_SCOPE_FILES:=}"; _VS_VERDICT_CACHE=""; _VS_VERDICT_CACHE_FID=""   # 커밋 범위(계측) + verdict 캐시 **무조건** 초기화 — env 선주입 무음 우회 차단
+: "${_SPECOPS_SCOPE_FILES:=}"
+: "${_GOV_PRELUDE_HELD:=}"   # is_docs_only_change 가 세운다 — 문서뿐인 목록인데 커밋 앞 변조로 면제를 거뒀다; _VS_VERDICT_CACHE=""; _VS_VERDICT_CACHE_FID=""   # 커밋 범위(계측) + verdict 캐시 **무조건** 초기화 — env 선주입 무음 우회 차단
 
 # 커밋 메시지에서 태스크 ID 추론 — `T12` 또는 `Task: T12`. 없으면 빈 문자열.
 _infer_commit_task() {
@@ -716,6 +717,9 @@ is_docs_only_change() {
     _files_all_docs "$files"
     return $?
   fi
+  # 같은 호출에서 커밋보다 먼저 파일·index 가 바뀔 수 있으면 아래 목록(훅 시점)을 믿지 않는다 (_gov_cmd_mutates_before_commit 머리 참조)
+  local _held=0
+  _gov_cmd_mutates_before_commit "${1:-}" && _held=1
   files=$(git -c core.quotePath=false diff HEAD --name-only --no-renames 2>/dev/null)
   [ -z "$files" ] && files=$(git -c core.quotePath=false diff --cached --name-only --no-renames 2>/dev/null)
   # `git add -A && git commit` 류 compound 는 untracked 신규 파일도 커밋에 싣는데 git diff HEAD 는 그걸 못 본다.
@@ -732,6 +736,11 @@ is_docs_only_change() {
     files=$(git -c core.quotePath=false diff "$base"...HEAD --name-only --no-renames 2>/dev/null)
   fi
   [ -z "$files" ] && return 1
+  if [ "$_held" = 1 ]; then
+    # 목록이 문서뿐이어도 면제하지 않는다. 실제 커밋 범위를 모르므로 계측 목록은 비워 둔다(block 기록에 docs-only 가 나오지 않게).
+    _files_all_docs "$files" && _GOV_PRELUDE_HELD=1
+    return 1
+  fi
   # 계측용 노출 (20260813-friction-staged-record) — 위 staged 경로와 대칭.
   _SPECOPS_SCOPE_FILES="$files"
   _files_all_docs "$files"
@@ -1931,7 +1940,7 @@ _log_degraded() {  # <rule_id> <snippet> → 0 항상(기록 실패해도 호출
 #   글자 그대로 찾았다 — 인식은 되는데 PR 범위가 아니라 작업트리로 판정돼, 문서 하나만 dirty 면 커밋된 미검증 코드의
 #   PR 이 면제됐다. 세 곳이 이 한 정규식을 쓴다(명령 위치 앵커 없음 — 트리거가 이미 걸러 준 입력을 받는다).
 _PR_CREATE_FLAG='((-R|--repo)[[:space:]]+[^[:space:]]+[[:space:]]+|--repo=[^[:space:]]+[[:space:]]+)*'
-_PR_CREATE_RE="gh[[:space:]]+${_PR_CREATE_FLAG}pr[[:space:]]+${_PR_CREATE_FLAG}create"
+_PR_CREATE_RE="gh[[:space:]]+${_PR_CREATE_FLAG}pr[[:space:]]+${_PR_CREATE_FLAG}(create|new)([^[:alnum:]_-]|\$)"
 
 # ── 줄 연속 잇기 (20261009) ───────────────────────────────────────────────────
 # `git \` + 개행 + `commit` 은 한 명령인데 트리거 grep 은 줄 단위라 둘로 보고 놓쳤다. 역슬래시-개행을 공백으로 바꾼다.
@@ -2166,8 +2175,112 @@ _gov_cmd_moves_elsewhere() {
   return 1
 }
 
+# ── 같은 호출 안에서 커밋 앞에 선 변조 (20261117 · 12회차 평가 재현) ──────────────────
+# 문서 전용 면제는 **훅이 도는 시점**의 변경 목록을 본다. 같은 호출에서 커밋보다 먼저 파일·index 를 바꾸는 명령이 돌면
+#   그 변경은 목록에 없다 — README 만 dirty 인 상태에서 `echo x > evil.sh && git add evil.sh && git commit` 이
+#   실행 증거 없이 열렸다(`sed -i … && git commit -am` · `git checkout br -- f` · `git mv README.md r.sh` 도 같다).
+#   명령을 조각(`&&`·`||`·`;`·`|`·`&`·개행)으로 나눠 **끝까지** 훑는다. rc 0 = 목록을 믿을 수 없다:
+#     · 믿는 조각이 아닌 것이 지나간 뒤에 커밋 조각이 온다 — 첫 커밋 뒤의 둘째 커밋도 같다(독립 리뷰 H1)
+#     · 커밋 조각이 커밋 전에 다른 것을 돌린다 — 명령 치환(`$(cat <<'EOF'` 로 **줄이 끝나는** 한 꼴만 두고, 그 뒤는
+#       종결자 낱말과 닫는 `)"` 만 허용 — H2) · `-c user.*`·`commit.gpgsign` 밖의 git 설정(`core.fsmonitor`·`core.hooksPath` — H4) ·
+#       작성자·시각·로케일 밖의 env 접두(`GIT_CONFIG_*`·`GIT_EXTERNAL_DIFF`)
+#     · 알아보지 못한 꼴의 커밋(제어문 안 · `timeout N`) — 어느 조각이 커밋인지 모르면 앞뒤를 가를 수 없다
+#   믿는 조각: `git add`·`git stage`(싣는 대상은 작업트리 변경 + untracked 로 이미 목록에 있다 — ignore 를 뚫는 `-f`,
+#   모드를 바꾸는 `--chmod` 는 뺀다) · 쓰지 않는 git(status·diff·log·show·branch·rev-parse·remote·ls-files·fetch —
+#   파일을 쓰는 `--output`, 외부 명령을 부르는 `--ext-diff` 는 뺀다 — H3) · 새 브랜치만 만드는 `git checkout -b <이름>`·
+#   `git switch -c <이름>` · `cd`·`pushd`(위치는 _gov_cmd_moves_elsewhere 가 본다) · `true`·`:`·`pwd`·`ls` ·
+#   리다이렉션 없는 `echo`·`printf`. env 접두가 붙은 조각은 믿지 않는다(`GIT_EXTERNAL_DIFF=… git diff`).
+#   rc 1 = 변조 없음(또는 명령 없음). 이 함수는 면제를 **거두는 쪽으로만** 쓰인다 — 틀려도 검증을 요구할 뿐이다.
+#   알려진 한계: 인용 안의 `<<` 를 heredoc 으로 읽는 스트리퍼를 속이는 꼴(H5)은 여기서 못 본다 — 트리거 판정과 같은 뿌리다.
+#   조각마다 프로세스를 띄우지 않는다(`[[ =~ ]]` — 훅은 hot path).
+_gov_cmd_mutates_before_commit() {
+  local c seg body tok names gopts skip _NL=$'\n' mutated=0 seen=0 insub=0
+  local re_env='^([A-Za-z_][A-Za-z0-9_]*)=[^[:space:]]*[[:space:]]+(.*)$'
+  local re_wrap='^([A-Za-z0-9_.~/-]*/)?(rtk|proxy|command|builtin|exec|nohup)[[:space:]]+(.*)$'
+  local re_commit='^([A-Za-z0-9_.~/-]*/)?git(([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+|[[:space:]]+--?[A-Za-z][^[:space:]]*)*)[[:space:]]+commit([[:space:]].*)?$'
+  local re_anycommit='(^|[^[:alnum:]_])git[[:space:]]+([^[:space:]]+[[:space:]]+)*commit([[:space:]]|$)'
+  local re_git='^([A-Za-z0-9_.~/-]*/)?git([[:space:]]+--no-pager)?[[:space:]]+(.*)$'
+  local re_gitsafe='^(add|stage|status|diff|log|show|branch|rev-parse|remote|ls-files|fetch)([[:space:]].*)?$'
+  local re_newbranch='^(checkout[[:space:]]+-b|switch[[:space:]]+-c)[[:space:]]+[A-Za-z0-9_./-]+$'
+  local re_gitwrite='(^|[[:space:]])(--output|--ext-diff|--chmod|--force)([=[:space:]]|$)'
+  local re_addforce='^(add|stage)[[:space:]](.*[[:space:]])?-[A-Za-z]*f'
+  local re_plain='^((cd|pushd|ls|echo|printf)([[:space:]].*)?|true|:|pwd)$'
+  local re_names='^(GIT_(AUTHOR|COMMITTER)_(NAME|EMAIL|DATE)|SPECOPS_[A-Z_]+|TZ|LANG|LC_[A-Z]+)$'
+  local re_cfg='^(user\.(name|email)|commit\.gpgsign)='
+  local re_cat='^(.*)\$\(cat[[:space:]]+<<-?[[:space:]]*["'"'"']?[A-Za-z_][A-Za-z0-9_]*["'"'"']?$'
+  local re_word='^[A-Za-z_][A-Za-z0-9_]*$'
+  local re_close='^\)["'"'"']?$'
+  local re_trim='^[[:space:]({]*(.*[^[:space:]}])[[:space:]}]*$'
+  c=$(_strip_quoted_strings "$(_strip_heredoc_bodies "${1:-}")")
+  [ -n "$c" ] || return 1
+  c=${c//\\$_NL/ }
+  # fd 복제·/dev/null 로 버리는 리다이렉션은 파일을 만들지 않는다 — 조각 판정 전에 지우고, 분리자를 개행으로 바꾼다
+  c=$(sed -E 's/[0-9]*>&[0-9-]+//g; s/&>[[:space:]]*\/dev\/null//g; s/[0-9]*>>?[[:space:]]*\/dev\/null//g; s/&&|\|\||[;|&]/\'"$_NL"'/g' <<< "$c")
+  while IFS= read -r seg; do
+    [[ $seg =~ $re_trim ]] || continue      # 앞의 공백·`(`·`{` 와 뒤의 공백·`}` 를 뗀다 — 빈 조각은 건너뛴다
+    seg=${BASH_REMATCH[1]}
+    if [ "$insub" = 1 ]; then   # `$(cat <<'EOF'` 안 — 종결자 낱말과 닫는 괄호만
+      [[ $seg =~ $re_word ]] && continue
+      [[ $seg =~ $re_close ]] && { insub=0; continue; }
+      return 0
+    fi
+    body=$seg; names=""
+    while :; do
+      if [[ $body =~ $re_env ]]; then names="$names ${BASH_REMATCH[1]}"; body=${BASH_REMATCH[2]}
+      elif [[ $body =~ $re_wrap ]]; then body=${BASH_REMATCH[3]}
+      else break; fi
+    done
+    if [[ $body =~ $re_commit ]]; then
+      gopts=${BASH_REMATCH[2]}
+      [ "$mutated" = 1 ] && return 0
+      seen=1; skip=""
+      for tok in $names; do [[ $tok =~ $re_names ]] || return 0; done
+      for tok in $gopts; do
+        case "$skip" in
+          c) skip=""; [[ $tok =~ $re_cfg ]] || return 0; continue ;;
+          C) skip=""; continue ;;
+        esac
+        case "$tok" in -c) skip=c ;; -C) skip=C ;; --no-pager) ;; *) return 0 ;; esac
+      done
+      case "$seg" in
+        *'$('*|*'`'*|*'<('*|*'>('*)
+          [[ $seg =~ $re_cat ]] || return 0
+          case "${BASH_REMATCH[1]}" in *'$('*|*'`'*|*'<('*|*'>('*) return 0 ;; esac
+          insub=1 ;;
+      esac
+      continue
+    fi
+    # 커밋이 아닌 조각 — 믿는 조각이 아니면 변조로 센다. 알아보지 못한 꼴의 커밋이면 가를 수 없다
+    if [ -z "$names" ]; then
+      case "$seg" in *'>'*|*'<('*|*'$('*|*'`'*) ;; *)
+        if [[ $body =~ $re_git ]]; then
+          tok=${BASH_REMATCH[3]}
+          if [[ $tok =~ $re_newbranch ]]; then continue; fi
+          if [[ $tok =~ $re_gitsafe ]] && ! [[ $tok =~ $re_gitwrite ]] && ! [[ $tok =~ $re_addforce ]]; then continue; fi
+        elif [[ $body =~ $re_plain ]]; then continue
+        fi ;;
+      esac
+    fi
+    [[ $seg =~ $re_anycommit ]] && return 0
+    mutated=1
+  done <<EOF
+$c
+EOF
+  [ "$insub" = 1 ] && return 0
+  [ "$seen" = 0 ] && [ "$mutated" = 1 ] && return 0
+  return 1
+}
+
 # deny 사유에 붙인다 — 면제를 거둔 이유를 모르면 우회로 간다. 옮기지 않았거나 같은 작업 트리면 빈 값.
 _gov_moved_note() {
   _gov_cmd_moves_elsewhere "${1:-}" || return 0
   printf '\n\n※ 명령이 다른 작업 트리로 옮겨 문서 면제를 적용하지 않았습니다 — 옮긴 곳의 변경은 이 판정이 보지 않으므로 문서만 바꾼 커밋이어도 면제하지 않습니다. 그 폴더로 셸을 옮긴 뒤 맨 `git commit` 을 쓰면 그곳 기준으로 판정됩니다.'
+}
+
+# deny 사유에 붙인다 — 커밋 앞 조각 때문에 문서 면제를 거뒀으면 그 이유와 푸는 법을 알린다.
+#   변경 목록이 문서뿐이라 면제될 뻔한 경우에만이다(is_docs_only_change 가 _GOV_PRELUDE_HELD 를 세운다) — 코드가 dirty 라
+#   어차피 면제가 아닌 커밋에 붙이면 엉뚱한 안내가 된다(독립 리뷰 재현: `npm test && git commit -am x`).
+_gov_prelude_note() {
+  [ "${_GOV_PRELUDE_HELD:-}" = 1 ] || return 0
+  printf '\n\n※ 같은 호출에서 커밋보다 먼저 파일을 만들거나 고칠 수 있는 명령이 돌아 문서 면제를 적용하지 않았습니다 — 그 변경은 이 판정이 보지 못합니다. 문서만 바꾼 커밋이면 그 명령을 먼저 따로 실행하고 `git add` 와 `git commit` 만 다시 내세요(한 호출에 커밋은 한 번).'
 }

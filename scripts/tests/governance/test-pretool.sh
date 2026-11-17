@@ -2093,5 +2093,103 @@ out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_
 check "T-nolc.e 대조: tasks.md 있는 FID 는 종전대로 run-verification.sh 안내" 'run-verification.sh' "$out"
 rm -rf "$_nolc"
 
+# ── T-prel 같은 호출 안에서 커밋 앞에 선 변조 · `gh pr new` (20261117 · 12회차 평가 재현) ─────────────
+#   README 만 dirty 인 저장소 — 훅 시점의 변경 목록은 문서뿐이다. 커밋 앞 조각이 파일·index 를 바꿀 수 있으면
+#   문서 면제를 거둔다(실행 증거 없음 → deny). 싣기만 하는 조각(`git add` 등)은 종전대로 면제다.
+#   변이: is_docs_only_change 의 `_held=1` 대입을 지우면 deny 줄이 전부 떨어지고, 믿는 조각에서 `add|stage` 를 지우면
+#   allow 줄이 떨어진다. 커밋 조각에서 `[ "$mutated" = 1 ] && return 0` 을 지우면 둘째 커밋 줄이 떨어진다. `(create|new)` 를 `create` 로 되돌리면 PR 줄이 떨어진다.
+_prel=$(mktemp -d); _prel=$(cd "$_prel" && pwd -P); mkdir -p "$_prel/.specops" "$_prel/sub"
+cat > "$_prel/.mk.sh" <<'MK'
+set -e
+cd "$1"; git init -q -b main; echo "# x" > README.md; echo 'echo a' > a.sh; echo d > sub/d.md
+printf '.mk.sh\nt.jsonl\n' > .gitignore; git add -A
+git -c user.name=t -c user.email=t@t commit -q -m init
+echo "more" >> README.md
+MK
+bash "$_prel/.mk.sh" "$_prel"; : > "$_prel/t.jsonl"
+_prel_run() {
+  jq -nc --arg c "$1" --arg cwd "$_prel" --arg t "$_prel/t.jsonl" \
+    '{hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$c},cwd:$cwd,transcript_path:$t,session_id:"s1"}' \
+  | (cd "$_prel" && CLAUDE_PROJECT_DIR="$_prel" bash "$HOOK" 2>/dev/null) \
+  | jq -r '.hookSpecificOutput.permissionDecision // "allow"' 2>/dev/null | head -1
+}
+_prel_bad=""; _prel_n=0; _NL=$'\n'
+while IFS='|' read -r _want _cmd; do
+  [ -n "$_want" ] || continue
+  _cmd=${_cmd//'<NL>'/$_NL}
+  _prel_n=$((_prel_n+1))
+  _got=$(_prel_run "$_cmd"); _got=${_got:-allow}
+  [ "$_got" = "$_want" ] || _prel_bad="$_prel_bad [기대 $_want · 실제 $_got: $_cmd]"
+done <<'PREL'
+deny|echo hi > evil.sh && git add evil.sh && git commit -m x
+deny|sed -i "" s/a/b/ a.sh && git commit -am x
+deny|git checkout other -- a.sh && git commit -am x
+deny|git mv README.md r.sh && git commit -m x
+deny|cp a.sh b.sh; git add -A; git commit -m x
+deny|touch n.sh && git add n.sh && git commit -m x
+deny|printf 'x' > n.sh<NL>git add -A<NL>git commit -m x
+deny|bash mk.sh && git add -A && git commit -m x
+deny|git add -A && git commit -m "$(echo x > e.sh; git add e.sh; echo m)"
+deny|git stash pop && git commit -am x
+deny|git add commit && sed -i "" s/a/b/ a.sh && git commit -am x
+deny|rtk git apply p.diff && rtk git commit -am x
+allow|git add README.md && git commit -m x
+allow|git add -A && git commit -m x
+allow|git commit -am x
+allow|git add README.md; git commit -m x; git push
+allow|cd sub && git add -A && git commit -m x
+allow|git status && git add README.md && git commit -m x
+allow|git add README.md 2>/dev/null && git commit -m x 2>&1
+allow|git add README.md && git commit -m "$(cat <<'EOF'<NL>docs: x<NL>EOF<NL>)"
+allow|git add README.md<NL>git commit -q -F - <<'EOF'<NL>docs: x<NL>EOF
+allow|rtk git add README.md && rtk git commit -m x
+allow|echo start && git add README.md && git commit -m x
+deny|git add README.md && git commit -m x && echo x > evil.sh && git add -A && git commit -m y
+deny|git add README.md; git commit -m x<NL>sed -i '' s/a/b/ a.sh; git commit -am y
+deny|git commit -am "$(cat <<'EOF' && sed -i '' s/a/b/ a.sh<NL>m<NL>EOF<NL>)"
+deny|git commit -am "$(cat <<'EOF'<NL>m<NL>EOF<NL>sed -i '' s/a/b/ a.sh<NL>)"
+deny|git commit -am "$(cat <<'EOF'<NL>m<NL>EOF<NL>)" "$(echo x > evil.sh)"
+deny|git log -1 --pretty=format:x --output=evil.sh && git add evil.sh && git commit -m x
+deny|git diff --output=a.sh && git commit -am x
+deny|GIT_EXTERNAL_DIFF=x git diff && git commit -am x
+deny|git add --chmod=+x a.sh && git commit -m x
+deny|git add -f ignored.sh && git commit -m x
+deny|git -c core.fsmonitor=x commit -am x
+deny|git -c core.hooksPath=h commit -am x
+deny|GIT_CONFIG_COUNT=1 git commit -am x
+deny|if true; then touch n.sh; git add -A; git commit -m x; fi
+deny|timeout 5 git commit -am x
+allow|git checkout -b docs/x && git add README.md && git commit -m x
+allow|git switch -c docs/x && git add README.md && git commit -m x
+allow|git fetch && git add README.md && git commit -m x
+allow|git --no-pager diff --cached --stat && git commit -m x
+allow|pwd && ls && git add README.md && git commit -m x
+allow|GIT_AUTHOR_NAME=x git commit -am x
+allow|git -c user.name=t -c user.email=t@t commit -am x
+allow|git add README.md && git commit -m x || true
+allow|git add README.md && git commit -m "$(cat <<'EOF'<NL>docs: x<NL>EOF<NL>)" && git push
+allow|git add README.md<NL>git commit -q -F - <<'EOF'<NL>docs: x<NL>EOF<NL>git push
+deny|gh pr new --title t --body b
+deny|gh pr -R o/r new --fill
+deny|gh pr create --title t --body b
+allow|gh pr view 1
+allow|gh pr list --search new
+PREL
+if [ -z "$_prel_bad" ] && [ "$_prel_n" = 53 ]; then pass=$((pass+1)); echo "PASS T-prel.a ★ 커밋 앞 변조 27꼴 deny(둘째 커밋·치환 뒤 이어붙이기·--output·-c 설정 포함) · 싣기만 하는 21꼴 면제 유지 · gh pr new 인식 (${_prel_n}꼴)"
+else fail=$((fail+1)); echo "FAIL T-prel.a n=$_prel_n$_prel_bad"; fi
+# 거둔 이유를 알린다 — 모르면 우회로 간다
+out=$(jq -nc --arg c 'touch n.sh && git add n.sh && git commit -m x' --arg cwd "$_prel" --arg t "$_prel/t.jsonl" \
+    '{hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$c},cwd:$cwd,transcript_path:$t,session_id:"s1"}' \
+  | (cd "$_prel" && CLAUDE_PROJECT_DIR="$_prel" bash "$HOOK" 2>/dev/null))
+check "T-prel.b deny 사유에 '커밋보다 먼저 돈 명령' 안내와 푸는 법" '같은 호출에서 커밋보다 먼저' "$out"
+# 코드가 dirty 라 어차피 면제가 아닌 커밋에는 그 안내를 붙이지 않는다 (독립 리뷰 재현)
+echo 'echo b' >> "$_prel/a.sh"
+out=$(jq -nc --arg c 'npm test && git commit -am x' --arg cwd "$_prel" --arg t "$_prel/t.jsonl" \
+    '{hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$c},cwd:$cwd,transcript_path:$t,session_id:"s1"}' \
+  | (cd "$_prel" && CLAUDE_PROJECT_DIR="$_prel" bash "$HOOK" 2>/dev/null))
+if printf '%s' "$out" | grep -q '"deny"' && ! printf '%s' "$out" | grep -q '같은 호출에서 커밋보다 먼저'; then pass=$((pass+1)); echo "PASS T-prel.c 코드 dirty 커밋의 deny 에는 문서 면제 안내가 붙지 않는다"
+else fail=$((fail+1)); echo "FAIL T-prel.c — $out"; fi
+rm -rf "$_prel"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

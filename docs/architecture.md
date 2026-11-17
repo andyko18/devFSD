@@ -206,7 +206,7 @@ bash scripts/tests/run-all.sh   # 진짜처럼 실행
 | `FOO=1 git commit` · `time`/`nice`/`sudo`/`env`(옵션 포함 — `time -p`·`sudo -E`·`sudo -u u`·`env -i`·`env -u X` · 경로로 부른 `/usr/bin/env`)·`exec`/`nohup`/`timeout [-k 5] N` 뒤 | `xargs git commit` · `find … -exec git commit` |
 | `if …; then git commit` · `for …; do git commit` · `! git commit` · `case` 가지(`x) git commit`) | `alias gc="git commit"; gc` · `g=git; $g commit` |
 | 줄 연속(`git \` + 개행 + `commit`) · `git -C dir commit` · `git -ckey=val commit` | `"git" commit` · `git "commit"` (명령어 자체를 인용) |
-| `gh pr create` · `gh pr -R o/r create` · `gh -R o/r pr create` | `gh api repos/…/pulls -f …` (API 로 직접 PR 생성) |
+| `gh pr create` · `gh pr new`(같은 명령의 별칭) · `gh pr -R o/r create` · `gh -R o/r pr create` | `gh api repos/…/pulls -f …` (API 로 직접 PR 생성) |
 
 오른쪽은 정규식으로 닫으려 하면 끝이 없고(`perl -e`·`python -c`·…) 정직한 흐름에서 나올 이유가 없는 형태다. 왼쪽도 목록이 전부다 — `command -p`·`exec -a name` 같은 `command`·`exec`·`nohup`·`builtin` 의 옵션 형태는 넣지 않았다(실기록 0건). 줄 연속은 이은 문자열과 **잇기 전 원문을 둘 다** 본다: 주석 줄 끝의 `\` 나 `\\` 는 줄을 잇지 않아 다음 줄이 실제로 실행되는데, 이은 것만 보면 그 커밋을 놓친다. 그 대가로 인자 연속 줄이 `git commit` 글자로 시작하면(`echo a \` + 개행 + `git commit …`) 커밋이 아닌데도 걸린다 — 종전과 같은 동작이다. 그리고 R-1 이 보는 것은 **커밋**이다 — `git merge`·`cherry-pick`·`revert`·`am`·`rebase` 로 생기는 커밋과 `git push` 는 대상이 아니다.
 

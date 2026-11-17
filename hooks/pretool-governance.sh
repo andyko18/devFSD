@@ -591,7 +591,7 @@ $_receipt_hint
    문서만 바꾸는 커밋(*.md 등)은 검증 없이 통과합니다.${_nolc_plugin}
 우회(사유 병기 필수): SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' <명령>${_compound_hint}"
   fi
-  jq -nc --arg r "$reason$(_gov_target_note "$plugin_root" "${fid:-}")$(_gov_moved_note "$tool_cmd_scan")" \
+  jq -nc --arg r "$reason$(_gov_target_note "$plugin_root" "${fid:-}")$(_gov_moved_note "$tool_cmd_scan")$(_gov_prelude_note "$tool_cmd_scan")" \
     '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
   exit 0
 fi

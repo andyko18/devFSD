@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.7.6] — 2026-11-17
+
 ### Changed
 
 - **인라인 우회 표식은 커밋·PR 생성 명령에 붙어 있어야 열린다 (행동 변경)**. `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=… true && git commit` 처럼 표식이 다른 명령에 붙은 꼴은 뒤의 커밋까지 통째로 열렸다. 이제 막고, 표식을 커밋 바로 앞으로 옮기라고 안내한다 — `cd <폴더> && SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='…' git commit …`. **표식을 줄 맨 앞에 두고 `cd … &&` 를 잇던 꼴도 막힌다.** `.specops` 가 없는 저장소는 종전대로 묻지 않는다 (PR #360).
@@ -4232,7 +4234,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.5...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.6...HEAD
+[5.7.6]: https://github.com/andyko18/devFSD/compare/v5.7.5...v5.7.6
 [5.7.5]: https://github.com/andyko18/devFSD/compare/v5.7.4...v5.7.5
 [5.7.4]: https://github.com/andyko18/devFSD/compare/v5.7.3...v5.7.4
 [5.7.3]: https://github.com/andyko18/devFSD/compare/v5.7.2...v5.7.3

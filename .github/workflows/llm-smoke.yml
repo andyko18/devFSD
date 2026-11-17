@@ -88,6 +88,15 @@ jobs:
           - name: check-screen-quality
             target: scripts/_internal/check-screen-quality.sh
             timeout: 50       # 실측 1064~1368s (2배 = 46분) · 20261010: 스위트 1회 32s x 실행 사이트 45 = 최악 약 24분
+          - name: pr-gate
+            target: scripts/pr-gate.sh
+            timeout: 20       # 20261117 로컬 실측: 스위트 1회 2s x 사이트 9 — 1분 미만
+          - name: quick-scope
+            target: scripts/_internal/quick-scope.sh
+            timeout: 30       # 20261117 로컬 실측: 스위트 1회 26s x 사이트 13 = 약 6분
+          - name: basic-path
+            target: scripts/basic-path.sh
+            timeout: 120      # 20261117 로컬 실측: 스위트 1회 46s x 사이트 61 = 약 47분 (등가 3건 제외 58)
     name: mutation (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v4

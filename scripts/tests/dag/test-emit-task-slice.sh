@@ -136,6 +136,66 @@ W=$( { printf '# t\n\n## 태스크 1: 가\n\n본문-가\n\n## 태스크 2: 나\n
 _emit "$W"; D="$W/.specops/$F/dispatch"
 _pf "S14 템플릿 형식 '## 태스크 N'" "$(grep -q '본문-가' "$D/T1-task.md" && ! grep -q '본문-나' "$D/T1-task.md" && grep -q '본문-나' "$D/T2-task.md" && echo ok)"
 
+# ── 전 태스크 공통 부분 (20261117): 서문과 `## … 공통 …` 절을 각 태스크 절 파일 끝에 붙인다 ──
+#   왜: 절만 잘라 주자 tasks.md 맨 앞의 주의와 "전 태스크 공통 규칙" 절이 구현자에게 가지 않았다(구현자는 tasks.md 를 읽지 않는다).
+W=$( { cat <<'EOF'
+<!-- FID: slice-fid -->
+# 태스크 목록 — slice-fid
+
+> 서문-주의-PRE
+
+---
+
+## 전 태스크 공통 규칙
+
+공통-규칙-COMMON
+
+```bash
+## 공통 가짜 제목 — 펜스 안
+```
+
+## Task 1: parser
+
+본문-T1
+
+### 공통 함정 (이 태스크 안)
+
+T1-전용-INNER
+
+## Task 2: writer
+
+본문-T2
+
+## 파괴적 작업
+
+본문-NOT-TASK
+
+EOF
+_yaml T1 T2; } | _mk)
+_emit "$W"; D="$W/.specops/$F/dispatch"
+t1=$(cat "$D/T1-task.md" 2>/dev/null); t2=$(cat "$D/T2-task.md" 2>/dev/null)
+_pf "C1 ★ 서문·공통 절이 모든 태스크 절 파일에 실린다" \
+  "$(for t in "$t1" "$t2"; do printf '%s' "$t" | grep -q '서문-주의-PRE' && printf '%s' "$t" | grep -q '공통-규칙-COMMON' && printf '%s' "$t" | grep -q '^## 전 태스크 공통 (tasks.md)' || exit 1; done; echo ok)" "$t2"
+_pf "C2 서문에서 HTML 주석 줄·1단 제목·구분선은 뺀다 · 공통이 아닌 절(파괴적 작업)은 싣지 않는다" \
+  "$(! printf '%s' "$t2" | grep -q 'FID: slice-fid' && ! printf '%s' "$t2" | grep -q '^# 태스크 목록' && ! printf '%s' "$t2" | grep -q 'NOT-TASK' && echo ok)" "$t2"
+_pf "C3 ★ 태스크 절 안의 '공통' 소제목은 그 태스크 것이다 — 다른 태스크에 붙이지 않는다" \
+  "$(printf '%s' "$t1" | grep -q 'T1-전용-INNER' && ! printf '%s' "$t2" | grep -q 'T1-전용-INNER' && [ "$(printf '%s' "$t1" | grep -c 'T1-전용-INNER')" = 1 ] && echo ok)" "$t2"
+_pf "C4 공통 부분은 태스크 본문 뒤에 온다(자기 절이 먼저) · 펜스 안 '## 공통' 은 제목이 아니다" \
+  "$(printf '%s' "$t2" | awk '/본문-T2/{a=NR} /공통-규칙-COMMON/{b=NR} END{exit !(a && b && a<b)}' && [ "$(printf '%s' "$t2" | grep -c '공통 가짜 제목')" = 1 ] && echo ok)" "$t2"
+_pf "C5 문맥 파일은 그대로 validate-context 를 통과한다" "$(_val "$D/T2-context.md" && echo ok)" "$(cat "$D/T2-context.md" 2>/dev/null)"
+# 긴 서문(상한 2048 바이트 초과)은 싣지 않고 행 범위만 알린다 — 절 분리의 목적이 토큰이다
+W=$( { printf '# 태스크 목록\n\n'; i=0; while [ $i -lt 60 ]; do printf '긴-서문-LONG 줄 %s — 아주 긴 서문의 한 줄이다 아주 긴 서문의 한 줄이다\n' "$i"; i=$((i+1)); done
+       printf '\n## Task 1: a\n\n본문-T1\n\n'; _yaml T1; } | _mk)
+_emit "$W"; t1=$(cat "$W/.specops/$F/dispatch/T1-task.md" 2>/dev/null)
+_pf "C6 ★ 서문이 상한을 넘으면 본문 대신 행 범위 안내 1줄" \
+  "$(! printf '%s' "$t1" | grep -q '긴-서문-LONG' && printf '%s' "$t1" | grep -q '서문이 길어 싣지 않았다' && printf '%s' "$t1" | grep -q '본문-T1' && echo ok)" "$t1"
+# 서문도 공통 절도 없으면 종전과 같다(덧붙이지 않는다)
+W=$( { printf '# 태스크 목록\n\n## Task 1: a\n\n본문-T1\n\n'; _yaml T1; } | _mk)
+_emit "$W"; t1=$(cat "$W/.specops/$F/dispatch/T1-task.md" 2>/dev/null)
+_pf "C7 서문·공통 절이 없으면 아무것도 붙이지 않는다" "$(! printf '%s' "$t1" | grep -q '전 태스크 공통' && echo ok)" "$t1"
+_pf "C8 구현자 본문이 태스크 절 파일 끝의 공통 부분을 따르라고 적는다" \
+  "$(grep -qF '전 태스크 공통 (tasks.md)' "$PLUGIN/agents/implementer-ko.md" && echo ok)"
+
 # ── 문서 배선 ──
 IMP="$PLUGIN/agents/implementer-ko.md"
 _pf "S15 구현자 정의 — 태스크 본문은 dispatch/<task-id>-task.md · tasks.md 전체는 읽지 않는다 · 없으면 tasks.md 에서 찾는다" \

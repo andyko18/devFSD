@@ -1,6 +1,7 @@
 ---
 type: tool_used
-tool: Skill
-input_match: '"skill"\s*:\s*"(?:[\w-]+:)?(analyzing-ko|specifying-ko|systematic-debugging-ko|init-project)"'
+tool: Bash
+input_match: 'basic-path\.sh\W+route\W+maintain'
+min: 1
 arm: with-only
 ---

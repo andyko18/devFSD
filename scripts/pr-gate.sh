@@ -37,7 +37,9 @@ else
 fi
 
 # worktree 에서 불러도 FID 기록이 메인에만 있으면 메인을 쓴다 (dev-decision.sh 와 같은 해석)
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/specops-root.sh" 2>/dev/null && specops_root_export "$FID"
+#   batch 는 FID 형식이 아니라 FID 없이 묻는다(작업 트리에 .specops 가 없을 때만 메인으로 간다).
+_rf="$FID"; [ "$CMD" = decide ] || _rf=""
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/specops-root.sh" 2>/dev/null && specops_root_export "$_rf"
 if [ -n "${SPECOPS_ROOT:-}" ]; then SPECOPS="$SPECOPS_ROOT"
 elif [ -d .specops ]; then SPECOPS=".specops"
 else _top=$(git rev-parse --show-toplevel 2>/dev/null || true); SPECOPS="${_top:+$_top/}.specops"; fi

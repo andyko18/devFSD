@@ -412,13 +412,9 @@ elif cr_state in ("violation", "unknown"):
 #   **막지 않는다**: 못 찾은 태스크는 파일을 만들지 않고(옛 파일은 지운다) 표준 오류 1줄 — 구현자는 tasks.md 에서 절을 찾는다(fallback).
 _HEAD_RE = re.compile(r"^(#{1,6})[ \t]+(.*)$")
 _TASK_RE = re.compile(r"^(?:Task|태스크)[ \t]+([0-9]+)")
-def task_sections(path):
-    try:
-        lines = open(path, encoding="utf-8").read().split("\n")
-    except (OSError, UnicodeDecodeError):
-        return {}, set()
+def _scan_heads(lines):
     fence_n, fence_c = 0, ""
-    heads = []   # (행 번호, 단계, 태스크 번호|None)
+    heads = []   # (행 번호, 단계, 태스크 번호|None, 제목)
     for i, raw in enumerate(lines):
         ln = raw.rstrip("\r")
         st = ln.lstrip(" \t")
@@ -439,7 +435,15 @@ def task_sections(path):
             continue
         lvl = len(h.group(1))
         tm = _TASK_RE.match(h.group(2)) if lvl in (2, 3) else None
-        heads.append((i, lvl, int(tm.group(1)) if tm else None))
+        heads.append((i, lvl, int(tm.group(1)) if tm else None, h.group(2)))
+    return heads
+
+def task_sections(path):
+    try:
+        lines = open(path, encoding="utf-8").read().split("\n")
+    except (OSError, UnicodeDecodeError):
+        return {}, set()
+    heads = [(i, lvl, num) for (i, lvl, num, _t) in _scan_heads(lines)]
     secs = {}
     dup = set()
     cur = None   # 지금 열린 절의 (번호, 단계)
@@ -470,6 +474,46 @@ def task_sections(path):
         out[num] = (a + 1, a + len(body), "\n".join(body) + "\n")
     return out, dup
 
+# 전 태스크 공통 부분 (20261117) — 절만 잘라 주면 tasks.md 의 서문과 `## … 공통 …` 절(전 태스크 공통 규칙·함정)이 구현자에게
+#   가지 않는다. 각 태스크 절 파일 끝에 붙인다. 실측(이 저장소 tasks.md 160건): 서문 중앙 0.5KB · 90% 1KB · 최대 49KB,
+#   공통 절 0.6~6.8KB. 서문은 _PRE_CAP 바이트를 넘으면 붙이지 않고 행 범위만 알린다(절 분리의 목적이 토큰이다).
+#   서문 = 첫 2단 이하(`##`…) 제목 전 · HTML 주석 줄·1단 제목·구분선은 뺀다. 공통 절 = 태스크 절 밖의 2~3단 제목에 "공통" 이 든 절.
+_PRE_CAP = 2048
+def shared_parts(path, task_ranges):
+    try:
+        lines = open(path, encoding="utf-8").read().split("\n")
+    except (OSError, UnicodeDecodeError):
+        return ""
+    heads = _scan_heads(lines)
+    first = next((i for (i, lvl, _n, _t) in heads if lvl >= 2), len(lines))
+    pre = [l.rstrip("\r") for l in lines[:first]]
+    pre = [l for l in pre if not re.match(r"^\s*<!--.*-->\s*$", l) and not re.match(r"^#\s", l) and not re.match(r"^\s*(-{3,}|\*{3,})\s*$", l)]
+    while pre and not pre[0].strip():
+        pre.pop(0)
+    while pre and not pre[-1].strip():
+        pre.pop()
+    parts = []
+    if pre:
+        text = "\n".join(pre)
+        if len(text.encode("utf-8")) <= _PRE_CAP:
+            parts.append("### tasks.md 서문\n\n" + text)
+        else:
+            parts.append(f"### tasks.md 서문\n\n(서문이 길어 싣지 않았다 — 필요하면 `{path}` 1-{first}행을 읽는다)")
+    def _in_task(i):
+        return any(a - 1 <= i < b for (a, b) in task_ranges)
+    for k, (i, lvl, num, title) in enumerate(heads):
+        if num is not None or lvl not in (2, 3) or "공통" not in title or _in_task(i):
+            continue
+        end = next((j for (j, l2, _n, _t) in heads[k + 1:] if l2 <= lvl), len(lines))
+        body = [l.rstrip("\r") for l in lines[i:end]]
+        while body and not body[-1].strip():
+            body.pop()
+        parts.append("\n".join(body))
+    if not parts:
+        return ""
+    return ("\n---\n\n<!-- 아래는 이 태스크 절이 아니라 tasks.md 의 전 태스크 공통 부분이다 (emit-context.sh 가 붙였다) -->\n\n## 전 태스크 공통 (tasks.md)\n\n"
+            + "\n\n".join(parts) + "\n")
+
 def _tnum(tid):
     s = re.sub(r"\D", "", str(tid)).lstrip("0")
     return int(s) if s else None
@@ -480,6 +524,7 @@ _id_nums = {_tnum(t["id"]) for t in tasks}
 _offset = bool(_secs) and any(n not in _id_nums for n in _secs)
 if _offset:
     print(f"emit-context: NOTE 태스크 절 번호({','.join(map(str, sorted(_secs)))})가 task id 번호와 어긋나 태스크 절을 자르지 않았다 — 구현자는 tasks.md 에서 자기 절을 찾는다", file=sys.stderr)
+_shared = shared_parts(tasks_path, [(a, b) for (a, b, _x) in _secs.values()])
 task_file = {}
 for t in tasks:
     tid = t["id"]
@@ -495,7 +540,7 @@ for t in tasks:
         continue
     a, b, text = sec
     with open(tp, "w", encoding="utf-8") as fh:
-        fh.write(f"<!-- emit-context.sh 자동 산출 — {tasks_path} {a}-{b}행의 {tid} 절. 고치려면 tasks.md 를 고치고 emit-context 를 다시 돌린다 -->\n\n{text}")
+        fh.write(f"<!-- emit-context.sh 자동 산출 — {tasks_path} {a}-{b}행의 {tid} 절. 고치려면 tasks.md 를 고치고 emit-context 를 다시 돌린다 -->\n\n{text}{_shared}")
     task_file[tid] = f".specops/{fid}/dispatch/{tid}-task.md"
 
 count = 0

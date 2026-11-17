@@ -112,6 +112,21 @@ run "$SB/a1"; ck "G4.e 출력은 항상 1줄" "$(printf '%s\n' "$OUT" | grep -c 
 B=$(find "$SB/d1" -type f -exec cksum {} + | cksum); run "$SB/d1"; A=$(find "$SB/d1" -type f -exec cksum {} + | cksum)
 ck "G5.a 판정은 아무것도 쓰지 않는다" "$A" "$B"
 
+# ── 변이 측정(20261117 — 대상 등록 시 생존 4건)이 드러낸 미검 분기 ──
+R=$(mk m1 '**§일괄**: true'); approve "$R" '승인 묶음 승인 · PR 생성 포함'; printf 'pr_gate: auto\nsession_split:\n  enabled: true\n' > "$R/config.yaml"
+run "$R"; ck "G8.a ★ 설정 파일이 있어도 pr_gate: ask 가 아니면 묻지 않는다 → auto" "$OUT" "PR-GATE: auto"
+R=$(mk m2 '**§일괄**: true'); approve "$R" 'PR 생성 거절'
+run "$R"; ck "G8.b ★ 결정 칸이 'PR 생성 포함' 과 길이만 같은 다른 말 → ask" "${OUT%% (*}" "PR-GATE: ask"
+R=$(mk m3 '**§일괄**: true'); approve "$R" '승인 묶음 승인 · PR 생성 포함'; printf '# 증거\n\n## /verify\n\nPASS\n' > "$R/$F/evidence.md"
+run "$R"; ck "G8.c ★ evidence.md 는 있는데 데모 절이 없다 → auto (초안으로 돌리지 않는다)" "$OUT" "PR-GATE: auto"
+# worktree 에서 불러도 메인의 FID 기록을 읽는다(SPECOPS_ROOT 를 주지 않는다 — 스크립트가 스스로 찾아야 한다)
+WM="$SB/wt-main"; mkdir -p "$WM" && ( cd "$WM" && git init -q . && git -c user.name=t -c user.email=t@e.com commit -q --allow-empty -m init \
+  && git worktree add -q "$SB/wt-side" -b side ) >/dev/null 2>&1
+mkdir -p "$WM/.specops/$F"; printf '# 명세\n\n**§일괄**: true\n' > "$WM/.specops/$F/spec.md"
+printf -- '- 2026-11-14T00:00:00Z [approval] 승인 묶음 승인 · PR 생성 포함\n' > "$WM/.specops/$F/dev-decisions.md"
+OUT=$(cd "$SB/wt-side" && env -u SPECOPS_PR_GATE -u SPECOPS_ROOT bash "$PG" decide "$F" 2>/dev/null)
+ck "G8.d ★ worktree 에서 불러도 메인의 FID 기록으로 판정한다 → auto" "$OUT" "PR-GATE: auto"
+
 # ── batch PR (20261117) — /start-all 도 단일 경로와 같은 규칙으로 정한다 ──
 B=batch-20261117-0900
 mkb() {  # <이름> <queue mode 줄> — batch 폴더(queue)와 그 batch 의 FID 1개
@@ -139,6 +154,11 @@ R=$(mkb b5 'mode: 일괄'); approve "$R" 'batch 승인 묶음 승인 · PR 생�
 OUT=$(SPECOPS_PR_GATE=ask SPECOPS_ROOT="$R" bash "$PG" decide-batch "$B" 2>/dev/null)
 ck "G7.g SPECOPS_PR_GATE=ask 는 batch 에도 통한다" "${OUT%% (*}" "PR-GATE: ask"
 runb "$R" "20261114-not-a-batch"; ck "G7.h BATCH_ID 형식이 아니면 사용 오류(rc 2)" "$RC" "2"
+# worktree 에서 부른 batch 판정도 메인의 기록을 읽는다(위 G8.d 의 저장소 — FID 는 이 batch 소속으로 바꾼다)
+mkdir -p "$WM/.specops/$B"; printf '> mode: 일괄\n' > "$WM/.specops/$B/queue.md"; printf '**확인 필요**: no (내부)\n' > "$WM/.specops/$B/demo.md"
+printf '# 명세\n\n**§batch**: %s\n' "$B" > "$WM/.specops/$F/spec.md"
+OUT=$(cd "$SB/wt-side" && env -u SPECOPS_PR_GATE -u SPECOPS_ROOT bash "$PG" decide-batch "$B" 2>/dev/null)
+ck "G7.k ★ worktree 에서 부른 batch 판정도 메인의 기록으로 → auto" "$OUT" "PR-GATE: auto"
 grep -qF 'pr-gate.sh decide-batch' "$PLUGIN/commands/start-all.md" && grep -qF 'batch 승인 묶음 승인 · PR 생성 포함' "$PLUGIN/commands/start-all.md" \
   && ok "G7.i ★ /start-all 이 판정 스크립트를 부르고 승인 묶음이 'PR 생성 포함' 을 기록한다" || nope "G7.i" "start-all.md 배선 없음"
 ! grep -qF 'batch PR 질문 앞에' "$PLUGIN/commands/start-all.md" && ! grep -qF 'batch PR 질문에서 함께' "$PLUGIN/skills/demo-ko/SKILL.md" \

@@ -4,6 +4,16 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **구현자가 tasks.md 의 서문과 전 태스크 공통 절을 받는다**. 태스크 절만 잘라 주면서(`dispatch/<task-id>-task.md`) tasks.md 맨 앞의 주의와 `## 전 태스크 공통 규칙` 같은 절이 구현자에게 가지 않았다. 이제 각 태스크 절 파일 끝에 `## 전 태스크 공통 (tasks.md)` 로 붙는다 — 제목에 "공통" 이 든 2~3단 절(태스크 절 안의 소제목은 제외)과 서문이다. 서문이 2KB 를 넘으면 본문 대신 행 범위만 알린다.
+- **공식 평가(`claude plugin eval`)의 라우팅 케이스가 지금의 진입 경로를 본다**. 갈래를 스크립트(`basic-path.sh route`)가 고르게 된 뒤에도 케이스는 Skill 호출만 보고 Bash 를 허용하지 않아, 양성은 늘 실패하고 음성은 늘 통과했다. 양성은 판정기 호출(`route start`·`route maintain`)을, 음성은 판정기를 부르지 않음을 본다. 실행에는 `--allow-tools Bash` 가 필요하다.
+- **`pr-gate.sh decide-batch` 가 worktree 에서도 메인의 batch 기록을 읽는다**.
+
+### Tests
+
+- 변이 측정 대상에 판정기 3종 추가 — `pr-gate.sh`·`quick-scope.sh`·`basic-path.sh`. 측정이 드러낸 미검 분기 15곳(PR 을 물을지 4 · 갈래·기본 경로 절차 11)을 단언으로 잡았다.
+
 ## [5.7.7] — 2026-11-17
 
 ### Changed

@@ -112,6 +112,38 @@ run "$SB/a1"; ck "G4.e 출력은 항상 1줄" "$(printf '%s\n' "$OUT" | grep -c 
 B=$(find "$SB/d1" -type f -exec cksum {} + | cksum); run "$SB/d1"; A=$(find "$SB/d1" -type f -exec cksum {} + | cksum)
 ck "G5.a 판정은 아무것도 쓰지 않는다" "$A" "$B"
 
+# ── batch PR (20261117) — /start-all 도 단일 경로와 같은 규칙으로 정한다 ──
+B=batch-20261117-0900
+mkb() {  # <이름> <queue mode 줄> — batch 폴더(queue)와 그 batch 의 FID 1개
+  local r="$SB/$1"; mkdir -p "$r/$B" "$r/$F"
+  printf '# queue\n\n> %s\n\n| FR | FID | Status |\n|---|---|---|\n| FR-7 | %s | IMPL_DONE |\n' "$2" "$F" > "$r/$B/queue.md"
+  printf '# 명세\n\n**§유형**: 신규\n**§batch**: %s\n' "$B" > "$r/$F/spec.md"
+  printf '%s' "$r"
+}
+bdemo() { printf '# 데모\n\n**종류**: %s\n**확인 필요**: %s\n' "$2" "$3" > "$1/$B/demo.md"; }
+runb() { OUT=$(env -u SPECOPS_PR_GATE SPECOPS_ROOT="$1" bash "$PG" decide-batch "${2:-$B}" 2>"$SB/err"); RC=$?; }
+R=$(mkb b1 'mode: 일괄'); approve "$R" 'batch 승인 묶음 승인 · PR 생성 포함 — 요지'; bdemo "$R" 내부 'no (내부 변경)'
+runb "$R"; ck "G7.a ★ 일괄 batch + 승인에 PR 포함 + 데모 확인 불필요 → auto" "$RC|$OUT" "0|PR-GATE: auto"
+bdemo "$R" 화면 'yes (화면 변경)'
+runb "$R"; ck "G7.b ★ batch 데모가 확인 필요 yes → auto-draft" "${OUT%% (*}" "PR-GATE: auto-draft"
+rm -f "$R/$B/demo.md"
+runb "$R"; ck "G7.c 데모 기록이 없으면 애매한 쪽 → auto-draft" "${OUT%% (*}" "PR-GATE: auto-draft"
+R=$(mkb b2 'mode: 일괄'); approve "$R" 'batch 승인 묶음 승인'; bdemo "$R" 내부 'no'
+runb "$R"; ck "G7.d 승인 기록에 PR 생성 포함이 없는 batch(이 버전 전에 승인) → ask" "${OUT%% (*}" "PR-GATE: ask"
+R=$(mkb b3 'mode: step'); approve "$R" 'batch 승인 묶음 승인 · PR 생성 포함'; bdemo "$R" 내부 'no'
+runb "$R"; ck "G7.e 일괄이 아닌 batch(--step·무인) → ask" "${OUT%% (*}" "PR-GATE: ask"
+R=$(mkb b4 'mode: 일괄'); bdemo "$R" 내부 'no'
+printf '# 명세\n\n**§batch**: batch-20261117-09001\n' > "$R/$F/spec.md"; approve "$R" 'batch 승인 묶음 승인 · PR 생성 포함'
+runb "$R"; ck "G7.f 다른 batch 의 FID 승인은 치지 않는다(BATCH_ID 앞부분만 같은 것 포함) → ask" "${OUT%% (*}" "PR-GATE: ask"
+R=$(mkb b5 'mode: 일괄'); approve "$R" 'batch 승인 묶음 승인 · PR 생성 포함'; bdemo "$R" 내부 'no'
+OUT=$(SPECOPS_PR_GATE=ask SPECOPS_ROOT="$R" bash "$PG" decide-batch "$B" 2>/dev/null)
+ck "G7.g SPECOPS_PR_GATE=ask 는 batch 에도 통한다" "${OUT%% (*}" "PR-GATE: ask"
+runb "$R" "20261114-not-a-batch"; ck "G7.h BATCH_ID 형식이 아니면 사용 오류(rc 2)" "$RC" "2"
+grep -qF 'pr-gate.sh decide-batch' "$PLUGIN/commands/start-all.md" && grep -qF 'batch 승인 묶음 승인 · PR 생성 포함' "$PLUGIN/commands/start-all.md" \
+  && ok "G7.i ★ /start-all 이 판정 스크립트를 부르고 승인 묶음이 'PR 생성 포함' 을 기록한다" || nope "G7.i" "start-all.md 배선 없음"
+! grep -qF 'batch PR 질문 앞에' "$PLUGIN/commands/start-all.md" && ! grep -qF 'batch PR 질문에서 함께' "$PLUGIN/skills/demo-ko/SKILL.md" \
+  && ok "G7.j 없는 단계('batch PR 질문')를 가리키던 문구가 남아 있지 않다" || nope "G7.j" "옛 문구 잔존"
+
 # ── 배선: 승인 기록을 남기는 쪽과 읽는 쪽이 같은 말을 쓴다 ──
 grep -qF 'PR 생성 포함' "$PLUGIN/scripts/basic-path.sh" \
   && ok "G6.a 기본 경로 승인(basic-path.sh approve)이 'PR 생성 포함' 을 기록한다" || nope "G6.a" "basic-path.sh 에 문구 없음"

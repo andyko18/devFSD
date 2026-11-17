@@ -243,6 +243,10 @@ out=$(_route start "로그인 권한 검사를 바꾼다"); printf '%s\n' "$out"
   && ok "G3 ★ 위험 신호 → 풀 경로 · 이유 고지 · 기본 절차 안내 없음" || no "G3" "$out"
 out=$(_route maintain "--full 목록 정렬 버그"); printf '%s\n' "$out" | grep -qx 'ROUTE: full — --full 지정' && printf '%s\n' "$out" | grep -qx 'REQUEST: 목록 정렬 버그' \
   && ok "G4 ★ --full → 신호가 없어도 풀 · 요청에서 옵션을 뗀다" || no "G4" "$out"
+# 20261117 — --full 은 갈래만이 아니라 풀 경로 안의 trivial 단축도 끈다. 표지를 넘기는 쪽과 읽는 쪽이 같은 말을 쓴다.
+grep -qF '<!-- full: true -->' "$PLUGIN/commands/start.md" && grep -qF '<!-- full: true -->' "$PLUGIN/commands/maintain.md" \
+  && grep -qF '<!-- full: true -->' "$PLUGIN/skills/specifying-ko/SKILL.md" && grep -qF '<!-- full: true -->' "$PLUGIN/skills/analyzing-ko/SKILL.md" \
+  && ok "G4.b ★ --full 표지(full: true)를 진입 커맨드 둘이 넘기고 specifying·analyzing 이 읽는다(trivial 단축 안 함)" || no "G4.b" "full: true 배선 없음"
 out=$(_route start "--no-split --full --step 정렬 버튼 추가"); printf '%s\n' "$out" | grep -qx 'ROUTE: full — --full 지정' \
   && printf '%s\n' "$out" | grep -qx 'OPTIONS: --no-split --full --step' && printf '%s\n' "$out" | grep -qx 'REQUEST: 정렬 버튼 추가' \
   && ok "G5 --full 은 --step·--no-split 과 함께 쓸 수 있다(순서 무관 · 나머지 옵션은 OPTIONS 로 넘긴다)" || no "G5" "$out"

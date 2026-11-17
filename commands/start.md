@@ -20,7 +20,7 @@ specops-ko 한국어 자율 Lifecycle의 **단일 진입 슬래시**. 자연어 
 
 0-0. **갈래 고르기 (자동 분기)** — 인자 원문을 옵션째로 넘겨 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/basic-path.sh route start "<인자 원문>"` 을 1회 실행하고(따옴표·백틱·`$` 는 빼고 넘긴다), `NOTICE:` 줄을 사용자에게 그대로 보인다(1줄).
    - `ROUTE: basic` (위험 신호 없음, 또는 가벼운 위험 신호 — 그때는 기본 경로 안에서 분석·계획·전문가 단계가 켜진다) → **기본 경로**. `PROCEDURE:` 줄의 파일(`commands/basic.md`)을 Read 해 그 Process 를 `REQUEST:` 줄의 요청으로 1번부터 따른다. 아래 단계는 하지 않는다.
-   - `ROUTE: full` (무거운 위험 신호 — 데이터 삭제·이관 · 되돌릴 수 없는 외부 작업 · 결제·개인정보 · 파일 삭제·배포 · `--full` · `--step` · `.specops/` 없음 · 판정 불가) → **풀 경로**. `--full` 낱말을 인자에서 떼고 아래 0 부터 종전대로 한다.
+   - `ROUTE: full` (무거운 위험 신호 — 데이터 삭제·이관 · 되돌릴 수 없는 외부 작업 · 결제·개인정보 · 파일 삭제·배포 · `--full` · `--step` · `.specops/` 없음 · 판정 불가) → **풀 경로**. `--full` 낱말을 인자에서 떼고 아래 0 부터 종전대로 한다. 사용자가 `--full` 을 **직접 준 경우에만**(위험 신호로 풀이 된 경우는 아니다) `<!-- full: true -->` 줄을 args 의 주석 줄들(`<!-- entry: … -->`·`<!-- step: true -->`·`<!-- split: false -->`) 뒤에 넣는다 — `specifying-ko` 가 이 줄을 보면 trivial 단축(clarify·plan 생략)을 제안하지도 붙이지도 않는다(`--full` = 무조건 풀).
    - 갈래는 스크립트의 답이다 — 요청이 가벼워/무거워 보인다는 이유로 모델이 바꾸지 않는다. 사용자가 뒤집는 방법은 `--full`(무조건 풀)과 `/basic`(기본 경로 직접 지정)이다. 기본 경로 진행 중 위험 신호가 나오면 풀 경로로 올라온다(`commands/basic.md` 「풀 경로로 올리기」).
 
 0. **기본 동작과 `--step`** — 인자가 `--step` 으로 시작하면 그 낱말(과 뒤 공백)을 떼고 `<!-- step: true -->` 줄을 args 맨 앞에 넣는다(지금까지의 단계별 확인). 없으면 넣지 않는다 — 기본은 `§일괄`: 질문은 최대 2회 묶음, intent·설계·스펙·AC·화면·IF·답변을 한 번에 승인받고 PR 게이트까지 멈추지 않는다(비가역·보안 Critical/High·plan 리뷰 Critical·NEEDS_DISCUSSION 등은 그대로 멈춘다 — `skills/specifying-ko/once-approval.md`).

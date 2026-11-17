@@ -30,7 +30,7 @@ else echo SINGLE; fi
 
 `/start-all`·`/start-all-auto` 오케스트레이터가 **batch PR 직전**에 `Skill: devfsd:demo-ko` 를 인자 `batch-final <BATCH_ID>` 로 부르면 위 분기를 보지 않는다. per-FR FID 는 PR 이 없어 위 BATCH 로 건너뛰지만, batch PR 은 사용자가 결과를 처음 보는 지점이다(11회차 F-1).
 
-- 1단계 diff 는 batch 브랜치 전체(`origin/$BASE...HEAD`)다. 2~3단계는 SINGLE 과 같다 — 멈추지 않고, 확인 필요 항목은 batch PR 질문에서 함께 확인받는다.
+- 1단계 diff 는 batch 브랜치 전체(`origin/$BASE...HEAD`)다. 2~3단계는 SINGLE 과 같다 — 멈추지 않고, 확인 필요 항목은 초안 PR 의 끝 보고(묻는 batch 면 그 질문)에서 확인받는다.
 - 무인(`/start-all-auto`)은 인자를 `batch-final <BATCH_ID> auto` 로 부른다 — 3단계 대기를 하지 않고, 확인 필요 항목을 batch PR 게이트의 가정 다이제스트에 `데모: 사용자 확인 대기` 로 올린다.
 - 기록은 `.specops/<BATCH_ID>/demo.md` 에 4단계 양식으로 남긴다. FID 가 없어 session-progress 줄은 남기지 않는다. batch PR 본문 `## 데모` 가 이 파일에서 가져온다.
 

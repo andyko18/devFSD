@@ -88,11 +88,12 @@ printf '%s' "$all" | grep -qE '(^|/)screens/|(^|/)api-spec[^/]*\.md$|(^|/)data-m
 printf '%s' "$all" | grep -qiE '(^|/)schema\.[a-z0-9]+$|\.prisma$|\.sql$' \
   && sig="${sig} schema"
 if [ -n "$impl" ]; then
-  # 변경 줄만(문맥 줄 제외) 본다. 신호 정의는 risk-profile 의 것을 그대로 쓴다 — 그중 명세(FR-3)가 든 세 가지만 센다.
+  # 변경 줄만(문맥 줄 제외) 본다. 신호 정의는 risk-profile 의 것을 그대로 쓴다 — 그중 명세(FR-3)가 든 여섯 가지를 센다.
+  #   결제·개인정보 · 배포·인프라 · 파일 삭제는 20261117 에 더했다: /start 는 이 신호로 풀 경로에 올리는데 quick 만 통과시켰다.
   corpus=$(printf '%s' "$impl" | tr '\n' '\0' | xargs -0 git -C "$top" -c core.quotePath=false diff --cached --no-renames -U0 -- 2>/dev/null \
     | grep -E '^[+-]' | grep -vE '^(\+\+\+|---) ' || true)
   for s in $(rp::detect_strict_signals "$corpus" "$impl"); do
-    case "$s" in auth|db_migration|public_api) sig="${sig} ${s}" ;; esac
+    case "$s" in auth|db_migration|public_api|payment_pii|infra|destructive_fs) sig="${sig} ${s}" ;; esac
   done
 fi
 [ -z "${sig// /}" ] || _out 3 OVER "고위험 신호:${sig}"

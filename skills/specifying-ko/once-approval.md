@@ -10,7 +10,7 @@
 
 - **최대 2회**: 1회째는 specifying Step 3(설계 전 명확화), 2회째는 clarifying(spec 작성 뒤 BLOCKING·DESIRABLE). trivial 은 clarifying 이 없으므로 1회째뿐이다.
 - 회마다 **많아야 4개**를 한 메시지로 묻는다(AskUserQuestion 이 있으면 그것으로). 질문마다 선택지와 영향 한 줄, **추천 선택지와 근거 한 줄을 맨 앞에** 둔다.
-- 1회째에 넣을 것: 목적·제약·성공 기준 · 유지보수 오분류 확인(기존 코드를 실제로 고칠 때만) · 신규 trivial 축약 제안(해당 시).
+- 1회째에 넣을 것: 목적·제약·성공 기준 · 유지보수 오분류 확인(기존 코드를 실제로 고칠 때만) · 신규 trivial 축약 제안(해당 시 — `<!-- full: true -->` 면 넣지 않는다).
 - 묶음에 넣지 못한 질문은 묻지 않고 best-guess 로 정해 `(ASSUMED)`(intent·spec) 또는 `status: ASSUMED`(clarifications)로 적는다. 승인 묶음과 PR 게이트에 보인다.
 - 질문할 것이 없으면 그 회는 건너뛴다.
 

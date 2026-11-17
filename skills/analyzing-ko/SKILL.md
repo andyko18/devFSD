@@ -101,6 +101,7 @@ grep -n "^## \|^### \|^def \|^function \|^class \|^export " \
 - **합산 ≤ 5 → trivial**: Step 6에서 impact-analysis.md §1·§2 생략
 - **합산 > 5 → 유지보수**: Step 6에서 §1~3 전체 작성
 - **★ 스키마 override (데이터 안전 — 라인수에 우선)**: §1 변경 대상에 **DB 스키마 변경**(마이그레이션 파일·`ALTER`/`DROP`/`CREATE TABLE`/타입 변경·ORM 스키마·`data-model.md`)이 포함되면 **라인수 무관 강제 비trivial** 로 판정한다. 파괴적 스키마는 1줄이어도 데이터 손실 위험이라 trivial 면제(§2 생략·AC-R 면제)를 **금지** — §2(마이그레이션·롤백) 항상 작성 + 회귀 AC(데이터 보존/역가역성) 강제.
+- args 에 `<!-- full: true -->` 줄이 있으면(`--full`) 라인수와 무관하게 **유지보수**다(`→ 유지보수(--full)`).
 - §1 마지막 줄에 반드시 명시: `**라인 범위 합산: N줄 → trivial|유지보수**` (스키마 override 발동 시 `→ 유지보수(스키마 override)`)
 
 ---

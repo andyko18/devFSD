@@ -303,8 +303,10 @@ rp::detect_strict_signals() {
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
     '(irreversible:\s*true|Delete:|unlink\(|rm -rf|path\.join|filesystem|fs\.(unlink|rm))' \
     && signals="${signals} destructive_fs"
+  # payment·billing 은 낱말만으로는 신호가 아니다(`Payment` 클래스 이름·billing 화면) — 돈이 움직이는 행위 낱말이 가까이 있을 때만이다
+  #   (20261117 · basic-path.sh _ko_signals 의 결제·과금·환불 규칙과 같은 원칙). pii·개인정보·주민등록·credit card 는 종전대로 단독 신호다.
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
-    '(payment|billing|pii|개인정보|주민등록|credit.?card)' \
+    '((payment|billing).{0,24}(gateway|provider|processor|api|webhook|charge|refund|amount|fee|capture|checkout|연동|호출|요청|승인|취소|환불|금액|수수료|모듈|교체)|(^|[^a-z])(charge|refund|capture)[a-z_ -]{0,12}payment|(^|[^a-z])pii([^a-z]|$)|개인정보|주민등록|credit.?card)' \
     && signals="${signals} payment_pii"
   printf '%s\n%s\n' "$corpus" "$files" | grep -qiE \
     '(api-spec\.md|/api/|openapi|public api|엔드포인트)' \

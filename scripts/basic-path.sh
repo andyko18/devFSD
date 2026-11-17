@@ -67,7 +67,11 @@ _ko_signals() {  # <말뭉치>
   printf '%s\n' "$c" | grep -qiE '(계정|사용자|회원|고객|주문|레코드|데이터베이스|DB)( ?(내역|정보|목록|데이터|기록))?[^[:space:]]{0,9} ?(전부 |모두 |일괄 |전체 )?(삭제|제거)' && s="$s data_move"
   printf '%s\n' "$c" | grep -qiE '(^|[^a-z])(delete (all|from|every)|drop (the )?[a-z_]+ table|drop table|truncate table)' && s="$s data_move"
   printf '%s\n' "$c" | grep -qiE '응답 ?(형태|형식|구조|필드|스키마)|하위 ?호환|breaking|API ?(변경|수정|삭제)' && s="$s api_shape"
-  printf '%s\n' "$c" | grep -qE '운영 ?(배포|반영)|결제|과금|환불|(메일|문자|푸시|알림) ?발송|되돌릴 수 없' && s="$s irreversible_ext"
+  printf '%s\n' "$c" | grep -qE '운영 ?(배포|반영)|(메일|문자|푸시|알림) ?발송|되돌릴 수 없' && s="$s irreversible_ext"
+  # 결제·과금·환불은 낱말만으로는 신호가 아니다 — 돈이 움직이거나 금액이 바뀌는 행위가 가까이 있을 때만이다(20261117 실측:
+  #   결제 도메인에서 조회·건수·문구·정렬 9문장이 전부 풀로 갔고, 같은 크기 작업이 기본 2.5분 → 풀 12.1분이 됐다. 과거 spec 377건은 판정 변화 0).
+  #   금액 낱말이 가까우면 읽기 전용이어도 무거운 쪽이다("결제 금액 합계 조회"). `.{0,40}` 은 바이트다 — 한글 13자쯤.
+  printf '%s\n' "$c" | grep -qiE '(결제|과금|환불|청구).{0,40}(PG|호출|요청|승인|취소|연동|전송|API|모듈|교체|금액|수수료|할인|요금|가격|계산|배치|웹훅|webhook)|(정기|자동|부분|일괄|PG) ?(결제|과금|환불|청구)' && s="$s irreversible_ext"
   # 운영 대상 배포·대량 발송·청구의 다른 표현 (20261114 — "운영 서버에 배포한다"·"이메일을 발송한다" 가 신호 없이 기본으로 갔다)
   printf '%s\n' "$c" | grep -qiE '(프로덕션|실서버|운영 ?서버|운영 ?환경)[^[:space:]]{0,9} ?(배포|반영|릴리즈)|(deploy|release|ship)[a-z]* (it )?(to|into|on) (prod|production)|production (deploy|release)' && s="$s irreversible_ext"
   printf '%s\n' "$c" | grep -qiE '(메일|문자|푸시|알림)[^[:space:]]{0,9} ?(일괄 |전체 |모두 )?(발송|전송)|send (emails?|push|sms|notifications?|messages?) to|(^|[^a-z])(refund|charge (the|a|an|their) )' && s="$s irreversible_ext"

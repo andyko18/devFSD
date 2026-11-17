@@ -37,11 +37,11 @@ else echo SINGLE; fi
 ## 1단계: 종류 판정
 
 ```bash
-BASE=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); BASE=${BASE:-main}
-git diff "origin/$BASE"...HEAD --name-only
+BASE=$(. "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/base-branch.sh && specops_default_branch) || BASE=main
+git diff "origin/$BASE"...HEAD --name-only 2>/dev/null || git diff "$BASE"...HEAD --name-only
 ```
 
-`git diff` 가 실패하거나(rc≠0: origin 없음·기준 브랜치가 다름 등) 출력이 비어 있으면 종류를 정할 수 없는 것이므로 `미분류` 로 보고 확인 필수로 다룬다(빈 출력을 `내부` 로 읽지 않는다). 기준 브랜치를 못 찾으면 `git diff HEAD~N...HEAD` 등으로 범위를 좁히거나 사용자에게 변경 범위를 확인해 달라고 요청한다.
+`git diff` 가 실패하거나(rc≠0) 출력이 비어 있으면 종류를 정할 수 없는 것이므로 `미분류` 로 보고 확인 필수로 다룬다(빈 출력을 `내부` 로 읽지 않는다). 기준 브랜치를 못 찾으면 `git diff HEAD~N...HEAD` 등으로 범위를 좁히거나 사용자에게 변경 범위를 확인해 달라고 요청한다.
 
 변경 파일로 종류를 정한다(여럿이면 모두).
 

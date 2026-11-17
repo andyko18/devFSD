@@ -974,5 +974,52 @@ out=$( cd "$sb1/packages/web" && bash "$BP" start "$FID" "줄 수 세기 명령�
 [ "$rc" = 0 ] && [ -f "$sb1/.specops/$FID/spec.md" ] && [ ! -e "$sb1/packages/web/.specops" ] \
   && ok "SUB1 ★ 하위 폴더에서 start → 최상위 .specops 에 FID 생성" || no "SUB1" "rc=$rc $out"
 
+# ── M 변이 측정(20261117 — 대상 등록 시 77% · 생존 14건)이 드러낸 미검 분기. 등가 3건은 mutation-equivalent.conf ──
+FID=20261117-bp-mut
+m=$(_repo mut)
+# MU1 인자 둘 중 하나만 비어도 사용법이다 (`[ -n FID ] && [ -n ARG ]` — FID 만 있으면 통과하던 변이)
+_mu=ok
+for _sub in start seal promote "done"; do
+  out=$(_bp "$m" "$_sub" "$FID" ""); rc=$?
+  { [ "$rc" != 0 ] && printf '%s' "$out" | grep -q "usage: .* $_sub "; } || _mu="$_sub(rc=$rc $out)"
+done
+[ "$_mu" = ok ] && ok "MU1 ★ start·seal·promote·done — 둘째 인자가 비면 사용법(rc≠0)" || no "MU1" "$_mu"
+# MU2 FID 폴더가 symlink 면 거부한다 (.specops 자체는 진짜 폴더여도)
+mkdir -p "$m/elsewhere"; ln -s ../elsewhere "$m/.specops/$FID"
+out=$(_bp "$m" start "$FID" "줄 수 세기 명령에 옵션 추가"); rc=$?
+[ "$rc" != 0 ] && printf '%s' "$out" | grep -q 'symlink 거부' && [ ! -e "$m/elsewhere/spec.md" ] \
+  && ok "MU2.a ★ start — FID 폴더가 symlink 면 거부(바깥 폴더에 쓰지 않는다)" || no "MU2.a" "rc=$rc $out"
+out=$(_bp "$m" promote "$FID" "인증 변경"); rc=$?
+[ "$rc" != 0 ] && printf '%s' "$out" | grep -q 'symlink 거부' && ok "MU2.b ★ promote — FID 폴더가 symlink 면 거부" || no "MU2.b" "rc=$rc $out"
+rm -f "$m/.specops/$FID"
+# MU3 spec 은 있고 수용 기준 문서가 없으면 seal 은 start → approve 로 돌려보낸다
+mkdir -p "$m/.specops/$FID"; printf '# spec\n\n**§기본**: true\n' > "$m/.specops/$FID/spec.md"
+out=$(_bp "$m" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
+[ "$rc" != 0 ] && printf '%s' "$out" | grep -q 'acceptance-criteria.md 가 없다' && ok "MU3 ★ seal — spec 만 있고 수용 기준이 없으면 거부" || no "MU3" "rc=$rc $out"
+rm -rf "$m/.specops/$FID"
+# MU4 config.yaml 이 있어도 unified_path 를 끄지 않았으면 통합 절차다 (`[ -f config ] && grep` — 파일 존재만으로 꺼지던 변이)
+printf 'pr_gate: ask\nsession_split:\n  enabled: true\n' > "$m/.specops/config.yaml"
+out=$( cd "$m" && env -u SPECOPS_UNIFIED_PATH bash "$BP" lane "로그인 권한 검사를 바꾼다" 2>&1 ); rc=$?
+[ "$rc" = 0 ] && ok "MU4 ★ 다른 설정만 든 config.yaml → 통합 절차 그대로(가벼운 신호는 기본 경로)" || no "MU4" "rc=$rc $out"
+rm -f "$m/.specops/config.yaml"
+# MU5 관련 스위트 매핑은 run-related.sh 와 run-all.sh 가 **둘 다** 있어야 쓴다
+cp "$PLUGIN/scripts/tests/run-related.sh" "$m/scripts/tests/run-related.sh"
+out=$(_bp "$m" related); rc=$?
+[ "$rc" = 0 ] && printf '%s' "$out" | grep -q '^RELATED: none — 이 저장소에는 관련 스위트 매핑' && ok "MU5 ★ run-related.sh 만 있고 run-all.sh 가 없다 → 매핑 없음" || no "MU5" "rc=$rc $out"
+rm -f "$m/scripts/tests/run-related.sh"
+# MU6 뺀 절(범위 밖·하지 않는 것)의 **더 깊은 하위 제목**은 가림을 풀지 않는다 — 같은 깊이 이하의 제목만 푼다
+#   a: 목표·범위 절이 있는 문서(절 추림)  b: 그런 절이 없는 문서(전문에서 뺄 절만 뺀다)
+mkdir -p "$m/.specops/$FID"
+printf '# spec\n\n## 1. 목표\n\n줄 수 세기에 옵션을 더한다.\n\n## 2. 범위\n\n- scripts/count.sh\n\n### 범위 밖\n\n- 다른 명령\n\n#### 세부\n\n- 권한 검사를 고친다\n' > "$m/.specops/$FID/spec.md"
+out=$(_bp "$m" lane "줄 수 세기에 옵션을 더한다" "$FID"); rc=$?
+[ "$rc" = 0 ] && ! printf '%s' "$out" | grep -q 'SIGNALS:.*auth' && ok "MU6.a ★ 범위 밖 절의 하위 제목 아래 낱말은 신호가 아니다" || no "MU6.a" "rc=$rc $out"
+printf '# spec\n\n## 개요\n\n줄 수 세기에 옵션을 더한다.\n\n## 하지 않는 것\n\n- 다른 명령\n\n### 세부\n\n- 권한 검사를 고친다\n' > "$m/.specops/$FID/spec.md"
+out=$(_bp "$m" lane "줄 수 세기에 옵션을 더한다" "$FID"); rc=$?
+[ "$rc" = 0 ] && ! printf '%s' "$out" | grep -q 'SIGNALS:.*auth' && ok "MU6.b ★ 목표·범위 절이 없는 문서도 뺀 절의 하위 제목은 가림을 풀지 않는다" || no "MU6.b" "rc=$rc $out"
+# 대조 — 같은 낱말이 범위 절에 있으면 신호다(위 두 단언이 "아무것도 안 읽어서" 통과한 것이 아니다)
+printf '# spec\n\n## 1. 목표\n\n줄 수 세기에 옵션을 더한다.\n\n## 2. 범위\n\n- 권한 검사를 고친다\n' > "$m/.specops/$FID/spec.md"
+out=$(_bp "$m" lane "줄 수 세기에 옵션을 더한다" "$FID"); rc=$?
+{ [ "$rc" = 3 ] || printf '%s' "$out" | grep -q 'SIGNALS:.*auth'; } && ok "MU6.c 대조: 범위 절의 같은 낱말은 신호로 읽는다" || no "MU6.c" "rc=$rc $out"
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

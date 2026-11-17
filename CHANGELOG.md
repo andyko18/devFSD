@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **PR 기준 브랜치를 `origin/HEAD` 없는 `develop` 저장소에서도 바르게 잡는다**. `/start-all` batch PR · `performance-test-ko` 단일 PR · `demo-ko` 종류 판정의 `BASE` 조각이 `origin/HEAD` 가 없으면 `main` 으로 떨어졌다. 5.7.2 완주 실주행(20261117 · FR-7 1건)의 하류 저장소가 기준 `develop` · `origin/HEAD` 없음이라 그대로면 틀린 base 로 PR 이 나갈 뻔했다. 다른 스크립트가 이미 쓰는 `specops_default_branch`(origin/HEAD → main → master → 로컬 develop·dev·trunk·development)로 바꿨고, `demo-ko` 는 `origin/<BASE>` diff 가 실패하면 로컬 `<BASE>` 로 비교한다. (#354)
+
 ## [5.7.2] — 2026-11-16
 
 ### Fixed

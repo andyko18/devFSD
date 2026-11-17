@@ -315,6 +315,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | `/doctor` | 설치·환경 건강 진단 10항목 (read-only) (내장 `/doctor` 와 겹치면 `/devfsd:doctor`) |
 | `/design-overview` | 설계 문서를 읽기 전용 HTML 한 장으로 — 구성도·프로세스 흐름·ERD 그림, 추적표, 미확정/가정 목록 (`--check` 로 낡음 확인 · 설계가 끝나는 지점마다 자동으로 다시 만든다) |
 | `/gbrain` · `/log` | 세션 인사이트 조회 · 즉석 기록 |
+| `/feedback` | 쓰다 겪은 불편을 플러그인 저장소에 알린다 — 초안을 보여 주고 확인받은 뒤 GitHub 이슈로 올린다. `--summary` 는 사용 요약(숫자만)을 붙인다. 공개 저장소라 작업 이름·경로·코드·요청 문장은 자동으로 붙지 않는다 |
 | `/promote` | 자유작업 mini-FID 를 lifecycle 로 승격 |
 | `/security-scan` | 온디맨드 SAST + DAST (`--self-config` 로 자기 번들 적대감사) |
 | `/improve-arch` | deep module 기준 split/merge 권고 |
@@ -333,7 +334,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 ```
 devFSD/
 ├── .claude-plugin/     plugin.json · marketplace.json
-├── commands/           슬래시 진입로 24건
+├── commands/           슬래시 진입로 25건
 ├── hooks/              SessionStart · PreToolUse · PostToolUse · Stop · Notification
 │                       + rules.jsonl(규칙) · chain.yaml(chain edge 단일 SoT)
 ├── skills/             flat: skills/<name>/SKILL.md × 26

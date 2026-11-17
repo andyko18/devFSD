@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **`/quick-fix` 가 결제·개인정보 · 배포·인프라 · 파일 삭제도 고위험으로 본다 (행동 변경)**. `/start` 는 이 신호가 있으면 풀 경로로 올리는데 `/quick-fix` 만 통과시켰다. 이제 변경 줄에 `payment`·`deploy`·`rm -rf` 같은 낱말이 있으면 20줄 이하여도 커밋이 막히고 `/maintain` 안내가 나온다 (PR #361).
+- **`--full` 은 풀 경로 안의 trivial 단축도 끈다**. `/start --full`·`/maintain --full` 이 `<!-- full: true -->` 줄을 넘기고, `specifying-ko`·`analyzing-ko` 가 그 줄을 보면 clarify·plan 생략을 제안하지도 붙이지도 않는다. 종전엔 갈래만 풀로 고르고 낱말을 떼어, 작은 작업이면 그 안에서 다시 줄었다 (PR #361).
+- **`/start-all` 의 batch PR 을 물을지는 스크립트가 정한다**. 문서는 "batch PR 질문" 을 가리켰지만 묻는 단계가 없었다. 단일 경로와 같은 규칙이다 — `pr-gate.sh decide-batch <BATCH_ID>`: 일괄 모드이고 승인 묶음에 "PR 생성 포함" 이 기록돼 있으면 묻지 않고, 데모가 확인 필요면 초안 PR 로 만들며, `--step`·이 버전 전에 승인한 batch·`pr_gate: ask` 는 묻는다. `/start-all-auto` 는 종전대로다. 머지는 자동으로 하지 않는다 (PR #361).
+
 ## [5.7.6] — 2026-11-17
 
 ### Changed

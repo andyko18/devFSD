@@ -290,7 +290,7 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/pr-gate.sh decide <FID>
 
 ```bash
 FID="<현재 FID>"
-BASE=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||'); BASE=${BASE:-main}   # 기본 브랜치가 main 이 아닌 repo 대응
+BASE=$(. "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/base-branch.sh && specops_default_branch) || BASE=main   # 로컬 develop 등도 본다
 gh pr create \
   --base "$BASE" \
   --head "feat/$FID" \

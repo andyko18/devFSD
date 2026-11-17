@@ -107,7 +107,7 @@ _demo_checks() { local f=$1 perf=$2 fm all m bb ba bs blk s k t line lb
   { [ "$(printf '%s\n' "$s" | grep -c .)" = 2 ] && [ "$s" = "$t" ]; } && ok "D1.k 모드 판정 정규식이 performance-test-ko 3-way 분기와 글자 그대로 같다 (AC-1·AC-2)" || nope "D1.k" "demo=[$s] perf=[$t]"
   # D2 — 1단계 종류 판정 (AC-1)
   s=$(_sec "$f" '^## 1단계' '^## 2단계')
-  _has "D2.a 1단계 — 기준 브랜치 대비 변경 파일 목록 (AC-1)" "$s" 'git diff "origin/$BASE"...HEAD --name-only' 'refs/remotes/origin/HEAD' 'BASE=${BASE:-main}'
+  _has "D2.a 1단계 — 기준 브랜치 대비 변경 파일 목록 (AC-1)" "$s" 'git diff "origin/$BASE"...HEAD --name-only' 'base-branch.sh && specops_default_branch) || BASE=main' '|| git diff "$BASE"...HEAD --name-only'
   _has "D2.b 1단계 — 종류 5갈래 표와 신호 (AC-1)" "$s" '| 화면 |' '| iOS 앱 |' '| 진행 패널(mod) |' '| 명령·스크립트 출력 |' '| 내부 |' \
     '`screens/`' '`*.tsx`' '`*.swift`' '최상위 `scripts/*.sh`' '`commands/`' '`tests/`' '`scripts/_internal/`' '내부 라이브러리로 확인된 파일 **만**'
     _has "D2.c 1단계 — skills/ 문구 변경이 '내부' 가 아니라 명령·스크립트 출력 행으로 분류된다 (AC-3)" "$(printf '%s\n' "$s" | grep -F -- '| 명령·스크립트 출력 |')" '`skills/`'

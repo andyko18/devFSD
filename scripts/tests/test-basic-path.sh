@@ -597,9 +597,12 @@ api_shape|주문 API 수정
 api_shape|주문 API 삭제
 irreversible_ext|운영 배포 안내를 고친다
 irreversible_ext|운영 반영 안내를 고친다
-irreversible_ext|결제 화면 문구를 고친다
-irreversible_ext|과금 문구를 고친다
-irreversible_ext|환불 문구를 고친다
+irreversible_ext|결제 승인 요청을 보낸다
+irreversible_ext|과금 금액을 고친다
+irreversible_ext|환불 API 를 부른다
+irreversible_ext|청구 요금을 고친다
+irreversible_ext|정기 결제를 더한다
+irreversible_ext|결제 모듈을 고친다
 irreversible_ext|가입 메일 발송
 irreversible_ext|가입 문자 발송
 irreversible_ext|가입 푸시 발송
@@ -613,8 +616,10 @@ destructive_fs|path.join 을 쓴다
 destructive_fs|filesystem 접근을 본다
 destructive_fs|fs.unlink 를 쓴다
 destructive_fs|fs.rm 을 쓴다
-payment_pii|payment 화면을 본다
-payment_pii|billing 화면을 본다
+payment_pii|payment gateway 를 본다
+payment_pii|billing amount 를 본다
+payment_pii|payment 연동을 본다
+payment_pii|refund the payment
 payment_pii|pii 필드를 본다
 payment_pii|개인정보 안내를 고친다
 payment_pii|주민등록 번호 칸을 본다
@@ -645,6 +650,31 @@ cross_service|kafka 를 쓴다
 cross_service|external api 를 부른다
 KW
 [ -z "$kw_bad" ] && [ "$kw_total" -ge 95 ] && ok "K5 ★ 위험 낱말 ${kw_total}개 — 낱말마다 그 종류의 신호로 풀 판정(rc 3)" || no "K5" "total=$kw_total 빠짐:$kw_bad"
+# K5b 결제·과금·환불·payment·billing 은 낱말만으로는 신호가 아니다 — 돈이 움직이거나 금액이 바뀌는 행위가 가까이 있을 때만이다
+#   (20261117 실측: 결제 도메인의 조회·건수·문구·정렬 9문장이 전부 풀로 갔다 — 같은 크기 작업이 기본 2.5분 → 풀 12.1분).
+#   변이: 행위 낱말 묶음을 지우면(맨 낱말로 되돌리면) 여기서 떨어지고, 낱말 묶음을 통째로 지우면 위 K5 에서 떨어진다.
+pl_bad=""; pl_n=0
+while IFS= read -r kq; do
+  [ -n "$kq" ] || continue
+  pl_n=$((pl_n+1))
+  out=$(_bp "$d" lane "$kq"); rc=$?
+  { [ "$rc" = 0 ] && ! printf '%s' "$out" | grep -qE 'irreversible_ext|payment_pii'; } || pl_bad="$pl_bad [$kq → rc=$rc $out]"
+done <<'PL'
+주문 번호로 결제 한 건을 찾는 조회 기능을 더한다
+결제 목록에서 결제 수단별 건수를 센다
+결제 내역 화면의 버튼 문구를 고친다
+결제 목록 정렬 순서를 최신순으로 바꾼다
+환불 사유 목록에 표시 이름을 더한다
+과금 내역 CSV 내보내기에 헤더 줄을 더한다
+결제 수단 enum 에 한글 표시 이름을 더한다
+Payment 레코드에 toString 을 더한다
+PaymentService 클래스에 주석을 더한다
+billing 화면 표의 열 너비를 고친다
+PL
+[ -z "$pl_bad" ] && [ "$pl_n" = 10 ] && ok "K5b ★ 결제 낱말만 든 가벼운 요청 ${pl_n}개 → basic (행위 낱말이 없으면 신호가 아니다)" || no "K5b" "$pl_bad"
+# K5c 금액 낱말이 가까우면 읽기 전용이어도 무거운 쪽이다 (애매하면 무거운 쪽 — 일부러 둔 기울기)
+out=$(_bp "$d" lane "결제 금액 합계를 조회한다"); rc=$?
+[ "$rc" = 3 ] && ok "K5c 결제 + 금액 → 풀 (읽기 전용이어도 무거운 쪽)" || no "K5c" "rc=$rc $out"
 
 
 # ── N 통합 절차 (20261114 · 기본값) — 위험 신호는 갈래가 아니라 켤 단계를 정한다 ──

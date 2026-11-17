@@ -58,6 +58,24 @@ $SCREEN_REQUIRED_SECTIONS
 EOF
 }
 
+# screen_template_leftovers <file.md> — 템플릿의 `[자리표시]` 가 글자 그대로 남은 종류 수를 출력한다.
+#
+# 왜 필요한가: 위 검사는 "제목 아래 본문이 비었나" 만 본다. 템플릿 본문(`[요소]`·`[초기 상태 설명]` …)을
+#   그대로 둔 채 마커 줄만 지우면 8섹션이 모두 "채워진" 것으로 보여 FILLED 였다(20261115 검토 #20 재현).
+#   템플릿에 있는 문구와 글자까지 같은 것만 센다 — 화면 문서가 쓰는 다른 대괄호(`[확인]` 버튼 등)는 건드리지 않는다.
+SCREEN_LEFTOVER_MAX=2   # 이 수를 넘으면 미완(한두 개는 일부러 남긴 표기일 수 있다)
+screen_template_leftovers() {
+  local f="$1" tpl n=0 tok
+  tpl="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd)/templates/screen.md"
+  case "$f" in *.md) ;; *) echo 0; return 0 ;; esac
+  [ -f "$f" ] && [ -f "$tpl" ] || { echo 0; return 0; }
+  while IFS= read -r tok; do
+    [ -n "$tok" ] || continue
+    grep -qF -- "$tok" "$f" && n=$((n + 1))
+  done < <(grep -oE '\[[^]]+\]' "$tpl" | sort -u)
+  echo "$n"
+}
+
 # --check 진입점 — 소비처(Phase 2.5 · Step 5.5 · verify backstop)가 호출.
 # 기존 `<name> [--force]` 경로보다 앞에서 즉시 exit 하므로 스캐폴딩 동작에 무접촉.
 if [ "${1:-}" = "--check" ]; then
@@ -77,6 +95,12 @@ if [ "${1:-}" = "--check" ]; then
     _miss=$(screen_missing_sections "$_f")
     if [ -n "$_miss" ]; then
       echo "PLACEHOLDER: $_f (필수 섹션 미완: $(printf '%s' "$_miss" | tr '\n' ',' | sed 's/,$//'))"
+      _check_rc=0
+      continue
+    fi
+    _left=$(screen_template_leftovers "$_f")
+    if [ "${_left:-0}" -gt "$SCREEN_LEFTOVER_MAX" ]; then
+      echo "PLACEHOLDER: $_f (템플릿 자리표시 ${_left}종이 그대로 남음)"
       _check_rc=0
     fi
   done

@@ -424,5 +424,41 @@ if [ "$gotk" = "docs/주문 규칙.md" ]; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T11.a (files[0]=$gotk)"
 fi
+# T12 ★ 실제 Stop 시점 transcript — 마지막 user 항목이 도구 결과(text 없음)다 (20261117 재현: prompt 빈 값 · type 늘 fix · 같은 줄 중복)
+w12="$TMP/w12"; mkdir -p "$w12/.specops"
+(cd "$w12" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
+echo x > "$w12/f.py"; (cd "$w12" && git add f.py)
+tr12="$TMP/tr12.jsonl"
+printf '%s\n' \
+  '{"type":"user","message":{"content":[{"type":"text","text":"설계 구조를 변경해줘"}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t1","name":"Edit","input":{"file_path":"f.py"}}]}}' \
+  '{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"ok"}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"text","text":"끝"}]}}' > "$tr12"
+echo "{\"transcript_path\":\"$tr12\",\"cwd\":\"$w12\"}" | bash "$HOOK" >/dev/null 2>&1
+p12=$(jq -r '.prompt' "$w12/.specops/pending-capture.jsonl" 2>/dev/null | head -1)
+t12=$(jq -r '.type' "$w12/.specops/pending-capture.jsonl" 2>/dev/null | head -1)
+if [ "$p12" = "설계 구조를 변경해줘" ] && [ "$t12" = "design-change" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.a ★ 도구 결과 뒤에서도 사용자 글을 찾는다 (prompt·type)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.a (prompt=$p12 type=$t12)"
+fi
+echo "{\"transcript_path\":\"$tr12\",\"cwd\":\"$w12\"}" | bash "$HOOK" >/dev/null 2>&1
+n12=$(wc -l < "$w12/.specops/pending-capture.jsonl" | tr -d ' ')
+if [ "$n12" = "1" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.b ★ 같은 파일·같은 프롬프트의 Stop 이 다시 와도 한 줄"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.b (줄 수=$n12)"
+fi
+echo y > "$w12/g.py"; (cd "$w12" && git add g.py)
+printf '%s\n' \
+  '{"type":"user","message":{"content":[{"type":"text","text":"g 도 고쳐줘"}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"t2","name":"Write","input":{"file_path":"g.py"}}]}}' >> "$tr12"
+echo "{\"transcript_path\":\"$tr12\",\"cwd\":\"$w12\"}" | bash "$HOOK" >/dev/null 2>&1
+n12=$(wc -l < "$w12/.specops/pending-capture.jsonl" | tr -d ' ')
+if [ "$n12" = "2" ]; then
+  PASS=$((PASS+1)); echo "PASS T12.c 파일·프롬프트가 달라지면 새 줄"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.c (줄 수=$n12)"
+fi
 echo "---"; echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -178,6 +178,20 @@ bash "$SCRIPT" --check "$TMP/ok.html" >/dev/null 2>&1 \
   && nope "T6.e html" "html 에 섹션 요건 오적용" \
   || ok  "T6.e .html 은 마커 판정만"
 
+# T6.f: ★ 템플릿에서 마커 줄만 지운 문서 — 8섹션 본문이 템플릿 자리표시 그대로면 미완 (20261117 재현: FILLED 였다)
+grep -v 'specops:screen-placeholder' "$PLUGIN/templates/screen.md" > "$TMP/tplonly.md"
+out=$(bash "$SCRIPT" --check "$TMP/tplonly.md" 2>&1); rc=$?
+{ [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -q '자리표시'; } \
+  && ok  "T6.f 템플릿 자리표시가 그대로 남은 문서 → 미완 판정" \
+  || nope "T6.f 템플릿 본문 그대로 통과" "rc=$rc out=$out"
+
+# T6.g: 화면 문서가 스스로 쓰는 대괄호(버튼 이름 등)는 자리표시로 세지 않는다
+_mk8 "$TMP/brk.md" ""
+printf '\n[확인] 버튼 · [취소] 버튼 · [검색] · [헤더] 로고\n' >> "$TMP/brk.md"
+bash "$SCRIPT" --check "$TMP/brk.md" >/dev/null 2>&1 \
+  && nope "T6.g 일반 대괄호" "PLACEHOLDER 로 오판" \
+  || ok  "T6.g 템플릿에 없는 대괄호·한두 개 남은 표기는 FILLED"
+
 # T5: bash 3.2 호환 (AC-11) — 연상배열·mapfile 미사용
 grep -nE '^\s*(declare|local)\s+-A\b|^\s*mapfile\b|^\s*readarray\b' "$SCRIPT" >/dev/null 2>&1 \
   && nope "T5.a bash 3.2 호환" "연상배열/mapfile 사용 발견" \

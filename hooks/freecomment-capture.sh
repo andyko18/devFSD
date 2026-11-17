@@ -50,8 +50,11 @@ while IFS= read -r f; do
 done <<< "$edits"
 [ "${#real_files[@]}" -eq 0 ] && safe_exit  # 빈 배열 먼저 exit (bash 3.2 unbound 가드)
 
-lu_full=$(jq -rs '[.[] | select(.type=="user") | .message.content] | last
-      | if type=="array" then (.[] | select(.type=="text") | .text) else . end' \
+# 글이 있는 마지막 사용자 메시지를 고른다 — Stop 시점 transcript 의 마지막 user 항목은 거의 항상
+#   도구 결과(tool_result — text 블록 없음)라, 종전엔 prompt 가 비고 type 이 늘 fix 였다.
+lu_full=$(jq -rs '[.[] | select(.type=="user") | .message.content
+      | if type=="array" then ([.[] | select(.type=="text") | .text] | join("\n")) else (. // "") end
+      | select(type=="string" and length > 0)] | last // ""' \
       "$transcript" 2>/dev/null)
 lu=$(printf '%s\n' "$lu_full" | tail -1)   # type 분류 전용 — 메모리 안에서만 쓰고 저장하지 않는다
 lu=${lu:-""}
@@ -83,6 +86,12 @@ fi
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
 files_json=$(printf '%s\n' "${real_files[@]}" | jq -R . | jq -cs .)   # quote 배열 — glob/공백 안전
 fid=$(cd "$cwd" && detect_fid 2>/dev/null || echo "")
+# 직전 pending 줄과 파일 목록·프롬프트가 같으면 다시 쌓지 않는다(Stop 은 같은 작업에서 여러 번 온다).
+_fc_last=$(tail -n 1 "$cwd/.specops/pending-capture.jsonl" 2>/dev/null || true)
+if [ -n "$_fc_last" ] && printf '%s' "$_fc_last" | jq -e --argjson files "$files_json" --arg p "$lu" \
+     '.files == $files and .prompt == $p' >/dev/null 2>&1; then
+  safe_exit
+fi
 jq -cn --arg ts "$ts" --argjson files "$files_json" --arg p "$lu" --arg t "$type" --arg fid "$fid" --argjson rf "$redact_failed" \
   '{ts:$ts, files:$files, prompt:$p, type:$t, fid:$fid} + (if $rf then {redact_failed:true} else {} end)' >> "$cwd/.specops/pending-capture.jsonl" 2>/dev/null
 # 실패 건수 로그 — 시각·출처만(원문·프롬프트 일부 금지). 로그 파일 symlink 는 write-through 거부(#144 대칭)

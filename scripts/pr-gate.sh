@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # pr-gate.sh — PR 생성 단계에서 사용자에게 물을지 판정한다 (읽기 전용 · 20261114)
 # Usage: bash scripts/pr-gate.sh decide <FID>
+#        bash scripts/pr-gate.sh decide-batch <BATCH_ID>   /start-all 의 batch PR (20261117 — 단일 경로와 같은 규칙)
 # stdout 1줄:
 #   PR-GATE: auto                 묻지 않고 PR 을 만든다
 #   PR-GATE: auto-draft (<사유>)  묻지 않고 **초안** PR 을 만든다 — 사용자가 보는 결과가 바뀌었고 아직 확인받지 않았다
@@ -18,13 +19,22 @@
 #   "PR 생성 포함은 거절"·"포함하지 않음"·근거 칸에만 있는 말은 동의가 아니다(20261114 재현). 손으로 쓴 줄·다른 종류도 치지 않는다.
 # 데모: evidence.md 의 **마지막** `## /demo` 절의 `**확인 필요**:` 가 no 로 시작하면 auto, 그 밖(yes·빈 값·모르는 값)은 auto-draft.
 #   데모 절이 없으면(기본 경로) auto — 화면을 건드린 기본 경로 작업은 브라우저 점검 결과를 PR 본문에 싣는다.
+# decide-batch: batch PR 도 같은 규칙이다 — queue.md 의 mode 가 일괄이고, 이 batch 의 FID 중 하나에 "PR 생성 포함" 승인이
+#   기록돼 있으면 묻지 않는다(Phase 2.5-E 승인 묶음이 batch PR 생성을 실었다). 데모는 `.specops/<BATCH_ID>/demo.md` 의 마지막
+#   `**확인 필요**:` 줄 — no 가 아니면(파일이 없어도) auto-draft. --step·무인(/start-all-auto)·queue 없음은 ask.
+#   미완·드리프트 확인(batch-state.sh exit 1)은 이 판정과 별개로 종전대로 묻는다.
 set -u
 export LC_ALL=C
 
 die() { echo "pr-gate: $*" >&2; exit 2; }
-[ "${1:-}" = decide ] || die "usage: $0 decide <FID>"
+CMD="${1:-}"
+case "$CMD" in decide|decide-batch) ;; *) die "usage: $0 decide <FID> | decide-batch <BATCH_ID>" ;; esac
 FID="${2:-}"
-printf '%s' "$FID" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || die "invalid FID: ${FID:-없음}"
+if [ "$CMD" = decide ]; then
+  printf '%s' "$FID" | grep -qE '^[0-9]{8}-[a-z0-9-]+$' || die "invalid FID: ${FID:-없음}"
+else
+  printf '%s' "$FID" | grep -qE '^batch-[0-9]{8}-[0-9]{4}$' || die "invalid BATCH_ID: ${FID:-없음}"
+fi
 
 # worktree 에서 불러도 FID 기록이 메인에만 있으면 메인을 쓴다 (dev-decision.sh 와 같은 해석)
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_internal/specops-root.sh" 2>/dev/null && specops_root_export "$FID"
@@ -40,13 +50,10 @@ case "$(printf '%s' "${SPECOPS_PR_GATE:-}" | tr '[:upper:]' '[:lower:]')" in ask
 if [ -f "$SPECOPS/config.yaml" ] && grep -qiE "^[[:space:]]*pr_gate:[[:space:]]*[\"']?ask[\"']?[[:space:]]*(#.*)?\$" "$SPECOPS/config.yaml"; then
   ask "설정 pr_gate: ask"
 fi
-[ -f "$SPEC" ] || ask "spec.md 가 없다"
-grep -qE '^\*\*§batch\*\*:' "$SPEC" && ask "batch — 오케스트레이터가 batch PR 을 맡는다"
-grep -qE '^\*\*§auto\*\*:[[:space:]]*true' "$SPEC" && ask "무인 — 가정 다이제스트를 확인한다"
-grep -qE '^\*\*§(일괄|기본)\*\*:[[:space:]]*true' "$SPEC" || ask "단계별 확인(--step)"
-# 결정 칸 = 접두를 뗀 뒤 첫 " — " 앞까지. 정규식의 글자 묶음이 아니라 문자열 연산으로 자른다 — LC_ALL=C 에서
-#   한글·" — " 는 여러 바이트라 `[^—]` 같은 묶음은 바이트 단위로 어긋난다("는"의 끝 바이트가 "—" 의 끝 바이트와 같다).
-consent=$(awk '
+
+# 동의 기록 판정 — 아래 주석의 규칙 그대로. $1 = dev-decisions.md 경로. 동의가 있으면 1 을 낸다.
+_consent() {
+  awk '
   /^- [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9:]+Z \[approval\] / {
     d = $0; sub(/^- [^ ]+ \[approval\] /, "", d)
     k = index(d, " — "); if (k > 0) d = substr(d, 1, k - 1)
@@ -54,7 +61,35 @@ consent=$(awk '
     want = "PR 생성 포함"; n = length(d); m = length(want)
     if (n == m && d == want) { print 1; exit }
     if (n > m && substr(d, n - m + 1) == want && substr(d, n - m, 1) == " ") { print 1; exit }
-  }' "$D/dev-decisions.md" 2>/dev/null)
+  }' "$1" 2>/dev/null
+}
+
+if [ "$CMD" = decide-batch ]; then
+  Q="$D/queue.md"
+  [ -f "$Q" ] || ask "queue.md 가 없다"
+  grep -qE 'mode:[[:space:]]*일괄' "$Q" || ask "일괄 모드가 아니다(--step·무인)"
+  got=""
+  for sp in "$SPECOPS"/*/spec.md; do
+    [ -f "$sp" ] || continue
+    grep -qE "^\*\*§batch\*\*:[[:space:]]*${FID}([^0-9]|\$)" "$sp" || continue
+    [ "$(_consent "$(dirname "$sp")/dev-decisions.md")" = 1 ] && { got=1; break; }
+  done
+  [ "$got" = 1 ] || ask "승인 기록에 PR 생성 포함이 없다"
+  need=$(grep -E '^\*\*확인 필요\*\*:' "$D/demo.md" 2>/dev/null | tail -1 | sed -E 's/^\*\*확인 필요\*\*:[[:space:]]*//')
+  case "$need" in
+    no|no\ *|no\(*) echo "PR-GATE: auto" ;;
+    *) printf 'PR-GATE: auto-draft (데모 확인 필요 — 결과를 확인받기 전이다)\n' ;;
+  esac
+  exit 0
+fi
+
+[ -f "$SPEC" ] || ask "spec.md 가 없다"
+grep -qE '^\*\*§batch\*\*:' "$SPEC" && ask "batch — 오케스트레이터가 batch PR 을 맡는다"
+grep -qE '^\*\*§auto\*\*:[[:space:]]*true' "$SPEC" && ask "무인 — 가정 다이제스트를 확인한다"
+grep -qE '^\*\*§(일괄|기본)\*\*:[[:space:]]*true' "$SPEC" || ask "단계별 확인(--step)"
+# 결정 칸 = 접두를 뗀 뒤 첫 " — " 앞까지. 정규식의 글자 묶음이 아니라 문자열 연산으로 자른다 — LC_ALL=C 에서
+#   한글·" — " 는 여러 바이트라 `[^—]` 같은 묶음은 바이트 단위로 어긋난다("는"의 끝 바이트가 "—" 의 끝 바이트와 같다).
+consent=$(_consent "$D/dev-decisions.md")
 [ "$consent" = 1 ] || ask "승인 기록에 PR 생성 포함이 없다"
 
 if [ -f "$D/evidence.md" ] && grep -qE '^## /demo' "$D/evidence.md"; then

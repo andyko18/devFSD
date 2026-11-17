@@ -88,6 +88,18 @@ _sig "Q3.h .sql 의 ADD COLUMN(TABLE 키워드 없음) → 고위험(schema)" 's
 s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
 ( cd "$s" && printf "echo \"ALTER TABLE t ADD c int\"\n" > src/한글.sh && git add src/한글.sh ) >/dev/null 2>&1
 _sig "Q3.i 한글 경로의 변경 줄에 ALTER TABLE → 고위험(db_migration) — 비ASCII 경로도 내용을 본다" 'db_migration' "$s"
+# 20261117 — /start 가 풀 경로로 올리는 세 신호를 quick 도 센다(종전엔 인증·마이그레이션·공개 API 만 셌다)
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && printf "echo \"payment fee 2.5\"\n" > src/a.sh && git add src/a.sh ) >/dev/null 2>&1
+_sig "Q3.j ★ 변경 줄에 payment → 고위험(payment_pii)" 'payment_pii' "$s"
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && printf "echo \"deploy to prod\"\n" > src/a.sh && git add src/a.sh ) >/dev/null 2>&1
+_sig "Q3.k ★ 변경 줄에 deploy → 고위험(infra)" 'infra' "$s"
+s=$(_mk); _SBS="$_SBS $s"; mkdir -p "$s/.specops/$F"
+( cd "$s" && printf "rm -rf \"\$1\"\n" > src/a.sh && git add src/a.sh ) >/dev/null 2>&1
+_sig "Q3.l ★ 변경 줄에 rm -rf → 고위험(destructive_fs)" 'destructive_fs' "$s"
+grep -qF '결제·개인정보 · 배포·인프라 · 파일 삭제' "$PLUGIN/commands/quick-fix.md" \
+  && ok "Q3.m 커맨드 문서의 고위험 표가 세 신호를 적는다" || nope "Q3.m" "quick-fix.md 에 문구 없음"
 # 대조 — 변경하지 않은 줄(문맥)의 낱말은 신호가 아니다
 sb2=$(_mk); _SBS="$_SBS $sb2"; mkdir -p "$sb2/.specops/$F"
 ( cd "$sb2" && printf '# permission 검사는 다른 곳에서 한다\necho v1\n' > src/a.sh && git add src/a.sh \

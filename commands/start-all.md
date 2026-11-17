@@ -320,7 +320,7 @@ reference_upstream: specops-ko 독자 추가
    - `n` → A/B 수정 후 D부터 재개 (리뷰 재실행)
    - `y` → F
 3. **[§auto 모드]**: D가 PASS(또는 Important-only cap 자동통과)면 본 게이트 **자동 통과**. Critical cap 정지 시 E에 도달하지 않는다. 화면·IF·design-review 결과는 batch PR 다이제스트에 집계.
-4. **[§일괄 모드] — 유일한 승인 묶음**: 첫 줄에 queue 머리말 `> scope:` 줄(있으면)을 그대로 싣고, 1 의 항목에 더해 ① `.specops/<BATCH_ID>/questions.md` 의 1a·1c 답 ② 이 batch 의 PLAN_DONE FID 마다 `clarifications.md` 의 머리줄 `· ASSUMED` 또는 `status: ASSUMED` 인 블록과 spec `**자동 결정 …**` 줄을 직접 모은 목록(`collect-assumptions.sh` 는 IMPL_DONE FID 만 집계해 이 시점에는 0건이다 — batch PR 게이트에서 쓴다) ③ 승인 뒤 자동 진행(Phase 3 → 통합·E2E·성능 → batch PR) ④ 그래도 멈추는 곳(plan·design Critical cap · 보안 Critical/High · Phase 3 HELD·미완 · batch PR) ⑤ plan·design 리뷰가 Important 만 남긴 cap(§auto 와 같이 지나간 것)을 한 메시지에 싣고 2 의 질문으로 묻는다. 승인되면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <대표 FID> approval "batch 승인 묶음 승인" "<요지>"` 1줄. `n` 은 2 와 같다. 이 batch 의 FR spec 에 `**§auto**: true` 가 있어도(§일괄 이 셋째 줄로 넣은 것) 3 을 적용하지 않는다 — 판정은 queue.md 의 `mode:` 줄이다. D 가 SKIP 이어도(A·B 모두 SKIP) 이 묶음은 묻는다 — 1 의 design-review 요약·화면·IF 칸은 `해당 없음`.
+4. **[§일괄 모드] — 유일한 승인 묶음**: 첫 줄에 queue 머리말 `> scope:` 줄(있으면)을 그대로 싣고, 1 의 항목에 더해 ① `.specops/<BATCH_ID>/questions.md` 의 1a·1c 답 ② 이 batch 의 PLAN_DONE FID 마다 `clarifications.md` 의 머리줄 `· ASSUMED` 또는 `status: ASSUMED` 인 블록과 spec `**자동 결정 …**` 줄을 직접 모은 목록(`collect-assumptions.sh` 는 IMPL_DONE FID 만 집계해 이 시점에는 0건이다 — batch PR 게이트에서 쓴다) ③ 승인 뒤 자동 진행(Phase 3 → 통합·E2E·성능 → batch PR 생성까지 — **PR 생성도 이 승인에 들어 있다**고 적는다 · 머지는 하지 않는다) ④ 그래도 멈추는 곳(plan·design Critical cap · 보안 Critical/High · Phase 3 HELD·미완) ⑤ plan·design 리뷰가 Important 만 남긴 cap(§auto 와 같이 지나간 것)을 한 메시지에 싣고 2 의 질문으로 묻는다. 승인되면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <대표 FID> approval "batch 승인 묶음 승인 · PR 생성 포함" "<요지>"` 1줄. `n` 은 2 와 같다. 이 batch 의 FR spec 에 `**§auto**: true` 가 있어도(§일괄 이 셋째 줄로 넣은 것) 3 을 적용하지 않는다 — 판정은 queue.md 의 `mode:` 줄이다. D 가 SKIP 이어도(A·B 모두 SKIP) 이 묶음은 묻는다 — 1 의 design-review 요약·화면·IF 칸은 `해당 없음`.
 
 #### F. design 산출물 커밋 → Phase 3
 
@@ -434,13 +434,27 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/record-batch-gate.sh ".specops/$B
 - rc 1 (`INCOMPLETE`) → **닫지 않는다.** `MISSING` 은 그 Step 을 실행하고 전파한다. `SKIP(BARE)` 는 같은 전파 명령을 줄 번호를 인용한 근거로 다시 부르면 보완된다.
 - PR 을 만들지 않고 닫는 경우(원격 없는 저장소 · 로컬 병합)에도 **반드시** 돌린다 — batch PR 게이트와 RELEASE_READY 는 `gh pr create` 에서만 발화하므로, 그 경로에서는 이 확인이 유일한 관문이다(실기록 20261008: batch 6건 중 PR 로 닫힌 것은 0건이었고 2건은 전파 없이 닫히거나 멈췄다).
 
-**데모 (필수 — PR 직전, 11회차 F-1)** — per-FR 단계의 데모는 PR 이 없어 건너뛴다(`BATCH-DEMO-SKIP`). batch PR 은 사용자가 결과를 처음 보는 지점이라 여기서 한 번 보여 준다: `Skill: devfsd:demo-ko` 를 인자 `batch-final $BATCH_ID` 로 호출한다. 멈추지 않는다 — 확인 필요 종류면 보여 준 것을 batch PR 질문 앞에 다시 붙여 함께 확인받는다(20261109). 기록은 `.specops/$BATCH_ID/demo.md`.
+**데모 (필수 — PR 직전, 11회차 F-1)** — per-FR 단계의 데모는 PR 이 없어 건너뛴다(`BATCH-DEMO-SKIP`). batch PR 은 사용자가 결과를 처음 보는 지점이라 여기서 한 번 보여 준다: `Skill: devfsd:demo-ko` 를 인자 `batch-final $BATCH_ID` 로 호출한다. 멈추지 않는다 — 확인 필요 종류면 아래 「batch PR 을 물을지」 판정이 초안 PR 로 돌리고, 보여 준 것을 끝 보고(묻는 경우엔 질문) 맨 앞에 다시 붙인다(20261109 · 20261117). 기록은 `.specops/$BATCH_ID/demo.md`.
 
-PR 직전 **자동 확정 항목을 집계기로 수집**해 PR 본문·사용자 확인에 포함한다 — `/start-all` 도 Phase 2.5 에서 화면·인터페이스를 **대화 승인 없이** 반영하는 경로가 있고(§auto 여부와 무관하게 `**자동 결정 화면**`·`**자동 결정 인터페이스**` 가 남는다), 수기 집계는 과소보고를 막지 못한다:
+PR 직전 **자동 확정 항목을 집계기로 수집**해 PR 본문과 끝 보고(묻는 경우엔 질문)에 포함한다 — `/start-all` 도 Phase 2.5 에서 화면·인터페이스를 **대화 승인 없이** 반영하는 경로가 있고(§auto 여부와 무관하게 `**자동 결정 화면**`·`**자동 결정 인터페이스**` 가 남는다), 수기 집계는 과소보고를 막지 못한다:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/collect-assumptions.sh ".specops/$BATCH_ID"
 ```
+
+**batch PR 을 물을지 — 스크립트가 정한다 (20261117 · 단일 경로의 PR 생성 게이트와 같은 규칙)**:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}"/scripts/pr-gate.sh decide-batch "$BATCH_ID"
+```
+
+| 답 | 동작 |
+|---|---|
+| `PR-GATE: auto` | **묻지 않고** 아래 push·PR 생성으로 간다 — Phase 2.5-E 승인 묶음이 PR 생성을 실었다 |
+| `PR-GATE: auto-draft (<사유>)` | 묻지 않고 **초안**(`gh pr create --draft`)으로 만든다. 끝 보고 맨 앞에 데모에서 보여 준 것과 "결과를 확인해 주세요 — 다르면 말씀해 주시면 고쳐 같은 PR 에 올립니다" 를 둔다 |
+| `PR-GATE: ask (<사유>)` | 사유 1줄 · 데모 · 자동 확정 항목을 보이고 묻는다 — "batch PR 을 생성하시겠습니까? [y/n]" (`--step` · 승인 기록에 PR 생성 포함이 없는 batch · `pr_gate: ask`). `n` → 보류하고 끝낸다 |
+
+`/start-all-auto` 는 이 판정을 쓰지 않는다 — 가정 다이제스트 + [y/n] 1회(`commands/start-all-auto.md`). 위 Phase 3 의 미완·드리프트 확인은 이 판정과 별개로 묻는다. **머지는 자동으로 하지 않는다** — PR 주소를 알리고 멈춘다.
 
 ```bash
 git push -u origin "feat/$BATCH_ID"

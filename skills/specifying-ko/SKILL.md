@@ -227,7 +227,7 @@ used_by: using-specops-ko, /start, /start-foundation, /start-all, /start-all-aut
 
      **근거**: clarify Q-B 결정 — trivial 자동 판정 시점은 analyzing-ko current-state.md §1 메타 사전 추정. Phase A 단독 시점에는 specifying-ko Step 1 mini-checklist §1 라인 범위 메타로 대체. 라벨은 clarifying-ko 단계에서 갱신 가능.
 
-     **★ 신규 trivial 단축 경로 (완주율 개선 — 20260714-trivial-new-shortcut)**: 신규 분기에서 설계 승인 직후, 예상 산출이 **단일 파일·소규모(수 라인)** 라 판단되면 사용자에게 **명시적으로** 제안한다 — "이 작업은 소규모라 clarify·plan 단계를 생략(specify → decompose → implement → verify)할 수 있습니다. 축약할까요?". **사용자가 승인해야만** `§유형: trivial` 부여 (자기선언 우선 — 오분류 안전판). 이 경로는 **clarify·plan ceremony 만** 건너뛴다 — decompose·implement·**verify/TDD/security teeth 는 그대로 유지**되므로 오분류돼도 검증 게이트가 안전망이다. `batch`·`foundation` 분기는 이 축약 대상이 아니다 (요구 규모가 본질적으로 크므로).
+     **★ 신규 trivial 단축 경로 (완주율 개선 — 20260714-trivial-new-shortcut)**: 신규 분기에서 설계 승인 직후, 예상 산출이 **단일 파일·소규모(수 라인)** 라 판단되면 사용자에게 **명시적으로** 제안한다 — "이 작업은 소규모라 clarify·plan 단계를 생략(specify → decompose → implement → verify)할 수 있습니다. 축약할까요?". **사용자가 승인해야만** `§유형: trivial` 부여 (자기선언 우선 — 오분류 안전판). 이 경로는 **clarify·plan ceremony 만** 건너뛴다 — decompose·implement·**verify/TDD/security teeth 는 그대로 유지**되므로 오분류돼도 검증 게이트가 안전망이다. `batch`·`foundation` 분기는 이 축약 대상이 아니다 (요구 규모가 본질적으로 크므로). args 에 `<!-- full: true -->` 줄이 있으면(`--full`) 이 단축을 제안하지 않고 유지보수 `≤ 5` 의 자동 `trivial` 도 붙이지 않는다(`유지보수`).
 
      라벨이 `유지보수` 면 acceptance-criteria.md 의 "## 회귀 방지 AC (유지보수 FID 필수)" 섹션이 자동 활성 — 「스프린트 계약」 evaluator 가 `AC-R-*` ≥ 1 강제(**AC-R-1** 동작 보존 필수 · DB·스키마를 바꾸면 AC-R-2 데이터 보존).
 

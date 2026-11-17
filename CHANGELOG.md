@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **문서만 바뀐 상태에서 같은 호출로 코드를 만들어 커밋해도 검증 없이 열리지 않는다**. 문서 전용 면제는 훅이 도는 시점의 변경 목록을 보는데, `echo x > evil.sh && git add evil.sh && git commit` 처럼 커밋 앞에서 파일을 만들거나 고치면(`sed -i … && git commit -am` · `git mv` · `git checkout -- f` · 스크립트 실행) 그 변경이 목록에 없어 면제됐다(12회차 평가 재현 13꼴 + 독립 리뷰가 찾은 둘째 커밋 · 메시지 치환 뒤 이어붙이기 · `git diff --output=` · `git -c core.fsmonitor=… commit`). 이제 같은 호출에서 커밋보다 먼저 도는 것이 싣기만 하는 명령(`git add`·쓰지 않는 git·`cd`·`echo`)일 때만 면제하고, 아니면 이유와 푸는 법을 알리며 막는다. **행동 변경**: 문서 커밋 앞에 다른 명령을 같은 호출로 붙이면(`npm run lint && git commit` · 메시지에 `$(date)`) 면제되지 않는다 — 따로 실행한다. 한 호출에 커밋 두 번도 같다. 문서만 싣는 흔한 꼴(`git add README.md && git commit -m …` · heredoc 메시지 · `rtk` 래핑)은 그대로 열린다.
+- **`gh pr new` 도 PR 생성으로 본다**. `gh pr create` 의 내장 별칭인데 R-2 가 몰라서 검증 없이 통과했다.
+
 ## [5.7.8] — 2026-11-17
 
 ### Fixed

@@ -1013,7 +1013,68 @@ _strip_heredoc_bodies() {
     *) printf '%s' "$cmd"; return 0 ;;
   esac
   out=$(printf '%s\n' "$cmd" | awk '
-    BEGIN { inb=0; keep=0; dash=0; delim=""; bail=0; no=0; SQ=sprintf("%c",39); DQ=sprintf("%c",34) }
+    BEGIN { inb=0; keep=0; dash=0; delim=""; bail=0; no=0; SQ=sprintf("%c",39); DQ=sprintf("%c",34); BQ=sprintf("%c",96); BS=sprintf("%c",92); q=0; sp=0 }
+    # 한 줄을 훑어 **인용·주석 밖의** heredoc 연산자 수를 돌려주고, 첫 연산자의 위치를 oppos 에 둔다 (20261118).
+    #   왜: 종전에는 줄에 든 `<<` 글자를 전부 연산자로 셌다 — `echo "<<EOF"` 처럼 인용 안의 글자도 heredoc 시작으로 보아
+    #   그 뒤 `EOF` 줄까지를 본문이라며 지웠고, 그 사이의 진짜 `git commit` 이 트리거 검사에서 사라졌다(독립 리뷰 재현 —
+    #   코드가 바뀐 저장소에서도 검증 없이 커밋이 열렸다). 주석(`# <<EOF`)도 같다.
+    #   인용 상태 q(0 바깥 · 1 작은따옴표 · 2 큰따옴표)는 줄을 넘어 이어진다(여러 줄 문자열). `$(`·`(`·백틱은 새 문맥을
+    #   열어 그 안의 `<<` 는 연산자다 — `-m "$(cat <<EOF` 가 이 repo·Claude 의 주력 커밋 꼴이다.
+    #   기울기: 헷갈리면 "인용 안"으로 본다 = 본문을 지우지 않는다 = 차단 우세. 이 훑기는 종전보다 지우는 경우를 줄이기만 한다
+    #   (한 줄에 진짜 heredoc 하나와 인용 속 `<<` 가 같이 있던 꼴만 새로 지운다 — 종전엔 판정 포기였다).
+    #   산술(`$((`·`((`)의 시프트 `<<` 와 파라미터 확장(`${x:-<<EOF}`) 안의 `<<` 는 연산자가 아니다 — 세지 않는다(독립 리뷰:
+    #   인용 속 `<<` 와 한 줄에 두면 "연산자 1개"로 세어 본문을 지웠다). `)` 바로 뒤의 `#` 도 주석이다.
+    #   알려진 한계: `case x in a)` 의 짝 없는 `)` 는 문맥을 일찍 닫는다 — 그 뒤는 "인용 안"쪽으로 어긋난다(차단 우세).
+    #   실행자 판정(아래 keep)을 피해 가는 꼴(`/bin/bash <<EOF`·`sh<<EOF`·`cat <<EOF | sh`)은 이 훑기의 범위가 아니다(F-3 wrapper-class).
+    function scan(line,    i, n, ch, nx, nops, j, c, top) {
+      n = split(line, A, ""); i = 1; nops = 0; oppos = 0     # 글자 배열로 한 번 쪼갠다 — substr 를 글자마다 부르면 BSD awk 에서 긴 줄이 이차로 느려진다
+      while (i <= n) {
+        ch = A[i]; nx = (i < n ? A[i + 1] : ""); top = (sp > 0 ? kind[sp] : "")
+        if (q == 1) { if (ch == SQ) q = 0; i++; continue }
+        if (ch == BS) { i += 2; continue }
+        if (ch == "$" && nx == "(") {
+          if (i + 2 <= n && A[i + 2] == "(") { stack[++sp] = q; kind[sp] = "a"; q = 0; i += 3; continue }   # $(( 산술
+          stack[++sp] = q; kind[sp] = "p"; q = 0; i += 2; continue
+        }
+        if (ch == "$" && nx == "{") { stack[++sp] = q; kind[sp] = "c"; q = 0; i += 2; continue }             # ${ 파라미터 확장
+        if (ch == BQ) { if (top == "b") q = stack[sp--]; else { stack[++sp] = q; kind[sp] = "b"; q = 0 } i++; continue }
+        if (q == 2) { if (ch == DQ) q = 0; i++; continue }
+        if (top == "c" && ch == "}") { q = stack[sp--]; i++; continue }
+        if (ch == "#" && top != "c" && top != "a" && (i == 1 || index(" \t;&|()", A[i - 1]) > 0)) break
+        if (ch == SQ) {
+          if (i > 1 && A[i - 1] == "$") {       # $ 작은따옴표(ANSI-C) — 안의 역슬래시 이스케이프를 알고 건너뛴다
+            j = i + 1
+            while (j <= n && A[j] != SQ) { if (A[j] == BS) j++; j++ }
+            if (j > n) { bail = 1; return 0 }   # 줄 안에서 닫히지 않으면 판정 포기(원본)
+            i = j + 1; continue
+          }
+          q = 1; i++; continue
+        }
+        if (ch == DQ) { q = 2; i++; continue }
+        if (ch == "(") {
+          if (nx == "(" && top != "a") { stack[++sp] = 0; kind[sp] = "a"; i += 2; continue }                 # (( 산술
+          stack[++sp] = 0; kind[sp] = "p"; i++; continue
+        }
+        if (ch == ")") {
+          if (top == "a" && nx == ")") { q = stack[sp--]; i += 2; continue }
+          if (top == "p") q = stack[sp--]
+          i++; continue
+        }
+        if (ch == "<" && nx == "<") {
+          if (top == "a" || top == "c") { i += 2; continue }      # 산술의 시프트 · 파라미터 확장 안의 글자 — 연산자가 아니다
+          if (i + 2 <= n && A[i + 2] == "<") { i += 3; continue } # herestring
+          nops++; if (nops == 1) oppos = i
+          j = i + 2; if (j <= n && A[j] == "-") j++
+          while (j <= n && (A[j] == " " || A[j] == "\t")) j++
+          c = (j <= n ? A[j] : "")
+          if (c == SQ || c == DQ) { j++; while (j <= n && A[j] != c) j++; if (j > n) { bail = 1; return 0 } j++ }
+          else { if (c == BS) j++; while (j <= n && A[j] ~ /[A-Za-z0-9_]/) j++ }
+          i = j; continue
+        }
+        i++
+      }
+      return nops
+    }
     { orig[NR]=$0
       if (bail) next
       if (inb) {                      # heredoc 본문 안
@@ -1024,17 +1085,17 @@ _strip_heredoc_bodies() {
         next                          # 데이터 본문 → 제거
       }
       out[++no]=$0                    # 시작 줄은 항상 유지 (같은 줄의 `; git commit` 을 잡기 위해)
-      probe=$0
-      gsub(/<<</,"@@@",probe)         # herestring 마스킹 (길이 3 보존 → 위치 불변)
-      cp=probe; nops=gsub(/<</,"x",cp)   # 치환결과 미사용 — gsub 반환값(연산자 개수)만 쓴다
+      nops=scan($0)                   # 인용·주석 밖의 연산자만 센다 — herestring(<<<)은 세지 않는다
+      if (bail) next
       if (nops==0) next
       if (nops>1) { bail=1; next }    # 한 줄 다중 heredoc → 판정 포기(원본)
+      probe=substr($0,oppos)          # 첫(유일한) 연산자부터 — 아래 구분자 파싱은 종전 그대로
       if (!match(probe,/<<-?[ \t]*/)) { bail=1; next }
       dash=(substr(probe,RSTART+2,1)=="-")
       rest=substr(probe,RSTART+RLENGTH)
-      q=substr(rest,1,1)
-      if (q==SQ || q==DQ) {           # <<EOF 의 인용형: <<\047EOF\047 · <<"EOF"
-        r2=substr(rest,2); p=index(r2,q)
+      dq1=substr(rest,1,1)             # scan() 의 인용 상태 q 와 이름이 겹치지 않게
+      if (dq1==SQ || dq1==DQ) {           # <<EOF 의 인용형: <<\047EOF\047 · <<"EOF"
+        r2=substr(rest,2); p=index(r2,dq1)
         if (p<2) { bail=1; next }
         delim=substr(r2,1,p-1)
       } else if (match(rest,/^[A-Za-z_][A-Za-z0-9_]*/)) {

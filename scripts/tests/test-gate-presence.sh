@@ -1014,6 +1014,14 @@ else
   nope "planning-ko 1회차 동시 dispatch" "위치(ts=$_l_ts9 cc=$_l_cc pr=$_l_pr9) 또는 없음:$_miss"
 fi
 
+# planning-ko 작은 변경 생략 (20261117 후보 5) — DB 전문가는 DDL 없는 작은 변경에서, plan-reviewer 는 전문가 패스가 하나도 없는 작은 변경에서만 건너뛴다.
+_miss=""
+for _n in '작은 변경 생략 (20261117)' '`| <N> | <ISO-8601> | db-expert | - | SKIP | 작은 변경 · DDL 없음 |`' '스키마·마이그레이션이 있으면 작아도 부른다' \
+  '전문가 패스(DB·구조·API·보안·테스트)가 하나도 발동하지 않았으면' '`| <N> | <ISO-8601> | plan-reviewer | - | SKIP | 작은 변경 · 전문가 패스 없음 |`' '하나라도 걸리면 작아도 부른다'; do
+  grep -qF -- "$_n" "$_PL" || _miss="$_miss [$_n]"
+done
+if [ -z "$_miss" ]; then ok "planning-ko 작은 변경 생략 — DB 전문가(DDL 없음)·plan-reviewer(전문가 패스 없음) 좁은 조건 · SKIP 행"; else nope "planning-ko 작은 변경 생략 소실" "$_miss"; fi
+
 # 통합 게이트 — 전부 skip 은 통과가 아니다 (20261114 소스 검토: "exit 0, skip 있음 → PASS 로 간주" 가 DB·서버가 없어
 #   통합 테스트가 전부 skip 된 실행도 PASS 로 적게 했다. verifying-evidence-ko 의 "0건 실행은 NOT_RUN" 과 모순이었다)
 _it="$PLUGIN/skills/integration-test-ko/SKILL.md"

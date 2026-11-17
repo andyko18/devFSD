@@ -242,6 +242,8 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-plan-boundary.sh <FID> > .s
 
 경계 대조 뒤, plan-reviewer 를 부르기 **전에** 판단한다. plan §2 파일 구조나 태스크가 **DB 산출물**(마이그레이션·SQL·스키마·ORM 모델·`data-model.md`·upsert·대량 적재 코드·테스트 DB fixture)을 만들거나 바꾸면 발동한다. 단어가 언급되기만 하고 그런 파일·태스크가 없으면 발동하지 않는다. 파일 구조·태스크로 판단이 서지 않으면 부른다(긴 plan 에서 DB 결함은 plan-reviewer 를 통과했다: Argus 실제 계획서 2개 0/2). `§batch` 는 이 패스 미적용(후속 FID — 기록 행도 남기지 않는다) · `§auto` 는 그대로 부른다.
 
+- **작은 변경 생략 (20261117)**: 작은 변경(plan §2 구현 파일 — 테스트·문서 제외 — 5개 이하, `decomposing-ko` 「작은 변경은 묶는다」 와 같은 기준)이고 **마이그레이션·DDL·`data-model.md` 변경이 없으면**(upsert 호출·테스트 DB fixture 수준) 이 패스를 부르지 않는다. dispatch-log 에 `| <N> | <ISO-8601> | db-expert | - | SKIP | 작은 변경 · DDL 없음 |` 1행. 스키마·마이그레이션이 있으면 작아도 부른다(DB 결함이 plan-reviewer 를 통과한 실측 0/2). 절감 $1.6~2.8 은 추정 — 품질 영향 미측정.
+
 - **dispatch**: `Agent` 도구, `subagent_type: "devfsd:db-designer-ko"` · 입력은 경로만 — `.specops/<FID>/spec.md` · `plan.md` · `.specops/memory/data-model.md`(있으면) · `${CLAUDE_PLUGIN_ROOT}/skills/planning-ko/db-expert/engines/`.
 - **반영**: 에이전트가 쓴 `.specops/<FID>/experts/db.md` 의 지적과 `## 확인 필요` 질문마다(질문은 코드베이스·사용자에게 전제를 확인한 뒤) plan.md 에 반영하거나 기각하고, 같은 파일 끝 `## 반영` 절에 `반영(plan §/Task N)` 또는 `기각(근거)` 1줄씩 적는다. plan.md 가 바뀌었으면 위 '사전검사'(check-plan-predispatch.sh)와 '경계 대조 입력'(check-plan-boundary.sh) 의 두 스크립트를 다시 실행한 뒤 plan-reviewer 를 부른다 — 뒤의 전문가 패스(구조·API·보안·테스트)도 돌면 재실행은 마지막 전문가 패스 뒤에 한 번만 한다(입력은 그대로 — 전문가 파일을 넘기지 않는다).
 - **모델 불가·산출 없음**: opus 를 쓸 수 없으면 같은 에이전트를 가용 모델 override 로 다시 dispatch 한다(plan-reviewer 의 모델 불가 fallback 과 같은 원칙 — 부모가 대신 검토하지 않는다). `experts/db.md` 가 만들어지지 않았으면 1회 다시 부르고, 그래도 없으면 dispatch-log 에 `| <N> | <ISO-8601> | db-expert | db-designer-ko | 산출 없음 | - |` 를 남기고 plan-reviewer 로 진행한다.
@@ -315,6 +317,8 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 - **기록** (결과 칸에 `DONE`·`IMPL` 을 쓰지 않는다 — 재개 판독기가 dispatch-log 전체에서 `DONE`·`IMPL` 을 구현 증거로 읽으므로, 비고 칸에도 `COMPREHENSION-RESULT` 줄을 옮겨 적지 않는다): dispatch-log 에 `| <N> | <ISO-8601> | comprehension | comprehension-reviewer-ko | 반영 | experts/comprehension.md (지적 N · 반영 N · 이월 N · 기각 N) |`. 단계 칸이 `comprehension` 이라 `review-cost.sh` 의 plan-reviewer 라운드 집계(단계 칸에 `plan-reviewer` 를 포함한 행만)에 섞이지 않는다.
 
 ### 비-batch — plan-reviewer dispatch
+
+**작은 변경 생략 (20261117)**: 작은 변경(구현 파일 5개 이하 — 위 DB 절과 같은 기준)이고 **전문가 패스(DB·구조·API·보안·테스트)가 하나도 발동하지 않았으면**(문서·설정만 바꾸는 경우) plan-reviewer·이해 검사를 부르지 않고 자체 검토만으로 `## 실행 전환` 한다. dispatch-log 에 `| <N> | <ISO-8601> | plan-reviewer | - | SKIP | 작은 변경 · 전문가 패스 없음 |` 1행. 테스트·DB·API·보안·새 구조 중 하나라도 걸리면 작아도 부른다(1회차 Critical 합 72건 — 가장 큰 안전망이라 좁게만 연다). 이 SKIP 은 `§batch` DEFER 와 다르다 — 외부 critic 도 부르지 않는다.
 
 자체 검토 통과 후 `devfsd:plan-reviewer-ko` 서브에이전트를 dispatch해 plan.md를 독립 검증한다. 이 리뷰어는 **spec 대조 2관점(스펙 커버리지·스펙 정합) + 엔지니어링 4관점(TDD·플레이스홀더·파일경계·타입일관성)** 6관점을 fresh 시각으로 수행한다 (구 general-purpose Plan Document Reviewer 의 spec 대조 역할을 전용 Evaluator 로 흡수 — 20260723, dispatch 1회로 단일화).
 

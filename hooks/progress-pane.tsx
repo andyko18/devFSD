@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Board, Job, StageMark } from '../types'
+import type { Board, CmdBoard, CmdFr, CmdSeg, CmdStep, Job, StageMark } from '../types'
 import { pollCi } from './ci-watch'
 import { STAT_SCRIPT, outputPathOf, latestMtimeMs, redact, withActivity } from './core'
 
@@ -23,7 +23,7 @@ const REFRESH_TOOLS = ['Edit', 'Write', 'NotebookEdit'] // Bash·Agent·Skill �
 export const board = atom(
   { plugin: 'devfsd', key: 'board' } as const,
   { running: [], recent: [] } as Board,
-  { shape: 'board-2' },
+  { shape: 'board-3' },
 )
 const now = atom({ plugin: 'devfsd', key: 'now' } as const, 0, {
   shape: 'now-1',
@@ -367,6 +367,73 @@ async function batchFor($: EngineInterface, dir: string, fid: string): Promise<B
   return r.exitCode === 0 ? batchOf(r.stdout) : undefined
 }
 
+const CMD_KINDS: readonly CmdBoard['kind'][] = ['init', 'foundation', 'batch', 'start', 'maintain', 'quick']
+const STEP_MARKS: readonly CmdStep['mark'][] = ['done', 'cur', 'todo', 'skip', 'fail']
+const FR_MARKS: readonly CmdFr['mark'][] = ['done', 'cur', 'todo', 'hold', 'block']
+
+/** `{k|글자}` 조각 표기 → 조각 목록. 표기 밖의 글자는 보통 글자다. */
+export function segsOf(text: string): CmdSeg[] {
+  const out: CmdSeg[] = []
+  const re = /\{([kdgwb])\|([^{}]*)\}/g
+  let at = 0
+  for (const m of text.matchAll(re)) {
+    const start = m.index ?? at
+    if (start > at) out.push({ text: text.slice(at, start) })
+    out.push({ text: m[2] ?? '', tone: m[1] as NonNullable<CmdSeg['tone']> })
+    at = start + m[0].length
+  }
+  if (at < text.length) out.push({ text: text.slice(at) })
+
+  return out.filter(seg => seg.text !== '')
+}
+
+/** board-mode.sh 의 출력(탭으로 나눈 줄) → CmdBoard. MODE 줄이 없거나 모르는 종류면 undefined(종전 표시). */
+export function cmdBoardOf(stdout: string): CmdBoard | undefined {
+  const lines = stdout.split('\n').map(l => l.split('\t'))
+  const mode = lines.find(l => l[0] === 'MODE')
+  const kind = CMD_KINDS.find(k => k === mode?.[1])
+  if (!mode || !kind) return undefined
+  const steps: CmdStep[] = []
+  const frs: CmdFr[] = []
+  const rows: CmdBoard['rows'] = []
+  let since: number | undefined
+  for (const l of lines) {
+    if (l[0] === 'STEP') {
+      const mark = STEP_MARKS.find(m => m === l[1])
+      if (mark && l[2]) steps.push({ label: l[2], mark })
+    } else if (l[0] === 'FR') {
+      const mark = FR_MARKS.find(m => m === l[1])
+      if (mark && l[2]) frs.push({ mark, id: l[2], text: l[3] ?? '', note: l[4] ?? '' })
+    } else if (l[0] === 'ROW') {
+      rows.push({ left: segsOf(l[1] ?? ''), right: segsOf(l[2] ?? '') })
+    } else if (l[0] === 'SINCE' && /^\d+$/.test(l[1] ?? '')) {
+      since = Number(l[1]) * 1000
+    }
+  }
+
+  return { kind, title: mode[2] ?? '', steps, frs, rows, ...(since !== undefined ? { since } : {}) }
+}
+
+/** 이 폴더에서 도는 명령에 맞춘 구성 — 스크립트가 아무것도 내지 않거나 실패하면 undefined. */
+async function cmdFor($: EngineInterface, dir: string, fid?: string): Promise<CmdBoard | undefined> {
+  const r = await $.process.run(['bash', `${$.plugin.root}/scripts/_internal/board-mode.sh`, ...(fid ? [fid] : [])], { cwd: dir, timeoutMs: 3_000 })
+
+  return r.exitCode === 0 ? cmdBoardOf(r.stdout) : undefined
+}
+
+/** `.specops/` 가 있는 첫 폴더 — [cwd, 프로젝트 폴더] 순. 없으면 undefined. */
+async function governedDir($: EngineInterface, cwd: string): Promise<string | undefined> {
+  for (const dir of [...new Set([cwd, projectRoot(cwd)])]) {
+    try {
+      if (await $.fs.exists(`${dir}/.specops`)) return dir
+    } catch {
+      // 판정 불가 — 다음 후보
+    }
+  }
+
+  return undefined
+}
+
 type RefreshGate = { refreshing: boolean; again: boolean }
 
 /** 단계 막대·배지를 다시 계산한다. 겹치면 끝난 뒤 1회만 다시. 실패는 `?`. */
@@ -384,7 +451,10 @@ async function refreshStatus($: EngineInterface, cwd: string, gate: RefreshGate)
       const progress = record?.progress ?? ''
       const fid = activeFid(progress)
       if (!fid) {
-        await update($, board, b => ({ ...b, fid: undefined, stages: undefined, verify: undefined, lane: undefined }))
+        // 작업(FID)이 없어도 명령이 돌고 있을 수 있다 — /init-project 는 끝날 때까지 작업을 만들지 않는다.
+        const dir = record?.dir ?? (await governedDir($, cwd))
+        const cmd = dir ? await cmdFor($, dir).catch(() => undefined) : undefined
+        await update($, board, b => ({ ...b, fid: undefined, stages: undefined, verify: undefined, lane: undefined, cmd }))
         continue
       }
       const batch = record ? await batchFor($, record.dir, fid).catch(() => undefined) : undefined
@@ -394,7 +464,8 @@ async function refreshStatus($: EngineInterface, cwd: string, gate: RefreshGate)
       // 경로 이름 — 풀 경로는 종전 표시 그대로 두고(이름을 붙이지 않는다) 기본 경로·일괄만 알린다.
       const label = laneLabel(progress, fid, batch)
       const lane = label === FULL_LANE ? undefined : label
-      await update($, board, b => ({ ...b, fid, stages: marked, verify, lane }))
+      const cmd = record ? await cmdFor($, record.dir, fid).catch(() => undefined) : undefined
+      await update($, board, b => ({ ...b, fid, stages: marked, verify, lane, cmd }))
     } while (gate.again)
   } catch {
     await safe(() => update($, board, b => ({ ...b, verify: '검증 ?' })))

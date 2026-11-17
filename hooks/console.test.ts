@@ -64,9 +64,20 @@ import {
   gaugeColor,
   stageProgress,
   PALETTES,
+  CMD_COLORS,
+  cmdBodyRows,
+  cmdFlow,
+  cmdProgress,
+  flowRows,
+  frWindow,
+  wideWidth,
+  CMD_NAME,
+  DEMO_BOARDS,
+  DEMO_ORDER,
+  nextDemo,
 } from './core'
 import { auroraCells } from './rail'
-import type { Check, StageMark } from '../types'
+import type { Check, CmdBoard, CmdFr, StageMark } from '../types'
 
 // ---------------------------------------------------------------- pure behaviour
 
@@ -1879,7 +1890,7 @@ const subtree = (n: unknown, key: string): Drawn | undefined => {
 const PROG_IMPLEMENT = '# p\n<!-- active-fid: 20261106-x -->\n\n## 20261106-x · y\n\n- 2026-11-06 10:00 /implement 진행 (x)\n'
 
 /** 활성 FID 가 있는 세계: progress 는 넘긴 문자열, verification-state.sh 는 verify 낱말, hasFid:false 는 FID 없는 progress. */
-const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean; gh?: () => unknown } = {}) => {
+const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean; gh?: () => unknown; mode?: () => string } = {}) => {
   const clock = engine(on)
   const progress = o.progress ?? PROG_IMPLEMENT
   const hasFid = o.hasFid ?? (() => true)
@@ -1892,6 +1903,7 @@ const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () =
     const argv = (e as unknown as { argv: string[] }).argv
     if (argv.some(a => a.endsWith('verification-state.sh'))) return { value: { exitCode: 0, stdout: `${o.verify ?? 'PASS'}\n`, stderr: '' } }
     if (argv[0] === 'gh' && o.gh) return { value: o.gh() as never }
+    if (argv.some(x => x.endsWith('/scripts/_internal/board-mode.sh'))) return { value: { exitCode: 0, stdout: o.mode ? o.mode() : '', stderr: '' } }
 
     return { value: { exitCode: 1, stdout: '', stderr: '' } }
   })
@@ -2887,3 +2899,221 @@ for (const label of ['ARCHITECT', 'Coach']) {
     await ui.unmount()
   })
 }
+
+// ---------------------------------------------------------------- devFSD: 명령별 구성 (20261118-console-command-board)
+//   board-mode.sh 가 명령을 알려 줄 때만 devFSD 칸을 그 명령에 맞게 그린다. 다른 칸은 그대로다.
+
+const MODE_ALL = [
+  'MODE\tbatch\t일괄 묶음 1/3',
+  'STEP\tdone\t준비', 'STEP\tdone\tFR 명세', 'STEP\tdone\t계획 리뷰', 'STEP\tskip\t통합 설계', 'STEP\tcur\t구현', 'STEP\ttodo\t통합', 'STEP\ttodo\tPR',
+  'FR\tdone\tFR-7\t회의실 목록\t', 'FR\tcur\tFR-8\t예약 현황\t', 'FR\thold\tFR-9\t알림\t보류',
+  '',
+].join('\n')
+const MODE_INIT_RUN = ['MODE\tinit\t프로젝트 초기화', 'STEP\tdone\t준비', 'STEP\tdone\t답변', 'STEP\tcur\t골격', 'STEP\ttodo\t인터뷰', 'ROW\t{d|답변 3분}\t', 'SINCE\t1', ''].join('\n')
+const fidRows = (tree: unknown) => rowsOf(subtree(tree, 'panel-fid'))
+const flowTexts = (tree: unknown) => textsOf(subtree(tree, 'cmd-flow'))
+
+test('devFSD: 명령별 구성 — 순수 계산(흐름·진행률·접히는 줄 수·FR 창·두 칸 글자)', () => {
+  const stages: StageMark[] = [{ key: 'a', label: '명세', mark: '✓' }, { key: 'b', label: '설계', mark: '–' }, { key: 'c', label: '구현', mark: '●', isCurrent: true }, { key: 'd', label: '검증', mark: '!' }, { key: 'e', label: 'PR', mark: '○' }]
+  const bare: CmdBoard = { kind: 'start', title: '신규 기능', steps: [], frs: [], rows: [] }
+  expect(cmdFlow(bare, stages).map(s => s.mark)).toEqual(['done', 'skip', 'cur', 'warn', 'todo']) // 명령이 흐름을 안 주면 작업의 단계 막대를 옮긴다
+  expect(cmdFlow({ ...bare, steps: [{ label: 'x', mark: 'cur' }] }, stages)).toEqual([{ label: 'x', mark: 'cur' }]) // 주면 그것
+  expect(cmdProgress(cmdFlow(bare, stages))).toEqual({ pct: 40, step: 3, total: 5, current: '구현', next: '검증', isDone: false })
+  // 지금 단계는 cur 가 먼저다 — 검증이 STALE(!)인 채 그 뒤 단계가 도는 경우에도 머리줄이 '검증'으로 돌아가지 않는다
+  expect(cmdProgress([{ label: '검증', mark: 'warn' }, { label: '보안', mark: 'cur' }, { label: 'PR', mark: 'todo' }])).toMatchObject({ step: 2, current: '보안', next: 'PR' })
+  expect(cmdProgress([{ label: '구현', mark: 'done' }, { label: '검증', mark: 'fail' }])).toMatchObject({ step: 2, current: '검증', next: null }) // cur 가 없으면 실패 단계
+  expect(cmdProgress([{ label: 'a', mark: 'done' }, { label: 'b', mark: 'skip' }])).toEqual({ pct: 100, step: 2, total: 2, current: null, next: null, isDone: true })
+  expect(cmdProgress([])).toEqual({ pct: 0, step: 0, total: 0, current: null, next: null, isDone: false })
+  expect(wideWidth('구현 PR')).toBe(7) // 한글 2칸 × 2 + 공백 1 + 영문 2
+  const flow = cmdFlow(bare, stages)
+  expect(flowRows(flow, 200)).toBe(1)
+  expect(flowRows(flow, 16)).toBeGreaterThan(1) // 좁으면 접힌다(조각은 쪼개지지 않는다)
+  expect(flowRows([], 80)).toBe(0)
+  // 조각 폭: 명세✓ 5 · ' ━━ 설계–' 9 · ' ━━  ▶ 구현 ' 12 · ' ━━ 검증!' 9 · ' ━━ PR○' 7 = 42칸 → 42칸이면 한 줄, 41칸이면 두 줄
+  expect([flowRows(flow, 42), flowRows(flow, 41), flowRows(flow, 14)]).toEqual([1, 2, 4])
+  // 화면 줄 수 = 머리줄·막대 2 + 접힌 흐름 줄 + FR 줄(+가려진 수 줄) + 명령별 줄 + (일괄) 지금 FR 의 단계 줄
+  const few: CmdFr[] = [{ mark: 'cur', id: 'FR-1', text: '', note: '' }]
+  expect(cmdBodyRows(bare, stages, 42)).toBe(3)
+  expect(cmdBodyRows(bare, stages, 41)).toBe(4) // 흐름이 접히면 한 줄 는다
+  expect(cmdBodyRows({ ...bare, rows: [{ left: [], right: [] }, { left: [], right: [] }] }, stages, 42)).toBe(5)
+  expect(cmdBodyRows({ ...bare, kind: 'batch', frs: few }, stages, 42)).toBe(5) // FR 1 + 지금 FR 의 단계 1
+  expect(cmdBodyRows({ ...bare, kind: 'batch', frs: few }, [], 42)).toBe(3) // 단계가 없으면 흐름도 단계 줄도 없다
+  const frs: CmdFr[] = Array.from({ length: 9 }, (_, i) => ({ mark: i === 6 ? 'cur' : 'todo', id: `FR-${i}`, text: '', note: '' }))
+  expect(frWindow(frs, 5).shown.map(f => f.id)).toEqual(['FR-4', 'FR-5', 'FR-6', 'FR-7', 'FR-8']) // 지금 FR 이 창 안에
+  expect(frWindow(frs, 5).hidden).toBe(4)
+  expect(frWindow(frs.slice(0, 3), 5)).toEqual({ shown: frs.slice(0, 3), hidden: 0 })
+})
+
+test('devFSD: 명령별 구성 — /start-all 은 머리줄·진행 막대·묶음 흐름·FR 목록·지금 FR 의 단계를 명령 색으로 그린다', async ($, on) => {
+  fidWorld(on, { progress: PROG_B, verify: 'PASS', mode: () => MODE_ALL })
+  await startFid($)
+  const tree = await drawFid($)
+  const K = CMD_COLORS.theme.batch
+  const rows = fidRows(tree)
+  expect(borderedOf(subtree(tree, 'panel-fid'))?.props?.borderColor).toBe(K)
+  expect(textOf(textsOf(rows[0])[0])).toBe('◆ /start-all · 일괄 묶음 1/3')
+  expect(textOf(textsOf(rows[0]).at(-1))).toBe('검증 PASS') // 검증 배지는 그대로
+  expect(textOf(rows[1])).toMatch(/57%5\/7 구현 · 다음 통합$/) // 준비·FR 명세·계획 리뷰 + 생략 1 = 4/7 끝남 → 다섯째 단계
+  const flow = flowTexts(tree)
+  expect(flow.map(textOf).join('')).toBe('준비✓ ━━ FR 명세✓ ━━ 계획 리뷰✓ ━━ 통합 설계– ━━  ▶ 구현  ┄┄ 통합○ ┄┄ PR○')
+  expect(flow.filter(t => t.props?.backgroundColor).map(textOf)).toEqual([' ▶ 구현 ']) // 색을 채운 칸은 지금 단계 하나
+  expect(flow.find(t => textOf(t) === ' ▶ 구현 ')?.props?.backgroundColor).toBe(K)
+  const all = rows.map(textOf)
+  expect(all).toContain('✓ FR-7  회의실 목록')
+  expect(all).toContain('▶ FR-8  예약 현황')
+  expect(all.some(t => t.startsWith('⏸ FR-9  알림') && t.endsWith('보류'))).toBe(true)
+  expect(textsOf(subtree(tree, 'cmd-fr-stages')).map(textOf).join(' ')).toMatch(/명세✓ .*▶구현●/) // 지금 FR 의 단계(PROG_B)
+  expect(textsOf(subtree(tree, 'panel-fid')).some(t => /^devFSD · /.test(textOf(t)))).toBe(false) // 종전 머리줄은 그리지 않는다
+})
+
+test('devFSD: 명령별 구성 — 작업이 없어도 /init-project 는 흐름과 단계별 소요를 그린다', async ($, on) => {
+  fidWorld(on, { hasFid: () => false, mode: () => MODE_INIT_RUN })
+  await startFid($)
+  const tree = await drawFid($)
+  const rows = fidRows(tree).map(textOf)
+  expect(borderedOf(subtree(tree, 'panel-fid'))?.props?.borderColor).toBe(CMD_COLORS.theme.init)
+  expect(rows[0]).toBe('◆ /init-project · 프로젝트 초기화') // 작업이 없으니 검증 배지도 없다
+  expect(rows[1]).toMatch(/50%3\/4 골격 · 다음 인터뷰/)
+  expect(flowTexts(tree).map(textOf).join('')).toBe('준비✓ ━━ 답변✓ ━━  ▶ 골격  ┄┄ 인터뷰○')
+  expect(rows).toContain('답변 3분')
+  expect(subtree(tree, 'cmd-fr-stages')).toBeUndefined()
+})
+
+test('devFSD: 명령별 구성 — 흐름을 주지 않는 명령(/maintain)은 작업의 단계 막대를 흐름으로 쓰고 갈래 이름을 머리줄에 붙인다', async ($, on) => {
+  const basic = progOf(['/implement 진행 (x)', '/approve 완료 (x)', '/basic 시작 (x)'])
+  fidWorld(on, { progress: basic, verify: 'STALE', mode: () => 'MODE\tmaintain\t유지보수\nROW\t{d|기존 동작 보존} 회귀 기준 1건\t{d|○ 검증 전}\n' })
+  await startFid($)
+  const tree = await drawFid($)
+  const rows = fidRows(tree)
+  expect(textOf(textsOf(rows[0])[0])).toBe('◆ /maintain · 유지보수 · 기본 경로')
+  expect(flowTexts(tree).map(textOf).join('')).toBe('명세✓ ━━  ▶ 구현  ┄┄ 리뷰○ ┄┄ 검증○ ┄┄ PR○')
+  expect(rows.map(textOf).some(t => t.startsWith('기존 동작 보존 회귀 기준 1건') && t.endsWith('○ 검증 전'))).toBe(true)
+  expect(subtree(tree, 'cmd-fr-stages')).toBeUndefined() // 단계 막대를 두 번 그리지 않는다
+})
+
+test('devFSD: 명령별 구성 — board-mode 가 답하지 않으면 종전 구성 그대로다', async ($, on) => {
+  let out = MODE_ALL
+  fidWorld(on, { progress: PROG_B, mode: () => out })
+  await startFid($)
+  expect(textOf(textsOf(fidRows(await drawFid($))[0])[0])).toBe('◆ /start-all · 일괄 묶음 1/3')
+  out = '' // 묶음이 끝났다 · 스크립트를 못 읽었다
+  await $.tool.call({ tool: 'Edit', tool_use_id: 'toolu_cmd_off', file_path: '/w/a.ts', old_string: 'a', new_string: 'b' } as never)
+  await settle()
+  const tree = await drawFid($)
+  expect(textOf(textsOf(fidRows(tree)[0])[0])).toBe('devFSD · 20261106-x')
+  expect(subtree(tree, 'cmd-flow')).toBeUndefined()
+  expect(borderedOf(subtree(tree, 'panel-fid'))?.props?.borderColor).toBe(PALETTES.theme.gate)
+})
+
+// 화면 줄 수 계산(cmdBodyRows)이 실제로 그린 줄 수보다 작으면 로그 칸이 화면 밖으로 밀린다.
+//   흐름은 한 상자라 접혀도 그린 줄은 1줄로 세지만 계산은 접힌 줄 수를 더한다 — 같거나 커야 한다(넓은 폭에서는 같다).
+const BATCH_BOARD: CmdBoard = {
+  kind: 'batch', title: '일괄 묶음 1/3',
+  steps: [{ label: '준비', mark: 'done' }, { label: 'FR 명세', mark: 'done' }, { label: '계획 리뷰', mark: 'done' }, { label: '통합 설계', mark: 'skip' }, { label: '구현', mark: 'cur' }, { label: '통합', mark: 'todo' }, { label: 'PR', mark: 'todo' }],
+  frs: [{ mark: 'done', id: 'FR-7', text: '회의실 목록', note: '' }, { mark: 'cur', id: 'FR-8', text: '예약 현황', note: '' }, { mark: 'hold', id: 'FR-9', text: '알림', note: '보류' }],
+  rows: [],
+}
+test('devFSD: 명령별 구성 — 화면 줄 수 계산이 그린 줄 수 이상이다 (/start-all)', async ($, on) => {
+  fidWorld(on, { progress: PROG_B, mode: () => MODE_ALL })
+  await startFid($)
+  for (const cols of [48, 80, 120]) {
+    const drawn = fidRows(await drawFid($, { cols })).length
+    const want = cmdBodyRows(BATCH_BOARD, [{ key: 'x', label: 'x', mark: '○' }], cols - 4)
+    expect(want).toBeGreaterThanOrEqual(drawn)
+    if (cols >= 80) expect(want).toBe(drawn)
+  }
+})
+
+test('devFSD: 명령별 구성 — 화면 줄 수 계산이 그린 줄 수 이상이다 (/init-project · 작업 없음)', async ($, on) => {
+  fidWorld(on, { hasFid: () => false, mode: () => MODE_INIT_RUN })
+  await startFid($)
+  const init: CmdBoard = { kind: 'init', title: '', steps: [{ label: '준비', mark: 'done' }, { label: '답변', mark: 'done' }, { label: '골격', mark: 'cur' }, { label: '인터뷰', mark: 'todo' }], frs: [], rows: [{ left: [], right: [] }] }
+  for (const cols of [48, 80, 120]) {
+    const drawn = fidRows(await drawFid($, { cols })).length
+    expect(cmdBodyRows(init, [], cols - 4)).toBe(drawn)
+  }
+})
+
+test('devFSD: 미리보기 — 이름 없이 부르면 여섯 명령을 차례로 돌고, 이름·off·모르는 이름을 가린다', () => {
+  expect(nextDemo(null, '')).toBe('init')
+  expect(DEMO_ORDER.map((_, i) => DEMO_ORDER.slice(0, i + 1).reduce<CmdBoard['kind'] | null>(cur => nextDemo(cur, '') ?? null, null))).toEqual([...DEMO_ORDER])
+  expect(nextDemo('quick', '')).toBe('init') // 끝에서 처음으로
+  expect(nextDemo(null, 'start-all')).toBe('batch') // 슬래시 명령 이름으로
+  expect(nextDemo(null, 'batch')).toBe('batch') // 종류 이름으로도
+  expect(nextDemo('init', 'off')).toBeNull()
+  expect(nextDemo(null, 'nope')).toBeUndefined()
+  for (const k of DEMO_ORDER) {
+    expect(DEMO_BOARDS[k].kind).toBe(k)
+    expect(DEMO_BOARDS[k].title).toMatch(/\(예시\)$/) // 실제 진행으로 읽히지 않게
+    expect(cmdProgress(DEMO_BOARDS[k].steps).current).not.toBeNull()
+  }
+})
+
+test('devFSD: 미리보기 — /devfsd demo 는 실제 진행 대신 예시 구성을 그리고, off 로 실제 진행이 돌아온다', async ($, on) => {
+  fidWorld(on, { progress: PROG_B })
+  await startFid($)
+  expect(textOf(textsOf(fidRows(await drawFid($))[0])[0])).toBe('devFSD · 20261106-x')
+  const a = await $.command.run({ command: 'devfsd', args: 'demo start-all' })
+  expect(a.text).toMatch(/\/start-all/)
+  const tree = await drawFid($)
+  expect(textOf(textsOf(fidRows(tree)[0])[0])).toBe(`◆ /start-all · ${DEMO_BOARDS.batch.title}`)
+  expect(borderedOf(subtree(tree, 'panel-fid'))?.props?.borderColor).toBe(CMD_COLORS.theme.batch)
+  expect(fidRows(tree).map(textOf)).toContain('▶ FR-8  날짜별 예약 현황')
+  const next = await $.command.run({ command: 'devfsd', args: 'demo' }) // 이름 없이 → 다음 명령
+  expect(next.text).toContain(CMD_NAME.start)
+  const bad = await $.command.run({ command: 'devfsd', args: 'demo nope' })
+  expect(bad.text).toMatch(/^Usage: \/devfsd demo /)
+  expect(textOf(textsOf(fidRows(await drawFid($))[0])[0])).toContain('/start ·') // 모르는 이름은 바꾸지 않는다
+  await $.command.run({ command: 'devfsd', args: 'demo off' })
+  expect(textOf(textsOf(fidRows(await drawFid($))[0])[0])).toBe('devFSD · 20261106-x')
+})
+
+// 화면 줄 수(heightOf.fid)가 명령별 구성의 높이를 쓰지 않으면 로그 칸이 그만큼 더 그려져 화면 밖으로 밀린다.
+//   같은 세션에서 종전 구성(3줄: 제목·진행 줄·단계 막대)과 일괄 구성(머리줄·막대·흐름·FR 3·단계 = 7줄)을 번갈아 그려,
+//   늘어난 4줄만큼 로그 줄이 줄어드는지 본다.
+test('devFSD: 명령별 구성 — 칸이 커진 만큼 로그 줄이 줄어든다(화면 줄 수 계산이 새 높이를 쓴다)', async ($, on) => {
+  let out = ''
+  fidWorld(on, { progress: PROG_B, mode: () => out })
+  await startFid($)
+  for (let i = 0; i < 12; i += 1) await $.turn.start({ text: `ask ${i}`, turnId: `V${i}` })
+  const measure = async (bodyRows: number) => {
+    const props = { ...pane(80).props, scroll: { offset: 0, bodyRows } }
+    const ui = await $.ui.mount({ ...pane(80), props, surface: 'terminal' })
+    const tree = await ui.drawn()
+    await ui.unmount()
+    return { fid: fidRows(tree).length, log: rowsOf(subtree(tree, 'panel-log')).length - 1 }
+  }
+  // 로그는 4~8줄로 잘린다 — 두 구성 모두 그 사이에 들어오는 화면 높이를 찾아 잰다
+  const rowsFor = [22, 23, 24, 25, 26, 27, 28]
+  const befores = []
+  for (const r of rowsFor) befores.push(await measure(r))
+  out = MODE_ALL
+  await $.tool.call({ tool: 'Edit', tool_use_id: 'toolu_rows', file_path: '/w/a.ts', old_string: 'a', new_string: 'b' } as never)
+  await settle()
+  const afters = []
+  for (const r of rowsFor) afters.push(await measure(r))
+  expect(afters[0]!.fid - befores[0]!.fid).toBe(4)
+  // 같은 화면 높이에서 로그가 4줄 줄어드는 높이가 있어야 한다(둘 다 4~8 안) — 높이를 쓰지 않으면 어디서도 줄지 않는다
+  const drops = rowsFor.map((_, i) => befores[i]!.log - afters[i]!.log)
+  expect(Math.max(...drops)).toBe(4)
+  expect(drops.every(d => d >= 0)).toBe(true)
+})
+
+test('devFSD: 미리보기는 세션을 넘기지 않는다 — 다시 열면 실제 진행이 보인다', async ($, on) => {
+  fidWorld(on, { progress: PROG_B })
+  await startFid($)
+  await $.command.run({ command: 'devfsd', args: 'demo quick-fix' })
+  expect(textOf(textsOf(fidRows(await drawFid($))[0])[0])).toContain('/quick-fix')
+  expect(fidRows(await drawFid($)).map(textOf)).toContain('미리보기 — /devfsd demo off 로 끈다') // 끄는 법을 칸 안에 적는다
+  await startFid($) // 세션을 다시 연다
+  expect(textOf(textsOf(fidRows(await drawFid($))[0])[0])).toBe('devFSD · 20261106-x')
+})
+
+test('devFSD: 명령별 구성 — 지금 단계 칸의 글자색은 팔레트마다 바탕과 대비되는 색이다', { options: { palette: 'pastel' } }, async ($, on) => {
+  fidWorld(on, { progress: PROG_B, mode: () => MODE_ALL })
+  await startFid($)
+  const chip = flowTexts(await drawFid($)).find(t => t.props?.backgroundColor)
+  expect(chip?.props?.backgroundColor).toBe(CMD_COLORS.pastel.batch)
+  expect(chip?.props?.color).toBe('#0b0e14') // 밝은 바탕 위의 어두운 글자 — 밝은 글자는 대비 1.6
+  expect(new Set(Object.values(CMD_COLORS.pastel)).size).toBe(6) // 여섯 명령의 색이 서로 다르다
+})

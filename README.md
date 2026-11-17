@@ -327,6 +327,8 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 
 **관제판** — 세션 시작 때 자동으로 열리는 관제판은 패널을 main → devFSD → Advisor → agents → log 순으로 한 칸에 쌓고, 패널 사이는 연결선 대신 빈 줄로 나눈다. gate 패널은 설정 `panels` 에 `gate` 를 적을 때만 나타난다. 종전 ARCHITECT 패널은 Advisor 로 이름이 바뀌었고 설정 `architectLabel` 로 다른 이름을 줄 수 있다. 맨 위 헤더는 한 줄 요약(상태·현재 단계·검증·BG)이고 그 아래에 오로라 선이 흐른다.
 
+**명령별 devFSD 칸** — 관제판의 devFSD 칸은 어느 명령이 도는가에 맞춰 달라진다. 머리줄에 명령 이름과 고유 색(`/init-project` 보라 · `/start-foundation` 파랑 · `/start-all` 주황 · `/start` 초록 · `/maintain` 노랑 · `/quick-fix` 청록), 그 아래에 진행 막대와 퍼센트, 단계를 선으로 이은 명령 흐름(지난 구간 `━━` · 남은 구간 `┄┄` · 지금 단계는 색을 채운 칸)이 온다. `/init-project` 는 작업이 생기기 전에도 초기화 여덟 단계와 단계별 소요를 보이고, `/start-all` 은 묶음 흐름(준비 → FR 명세 → 계획 리뷰 → 통합 설계 → 구현 → 통합 → PR)과 FR 목록·지금 FR 의 단계를, `/maintain` 은 기존 동작 보존(회귀 기준) 줄을, `/quick-fix` 는 범위 상한과 판정을, 풀 경로는 계획이 도는 동안 계획 안쪽 단계(초안·전문가·리뷰·확정)를 보인다. 다른 칸(main · Advisor · agents · log)은 그대로다. 명령을 판정할 수 없으면 종전 구성으로 그린다. 실제 작업 없이 보려면 `/devfsd demo`(부를 때마다 다음 명령 · `/devfsd demo start-all` 처럼 골라 보기 · `/devfsd demo off` 로 끄기) — 예시 수치로 그린다.
+
 ---
 
 ## 자산 구조

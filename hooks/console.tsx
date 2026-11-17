@@ -20,6 +20,17 @@ import {
   applyStep,
   bucketOf,
   cellWidth,
+  CMD_COLORS,
+  CMD_FR_MAX,
+  CMD_INK,
+  CMD_NAME,
+  DEMO_BOARDS,
+  DEMO_ORDER,
+  nextDemo,
+  cmdBodyRows,
+  cmdFlow,
+  cmdProgress,
+  frWindow,
   piecesThatFit,
   cardTitle,
   afterCompactHooked,
@@ -87,11 +98,11 @@ const SVG_LABEL = '#888780'
 // devFSD: 진행 기록(FID·단계·verify)은 progress-pane 이 채우는 board 를 읽기만 한다.
 import { notificationOf, progressStart, textOf } from './progress-pane'
 import { ciLine, ciPending } from './ci-watch'
-import type { Board, StageMark } from '../types'
+import type { Board, CmdSeg, StageMark } from '../types'
 
 // devFSD: progress-pane 이 쓰는 board 와 같은 상태(같은 ref·shape) — 여기서는 읽기만 한다.
 // 검증기는 atom 을 읽는 파일 안에 그 정의가 있기를 요구한다.
-const board = atom({ plugin: 'devfsd', key: 'board' } as const, { running: [], recent: [] } as Board, { shape: 'board-2' })
+const board = atom({ plugin: 'devfsd', key: 'board' } as const, { running: [], recent: [] } as Board, { shape: 'board-3' })
 
 // devFSD: progress-pane 의 시계 atom 과 같은 ref·shape — 읽어 두면 시계가 돌 때 배지가 다시 그려진다.
 const nowTick = atom({ plugin: 'devfsd', key: 'now' } as const, 0, { shape: 'now-1' })
@@ -286,9 +297,11 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     await $.command.register({
       name: 'devfsd',
       description: 'devFSD 관제판 (live agent dashboard): open, close, reset, or set the layout',
-      argumentHint: '[open|close|reset|layout auto|compact|wide|mini]',
+      argumentHint: '[open|close|reset|layout auto|compact|wide|mini|demo [init|start-foundation|start-all|start|maintain|quick-fix|off]]',
     })
     await migrate($)
+    // devFSD: 미리보기는 세션을 넘기지 않는다 — 다시 열었을 때 예시가 실제 진행을 가린 채 남지 않게.
+    await update($, view, x => ({ ...normalize(DEFAULT_VIEW, x), demo: null }))
     // A host without usage (headless, an SDK host, a session not yet bound) just starts without it.
     const u = await $.session.usage().catch(() => null)
     // A resumed session has a fill to draw already: its compaction window is read now, not at its first
@@ -345,6 +358,16 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       await update($, view, v => ({ ...normalize(DEFAULT_VIEW, v), layout }))
       const opened = await openPane($, cfg)
       return { text: opened.isPlaced ? `devFSD 관제판 layout: ${layout}.` : `Layout set to ${layout}; the pane is not shown yet: ${opened.reason}` }
+    }
+    // devFSD: 미리보기 — 실제 작업 없이 명령별 구성을 본다. 이름 없이 부르면 여섯 명령을 차례로 돈다. `demo off` 로 끈다.
+    if (verb === 'demo') {
+      const cur = normalize(DEFAULT_VIEW, await getView($)).demo ?? null
+      const to = nextDemo(cur, arg.replace(/^\//, ''))
+      if (to === undefined) return { text: `Usage: /devfsd demo [${DEMO_ORDER.map(k => CMD_NAME[k].slice(1)).join('|')}|off]` }
+      await update($, view, v => ({ ...normalize(DEFAULT_VIEW, v), demo: to }))
+      if (to === null) return { text: 'devFSD 관제판 미리보기를 껐습니다 — 실제 진행을 다시 보입니다.' }
+      const shown = await openPane($, cfg)
+      return { text: shown.isPlaced ? `devFSD 관제판 미리보기: ${CMD_NAME[to]} (예시 수치). 다음은 /devfsd demo · 끄기는 /devfsd demo off` : `미리보기를 ${CMD_NAME[to]} 로 정했습니다. 관제판이 아직 보이지 않습니다: ${shown.reason}` }
     }
     const opened = await openPane($, cfg)
     if (!opened.isPlaced) return { text: `devFSD 관제판 is not shown yet: ${opened.reason}` }
@@ -752,9 +775,11 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const showArchitect = a.consults.length > 0 || a.ids.length > 0
     const motion = cfg.motion && hasRail
     // A panel with nothing to show yet takes no room: most sessions never spawn an agent.
+    // devFSD: 지금 그릴 명령별 구성 — 미리보기(`/devfsd demo`)가 켜져 있으면 예시, 아니면 실제 판정(board.cmd).
+    const cmdNow = (v.demo ? DEMO_BOARDS[v.demo] : undefined) ?? b.cmd // 저장된 값이 모르는 이름이면 실제 진행을 가리지 않는다
     const isEmpty: Record<Panel, boolean> = {
       // FID 가 없어도 BG·CI 가 있으면 카드를 BG 구역만으로 그린다.
-      fid: !b.fid && bgTotal === 0 && !ciLine(b.ci),
+      fid: !b.fid && !cmdNow && bgTotal === 0 && !ciLine(b.ci), // 작업이 없어도 명령이 돌고 있으면(/init-project) 그린다
       main: false,
       architect: !showArchitect,
       // GATE 는 opt-in — 설정 panels 에 gate 를 넣은 사람만, 그 안에서도 기록이 있을 때만 그린다.
@@ -1216,7 +1241,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const heightOf: Record<Panel, number> = {
       main: 2 + mainRows(W).length,
       // 테두리 2 + (FID 가 있으면 제목 1 + 단계가 있으면 진행 줄·단계 막대 2) + BG 줄 + 작업 줄 + 끝난 작업 줄
-      fid: 2 + (b.fid ? 1 + (b.stages && b.stages.length > 0 ? 2 : 0) : 0) + (bgTotal > 0 || ciLine(b.ci) ? 1 : 0) + Math.min(3, b.running.length) + (b.running.length > 3 ? 1 : 0) + endedJobs.length,
+      fid: 2 + (cmdNow ? cmdBodyRows(cmdNow, b.stages ?? [], W - 4) : b.fid ? 1 + (b.stages && b.stages.length > 0 ? 2 : 0) : 0) + (bgTotal > 0 || ciLine(b.ci) ? 1 : 0) + Math.min(3, b.running.length) + (b.running.length > 3 ? 1 : 0) + endedJobs.length,
       architect: 2 + 3 + (cfg.moments ? 1 : 0) + (a.lastAdvice ? 1 : 0),
       gate: 2 + 4 + (v.gateOpen ? Math.min(5, g.recent.filter(c => c.bucket === v.gateOpen).length) : 0),
       // 테두리 없음: 머리 1 + (줄 모드: 이전 표시 1 + 줄 · 카드 모드: 카드 7줄 + 위아래 rail)
@@ -1269,6 +1294,141 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       const gaugeW = Math.max(0, Math.min(12, w - 24))
       const prog = gauge(sp.total > 0 ? (sp.step / sp.total) * 100 : 0, gaugeW)
       const markColor = (s: StageMark) => (s.mark === '✓' ? C.gate : s.mark === '!' ? C.amber : s.mark === '✗' ? C.warn : C.dim)
+      // BG/CI 줄 · 작업 줄 · 방금 끝난 작업 — 두 구성이 같이 쓴다
+      const jobsBlock = [
+        bgTotal > 0 || ciLine(b.ci)
+          ? line(
+              [
+                bgTotal > 0 ? { spans: [{ text: `BG ${bgTotal}`, bold: true }] } : null,
+                ciLine(b.ci)
+                  ? {
+                      spans: [
+                        { text: 'CI ', dim: true },
+                        { text: `✓${ciPass}`, color: C.gate },
+                        ...(ciPend > 0 ? [{ text: ` ⋯${ciPend}`, color: C.amber }] : []),
+                        ...(ciFail > 0 ? [{ text: ` ✗${ciFail}`, color: C.warn }] : []),
+                      ],
+                    }
+                  : null,
+              ],
+              w - 4,
+            )
+          : null,
+        ...b.running.slice(0, 3).map(j => (
+          <Text key={j.id} color={C.text} wrap="truncate">
+            {jobRow(j, now, w < 60)}
+          </Text>
+        )),
+        b.running.length > 3 ? <Text dimColor wrap="truncate">{`… 외 ${b.running.length - 3}개`}</Text> : null,
+        ...endedJobs.map(j => (
+          <Text key={j.id} color={j.isFailed ? C.warn : C.gate} wrap="truncate">
+            {j.isFailed ? `✗ ${j.label.trim() || j.id} · 방금 끝남` : `✓ ${j.label.trim() || j.id}`}
+          </Text>
+        )),
+      ]
+
+      // devFSD: 명령별 구성 — 머리줄(명령·제목·갈래) · 진행 막대 · 명령 흐름 · FR 목록 · 명령별 줄 · (일괄) 지금 FR 의 단계.
+      //   board-mode.sh 가 판정한 명령이 있을 때만 이렇게 그린다. 없으면 아래 종전 구성이다.
+      const cmd = cmdNow
+      if (cmd) {
+        const K = CMD_COLORS[cfg.palette][cmd.kind]
+        const flow = cmdFlow(cmd, b.stages ?? [])
+        const pg = cmdProgress(flow)
+        const bar = gauge(pg.pct, Math.max(0, Math.min(24, w - 30)))
+        const fr = frWindow(cmd.frs, CMD_FR_MAX)
+        const toneOf = (t: CmdSeg) => (t.tone === 'k' ? { color: K } : t.tone === 'd' ? { color: C.dim } : t.tone === 'g' ? { color: C.gate } : t.tone === 'w' ? { color: C.warn } : t.tone === 'b' ? { bold: true } : {})
+        const segs = (list: readonly CmdSeg[]) => list.map((t, i) => <Text key={`seg-${i}`} {...toneOf(t)}>{t.text}</Text>)
+        const frGlyph = { done: '✓', cur: '▶', todo: '○', hold: '⏸', block: '✗' } as const
+        const frColor = { done: C.gate, cur: K, todo: C.dim, hold: C.amber, block: C.warn } as const
+        const title = `◆ ${CMD_NAME[cmd.kind]}${cmd.title ? ` · ${cmd.title}` : ''}${b.lane && cmd.kind !== 'batch' ? ` · ${b.lane}` : ''}`
+
+        return (
+          <Box flexDirection="column" borderStyle="round" borderColor={K} paddingX={1} width={w}>
+            <Box key="cmd-title" justifyContent="space-between">
+              <Text color={K} bold wrap="truncate">
+                {title}
+              </Text>
+              {b.fid && b.verify ? (
+                <Box flexShrink={0}>
+                  <Text color={verifyColor} bold={!isGreen}>{b.verify}</Text>
+                </Box>
+              ) : null}
+            </Box>
+            <Box key="cmd-bar" width={w - 4} columnGap={1} overflow="hidden">
+              {bar.on || bar.off ? (
+                <Text>
+                  <Text color={K}>{bar.on}</Text>
+                  <Text color={C.faint}>{bar.off}</Text>
+                </Text>
+              ) : null}
+              <Box flexShrink={0}>
+                <Text color={K} bold>{`${pg.pct}%`}</Text>
+              </Box>
+              <Text color={pg.isDone ? C.gate : C.text} bold wrap="truncate">
+                {pg.isDone ? `${pg.step}/${pg.total} 완료` : pg.current ? `${pg.step}/${pg.total} ${pg.current}${pg.next ? ` · 다음 ${pg.next}` : ''}` : `${pg.step}/${pg.total}`}
+              </Text>
+              {cmd.since && !pg.isDone ? <Box flexShrink={0}>{clock('cmd-clock', cmd.since, null, K)}</Box> : null}
+            </Box>
+            <Box key="cmd-flow" flexWrap="wrap">
+              {flow.map((s, i) => {
+                const isOn = s.mark === 'done' || s.mark === 'skip' || s.mark === 'cur' || s.mark === 'fail' || s.mark === 'warn'
+                const rail = i === 0 ? null : <Text color={isOn ? K : C.faint}>{isOn ? ' ━━ ' : ' ┄┄ '}</Text>
+                const node =
+                  s.mark === 'cur' || s.mark === 'fail' ? (
+                    <Text backgroundColor={s.mark === 'fail' ? C.warn : K} color={CMD_INK[cfg.palette]} bold>{` ▶ ${s.label} `}</Text>
+                  ) : s.mark === 'done' ? (
+                    <Text color={K}>{`${s.label}✓`}</Text>
+                  ) : s.mark === 'skip' ? (
+                    <Text color={C.dim}>{`${s.label}–`}</Text>
+                  ) : s.mark === 'warn' ? (
+                    <Text color={C.amber} bold>{`${s.label}!`}</Text>
+                  ) : (
+                    <Text color={C.dim}>{`${s.label}○`}</Text>
+                  )
+                return (
+                  <Box key={`flow-${i}`} flexShrink={0}>
+                    {rail}
+                    {node}
+                  </Box>
+                )
+              })}
+            </Box>
+            {fr.shown.map((f, i) => (
+              <Box key={`fr-${i}`} justifyContent="space-between">
+                <Text color={frColor[f.mark]} bold={f.mark === 'cur'} wrap="truncate">
+                  {`${frGlyph[f.mark]} ${f.id}  ${f.text}`}
+                </Text>
+                {f.note ? (
+                  <Box flexShrink={0}>
+                    <Text color={frColor[f.mark]}>{f.note}</Text>
+                  </Box>
+                ) : null}
+              </Box>
+            ))}
+            {fr.hidden > 0 ? <Text dimColor wrap="truncate">{`… FR ${fr.hidden}건 더`}</Text> : null}
+            {cmd.rows.map((r, i) => (
+              <Box key={`row-${i}`} justifyContent="space-between">
+                <Text wrap="truncate">{segs(r.left)}</Text>
+                {r.right.length > 0 ? (
+                  <Box flexShrink={0}>
+                    <Text>{segs(r.right)}</Text>
+                  </Box>
+                ) : null}
+              </Box>
+            ))}
+            {cmd.kind === 'batch' && (b.stages ?? []).length > 0 ? (
+              <Box key="cmd-fr-stages" width={w - 4} columnGap={1} overflow="hidden">
+                {(b.stages ?? []).map(s => (
+                  <Box key={`frs-${s.key}`} flexShrink={0}>
+                    {s.isCurrent ? <Text color={K} bold>{`▶${s.label}●`}</Text> : <Text color={markColor(s)}>{`${s.label}${s.mark}`}</Text>}
+                  </Box>
+                ))}
+              </Box>
+            ) : null}
+            {jobsBlock}
+          </Box>
+        )
+      }
 
       return (
         <Box flexDirection="column" borderStyle="round" borderColor={C.gate} paddingX={1} width={w}>

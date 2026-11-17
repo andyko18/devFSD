@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.8.0] — 2026-11-18
+
 ### Added
 
 - **관제판의 devFSD 칸이 명령마다 달라진다**. 종전에는 "작업 하나의 진행 기록"만 읽어, `/init-project` 는 30분 도는 동안 단계가 하나도 안 보였고 `/start-foundation`·`/start-all`·`/start`·`/maintain`·`/quick-fix` 는 어떤 명령인지 구분 없이 같은 단계 막대였다. 이제 명령 이름과 고유 색의 머리줄 · 진행 막대와 퍼센트 · 단계를 선으로 이은 명령 흐름을 그리고, 명령별 줄을 더한다 — 초기화의 여덟 단계와 단계별 소요(작업이 없어도) · 일괄 묶음의 흐름과 FR 목록 · 유지보수의 기존 동작 보존 · quick-fix 의 범위 상한과 판정 · 풀 경로의 계획 안쪽 단계. 자료는 읽기 전용 스크립트(`scripts/_internal/board-mode.sh`)가 내고, 판정할 수 없으면 종전 구성으로 그린다. 다른 칸은 바뀌지 않는다. `/devfsd demo` 로 실제 작업 없이 여섯 명령의 화면을 볼 수 있다(예시 수치).
@@ -4272,7 +4274,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.10...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.8.0...HEAD
+[5.8.0]: https://github.com/andyko18/devFSD/compare/v5.7.10...v5.8.0
 [5.7.10]: https://github.com/andyko18/devFSD/compare/v5.7.9...v5.7.10
 [5.7.9]: https://github.com/andyko18/devFSD/compare/v5.7.8...v5.7.9
 [5.7.8]: https://github.com/andyko18/devFSD/compare/v5.7.7...v5.7.8

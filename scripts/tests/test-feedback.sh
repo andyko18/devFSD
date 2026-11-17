@@ -209,7 +209,7 @@ ds=$(printf '%s\n' "$out" | sed -n 's/^DRAFT: //p')
 out=$(cd "$E" && bash "$FB" draft "요약 없이도" --summary 2>&1); rc=$?
 dq=$(printf '%s\n' "$out" | sed -n 's/^DRAFT: //p')
 [ "$rc" = 0 ] && has "$(cat "$dq" 2>/dev/null)" "(사용 요약 없음" && has "$(cat "$dq")" "## 상태" && ok "F5.q ★ .specops 없이 --summary 여도 초안을 끝까지 쓴다(요약 자리에 안내)" || no "F5.q" "rc=$rc $out"
-case "$dq" in "$E"/*) no "F5.r" "$dq" ;; *) [ "$(stat -f %Lp "$(dirname "$dq")" 2>/dev/null || stat -c %a "$(dirname "$dq")")" = 700 ] && ok "F5.r .specops 없을 때의 초안 폴더는 나만 읽는다(700)" || no "F5.r" "$(ls -ld "$(dirname "$dq")")" ;; esac
+case "$dq" in "$E"/*) no "F5.r" "$dq" ;; *) [ "$(ls -ld "$(dirname "$dq")" | cut -c1-10)" = "drwx------" ] && ok "F5.r .specops 없을 때의 초안 폴더는 나만 읽는다(700)" || no "F5.r" "$(ls -ld "$(dirname "$dq")")" ;; esac
 rm -rf "$(dirname "$dq")"
 out=$(_fb draft "작업 20261117-secret-task 에서 10.0.0.12 로 postgres://u:p@db/x 접속, Bearer abcdefghijklmnop")
 n=$(printf '%s\n' "$out" | grep -c '^WARN:')

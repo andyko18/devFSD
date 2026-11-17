@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.7.8] — 2026-11-17
+
 ### Fixed
 
 - **구현자가 tasks.md 의 서문과 전 태스크 공통 절을 받는다**. 태스크 절만 잘라 주면서(`dispatch/<task-id>-task.md`) tasks.md 맨 앞의 주의와 `## 전 태스크 공통 규칙` 같은 절이 구현자에게 가지 않았다. 이제 각 태스크 절 파일 끝에 `## 전 태스크 공통 (tasks.md)` 로 붙는다 — 제목에 "공통" 이 든 2~3단 절(태스크 절 안의 소제목은 제외)과 서문이다. 서문이 2KB 를 넘으면 본문 대신 행 범위만 알린다.
@@ -4252,7 +4254,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.7...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.8...HEAD
+[5.7.8]: https://github.com/andyko18/devFSD/compare/v5.7.7...v5.7.8
 [5.7.7]: https://github.com/andyko18/devFSD/compare/v5.7.6...v5.7.7
 [5.7.6]: https://github.com/andyko18/devFSD/compare/v5.7.5...v5.7.6
 [5.7.5]: https://github.com/andyko18/devFSD/compare/v5.7.4...v5.7.5

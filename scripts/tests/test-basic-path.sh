@@ -686,6 +686,16 @@ irreversible_ext|Charge the customer's card
 irreversible_ext|Send emails to all customers
 irreversible_ext|모든 회원에게 이메일을 발송한다
 destructive_fs|git push --force 를 실행하는 스크립트
+data_move|prod DB 직접 수정해서 중복 행 지워줘
+data_move|프로덕션 DB의 user 테이블에서 잘못된 값을 직접 UPDATE 한다
+data_move|기존 사용자 데이터를 새 구조로 이관한다
+irreversible_ext|운영에 올려줘
+irreversible_ext|production 에 푸시해줘
+irreversible_ext|서비스를 라이브로 내보내
+irreversible_ext|릴리스를 프로덕션으로 내보낸다
+irreversible_ext|전체 고객에게 공지 메일을 보내는 기능 추가
+irreversible_ext|모든 회원에게 메일 보내기
+irreversible_ext|가입자에게 문자 메시지를 보낸다
 ROWS
 # ② 가벼운 신호(기본 경로 + 단계 켬)로 잡혀야 하는데 아무 신호도 없던 것
 i=0
@@ -696,12 +706,25 @@ while IFS='|' read -r want q; do
 done <<'ROWS'
 auth|Remove the password check
 auth|admin 체크를 우회하게 한다
+auth|CSRF 보호를 끄는 옵션 추가
+auth|CORS 를 전체 허용으로 바꿔줘
+auth|관리자 페이지를 공개한다
+auth|관리자 페이지 접근 제한 해제
+db_schema|users 테이블에 age 추가
+db_schema|테이블에 age 필드 추가
 ROWS
 # ③ 오탐: 낱말이 식별자 일부일 뿐인 것 → 무거운 신호가 아니다(과거 실측: expiredTruncated 4건 · isPkcs12DeployType · is_backfill)
 i=0
 for q in "expiredTruncated 카운트를 응답에 더한다" "isPkcs12DeployType 판정 함수를 고친다" "runDeployCycle 의 로그 문구를 바꾼다" "is_backfill 플래그 이름을 바꾼다"; do
   i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
   [ "$rc" = 0 ] && ok "N2d.$i ★ 식별자 일부의 낱말은 무거운 신호가 아니다: $q" || no "N2d.$i" "rc=$rc $out"
+done
+# ③b 20261117 에 더한 말씨의 대조 — 비슷하지만 그 일이 아닌 문장은 신호가 없다
+i=0
+for q in "문자열을 보낸다" "새 댓글이 달리면 앱 안 알림을 보낸다" "운영 시간 안내 문구를 올린다" "CORS 설정 설명을 문서에 더한다" "관리자 메뉴 이름을 바꾼다" "운영 DB 접속 방법 문서를 읽는다"; do
+  i=$((i+1)); out=$(_bp "$n" lane "$q"); rc=$?
+  [ "$rc" = 0 ] && [ "$out" = "LANE: basic" ] \
+    && ok "N2d2.$i 비슷한 말씨지만 그 일이 아니다: $q" || no "N2d2.$i" "rc=$rc $out"
 done
 # 대조: 진짜 무거운 것은 그대로 무겁다(낱말 경계를 좁혀 정탐을 잃지 않았다)
 i=0

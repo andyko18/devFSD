@@ -42,7 +42,8 @@ bash scripts/tests/llm-eval/run-judge-calibration.sh
 #     evals/ 로            : skill 발동·진입 판정 · 금지 도구 미사용(게이트 거부) · 플러그인 유/무 차이
 #     llm-eval/ 자체 러너로 : 보정된 채점기(llm_rubric)가 필요한 것 · 방식 A/B 비교 · 비용 단언(cost_lt) · 가짜 응답기로 도는 토큰 0 검사
 #   서버 측에서 꺼질 수 있어(`currently unavailable`) CI 게이트로 쓰지 않는다. 양성 케이스는 scaffold 가 필요하다(빈 폴더는 초기화 안내로 끝난다).
-claude plugin eval . --runs 3 --scaffold --max-cost-usd <상한>
+#   라우팅 케이스는 갈래 판정기(`basic-path.sh route`)를 Bash 로 부른다 — Bash 는 게이트 도구라 운영자 허용(`--allow-tools Bash`)이 있어야 돈다(20261117).
+claude plugin eval . --runs 3 --scaffold --allow-tools Bash --max-cost-usd <상한>
 
 # 결정론 skill 라우팅 eval (토큰 0 — description 충돌·드리프트, warn-first. 기준선 갱신은 scripts/README.md 의 skill-routing-eval 절 참조)
 bash scripts/skill-routing-eval.sh

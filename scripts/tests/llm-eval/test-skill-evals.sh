@@ -610,6 +610,17 @@ done
 if [ "$_ev_n" -ge 4 ] && [ -z "$_ev_bad" ]; then ok "T9 evals/ 케이스 ${_ev_n}종 구조 계약(prompt·grader·scaffold)"; else nope "T9" "n=$_ev_n bad=$_ev_bad"; fi
 # 라우팅 양성(lifecycle 진입)·음성(코딩 아님 → Skill 미호출) 케이스가 모두 있어야 회귀·재작성 비교가 성립한다
 if [ -f "$PLUGIN/evals/route-feature-new/graders/lifecycle-entered.md" ] && grep -q 'max: 0' "$PLUGIN/evals/no-route-presentation/graders/no-lifecycle-skill.md" && grep -q 'max: 0' "$PLUGIN/evals/no-route-qa/graders/no-skill.md"; then ok "T9.b 라우팅 양성·음성 케이스 쌍"; else nope "T9.b" "양성/음성 라우팅 케이스 누락"; fi
+# T9.c (20261117) 갈래는 스크립트(basic-path.sh route)가 고른다 — 기본 경로는 Skill 을 부르지 않으므로 진입 판정은 그 호출을 본다.
+#   Bash 가 허용 도구에 없으면 모델이 판정기를 부를 수 없어 양성은 늘 실패하고 음성은 늘 통과한다(평가가 실제 경로를 타지 못한다).
+_t9c=ok
+for c in route-feature-new route-bugfix no-route-qa no-route-presentation; do
+  grep -qE '^allowed_tools: .*\bBash\b' "$PLUGIN/evals/$c/prompt.md" || _t9c="$c(Bash 미허용)"
+done
+grep -q '^tool: Bash' "$PLUGIN/evals/route-feature-new/graders/lifecycle-entered.md" && grep -qF 'route\W+start' "$PLUGIN/evals/route-feature-new/graders/lifecycle-entered.md" || _t9c="route-feature-new(route start 판정 아님)"
+grep -q '^tool: Bash' "$PLUGIN/evals/route-bugfix/graders/lifecycle-entered.md" && grep -qF 'route\W+maintain' "$PLUGIN/evals/route-bugfix/graders/lifecycle-entered.md" || _t9c="route-bugfix(route maintain 판정 아님)"
+for c in no-route-qa no-route-presentation; do grep -q 'max: 0' "$PLUGIN/evals/$c/graders/no-route-call.md" 2>/dev/null || _t9c="$c(판정기 미호출 단언 없음)"; done
+grep -qF -- '--allow-tools Bash' "$PLUGIN/scripts/tests/CLAUDE.md" || _t9c="CLAUDE.md(--allow-tools Bash 없음)"
+if [ "$_t9c" = ok ]; then ok "T9.c ★ 라우팅 eval 이 갈래 판정기 호출을 본다 · Bash 허용 · 음성은 판정기 미호출"; else nope "T9.c" "$_t9c"; fi
 # ── T10 (20261007-eval-agent-inject) agent 본문 주입 계약 — stub 전용, 토큰 0 ──
 # 호출마다 인자를 NUL 구분 파일로 남기는 recorder — 채점 프롬프트는 개행·nonce 를 포함해 args.log 줄 판독이 안 된다
 mkdir -p "$TMP/agents" "$TMP/data10/karpathy-ko" "$TMP/data10b/karpathy-ko" "$TMP/data10c/karpathy-ko"

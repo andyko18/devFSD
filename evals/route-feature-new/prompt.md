@@ -1,9 +1,9 @@
 ---
-description: 신규 기능 요청이 specops 라이프사이클 진입(specifying-ko 또는 초기화 안내 init-project)으로 이어지는가
+description: 신규 기능 요청이 갈래 판정(basic-path.sh route start)을 거쳐 라이프사이클에 들어가는가
 tags: [routing]
 max_turns: 6
 timeout_seconds: 240
-allowed_tools: [Read, Glob, Grep, Skill]
+allowed_tools: [Read, Glob, Grep, Skill, Bash]
 ---
 
 CSV 파일의 줄 수를 세는 작은 CLI 를 새로 만들고 싶어.

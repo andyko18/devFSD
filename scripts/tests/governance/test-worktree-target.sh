@@ -556,8 +556,12 @@ c2=$(_dec "$(_pre13 "git commit -m 'feat: plain'" "$M13P")")
   && ok "WT-E8.3 같은 작업 트리(자기 폴더·하위 폴더)·이동 없음 → 종전대로 allow (검증 PASS)" || nope "WT-E8.3" "$a $b $c2"
 r=$(_pre13 "cd $W13P && git commit -m 'feat: moved'" "$W13P")
 [ "$(_dec "$r")" = "deny" ] && ok "WT-E8.4 셸이 worktree 에서 같은 worktree 로 옮겨도 프로젝트 기록으로는 열지 않는다(확인 불가는 옮긴 것으로 봄)" || nope "WT-E8.4" "$(_dec "$r")"
-BY=$(printf '%s' "cd $W13P && git commit -m 'feat: moved'" | { _in "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=test cd $W13P && git commit -m x" "$M13P" "$TR13" | (cd "$M13" && CLAUDE_PROJECT_DIR="$M13" bash "$PRE" 2>/dev/null); })
+BY=$(printf '%s' "cd $W13P && git commit -m 'feat: moved'" | { _in "cd $W13P && SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=test git commit -m x" "$M13P" "$TR13" | (cd "$M13" && CLAUDE_PROJECT_DIR="$M13" bash "$PRE" 2>/dev/null); })
 [ "$(_dec "$BY")" = "allow" ] && ok "WT-E8.5 사유 병기 BYPASS 는 종전대로 allow" || nope "WT-E8.5" "$(_dec "$BY")"
+# WT-E8.5b 표식이 cd 에 붙으면 열리지 않고, 옮길 자리를 알려 준다 (20261117 — 표식은 그것이 붙은 명령만 연다)
+BY=$(_in "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON=test cd $W13P && git commit -m x" "$M13P" "$TR13" | (cd "$M13" && CLAUDE_PROJECT_DIR="$M13" bash "$PRE" 2>/dev/null))
+[ "$(_dec "$BY")" = "deny" ] && printf '%s' "$BY" | grep -qF '바로 앞으로 옮기세요' \
+  && ok "WT-E8.5b ★ 표식이 cd 에 붙은 우회 → deny + 표식 자리 안내" || nope "WT-E8.5b" "$(_dec "$BY")"
 # WT-E8.6 이동 deny 문안: 러너 재실행 안내가 섞이지 않고, 이동 위치 확인 불가도 같은 판정이라고 말한다 (리뷰 M-1·M-2·I-2 — 문서 면제 안내는 메인에 문서가 staged 인 경우 참이라 WT-12 가 요구한다)
 r=$(_pre13 "cd $W13P && git commit -m 'feat: moved'" "$M13P")
 ! _why "$r" | grep -qF 'timeout 을 명시' && _why "$r" | grep -qF '확인하지 못한 경우' \

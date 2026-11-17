@@ -57,6 +57,25 @@ trigger_re=$(jq -rs '[.[]|select(.id=="R-1" or .id=="R-2")|.trigger_pattern|sele
 [ -n "$trigger_re" ] || safe_exit "trigger_pattern 로드 실패"
 # 트리거 판정은 잇기 전 원문도 함께 본다(_trigger_scan_text) — 아래 범위 판정들은 이은 문자열(tool_cmd_scan)을 쓴다.
 grep -Eq "$trigger_re" <<< "$(_trigger_scan_text "$(_strip_heredoc_bodies "$tool_cmd")")" || allow
+# 아무것도 커밋하지 않는 커밋 명령은 판정 대상이 아니다 (20261117) — `git commit --dry-run`·`--help`·`-h` 가 막혀
+#   우회 습관을 불렀다. 트리거 조각이 **전부** 그런 꼴일 때만 통과한다(`--dry-run && git commit` 은 종전대로 판정).
+#   좁게 잡는다(리뷰 20261117 — 넓게 잡은 초안은 줄 연속·프로세스 치환·`-m --dry-run` 으로 진짜 커밋이 열렸다):
+#   `--dry-run` 은 `commit` 바로 뒤 첫 인자일 때만 · `--help`·`-h` 는 유일한 인자일 때만 ·
+#   `--no-d…`(뒤집기 · 줄임 꼴 포함)·`#`(주석)·명령/프로세스 치환이 보이면 대상 아님 · 역슬래시가 하나라도 있으면 대상 아님
+#   (줄을 이은 문자열과 원문의 명령 경계가 달라질 수 있다 — _trigger_scan_text 가 경고하는 꼴).
+_only_noop_commits() {  # <걷어 낸 명령> → 0 = 트리거 조각이 하나 이상이고 모두 무동작 커밋
+  local seg any=0
+  case "$tool_cmd" in *\\*) return 1 ;; esac
+  while IFS= read -r seg; do
+    grep -Eq "$trigger_re" <<< "$seg" || continue
+    any=1
+    grep -Eq 'git[[:space:]]+([^;&|]*[[:space:]])?commit([[:space:]]|$)' <<< "$seg" || return 1
+    case "$seg" in *--no-d*|*'#'*|*'$('*|*'`'*|*'<('*|*'>('*) return 1 ;; esac
+    grep -Eq '[[:space:]]commit[[:space:]]+(--help|-h)[[:space:]]*$|[[:space:]]commit[[:space:]]+--dry-run([[:space:]]|$)' <<< "$seg" || return 1
+  done < <(printf '%s\n' "$1" | tr ';&|' '\n\n\n')
+  [ "$any" = 1 ]
+}
+_only_noop_commits "$tool_cmd_scan" && allow
 _GOV_INPUT_CWD=$(echo "$input" | jq -r '.cwd // empty' 2>/dev/null)   # 셸 위치 — 판정 대상(아래)과 이동 위치 해석(_gov_cmd_moves_elsewhere)이 쓴다 (20261016)
 _gov_cmd_moves_git "$tool_cmd_scan" || { _gov_apply_git_target "$_GOV_INPUT_CWD"; _gov_apply_record_root; }   # 셸이 같은 저장소의 다른 worktree 면 git 조회를 그쪽으로 — 명령이 스스로 옮기면 종전 — 기록 루트도 자기 기록 worktree 기준 (20261016-hook-worktree-target · 20261106-worktree-specops-root)
 
@@ -155,7 +174,23 @@ _batch_pr_gate
 #   (test-mutation-conf-fresh.sh T2.a 실측). 20261010 부터 키가 함수+줄 원문이라 그 제약은 없다.
 #   위치는 그대로 뒀다 — 첫 소비자 바로 앞이 co-location 측면에서도 낫다.
 _is_cmd_pos_env() {
-  grep -Eq "(^|[;&|({\`])[[:space:]]*${3:-}$2[[:space:]]" <<< "$1"
+  #   `env VAR=1 …` 꼴도 같은 자리다 (20261117) — 사유까지 적은 정직한 우회가 `env` 한 낱말 때문에 거짓 차단됐다.
+  grep -Eq "(^|[;&|({\`])[[:space:]]*(env[[:space:]]+)?${3:-}$2[[:space:]]" <<< "$1"
+}
+
+# 명령을 단순 명령 조각으로 나눈다(`;` `&` `|` 개행 기준) — 인용·heredoc 을 걷어 낸 문자열을 받는다.
+_cmd_segments() { printf '%s\n' "$1" | tr ';&|' '\n\n\n'; }
+
+# 우회 표식이 **트리거(git commit·gh pr create)에 붙어 있는가** (20261117).
+#   종전엔 표식이 명령 어디든 명령 위치에 있으면 열렸다 — `BYPASS=1 REASON=x true && git commit` 은 표식이 `true` 에
+#   붙었는데도 뒤의 커밋이 통째로 열렸다. 표식이 트리거에 붙어 있어야 열린다(붙어 있으면 그 Bash 호출 전체가 열린다 —
+#   한 호출 안의 다른 커밋까지 따로 묻지는 않는다).
+_bypass_binds_trigger() {  # <걷어 낸 명령> → 0 = 표식 조각 가운데 트리거가 있다
+  local seg
+  while IFS= read -r seg; do
+    case "$seg" in *SPECOPS_GOVERNANCE_BYPASS=1*) grep -Eq "$trigger_re" <<< "$seg" && return 0 ;; esac
+  done < <(_cmd_segments "$1")
+  return 1
 }
 
 # 인라인 BYPASS 는 사유(SPECOPS_BYPASS_REASON) 병기 필수 (20260716-batch-dogfood: 첫 deny 후 모델이
@@ -171,6 +206,16 @@ _reason_val="('[^']*'|\"[^\"]*\"|[^[:space:]]+)"
 #   사유 값의 따옴표 본문은 걷히고 따옴표만 남으므로(REASON=\047\047) 사유의 유무는 원문에서 따로 본다.
 if _is_cmd_pos_env "$tool_cmd_scan" "SPECOPS_GOVERNANCE_BYPASS=1" \
      "(SPECOPS_BYPASS_REASON=${_reason_val}[[:space:]]+)?"; then
+  # 표식이 다른 명령에 붙었다(`BYPASS=1 REASON=… cd x && git commit`) — 조용히 일반 판정으로 넘기지 않고 고칠 꼴을 알려 준다.
+  #   말없이 막히면 "우회가 안 먹는다" 로 읽혀 세션 전체 해제로 간다.
+  #   관할 밖(.specops 없음)에서는 묻지 않는다 — 그 저장소의 커밋은 어차피 판정하지 않는다.
+  if [ -d ".specops" ] && ! _bypass_binds_trigger "$tool_cmd_scan"; then
+    reason="우회 표식이 git commit·gh pr create 가 아닌 다른 명령에 붙어 있습니다 — 표식은 커밋·PR 생성 명령에 붙어 있어야 열립니다.
+표식을 커밋(또는 PR 생성) 명령 바로 앞으로 옮기세요: cd <폴더> && SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<한 줄 사유>' git commit …"
+    jq -nc --arg r "$reason$(_gov_target_note "$plugin_root" "${fid:-}")" \
+      '{ hookSpecificOutput: { hookEventName:"PreToolUse", permissionDecision:"deny", permissionDecisionReason:$r }, decision:"block", reason:$r }'
+    exit 0
+  fi
   # 메시지 오염 가드 (dogfood 20260717 test2 61f9e0d "BYPASS fix: ..."): 우회 표식이 git 히스토리에
   #   유입되면 conventional commit(릴리즈 노트·검색)이 훼손된다. 우회 기록은 REASON+friction-log 담당.
   if grep -Eq -- "-m[[:space:]]+[\"']?BYPASS" <<< "$tool_cmd"; then

@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **`planning-ko` 가 작은 변경에서 DB 전문가·plan-reviewer 를 건너뛴다 (좁은 조건)**. 구현 파일 5개 이하이고 DDL·마이그레이션이 없으면 DB 전문가를, 전문가 패스(DB·구조·API·보안·테스트)가 하나도 안 걸렸으면 plan-reviewer·이해 검사를 부르지 않는다(dispatch-log SKIP 행). 계획 턴 분해(20261116) 줄일 후보 5 — 절감 $1.6~2.8 은 추정, 품질 영향 미측정
+
 ## [5.7.3] — 2026-11-17
 
 ### Fixed

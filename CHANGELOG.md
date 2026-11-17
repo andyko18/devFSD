@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.7.9] — 2026-11-17
+
 ### Fixed
 
 - **결제 도메인의 가벼운 요청이 풀 경로로 가지 않는다**. `결제`·`과금`·`환불`·`payment`·`billing` 낱말만 있어도 "되돌릴 수 없는 외부 작업"·"결제·개인정보" 신호로 보아, 결제를 다루는 프로젝트에서는 조회·건수 세기·문구·정렬 같은 요청까지 전부 풀 경로였다(실측: 가벼운 문장 9개 중 9개 · 같은 크기 작업이 기본 2.5분 → 풀 12.1분). 이제 돈이 움직이거나 금액이 바뀌는 행위 낱말(PG·호출·승인·취소·연동·금액·수수료·할인·배치 등)이 가까이 있을 때만 신호다. `Payment` 같은 클래스 이름도 신호가 아니다. 카드 번호·개인정보·주민등록·credit card 는 종전대로 단독 신호다. 금액 낱말이 가까우면 읽기 전용이어도 무거운 쪽으로 둔다("결제 금액 합계 조회"). 과거 spec 377건의 판정은 그대로다(풀 33건). **행동 변경**: "결제 화면 문구를 고친다" 꼴이 기본 경로로 간다 — 스펙 리뷰·코드 리뷰·보안 스캔은 기본 경로에서도 돈다.
@@ -4258,7 +4260,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.8...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.9...HEAD
+[5.7.9]: https://github.com/andyko18/devFSD/compare/v5.7.8...v5.7.9
 [5.7.8]: https://github.com/andyko18/devFSD/compare/v5.7.7...v5.7.8
 [5.7.7]: https://github.com/andyko18/devFSD/compare/v5.7.6...v5.7.7
 [5.7.6]: https://github.com/andyko18/devFSD/compare/v5.7.5...v5.7.6

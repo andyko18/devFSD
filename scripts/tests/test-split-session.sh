@@ -33,6 +33,7 @@ case "${STUB_MODE:-done}" in
   failed) echo '{"type":"result","subtype":"success","session_id":"sid-123","num_turns":2,"total_cost_usd":0.1,"result":"SPLIT-CHILD-FAILED: 20261112-split-x 도구 거부"}' ;;
   nomark) echo '{"type":"result","subtype":"success","session_id":"sid-123","num_turns":2,"total_cost_usd":0.1,"result":"다 했습니다"}' ;;
   otherfid) echo '{"type":"result","subtype":"success","session_id":"sid-123","num_turns":2,"total_cost_usd":0.1,"result":"SPLIT-CHILD-DONE: 20261112-other"}' ;;
+  prefixfid) echo '{"type":"result","subtype":"success","session_id":"sid-123","num_turns":2,"total_cost_usd":0.1,"result":"SPLIT-CHILD-DONE: 20261112-split-x-extra"}' ;;
   budget) echo '{"type":"result","subtype":"error_max_budget_usd","session_id":"sid-123","num_turns":9,"total_cost_usd":3}'; exit 1 ;;
   multi)  echo '{"type":"result","subtype":"success","session_id":"sid-123","num_turns":4,"total_cost_usd":0.4,"result":"대기"}'
           echo '{"type":"result","subtype":"success","session_id":"sid-123","num_turns":9,"total_cost_usd":1.1,"result":"요약\nSPLIT-CHILD-DONE: 20261112-split-x"}'
@@ -130,6 +131,9 @@ out=$(_run "$(_mk)" env STUB_MODE=nomark); rc=$?
 [ "$rc" = 1 ] && printf '%s' "$out" | grep -q '^SPLIT-RESULT: FAILED .*마커' && ok "R7 ★ 끝 마커 없는 정상 종료 → 완료로 읽지 않는다" || nope "R7" "rc=$rc out=$out"
 out=$(_run "$(_mk)" env STUB_MODE=otherfid); rc=$?
 [ "$rc" = 1 ] && ok "R8 ★ 다른 FID 의 DONE 마커 → 완료로 읽지 않는다" || nope "R8" "rc=$rc out=$out"
+# R8b 이 FID 가 접두로만 같은 다른 FID(…-split-x-extra)의 DONE 마커 → 완료로 읽지 않는다 (변이: 마커 grep 의 경계 `( |$)` 삭제 → 접두 일치로 DONE)
+out=$(_run "$(_mk)" env STUB_MODE=prefixfid); rc=$?
+[ "$rc" = 1 ] && printf '%s' "$out" | grep -q '^SPLIT-RESULT: FAILED .*마커' && ok "R8b ★ 접두만 같은 다른 FID 의 DONE 마커 → 완료로 읽지 않는다(FAILED · 끝 마커 없음)" || nope "R8b" "rc=$rc out=$out"
 out=$(_run "$(_mk)" env STUB_MODE=budget); rc=$?
 [ "$rc" = 1 ] && printf '%s' "$out" | grep -q 'error_max_budget_usd' && ok "R9 예산 초과 종료 → FAILED(subtype 표시)" || nope "R9" "rc=$rc out=$out"
 sb=$(_mk); out=$(_run "$sb" env STUB_MODE=crash); rc=$?

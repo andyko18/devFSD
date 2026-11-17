@@ -675,6 +675,29 @@ if printf '%s' "$out" | grep -q 'BATCH-GATE'; then
 else
   echo "PASS T-batch.h ★★ 무관한 브랜치 PR → 게이트 미발화 (batch PR 만 판정)"; pass=$((pass+1))
 fi
+# ── T-batch.h2 ★ RELEASE_READY 의 batch 스코프도 브랜치가 일치할 때만 hard 다 ──
+#   _release_ready_gate 는 _batch_pr_gate 와 같은 판별(ACTIVE + feat/<BATCH_ID>)을 따로 갖는다. 마커가 남은 중단 batch 가 있어도
+#   무관한 브랜치의 PR 을 hard deny 하면 영구 ghost-block 이다(T-batch.h 는 BATCH-GATE 문구만 봐서 이 분기를 못 본다).
+#   변이: 그 분기의 `[ "$branch" = "feat/$(basename "$d")" ] || continue` 삭제 → batch 스코프가 hard=1 로 켜져 NOT_READY 가 deny.
+#   batch 게이트는 통과(산출물 완비)하고 release-ready 축 하나만 깨뜨려(bare SKIP) NOT_READY 로 만든다 — T-mut.c 와 같은 픽스처, 브랜치만 다르다.
+_h2=$(_mk_batch_sandbox "IMPL_DONE" 1 1)
+python3 - "$_h2" <<'PYEOF'
+import sys, glob, os
+root=sys.argv[1]
+for ev in glob.glob(os.path.join(root, '.specops', '*', 'evidence.md')):
+    s=open(ev, encoding='utf-8').read()
+    s=s.replace('§NFR L8-12 — 성능 임계값 없음', '성능 임계값 없음')
+    open(ev,'w',encoding='utf-8').write(s)
+PYEOF
+( cd "$_h2" && git checkout -q -b "feat/20260721-unrelated" )
+out=$(mkstdin "gh pr create --fill" "$(_tr_for "$_h2" "$FIX/pretool-with-verify-exec.jsonl")" | CLAUDE_PROJECT_DIR="$_h2" bash "$HOOK" 2>/dev/null)
+check "T-batch.h2 ★ ACTIVE batch 가 있어도 무관한 브랜치 PR → RELEASE_READY hard deny 아님(allow)" '"continue":true' "$out"
+if printf '%s' "$out" | grep -q '"permissionDecision":"deny"'; then
+  echo "FAIL T-batch.h2b ★ 무관한 브랜치 PR 이 batch 스코프 hard deny 로 막힘: $out"; fail=$((fail+1))
+else
+  echo "PASS T-batch.h2b 무관한 브랜치 PR → deny 없음 (batch 스코프는 브랜치 일치 때만)"; pass=$((pass+1))
+fi
+rm -rf "$_h2"
 rm -rf "$bs_bad" "$bs_ok" "$bs_stale" "$bs_other"
 
 # ── T-msg deny 메시지 정확성 (HIGH-1) ──

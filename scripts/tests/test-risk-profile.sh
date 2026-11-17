@@ -961,4 +961,14 @@ r=$(LANG=en_US.UTF-8 _rp_files 20261015-rp-to-badbyte-ok "$(printf '\377 깨진 
   && ok "T61n 깨진 UTF-8 바이트 + rm -rf 만 → 면제(가림이 바이트 단위)" || nope "T61n" "$r"
 rm -f "$_RP61_ERR"
 
+# T62 rp::test_only_files 직접 판정 — `.specops/*` 는 문서처럼 건너뛴다. 테스트 파일 + 비문서 `.specops/` 산출물(.json)만 바뀐 목록이 테스트 전용이어야 한다
+#   (변이: case 의 `.specops/*` 삭제 → .json 산출물이 제품 파일로 읽혀 테스트 전용 면제가 꺼진다). 대조 — 제품 파일이 섞이면 아니고, `.specops/` 뿐이어도 아니다.
+_to_files() { ( source "$RP" >/dev/null 2>&1; rp::test_only_files "$1" ); }
+_to_files "$(printf 'scripts/tests/test-x.sh\n.specops/20261117-a/risk-profile.json\n')" \
+  && ok "T62a ★ 테스트 파일 + .specops/ 산출물(.json) → 테스트 전용" || nope "T62a"
+_to_files "$(printf 'scripts/tests/test-x.sh\n.specops/20261117-a/risk-profile.json\nscripts/real.sh\n')" \
+  && nope "T62b" "제품 파일이 섞였는데 테스트 전용" || ok "T62b 제품 파일이 섞이면 테스트 전용이 아니다"
+_to_files "$(printf '.specops/20261117-a/risk-profile.json\n')" \
+  && nope "T62c" ".specops 뿐인데 테스트 전용" || ok "T62c .specops/ 뿐인 목록은 테스트 전용이 아니다(테스트 파일이 하나는 있어야 한다)"
+
 finish

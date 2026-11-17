@@ -54,7 +54,7 @@ cfg() {
     inb {
       line = $0; sub(/[[:space:]]+#.*$/, "", line)
       if (match(line, "^[[:space:]]+" key ":[[:space:]]*")) {
-        v = substr(line, RLENGTH + 1); gsub(/^["\047]|["\047]$/, "", v); print v; exit
+        v = substr(line, RLENGTH + 1); sub(/[[:space:]]+$/, "", v); gsub(/^["\047]|["\047]$/, "", v); print v; exit
       }
     }' "$CONFIG"
 }

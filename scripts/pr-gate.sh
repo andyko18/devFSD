@@ -35,7 +35,8 @@ else _top=$(git rev-parse --show-toplevel 2>/dev/null || true); SPECOPS="${_top:
 ask() { printf 'PR-GATE: ask (%s)\n' "$1"; exit 0; }
 D="$SPECOPS/$FID"; SPEC="$D/spec.md"
 
-case "${SPECOPS_PR_GATE:-}" in ask) ask "환경 변수 SPECOPS_PR_GATE=ask" ;; esac
+# 값의 대소문자를 가리지 않는다 — 설정 파일 쪽(grep -i)과 같게. 종전엔 `Ask` 가 조용히 auto 로 떨어졌다.
+case "$(printf '%s' "${SPECOPS_PR_GATE:-}" | tr '[:upper:]' '[:lower:]')" in ask) ask "환경 변수 SPECOPS_PR_GATE=ask" ;; esac
 if [ -f "$SPECOPS/config.yaml" ] && grep -qiE "^[[:space:]]*pr_gate:[[:space:]]*[\"']?ask[\"']?[[:space:]]*(#.*)?\$" "$SPECOPS/config.yaml"; then
   ask "설정 pr_gate: ask"
 fi

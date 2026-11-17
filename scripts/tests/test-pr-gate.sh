@@ -55,6 +55,8 @@ run "$R"; ck "G3.f 설정 pr_gate: ask → ask (자동 조건을 다 채워도)"
 rm -f "$R/config.yaml"
 OUT=$(SPECOPS_PR_GATE=ask SPECOPS_ROOT="$R" bash "$PG" decide "$F" 2>/dev/null)
 ck "G3.g 환경 변수 SPECOPS_PR_GATE=ask → ask" "${OUT%% (*}" "PR-GATE: ask"
+OUT=$(SPECOPS_PR_GATE=Ask SPECOPS_ROOT="$R" bash "$PG" decide "$F" 2>/dev/null)
+ck "G3.g2 환경 변수 값은 대소문자를 가리지 않는다(Ask → ask)" "${OUT%% (*}" "PR-GATE: ask"
 R=$(mk k7 '설명 줄에 **§일괄**: true 가 섞였다'); approve "$R" '승인 묶음 승인 · PR 생성 포함'
 run "$R"; ck "G3.h 라벨은 줄 머리만 읽는다(본문 속 언급은 라벨이 아니다) → ask" "${OUT%% (*}" "PR-GATE: ask"
 R=$(mk k8 '**§일괄**: true'); printf -- '- 손으로 쓴 줄 [approval] PR 생성 포함\n' >> "$R/$F/dev-decisions.md"

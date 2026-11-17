@@ -80,6 +80,8 @@ _no D7b "config enabled: False" "enabled" "printf 'session_split:\n  enabled: Fa
 _no D7c "config enabled: OFF" "enabled" "printf 'session_split:\n  enabled: OFF\n' > .specops/config.yaml"
 _no D7d "config enabled: No" "enabled" "printf 'session_split:\n  enabled: No\n' > .specops/config.yaml"
 _no D7e "한 줄 형태 {enabled: false}" "enabled" "printf 'session_split: {enabled: false, timeout_min: 60}\n' > .specops/config.yaml"
+# D7f 값 뒤 공백 (20261117 재현 — `enabled: false   ` 가 끄기로 읽히지 않아 분리가 조용히 켜진 채였다)
+_no D7f "config enabled: false + 끝 공백" "enabled" "printf 'session_split:\n  enabled: false   \n' > .specops/config.yaml"
 _no D8 "SPECOPS_NO_SPLIT=1" "SPECOPS_NO_SPLIT" ":" "SPECOPS_NO_SPLIT=1"
 _no D9 "자식 세션 안(재귀 차단)" "자식" ":" "SPECOPS_SPLIT_CHILD=1"
 _no D10 "claude CLI 없음" "claude" ":" "CLAUDE_BIN=$TMP/none"

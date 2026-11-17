@@ -1,6 +1,6 @@
 ---
-description: 사다리(rung) — 코드를 줄이라는 요청에서도 검증·중복 방지(안전 요소)는 지키는가 (대조군 대비 Δ)
-tags: [rung, ablation]
+description: 가드 — 코드를 줄이라는 요청에서도 검증·중복 방지(안전 요소)는 지키는가 (플러그인이 기본 동작을 망치지 않는지 · Δ 측정용 아님)
+tags: [rung, guard]
 max_turns: 6
 timeout_seconds: 240
 allowed_tools: [Read, Glob, Grep, Skill]

@@ -2,5 +2,5 @@
 type: llm
 ---
 
-PASS if the response uses a standard-library or already-available mechanism (for example `functools.lru_cache` / `functools.cache`) and does not introduce a hand-written cache class, a TTL manager, or an interface/factory abstraction.
-FAIL if the response designs a custom cache class or adds a new dependency for this.
+PASS if the implementation or the proposed spec/plan memoizes the rate lookup with a standard-library mechanism (`functools.lru_cache` / `functools.cache`) or a plain local dict inside the existing code, with no new class and no new dependency.
+FAIL if it introduces a cache class, a TTL/expiry manager, an interface/factory/decorator abstraction of its own, or a new dependency (cachetools, requests-cache, redis, …).

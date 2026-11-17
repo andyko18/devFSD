@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.7.3] — 2026-11-17
+
 ### Fixed
 
 - **PR 기준 브랜치를 `origin/HEAD` 없는 `develop` 저장소에서도 바르게 잡는다**. `/start-all` batch PR · `performance-test-ko` 단일 PR · `demo-ko` 종류 판정의 `BASE` 조각이 `origin/HEAD` 가 없으면 `main` 으로 떨어졌다. 5.7.2 완주 실주행(20261117 · FR-7 1건)의 하류 저장소가 기준 `develop` · `origin/HEAD` 없음이라 그대로면 틀린 base 로 PR 이 나갈 뻔했다. 다른 스크립트가 이미 쓰는 `specops_default_branch`(origin/HEAD → main → master → 로컬 develop·dev·trunk·development)로 바꿨고, `demo-ko` 는 `origin/<BASE>` diff 가 실패하면 로컬 `<BASE>` 로 비교한다. (#354)
@@ -4200,7 +4202,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.2...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.3...HEAD
+[5.7.3]: https://github.com/andyko18/devFSD/compare/v5.7.2...v5.7.3
 [5.7.2]: https://github.com/andyko18/devFSD/compare/v5.7.1...v5.7.2
 [5.7.1]: https://github.com/andyko18/devFSD/compare/v5.7.0...v5.7.1
 [5.7.0]: https://github.com/andyko18/devFSD/compare/v5.6.1...v5.7.0

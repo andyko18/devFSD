@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.7.10] — 2026-11-17
+
 ### Fixed
 
 - **문서만 바뀐 상태에서 같은 호출로 코드를 만들어 커밋해도 검증 없이 열리지 않는다**. 문서 전용 면제는 훅이 도는 시점의 변경 목록을 보는데, `echo x > evil.sh && git add evil.sh && git commit` 처럼 커밋 앞에서 파일을 만들거나 고치면(`sed -i … && git commit -am` · `git mv` · `git checkout -- f` · 스크립트 실행) 그 변경이 목록에 없어 면제됐다(12회차 평가 재현 13꼴 + 독립 리뷰가 찾은 둘째 커밋 · 메시지 치환 뒤 이어붙이기 · `git diff --output=` · `git -c core.fsmonitor=… commit`). 이제 같은 호출에서 커밋보다 먼저 도는 것이 싣기만 하는 명령(`git add`·쓰지 않는 git·`cd`·`echo`)일 때만 면제하고, 아니면 이유와 푸는 법을 알리며 막는다. **행동 변경**: 문서 커밋 앞에 다른 명령을 같은 호출로 붙이면(`npm run lint && git commit` · 메시지에 `$(date)`) 면제되지 않는다 — 따로 실행한다. 한 호출에 커밋 두 번도 같다. 문서만 싣는 흔한 꼴(`git add README.md && git commit -m …` · heredoc 메시지 · `rtk` 래핑)은 그대로 열린다.
@@ -4265,7 +4267,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.9...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.10...HEAD
+[5.7.10]: https://github.com/andyko18/devFSD/compare/v5.7.9...v5.7.10
 [5.7.9]: https://github.com/andyko18/devFSD/compare/v5.7.8...v5.7.9
 [5.7.8]: https://github.com/andyko18/devFSD/compare/v5.7.7...v5.7.8
 [5.7.7]: https://github.com/andyko18/devFSD/compare/v5.7.6...v5.7.7

@@ -294,6 +294,53 @@ out=$(mkstdin 'B() { SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON="$1" git 
 check "T36e 함수 wrapper bypass + 사유 → allow" '"continue":true' "$out"
 out=$(mkstdin "git add a.sh && SPECOPS_GOVERNANCE_BYPASS=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T36f compound bypass 무사유 → deny (사유 강제 보존)" 'SPECOPS_BYPASS_REASON' "$out"
+# T36g~k 표식은 그것이 붙은 명령만 연다 · `env` 접두도 같은 자리다 (20261117 소스 검토 #22 재현 —
+#   `env BYPASS=1 REASON=… git commit` 은 거짓 차단, `BYPASS=1 REASON=… true && git commit` 은 뒤 커밋까지 전체 개방이었다)
+out=$(mkstdin "env SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='사유' git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36g ★ env 접두 bypass + 사유 → allow" '"continue":true' "$out"
+out=$(mkstdin "env SPECOPS_GOVERNANCE_BYPASS=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36h env 접두 bypass 무사유 → deny (사유 강제 보존)" 'SPECOPS_BYPASS_REASON' "$out"
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='사유' true && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36i ★ 표식이 다른 명령(true)에 붙으면 뒤 커밋은 열리지 않는다 → deny" '"permissionDecision":"deny"' "$out"
+check "T36i-msg 표식 자리를 안내한다" '바로 앞으로 옮기세요' "$out"
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='사유' echo hi; git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36j ★ 표식 명령과 세미콜론으로 떨어진 커밋 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='사유' gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36k 표식이 붙은 PR 생성 → allow (트리거 두 종류 모두)" '"continue":true' "$out"
+# T36n~s 아무것도 커밋하지 않는 커밋 명령은 판정 대상이 아니다 (20261117 — `--dry-run`·`--help`·`-h` 가 막혀 우회 습관을 불렀다)
+out=$(mkstdin "git commit --dry-run -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36n ★ git commit --dry-run → allow" '"continue":true' "$out"
+out=$(mkstdin "git commit --help" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36o git commit --help → allow" '"continue":true' "$out"
+out=$(mkstdin "git commit -h" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36p git commit -h → allow" '"continue":true' "$out"
+out=$(mkstdin "git commit --dry-run -m x && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36q ★ --dry-run 뒤에 진짜 커밋이 이어지면 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git commit --dry-run --no-dry-run -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36r --no-dry-run 으로 뒤집으면 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git commit -m x # --dry-run" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36s 주석 안의 --dry-run 은 무동작이 아니다 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git commit -m x \$(echo --dry-run )" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36t 명령 치환 안의 --dry-run → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git commit -a -h" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36u -h 가 유일한 인자가 아니면 → deny" '"permissionDecision":"deny"' "$out"
+# T36v~ 리뷰(20261117)가 실제 커밋까지 재현한 구멍 — 무동작 판정은 좁게만 연다
+out=$(mkstdin "$(printf 'git commit --dry-run\n# note \\\ngit commit -m two')" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36v ★ 주석 줄의 줄 연속 뒤 진짜 커밋 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "$(printf 'git commit --dry-run \\\\\ngit commit -m y')" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36w ★ 이스케이프된 역슬래시 뒤 개행 + 진짜 커밋 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git commit --dry-run <(git commit -m x)" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36x 프로세스 치환 안의 진짜 커밋 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git commit -m --dry-run" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36y ★ -m 이 --dry-run 을 메시지로 먹는 꼴 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git commit --dry-run --no-dr -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36z 줄임 꼴 --no-dr 로 뒤집기 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "echo --dry-run && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36za 다른 명령의 --dry-run 은 커밋을 열지 않는다 → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "rtk git commit --dry-run" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36zb 래퍼 뒤 무동작 커밋 → allow" '"continue":true' "$out"
+out=$(mkstdin "env SPECOPS_BYPASS_REASON='사유' SPECOPS_GOVERNANCE_BYPASS=1 git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
+check "T36zc env 접두 + REASON 선행 → allow" '"continue":true' "$out"
 # T37 메시지 내 토큰 언급은 면제 안 됨 → deny (F-2 우발면제 차단)
 out=$(mkstdin 'git commit -m "docs SPECOPS_GOVERNANCE_BYPASS=1 flag"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$codesandbox" bash "$HOOK" 2>/dev/null)
 check "T37 message token → deny" '"permissionDecision":"deny"' "$out"
@@ -367,6 +414,8 @@ rm -rf "$spgit"
 nosg=$(mktemp -d) || exit 1; ( cd "$nosg" && git init -q && echo "echo x" > a.sh && git add a.sh )
 out=$(mkstdin "git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$nosg" bash "$HOOK" 2>/dev/null)
 check "T40 .specops 부재 repo → allow (M2 관할 가드)" '"continue":true' "$out"
+out=$(mkstdin "SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='사유' true && git commit -m x" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$nosg" bash "$HOOK" 2>/dev/null)
+check "T40b 관할 밖에서는 표식 자리도 묻지 않는다 → allow" '"continue":true' "$out"
 rm -rf "$nosg"
 
 # T-exec 자기보고 3경로 균일 gate (20260713-verify-exec-gate — AC-5·AC-6·AC-R-2)

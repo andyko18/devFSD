@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.7.7] — 2026-11-17
+
 ### Changed
 
 - **`/quick-fix` 가 결제·개인정보 · 배포·인프라 · 파일 삭제도 고위험으로 본다 (행동 변경)**. `/start` 는 이 신호가 있으면 풀 경로로 올리는데 `/quick-fix` 만 통과시켰다. 이제 변경 줄에 `payment`·`deploy`·`rm -rf` 같은 낱말이 있으면 20줄 이하여도 커밋이 막히고 `/maintain` 안내가 나온다 (PR #361).
@@ -4240,7 +4242,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.6...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.7.7...HEAD
+[5.7.7]: https://github.com/andyko18/devFSD/compare/v5.7.6...v5.7.7
 [5.7.6]: https://github.com/andyko18/devFSD/compare/v5.7.5...v5.7.6
 [5.7.5]: https://github.com/andyko18/devFSD/compare/v5.7.4...v5.7.5
 [5.7.4]: https://github.com/andyko18/devFSD/compare/v5.7.3...v5.7.4

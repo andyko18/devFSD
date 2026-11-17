@@ -323,6 +323,13 @@ for c in "none — 이 저장소에는 관련 스위트 매핑이 없다 (프로
   [ "$rc" = 1 ] && printf '%s' "$out" | grep -q '검증 러너가 받지 않는다' && [ ! -e "$m/.specops/$FID/tasks.md" ] \
     && ok "W1.$i ★ 실행할 수 없는 test_command 거부(rc 1 · 태스크 문서 없음): $c" || no "W1.$i" "rc=$rc $out"
 done
+# W1b 허용 형식(정규식)은 `..` 를 통과시키는 명령이다 — 상위 경로 탈출은 _runner_accepts 의 `..` 거부만이 막는다(변이: 그 조건 삭제 → 봉인됨)
+i=0
+for c in "bash scripts/../../x.sh" "cd .. && npm test" "pytest ../other" "go test ../pkg"; do
+  i=$((i+1)); out=$(_bp "$m" seal "$FID" "$c"); rc=$?
+  [ "$rc" = 1 ] && printf '%s' "$out" | grep -q '검증 러너가 받지 않는다' && [ ! -e "$m/.specops/$FID/tasks.md" ] \
+    && ok "W1b.$i ★ 상위 경로(..)가 든 test_command 거부(rc 1 · 태스크 문서 없음): $c" || no "W1b.$i" "rc=$rc $out"
+done
 i=0
 for c in "bash scripts/tests/test-count.sh" "pytest tests/unit" "npm test" "cd web && pnpm run test:unit" "go test ./pkg/a"; do
   i=$((i+1)); out=$(_bp "$m" seal "$FID" "$c"); rc=$?
@@ -468,6 +475,14 @@ printf '# x\n\n## 개요\n\n로그인 권한 검사를 고친다.\n' > "$c/.spec
 out=$(_bp "$c" lane "x" "$FID"); rc=$?
 [ "$rc" = 3 ] && ok "C6 ★ 목표·범위 절이 없는 spec 은 전문으로 판정 → full" || no "C6" "rc=$rc $out"
 
+# C6b 목표·범위 절이 없는 문서도 "제외"·"범위 밖" 절은 가린다(폴백 가지) — 그 절 밖의 낱말은 신호다 (변이: 폴백의 가림 분기 무력화 → 제외 절의 낱말이 신호가 된다)
+printf '# x\n\n## 개요\n\n빈 줄 제외 옵션을 더한다.\n\n### 범위 밖\n\n로그인 권한 검사는 이번에 고치지 않는다.\n\n## 제외 사항\n\n- 결제 흐름은 건드리지 않는다.\n' > "$c/.specops/$FID/spec.md"
+out=$(_bp "$c" lane "x" "$FID"); rc=$?
+[ "$rc" = 0 ] && ok "C6b ★ 목표·범위 절이 없는 spec 도 '범위 밖'·'제외' 절의 낱말(로그인·결제)은 신호가 아니다 → basic" || no "C6b" "rc=$rc $out"
+printf '# x\n\n## 개요\n\n빈 줄 제외 옵션을 더한다.\n\n### 범위 밖\n\n결제 흐름은 건드리지 않는다.\n\n### 권한\n\n로그인 권한 검사를 고친다.\n' > "$c/.specops/$FID/spec.md"
+out=$(_bp "$c" lane "x" "$FID"); rc=$?
+[ "$rc" = 3 ] && ok "C6c ★ 폴백의 가림은 그 절에서 끝난다 — 뒤 같은 깊이 절의 낱말은 신호 → full" || no "C6c" "rc=$rc $out"
+
 # C7~C9 가림이 목표·범위 절을 통째로 지우지 않는다 (코드 리뷰 실측 — 셋 다 고치기 전에는 basic 이었다)
 _cspec '{ sub(/^줄 수 세기 명령에 빈 줄 제외 옵션을 더한다\./, "줄 수 세기 명령의 권한 검사를 고친다."); sub(/^## 1\. 목표$/, "## 1. 목표 (현재 동작 개선 · 일부 제외)"); print }'
 out=$(_bp "$c" approve "$FID"); rc=$?
@@ -480,7 +495,8 @@ out=$(_bp "$c" approve "$FID"); rc=$?
 [ "$rc" = 3 ] && ok "C9 ★ 코드 펜스 안 # 줄은 제목이 아니다 — 뒤따르는 범위 줄의 풀 신호 → rc 3" || no "C9" "rc=$rc $out"
 # C10 봉인의 경로 신호 — 인증·스키마 이름이 든 경로는 풀, 평범한 경로는 기본
 _cspec '{ print }'; _bp "$c" approve "$FID" >/dev/null
-for pth in prisma/schema.prisma db/schema.sql src/models/user.py src/lib/session.ts src/AuthService.ts src/middleware/guard.ts; do
+# login 경로(auth 이름 없이 `login` 만)·.sql 경로(schema 이름 없이 `.sql` 만) — 각 대안을 지우는 변이가 앞 항목들로는 가려진다
+for pth in prisma/schema.prisma db/schema.sql src/models/user.py src/lib/session.ts src/AuthService.ts src/middleware/guard.ts src/pages/login.tsx db/seed/001_init.sql; do
   ( cd "$c" && git reset -q && git clean -fdq -e .specops && mkdir -p "$(dirname "$pth")" && printf 'x\n' > "$pth" && git add "$pth" )
   out=$(_bp "$c" seal "$FID" "bash scripts/tests/test-count.sh"); rc=$?
   [ "$rc" = 3 ] && ok "C10 ★ 봉인: $pth → rc 3" || no "C10 $pth" "rc=$rc $out"
@@ -686,6 +702,8 @@ irreversible_ext|Charge the customer's card
 irreversible_ext|Send emails to all customers
 irreversible_ext|모든 회원에게 이메일을 발송한다
 destructive_fs|git push --force 를 실행하는 스크립트
+destructive_fs|메인 브랜치에 force-push 한다
+destructive_fs|Force push the release branch
 data_move|prod DB 직접 수정해서 중복 행 지워줘
 data_move|프로덕션 DB의 user 테이블에서 잘못된 값을 직접 UPDATE 한다
 data_move|기존 사용자 데이터를 새 구조로 이관한다

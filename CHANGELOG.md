@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.9.2] — 2026-11-18
+
 ### Fixed
 
 - **관제판을 그릴 화면이 없는 세션에서 `/devfsd` 가 엔진 문구만 보이던 것을 고쳤다**. 다른 사람의 세션에서 `/devfsd` 가 `no-surface: no surface is attached` 만 보이고 끝났다 — 화면(패널)을 지원하지 않는 환경이라 관제판을 열 수 없는 것인데, 그 이유도 현재 상태도 알려 주지 않았다. 이제 "이 세션에는 관제판을 그릴 화면이 붙어 있지 않습니다 · 터미널 Claude Code 2.1.309 이상에서 열립니다" 로 이유를 풀어 쓰고, 지금 명령·진행률·흐름·FR·검증을 글자로 보인다. `/devfsd demo` 도 예시 화면을 글자로 보인다. 화면이 있는 세션의 동작은 그대로다.
@@ -4289,7 +4291,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.9.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.9.2...HEAD
+[5.9.2]: https://github.com/andyko18/devFSD/compare/v5.9.1...v5.9.2
 [5.9.1]: https://github.com/andyko18/devFSD/compare/v5.9.0...v5.9.1
 [5.9.0]: https://github.com/andyko18/devFSD/compare/v5.8.0...v5.9.0
 [5.8.0]: https://github.com/andyko18/devFSD/compare/v5.7.10...v5.8.0

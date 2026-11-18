@@ -25,6 +25,7 @@ import {
   CMD_INK,
   CMD_NAME,
   boardText,
+  openedText,
   surfaceHint,
   DEMO_BOARDS,
   DEMO_ORDER,
@@ -375,7 +376,9 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const opened = await openPane($, cfg)
     // 화면이 없는 세션(헤드리스 · 패널을 지원하지 않는 환경)에서는 닫힌 채로 두지 않고 지금 상태를 글자로 보인다.
     if (!opened.isPlaced) return { text: [surfaceHint(opened.reason), '', ...boardText(await read($, board))].join('\n') }
-    return { text: 'devFSD 관제판 opened. Focus it with ctrl+x tab; 1-6 expand cards, f/s/o open the gate rows.' }
+    // 열렸다고만 하지 않고 실제로 보이는 상태인지 점검해 안 보이는 이유를 알린다(탭 뒤 · 좁은 터미널 · 아직 안 그려짐).
+    const panes = await $.ui.panes().catch(() => [])
+    return { text: openedText(panes, PANE).join('\n') }
   })
 
   on('classic.UserPromptSubmit', async ($, e, next) => {

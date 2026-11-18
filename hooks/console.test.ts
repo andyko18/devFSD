@@ -71,6 +71,7 @@ import {
   flowRows,
   frWindow,
   wideWidth,
+  openedText,
   boardText,
   surfaceHint,
   CMD_NAME,
@@ -1892,13 +1893,14 @@ const subtree = (n: unknown, key: string): Drawn | undefined => {
 const PROG_IMPLEMENT = '# p\n<!-- active-fid: 20261106-x -->\n\n## 20261106-x · y\n\n- 2026-11-06 10:00 /implement 진행 (x)\n'
 
 /** 활성 FID 가 있는 세계: progress 는 넘긴 문자열, verification-state.sh 는 verify 낱말, hasFid:false 는 FID 없는 progress. */
-const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean; gh?: () => unknown; mode?: () => string; noSurface?: boolean } = {}) => {
+const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean; gh?: () => unknown; mode?: () => string; noSurface?: boolean; panes?: () => unknown } = {}) => {
   const clock = engine(on)
   const progress = o.progress ?? PROG_IMPLEMENT
   const hasFid = o.hasFid ?? (() => true)
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
   on('ui.open', () => ({ value: o.noSurface ? { isPlaced: false as const, reason: 'no-surface: no surface is attached' } : { isPlaced: true as const } }))
+  on('ui.panes', () => ({ value: (o.panes ? o.panes() : [{ id: 'devfsd-console', title: 'devFSD 관제판', isShown: true, isFocused: false, isPlaced: true }]) as never }))
   on('fs.exists', () => ({ value: true }))
   on('fs.read', () => ({ value: hasFid() ? progress : '# p\n' }))
   on('process.run', (_$, e) => {
@@ -3166,6 +3168,35 @@ test('devFSD: 화면이 있으면 /devfsd 는 글자 요약을 붙이지 않는�
   fidWorld(on, { progress: PROG_B })
   await startFid($)
   const opened = await $.command.run({ command: 'devfsd', args: '' })
-  expect(opened.text).toMatch(/^devFSD 관제판 opened\./)
+  expect(opened.text).toMatch(/^devFSD 관제판이 열렸습니다\./)
   expect(opened.text).not.toContain('◆')
+})
+
+// ---------------------------------------------------------------- devFSD: 열었는데 안 보일 때 (20261118)
+//   "opened" 만 말하면 패널이 안 보이는 이유(탭 뒤 · 좁은 터미널 · 아직 안 그려짐)를 알 수 없었다.
+
+const PANE_OK = { id: 'devfsd-console', title: 'devFSD 관제판', isShown: true, isFocused: false, isPlaced: true }
+test('devFSD: 열기 안내 — 보이면 조작을 알리고, 안 보이는 세 경우는 이유와 해결을 말한다', () => {
+  expect(openedText([PANE_OK], 'devfsd-console')[0]).toMatch(/^devFSD 관제판이 열렸습니다\. .*ctrl\+x tab/)
+  expect(openedText([PANE_OK], 'devfsd-console')[1]).toMatch(/110칸.*입력창 위/)
+  // 탭 뒤 — 같은 플러그인의 진행 패널이 앞에 있다
+  const behind = openedText([{ ...PANE_OK, isShown: false }, { id: 'devfsd-progress', title: 'devFSD 진행', isShown: true, isFocused: false, isPlaced: true }], 'devfsd-console')
+  expect(behind[0]).toBe('관제판이 열려 있지만 다른 패널(devFSD 진행) 뒤의 탭에 있습니다.')
+  expect(behind[1]).toMatch(/탭에서 "devFSD 관제판"/)
+  // 아직 안 그려짐 — 좁은 터미널
+  expect(openedText([{ ...PANE_OK, isPlaced: false }], 'devfsd-console').join(' ')).toMatch(/아직 그려지지 않았습니다.*110칸/)
+  // 목록에 없다
+  expect(openedText([], 'devfsd-console')[0]).toMatch(/패널 목록에 없습니다/)
+  expect(openedText([{ ...PANE_OK, id: 'other' }], 'devfsd-console')[0]).toMatch(/패널 목록에 없습니다/)
+})
+
+test('devFSD: 열기 안내 — /devfsd 는 패널 상태를 점검해 그 말을 그대로 돌려준다', async ($, on) => {
+  let panes: unknown = [PANE_OK]
+  fidWorld(on, { progress: PROG_B, panes: () => panes })
+  await startFid($)
+  expect((await $.command.run({ command: 'devfsd', args: '' })).text).toMatch(/^devFSD 관제판이 열렸습니다\./)
+  panes = [{ ...PANE_OK, isShown: false }, { id: 'devfsd-progress', title: 'devFSD 진행', isShown: true, isFocused: false, isPlaced: true }]
+  expect((await $.command.run({ command: 'devfsd', args: '' })).text).toMatch(/뒤의 탭에 있습니다/)
+  panes = [{ ...PANE_OK, isPlaced: false }]
+  expect((await $.command.run({ command: 'devfsd', args: '' })).text).toMatch(/아직 그려지지 않았습니다/)
 })

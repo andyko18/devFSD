@@ -929,3 +929,19 @@ export const boardText = (b: Pick<Board, 'fid' | 'stages' | 'verify' | 'lane' | 
 
   return lines.filter(l => l !== '')
 }
+
+/** `$.ui.panes()` 의 한 항목 중 안내에 쓰는 부분. */
+export type PaneState = { id: string; title: string; isShown: boolean; isFocused: boolean; isPlaced: boolean }
+
+/** `/devfsd` 로 열었을 때의 안내 — "열렸다"만 말하지 않고 실제로 보이는 상태인지 점검해 안 보이는 이유를 알려 준다. */
+export const openedText = (panes: readonly PaneState[], id: string): string[] => {
+  const me = panes.find(p => p.id === id)
+  const where = '전체 화면 보기에서 터미널 폭이 110칸 이상이면 채팅 옆에, 그보다 좁으면 입력창 위에 작게 뜹니다.'
+  if (!me) return ['관제판을 열었다고 답했지만 패널 목록에 없습니다. /devfsd 를 한 번 더 입력하거나 세션을 다시 여세요.']
+  if (!me.isPlaced) return ['관제판이 자리는 잡았지만 아직 그려지지 않았습니다.', `터미널이 좁아서일 수 있습니다. ${where}`]
+  if (!me.isShown) {
+    const front = panes.find(p => p.isShown)
+    return [`관제판이 열려 있지만 다른 패널${front ? `(${front.title})` : ''} 뒤의 탭에 있습니다.`, '패널 위쪽 탭에서 "devFSD 관제판" 을 고르세요.']
+  }
+  return ['devFSD 관제판이 열렸습니다. 포커스는 ctrl+x tab · 카드는 1-6 으로 펼치고 f/s/o 로 게이트 줄을 엽니다.', `안 보이면: ${where}`]
+}

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.9.2] — 2026-11-18
+
 ### Fixed
 
 - **`/devfsd` 가 "opened" 만 말하고 패널이 안 보이는 이유는 알려 주지 않던 것을 고쳤다**. 관제판이 "열렸다"고 답해도 눈에 안 보일 수 있다 — 같은 플러그인의 진행 패널 뒤 탭에 있거나, 터미널이 좁아 입력창 위에 작게 뜨거나(옆 패널은 전체 화면 보기에서 폭 110칸 이상), 아직 그려지지 않은 경우다. 이제 엔진에 패널 상태(보이는지·자리를 잡았는지)를 물어 그 경우마다 이유와 해결을 한국어로 알린다. 보이는 경우에는 조작(포커스 `ctrl+x tab` · 카드 `1-6` · 게이트 `f/s/o`)과 "안 보이면" 안내를 함께 낸다. 영어 문구를 한국어로 바꿨다.
@@ -4290,7 +4292,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.9.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.9.2...HEAD
+[5.9.2]: https://github.com/andyko18/devFSD/compare/v5.9.1...v5.9.2
 [5.9.1]: https://github.com/andyko18/devFSD/compare/v5.9.0...v5.9.1
 [5.9.0]: https://github.com/andyko18/devFSD/compare/v5.8.0...v5.9.0
 [5.8.0]: https://github.com/andyko18/devFSD/compare/v5.7.10...v5.8.0

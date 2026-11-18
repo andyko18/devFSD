@@ -24,6 +24,8 @@ import {
   CMD_FR_MAX,
   CMD_INK,
   CMD_NAME,
+  boardText,
+  surfaceHint,
   DEMO_BOARDS,
   DEMO_ORDER,
   nextDemo,
@@ -357,7 +359,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       if (!layout) return { text: 'Usage: /devfsd layout auto|compact|wide|mini' }
       await update($, view, v => ({ ...normalize(DEFAULT_VIEW, v), layout }))
       const opened = await openPane($, cfg)
-      return { text: opened.isPlaced ? `devFSD 관제판 layout: ${layout}.` : `Layout set to ${layout}; the pane is not shown yet: ${opened.reason}` }
+      return { text: opened.isPlaced ? `devFSD 관제판 layout: ${layout}.` : `배치를 ${layout} 로 정했습니다. ${surfaceHint(opened.reason)}` }
     }
     // devFSD: 미리보기 — 실제 작업 없이 명령별 구성을 본다. 이름 없이 부르면 여섯 명령을 차례로 돈다. `demo off` 로 끈다.
     if (verb === 'demo') {
@@ -367,10 +369,12 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       await update($, view, v => ({ ...normalize(DEFAULT_VIEW, v), demo: to }))
       if (to === null) return { text: 'devFSD 관제판 미리보기를 껐습니다 — 실제 진행을 다시 보입니다.' }
       const shown = await openPane($, cfg)
-      return { text: shown.isPlaced ? `devFSD 관제판 미리보기: ${CMD_NAME[to]} (예시 수치). 다음은 /devfsd demo · 끄기는 /devfsd demo off` : `미리보기를 ${CMD_NAME[to]} 로 정했습니다. 관제판이 아직 보이지 않습니다: ${shown.reason}` }
+      if (!shown.isPlaced) return { text: [`미리보기를 ${CMD_NAME[to]} 로 정했습니다. ${surfaceHint(shown.reason)}`, '', '예시 화면을 글자로 보입니다:', ...boardText(await read($, board), DEMO_BOARDS[to])].join('\n') }
+      return { text: `devFSD 관제판 미리보기: ${CMD_NAME[to]} (예시 수치). 다음은 /devfsd demo · 끄기는 /devfsd demo off` }
     }
     const opened = await openPane($, cfg)
-    if (!opened.isPlaced) return { text: `devFSD 관제판 is not shown yet: ${opened.reason}` }
+    // 화면이 없는 세션(헤드리스 · 패널을 지원하지 않는 환경)에서는 닫힌 채로 두지 않고 지금 상태를 글자로 보인다.
+    if (!opened.isPlaced) return { text: [surfaceHint(opened.reason), '', ...boardText(await read($, board))].join('\n') }
     return { text: 'devFSD 관제판 opened. Focus it with ctrl+x tab; 1-6 expand cards, f/s/o open the gate rows.' }
   })
 

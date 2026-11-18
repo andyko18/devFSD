@@ -901,3 +901,31 @@ export const nextDemo = (now: CmdBoard['kind'] | null | undefined, arg: string):
   const byName = DEMO_ORDER.find(k => k === arg || CMD_NAME[k] === `/${arg}` || CMD_NAME[k] === arg)
   return byName
 }
+
+// ---------------------------------------------------------------- devFSD: 화면이 없는 세션의 글자 안내
+/** 관제판을 그릴 화면이 붙어 있지 않을 때 엔진이 주는 이유(`no-surface: no surface is attached` 등)를 사람이 읽는 말로. */
+export const surfaceHint = (reason: string | undefined): string =>
+  /no-surface|no surface/i.test(reason ?? '')
+    ? '이 세션에는 관제판을 그릴 화면이 붙어 있지 않습니다. 관제판은 화면(패널)을 지원하는 Claude Code(터미널 · 2.1.309 이상)에서만 열립니다.'
+    : `관제판을 아직 열 수 없습니다: ${reason ?? '이유를 알 수 없음'}`
+
+const MARK_GLYPH = { done: '✓', skip: '–', cur: '▶', fail: '✗', warn: '!', todo: '○' } as const
+
+/** 화면 없이 보여 줄 글자 요약 — 명령 · 흐름 · FR · 검증. 판정된 명령이 없으면 작업의 단계 막대를 쓴다. */
+export const boardText = (b: Pick<Board, 'fid' | 'stages' | 'verify' | 'lane' | 'cmd' | 'running'>, cmdOverride?: CmdBoard): string[] => {
+  const cmd = cmdOverride ?? b.cmd
+  const flow = cmd ? cmdFlow(cmd, b.stages ?? []) : (b.stages ?? []).map(s => ({ label: s.label, mark: s.isCurrent ? ('cur' as const) : s.mark === '✓' ? ('done' as const) : s.mark === '–' ? ('skip' as const) : s.mark === '✗' ? ('fail' as const) : s.mark === '!' ? ('warn' as const) : ('todo' as const) }))
+  if (!cmd && !b.fid && flow.length === 0) return ['지금 진행 중인 작업이 없습니다.']
+  const pg = cmdProgress(flow)
+  const head = cmd ? `${CMD_NAME[cmd.kind]}${cmd.title ? ` · ${cmd.title}` : ''}` : `devFSD · ${b.fid ?? ''}`
+  const lines = [`◆ ${head}${b.verify ? ` — ${b.verify}` : ''}`]
+  if (flow.length > 0) {
+    lines.push(`${pg.pct}% ${pg.isDone ? '완료' : pg.current ? `${pg.step}/${pg.total} ${pg.current}${pg.next ? ` · 다음 ${pg.next}` : ''}` : `${pg.step}/${pg.total}`}`)
+    lines.push(flow.map(f => `${f.label}${MARK_GLYPH[f.mark]}`).join(' → '))
+  }
+  for (const f of cmd?.frs ?? []) lines.push(`${f.mark === 'done' ? '✓' : f.mark === 'cur' ? '▶' : f.mark === 'hold' ? '⏸' : f.mark === 'block' ? '✗' : '○'} ${f.id}  ${f.text}${f.note ? ` (${f.note})` : ''}`)
+  for (const r of cmd?.rows ?? []) lines.push([...r.left, ...r.right].map(t => t.text).join(' ').trim())
+  if (b.running.length > 0) lines.push(`실행 중 ${b.running.length}건`)
+
+  return lines.filter(l => l !== '')
+}

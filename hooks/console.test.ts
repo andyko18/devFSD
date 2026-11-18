@@ -71,6 +71,8 @@ import {
   flowRows,
   frWindow,
   wideWidth,
+  boardText,
+  surfaceHint,
   CMD_NAME,
   DEMO_BOARDS,
   DEMO_ORDER,
@@ -1890,13 +1892,13 @@ const subtree = (n: unknown, key: string): Drawn | undefined => {
 const PROG_IMPLEMENT = '# p\n<!-- active-fid: 20261106-x -->\n\n## 20261106-x · y\n\n- 2026-11-06 10:00 /implement 진행 (x)\n'
 
 /** 활성 FID 가 있는 세계: progress 는 넘긴 문자열, verification-state.sh 는 verify 낱말, hasFid:false 는 FID 없는 progress. */
-const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean; gh?: () => unknown; mode?: () => string } = {}) => {
+const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean; gh?: () => unknown; mode?: () => string; noSurface?: boolean } = {}) => {
   const clock = engine(on)
   const progress = o.progress ?? PROG_IMPLEMENT
   const hasFid = o.hasFid ?? (() => true)
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
-  on('ui.open', () => ({ value: { isPlaced: true as const } }))
+  on('ui.open', () => ({ value: o.noSurface ? { isPlaced: false as const, reason: 'no-surface: no surface is attached' } : { isPlaced: true as const } }))
   on('fs.exists', () => ({ value: true }))
   on('fs.read', () => ({ value: hasFid() ? progress : '# p\n' }))
   on('process.run', (_$, e) => {
@@ -3116,4 +3118,54 @@ test('devFSD: 명령별 구성 — 지금 단계 칸의 글자색은 팔레트�
   expect(chip?.props?.backgroundColor).toBe(CMD_COLORS.pastel.batch)
   expect(chip?.props?.color).toBe('#0b0e14') // 밝은 바탕 위의 어두운 글자 — 밝은 글자는 대비 1.6
   expect(new Set(Object.values(CMD_COLORS.pastel)).size).toBe(6) // 여섯 명령의 색이 서로 다르다
+})
+
+// ---------------------------------------------------------------- devFSD: 화면이 없는 세션 (20261118)
+//   다른 사람의 세션에서 `/devfsd` 가 "no-surface: no surface is attached" 만 보였다 — 그릴 화면이 없는 환경이다.
+//   닫힌 채로 두지 않고, 이유를 풀어 쓰고 지금 상태를 글자로 보인다.
+
+test('devFSD: 화면 없음 — 이유를 사람이 읽는 말로 바꾸고, 모르는 이유는 그대로 싣는다', () => {
+  expect(surfaceHint('no-surface: no surface is attached')).toMatch(/화면이 붙어 있지 않습니다.*2\.1\.309/)
+  expect(surfaceHint('no surface')).toMatch(/화면이 붙어 있지 않습니다/)
+  expect(surfaceHint('pane-limit')).toBe('관제판을 아직 열 수 없습니다: pane-limit')
+  expect(surfaceHint(undefined)).toMatch(/이유를 알 수 없음/)
+})
+
+test('devFSD: 화면 없음 — 글자 요약은 명령·진행률·흐름·FR 을 낸다(작업이 없으면 그렇게 말한다)', () => {
+  const none = { fid: undefined, stages: undefined, verify: undefined, lane: undefined, cmd: undefined, running: [] }
+  expect(boardText(none)).toEqual(['지금 진행 중인 작업이 없습니다.'])
+  const text = boardText(none, DEMO_BOARDS.batch)
+  expect(text[0]).toBe(`◆ /start-all · ${DEMO_BOARDS.batch.title}`)
+  expect(text[1]).toMatch(/^57% 5\/7 구현 · 다음 통합$/)
+  expect(text[2]).toBe('준비✓ → FR 명세✓ → 계획 리뷰✓ → 통합 설계✓ → 구현▶ → 통합○ → PR○')
+  expect(text).toContain('▶ FR-8  날짜별 예약 현황')
+  expect(text).toContain('⏸ FR-11  알림 발송 (보류)')
+  // 판정된 명령이 없으면 작업의 단계 막대를 쓴다 · 검증 배지와 실행 중 건수를 붙인다
+  const stages: StageMark[] = [{ key: 'a', label: '명세', mark: '✓' }, { key: 'b', label: '구현', mark: '●', isCurrent: true }]
+  const plain = boardText({ ...none, fid: '20261118-x', stages, verify: '검증 STALE', running: [{ id: 'j', label: 'x', kind: 'bash', startedAt: 1 }] as never })
+  expect(plain).toEqual(['◆ devFSD · 20261118-x — 검증 STALE', '50% 2/2 구현', '명세✓ → 구현▶', '실행 중 1건'])
+})
+
+test('devFSD: 화면 없음 — /devfsd 는 이유와 현재 상태를 글자로 보이고, 화면이 있으면 종전 안내 그대로다', async ($, on) => {
+  fidWorld(on, { progress: PROG_B, noSurface: true, mode: () => MODE_ALL })
+  await startFid($)
+  const opened = await $.command.run({ command: 'devfsd', args: '' })
+  expect(opened.text).toMatch(/화면이 붙어 있지 않습니다/)
+  expect(opened.text).not.toMatch(/no-surface/) // 엔진 문구를 그대로 내보이지 않는다
+  expect(opened.text).toContain('◆ /start-all · 일괄 묶음 1/3')
+  expect(opened.text).toContain('✓ FR-7  회의실 목록')
+  const demo = await $.command.run({ command: 'devfsd', args: 'demo quick-fix' })
+  expect(demo.text).toMatch(/화면이 붙어 있지 않습니다/)
+  expect(demo.text).toContain('예시 화면을 글자로 보입니다')
+  expect(demo.text).toContain('◆ /quick-fix · 몇 줄 수정 (예시)')
+  const layout = await $.command.run({ command: 'devfsd', args: 'layout wide' })
+  expect(layout.text).toMatch(/배치를 wide 로 정했습니다.*화면이 붙어 있지 않습니다/)
+})
+
+test('devFSD: 화면이 있으면 /devfsd 는 글자 요약을 붙이지 않는다', async ($, on) => {
+  fidWorld(on, { progress: PROG_B })
+  await startFid($)
+  const opened = await $.command.run({ command: 'devfsd', args: '' })
+  expect(opened.text).toMatch(/^devFSD 관제판 opened\./)
+  expect(opened.text).not.toContain('◆')
 })

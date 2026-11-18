@@ -2191,5 +2191,52 @@ if printf '%s' "$out" | grep -q '"deny"' && ! printf '%s' "$out" | grep -q '같�
 else fail=$((fail+1)); echo "FAIL T-prel.c — $out"; fi
 rm -rf "$_prel"
 
+# ── T-hdq 인용·주석 안의 `<<` 로 커밋을 가릴 수 없다 (20261118 · 독립 리뷰 재현) ─────────────
+#   코드가 바뀐 저장소 · 실행 증거 없음 — 종전에는 `echo "<<EOF"` 뒤의 커밋이 heredoc 본문으로 지워져 트리거에 걸리지 않았다.
+#   진짜 heredoc 의 본문에 든 커밋 예시는 종전대로 트리거가 아니다(false-block 방지).
+_hq=$(mktemp -d); _hq=$(cd "$_hq" && pwd -P); mkdir -p "$_hq/.specops"
+cat > "$_hq/.mk.sh" <<'MK'
+set -e
+cd "$1"; git init -q -b main; echo 'echo a' > a.sh; printf '.mk.sh\nt.jsonl\n' > .gitignore; git add -A
+git -c user.name=t -c user.email=t@t commit -q -m init
+echo 'echo b' >> a.sh
+MK
+bash "$_hq/.mk.sh" "$_hq"; : > "$_hq/t.jsonl"
+_hq_run() {
+  jq -nc --arg c "$1" --arg cwd "$_hq" --arg t "$_hq/t.jsonl" \
+    '{hook_event_name:"PreToolUse",tool_name:"Bash",tool_input:{command:$c},cwd:$cwd,transcript_path:$t,session_id:"s1"}' \
+  | (cd "$_hq" && CLAUDE_PROJECT_DIR="$_hq" bash "$HOOK" 2>/dev/null) \
+  | jq -r '.hookSpecificOutput.permissionDecision // "allow"' 2>/dev/null | head -1
+}
+_hq_bad=""; _hq_n=0; _NL=$'\n'
+while IFS='|' read -r _want _cmd; do
+  [ -n "$_want" ] || continue
+  _cmd=${_cmd//'<NL>'/$_NL}; _cmd=${_cmd//'<BAR>'/|}
+  _hq_n=$((_hq_n+1))
+  _got=$(_hq_run "$_cmd"); _got=${_got:-allow}
+  [ "$_got" = "$_want" ] || _hq_bad="$_hq_bad [기대 $_want · 실제 $_got: $(printf '%s' "$_cmd" | tr '\n' '~')]"
+done <<'HQ'
+deny|echo "<<EOF"<NL>git commit -am x<NL>EOF
+deny|echo '<<EOF'<NL>git commit -am x<NL>EOF
+deny|ls # <<EOF<NL>git commit -am x<NL>EOF
+deny|# <<EOF<NL>git commit -am x<NL>EOF
+deny|echo "a<NL><<EOF<NL>"<NL>git commit -am x<NL>EOF
+deny|printf '%s\n' "<<true"<NL>git commit -am x<NL>true
+deny|cat > f.md <<EOF<NL>x<NL>EOF<NL>git commit -am x
+deny|/bin/bash <<EOF<NL>git commit -am x<NL>EOF
+deny|sh<<EOF<NL>git commit -am x<NL>EOF
+deny|cat <<EOF <BAR> /bin/sh<NL>git commit -am x<NL>EOF
+deny|$SHELL <<EOF<NL>git commit -am x<NL>EOF
+deny|. /dev/stdin <<EOF<NL>git commit -am x<NL>EOF
+allow|cat > f.md <<EOF<NL>git commit -am x 는 예시다<NL>EOF
+allow|cat > f.md <<'EOF'<NL>(git commit 으로 기록)<NL>EOF<NL>ls
+allow|echo "<<" ; cat > f.md <<EOF<NL>git commit -am x<NL>EOF
+allow|cat > install.sh <<EOF<NL>git commit -am x<NL>EOF
+allow|python3 - <<'PY'<NL>git commit -am x<NL>PY
+HQ
+if [ -z "$_hq_bad" ] && [ "$_hq_n" = 17 ]; then pass=$((pass+1)); echo "PASS T-hdq.a ★ 숨긴 커밋 12꼴 deny(인용·주석 속 << 7 · 실행자 회피 5) · 데이터 heredoc 본문의 커밋 예시 5꼴은 트리거가 아니다"
+else fail=$((fail+1)); echo "FAIL T-hdq.a n=$_hq_n$_hq_bad"; fi
+rm -rf "$_hq"
+
 echo "==== Results: PASS=$pass FAIL=$fail ===="
 [ "$fail" -eq 0 ]

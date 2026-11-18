@@ -966,6 +966,79 @@ _sf "없는 함수"    _docs_case 1 "x" _sf_no_such_fn
 [ -z "$_sf_bad" ]
 _mut_ok "T-setup.a ★ 준비가 실패하면(준비 함수가 없어도) 헬퍼 5개가 그 단언을 실패로 낸다" $? "통과로 낸 호출:$_sf_bad"
 
+# T-hdq 인용·주석 안의 `<<` 는 heredoc 이 아니다 (20261118 — 독립 리뷰 재현: 그 뒤의 진짜 커밋이 트리거에서 사라졌다)
+#   `keep` = 지우면 안 되는 줄이 남아 있는가(가짜 heredoc) · `gone` = 본문이 지워졌는가(진짜 heredoc).
+#   변이: scan() 을 종전처럼 "줄에 든 << 글자 수"로 되돌리면 keep 줄이, 인용 상태를 줄 너머로 잇지 않으면 hdq.5 가,
+#   `$(` 문맥을 열지 않으면 gone 줄(hdq.10~12)이 떨어진다.
+source "$PLUGIN/hooks/governance-lib.sh"
+_hdq() {  # <이름> <keep|gone> <찾을 줄> <입력>
+  local got; got=$(_strip_heredoc_bodies "$4")
+  if [ "$2" = keep ]; then printf '%s\n' "$got" | grep -qxF -- "$3"; else ! printf '%s\n' "$got" | grep -qxF -- "$3"; fi
+  if [ $? -eq 0 ]; then PASS=$((PASS+1)); echo "PASS $1"; else FAIL=$((FAIL+1)); echo "FAIL $1 — got: $(printf '%s' "$got" | tr '\n' '|')"; fi
+}
+C='git commit -am x'
+_hdq "T-hdq.1 ★ 큰따옴표 안의 << — 뒤의 커밋이 남는다" keep "$C" $'echo "<<EOF"\n'"$C"$'\nEOF'
+_hdq "T-hdq.2 ★ 작은따옴표 안의 <<" keep "$C" $'echo \'<<EOF\'\n'"$C"$'\nEOF'
+_hdq "T-hdq.3 ★ 주석 안의 <<" keep "$C" $'ls # see <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.4 ★ 줄 머리 주석의 <<" keep "$C" $'# <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.5 ★ 여러 줄 문자열 안의 << (인용 상태가 줄을 넘는다)" keep "$C" $'echo "a\n<<EOF\n"\n'"$C"$'\nEOF'
+_hdq "T-hdq.6 ★ printf 인자 속 <<" keep "$C" $'printf \'%s\\n\' "x <<EOF y"\n'"$C"$'\nEOF'
+_hdq "T-hdq.7 ★ 이스케이프된 따옴표 뒤의 인용 속 <<" keep "$C" $'echo "a \\" <<EOF"\n'"$C"$'\nEOF'
+_hdq "T-hdq.8 ★ ANSI-C 인용(\$'…') 안의 << 는 연산자가 아니다" keep "$C" $'echo $\'a <<EOF\'\n'"$C"$'\nEOF'
+_hdq "T-hdq.9 herestring 은 heredoc 이 아니다" keep "$C" $'cat <<<"EOF"\n'"$C"$'\nEOF'
+# 진짜 heredoc 은 종전대로 본문을 지운다 — 이 repo·Claude 의 주력 커밋 꼴이 막히면 안 된다
+B='git commit 예시는 본문이다'
+_hdq "T-hdq.10 ★ -m \"\$(cat <<'EOF' …)\" — 큰따옴표 안의 \$( ) 는 새 문맥이다" gone "$B" $'git commit -m "$(cat <<\'EOF\'\n'"$B"$'\nEOF\n)"'
+_hdq "T-hdq.11 ★ 백틱 문맥 안의 heredoc" gone "$B" $'x="`cat <<EOF\n'"$B"$'\nEOF\n`"'
+_hdq "T-hdq.12 ★ 서브셸 괄호 안의 heredoc" gone "$B" $'( cat <<EOF\n'"$B"$'\nEOF\n)'
+_hdq "T-hdq.13 주석에 작은따옴표가 있어도(don't) 다음 줄의 heredoc 은 진짜다" gone "$B" $'# don\'t\ncat > f <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.14 앞 줄에서 닫힌 문자열 뒤의 heredoc" gone "$B" $'echo "a\nb"\ncat <<\'EOF\'\n'"$B"$'\nEOF'
+_hdq "T-hdq.15 인용 속 << 와 진짜 heredoc 이 한 줄에 — 진짜 것만 센다(종전엔 판정 포기)" gone "$B" $'echo "<<" ; cat <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.16 <<- 와 인용 구분자" gone "$B" $'cat <<-"END"\n'"$B"$'\n\tEND'
+_hdq "T-hdq.18 ANSI-C 인용을 이스케이프까지 알고 건너뛴다 — 그 뒤의 heredoc 은 진짜다" gone "$B" $'echo $\'a\\\'b\' ; cat <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.19 ★ IFS=\$'\\n' 이 있어도 다음 줄의 heredoc 본문을 지운다(명령 전체를 포기하지 않는다)" gone "$B" $'IFS=$\'\\n\'\ncat > f.md <<\'EOF\'\n'"$B"$'\nEOF'
+_hdq "T-hdq.20 닫힌 작은따옴표 뒤의 heredoc" gone "$B" $'echo \'x\'\ncat <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.21 herestring 뒤의 진짜 heredoc" gone "$B" $'cat <<<x; cat <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.22 닫힌 \$( ) 뒤의 heredoc" gone "$B" $'echo "$(true)" ; cat <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.23 닫힌 서브셸 뒤의 heredoc" gone "$B" $'(true) ; cat <<EOF\n'"$B"$'\nEOF'
+# 산술 시프트·파라미터 확장 안의 << 는 연산자가 아니다 — 인용 속 << 와 같이 두어도 본문을 지우지 않는다
+_hdq "T-hdq.24 ★ \$(( x<<EOF )) 산술 시프트" keep "$C" $'x=1; echo $((x<<EOF))\n'"$C"$'\nEOF'
+_hdq "T-hdq.25 ★ 산술 시프트 + 인용 속 << (연산자 1개로 세지 않는다)" keep "$C" $'x=1; echo $((x<<EOF)) "<<X"\n'"$C"$'\nEOF'
+_hdq "T-hdq.26 ★ (( x<<EOF )) 산술 명령" keep "$C" $'((x<<EOF))\n'"$C"$'\nEOF'
+_hdq "T-hdq.27 ★ \${x:-<<EOF} 파라미터 확장" keep "$C" $'echo ${x:-<<EOF}\n'"$C"$'\nEOF'
+_hdq "T-hdq.28 ★ ) 바로 뒤의 # 도 주석이다" keep "$C" $'(echo)# <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.29 산술 뒤의 진짜 heredoc" gone "$B" $'echo $((1<<2)) ; cat <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.30 \${#x}·\${x#y} 의 # 는 주석이 아니다 — 그 뒤 heredoc 은 진짜다" gone "$B" $'echo ${#x} ${x#y} ; cat <<EOF\n'"$B"$'\nEOF'
+# 긴 한 줄에서도 느려지지 않는다 — 글자마다 substr 를 부르던 초안은 BSD awk 에서 이차였다(200KB 한 줄 2.5초)
+_long=$(printf 'echo a; %.0s' $(seq 1 25000)); _long="$_long cat <<EOF"$'\n'"$B"$'\nEOF'
+_t0=$(date +%s); _got=$(_strip_heredoc_bodies "$_long"); _t1=$(date +%s)
+if [ $((_t1 - _t0)) -le 3 ] && ! printf '%s\n' "$_got" | grep -qxF -- "$B"; then PASS=$((PASS+1)); echo "PASS T-hdq.31 200KB 한 줄도 3초 안(${_t0:+$((_t1 - _t0))}s)"; else FAIL=$((FAIL+1)); echo "FAIL T-hdq.31 — $((_t1 - _t0))s"; fi
+# 실행자 판정 — 본문이 실제로 실행되는 시작 줄이면 본문을 지우지 않는다 (독립 리뷰가 재현한 회피 꼴)
+#   변이: SHRE 를 종전(앞에 공백류 · 뒤에 공백)으로 되돌리면 .32~.37 이, DOTRE·VARRE·TRAILRE·줄 연속을 빼면 각각 .38·.39~.41·.42·.43 이 떨어진다.
+_hdq "T-hdq.32 ★ 경로로 부른 셸 /bin/bash" keep "$C" $'/bin/bash <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.33 ★ 붙여 쓴 sh<<EOF" keep "$C" $'sh<<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.34 ★ 인용한 \"bash\"" keep "$C" $'"bash" <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.35 ★ 묶은 (bash)" keep "$C" $'(bash) <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.36 ★ { bash; } 묶음" keep "$C" $'{ bash; } <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.37 ★ cat <<EOF | /bin/sh" keep "$C" $'cat <<EOF | /bin/sh\n'"$C"$'\nEOF'
+_hdq "T-hdq.38 ★ . /dev/stdin (source)" keep "$C" $'. /dev/stdin <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.39 ★ 변수에 든 명령 \$SHELL" keep "$C" $'$SHELL <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.40 ★ S=bash; \$S" keep "$C" $'S=x; $S <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.41 ★ while read … do \"\$l\"" keep "$C" $'while read -r l; do "$l"; done <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.42 ★ | 로 끝나는 줄 — 받는 명령이 종료자 뒤에 온다" keep "$C" $'cat <<EOF |\n'"$C"$'\nEOF\nsh'
+_hdq "T-hdq.43 ★ 줄 연속 뒤의 <<EOF" keep "$C" $'bash \\\n<<EOF\n'"$C"$'\nEOF'
+# 데이터로 받는 흔한 꼴은 종전대로 본문을 지운다 — 셸 낱말처럼 보이는 파일 이름·옵션에 속지 않는다
+_hdq "T-hdq.44 ★ cat > s.sh (파일 이름의 .sh 는 셸이 아니다)" gone "$B" $'cat > install.sh <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.45 cat > docs/bash-guide.md" gone "$B" $'cat > docs/bash-guide.md <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.46 python3 - <<'PY'" gone "$B" $'python3 - <<\'PY\'\n'"$B"$'\nPY'
+_hdq "T-hdq.47 tee -a 와 리다이렉션" gone "$B" $'tee -a notes.md >/dev/null <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.48 cd \"\$DIR\" && cat (인자의 변수는 명령 자리가 아니다)" gone "$B" $'cd "$DIR" && cat > f.md <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.49 x=\"\$(cat <<EOF)\" 대입" gone "$B" $'x="$(cat <<EOF\n'"$B"$'\nEOF\n)"'
+_hdq "T-hdq.50 git push 뒤의 heredoc (push 는 sh 가 아니다)" gone "$B" $'git push ; cat > f.md <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.51 줄 연속으로 이은 데이터 명령" gone "$B" $'cat \\\n> f.md <<EOF\n'"$B"$'\nEOF'
+# 닫힌 뒤의 명령은 남는다 — heredoc 뒤에 붙인 진짜 커밋
+_hdq "T-hdq.17 진짜 heredoc 뒤의 커밋은 남는다" keep "$C" $'cat > f <<EOF\nx\nEOF\n'"$C"
+
 echo
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

@@ -1013,6 +1013,29 @@ _hdq "T-hdq.30 \${#x}·\${x#y} 의 # 는 주석이 아니다 — 그 뒤 heredoc
 _long=$(printf 'echo a; %.0s' $(seq 1 25000)); _long="$_long cat <<EOF"$'\n'"$B"$'\nEOF'
 _t0=$(date +%s); _got=$(_strip_heredoc_bodies "$_long"); _t1=$(date +%s)
 if [ $((_t1 - _t0)) -le 3 ] && ! printf '%s\n' "$_got" | grep -qxF -- "$B"; then PASS=$((PASS+1)); echo "PASS T-hdq.31 200KB 한 줄도 3초 안(${_t0:+$((_t1 - _t0))}s)"; else FAIL=$((FAIL+1)); echo "FAIL T-hdq.31 — $((_t1 - _t0))s"; fi
+# 실행자 판정 — 본문이 실제로 실행되는 시작 줄이면 본문을 지우지 않는다 (독립 리뷰가 재현한 회피 꼴)
+#   변이: SHRE 를 종전(앞에 공백류 · 뒤에 공백)으로 되돌리면 .32~.37 이, DOTRE·VARRE·TRAILRE·줄 연속을 빼면 각각 .38·.39~.41·.42·.43 이 떨어진다.
+_hdq "T-hdq.32 ★ 경로로 부른 셸 /bin/bash" keep "$C" $'/bin/bash <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.33 ★ 붙여 쓴 sh<<EOF" keep "$C" $'sh<<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.34 ★ 인용한 \"bash\"" keep "$C" $'"bash" <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.35 ★ 묶은 (bash)" keep "$C" $'(bash) <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.36 ★ { bash; } 묶음" keep "$C" $'{ bash; } <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.37 ★ cat <<EOF | /bin/sh" keep "$C" $'cat <<EOF | /bin/sh\n'"$C"$'\nEOF'
+_hdq "T-hdq.38 ★ . /dev/stdin (source)" keep "$C" $'. /dev/stdin <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.39 ★ 변수에 든 명령 \$SHELL" keep "$C" $'$SHELL <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.40 ★ S=bash; \$S" keep "$C" $'S=x; $S <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.41 ★ while read … do \"\$l\"" keep "$C" $'while read -r l; do "$l"; done <<EOF\n'"$C"$'\nEOF'
+_hdq "T-hdq.42 ★ | 로 끝나는 줄 — 받는 명령이 종료자 뒤에 온다" keep "$C" $'cat <<EOF |\n'"$C"$'\nEOF\nsh'
+_hdq "T-hdq.43 ★ 줄 연속 뒤의 <<EOF" keep "$C" $'bash \\\n<<EOF\n'"$C"$'\nEOF'
+# 데이터로 받는 흔한 꼴은 종전대로 본문을 지운다 — 셸 낱말처럼 보이는 파일 이름·옵션에 속지 않는다
+_hdq "T-hdq.44 ★ cat > s.sh (파일 이름의 .sh 는 셸이 아니다)" gone "$B" $'cat > install.sh <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.45 cat > docs/bash-guide.md" gone "$B" $'cat > docs/bash-guide.md <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.46 python3 - <<'PY'" gone "$B" $'python3 - <<\'PY\'\n'"$B"$'\nPY'
+_hdq "T-hdq.47 tee -a 와 리다이렉션" gone "$B" $'tee -a notes.md >/dev/null <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.48 cd \"\$DIR\" && cat (인자의 변수는 명령 자리가 아니다)" gone "$B" $'cd "$DIR" && cat > f.md <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.49 x=\"\$(cat <<EOF)\" 대입" gone "$B" $'x="$(cat <<EOF\n'"$B"$'\nEOF\n)"'
+_hdq "T-hdq.50 git push 뒤의 heredoc (push 는 sh 가 아니다)" gone "$B" $'git push ; cat > f.md <<EOF\n'"$B"$'\nEOF'
+_hdq "T-hdq.51 줄 연속으로 이은 데이터 명령" gone "$B" $'cat \\\n> f.md <<EOF\n'"$B"$'\nEOF'
 # 닫힌 뒤의 명령은 남는다 — heredoc 뒤에 붙인 진짜 커밋
 _hdq "T-hdq.17 진짜 heredoc 뒤의 커밋은 남는다" keep "$C" $'cat > f <<EOF\nx\nEOF\n'"$C"
 

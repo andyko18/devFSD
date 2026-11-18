@@ -2223,11 +2223,18 @@ deny|# <<EOF<NL>git commit -am x<NL>EOF
 deny|echo "a<NL><<EOF<NL>"<NL>git commit -am x<NL>EOF
 deny|printf '%s\n' "<<true"<NL>git commit -am x<NL>true
 deny|cat > f.md <<EOF<NL>x<NL>EOF<NL>git commit -am x
+deny|/bin/bash <<EOF<NL>git commit -am x<NL>EOF
+deny|sh<<EOF<NL>git commit -am x<NL>EOF
+deny|cat <<EOF <BAR> /bin/sh<NL>git commit -am x<NL>EOF
+deny|$SHELL <<EOF<NL>git commit -am x<NL>EOF
+deny|. /dev/stdin <<EOF<NL>git commit -am x<NL>EOF
 allow|cat > f.md <<EOF<NL>git commit -am x 는 예시다<NL>EOF
 allow|cat > f.md <<'EOF'<NL>(git commit 으로 기록)<NL>EOF<NL>ls
 allow|echo "<<" ; cat > f.md <<EOF<NL>git commit -am x<NL>EOF
+allow|cat > install.sh <<EOF<NL>git commit -am x<NL>EOF
+allow|python3 - <<'PY'<NL>git commit -am x<NL>PY
 HQ
-if [ -z "$_hq_bad" ] && [ "$_hq_n" = 10 ]; then pass=$((pass+1)); echo "PASS T-hdq.a ★ 인용·주석 안의 << 뒤에 숨긴 커밋 7꼴 deny · 진짜 heredoc 본문의 커밋 예시 3꼴은 트리거가 아니다"
+if [ -z "$_hq_bad" ] && [ "$_hq_n" = 17 ]; then pass=$((pass+1)); echo "PASS T-hdq.a ★ 숨긴 커밋 12꼴 deny(인용·주석 속 << 7 · 실행자 회피 5) · 데이터 heredoc 본문의 커밋 예시 5꼴은 트리거가 아니다"
 else fail=$((fail+1)); echo "FAIL T-hdq.a n=$_hq_n$_hq_bad"; fi
 rm -rf "$_hq"
 

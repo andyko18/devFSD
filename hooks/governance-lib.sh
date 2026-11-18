@@ -1013,7 +1013,18 @@ _strip_heredoc_bodies() {
     *) printf '%s' "$cmd"; return 0 ;;
   esac
   out=$(printf '%s\n' "$cmd" | awk '
-    BEGIN { inb=0; keep=0; dash=0; delim=""; bail=0; no=0; SQ=sprintf("%c",39); DQ=sprintf("%c",34); BQ=sprintf("%c",96); BS=sprintf("%c",92); q=0; sp=0 }
+    BEGIN { inb=0; keep=0; dash=0; delim=""; bail=0; no=0; SQ=sprintf("%c",39); DQ=sprintf("%c",34); BQ=sprintf("%c",96); BS=sprintf("%c",92); q=0; sp=0; cont=""
+      # 본문이 **실행되는** 시작 줄인가 (20261118 — 독립 리뷰가 종전 판정을 피하는 12꼴을 재현했다: 경로로 부른 셸 `/bin/bash` ·
+      #   붙여 쓴 `sh<<EOF` · 인용한 `"bash"` · 묶은 `(bash)`·`{ bash; }` · `. /dev/stdin` · 변수에 든 명령 `$SHELL`·`$S` ·
+      #   줄 연속 뒤의 `<<EOF` · `cat <<EOF | /bin/sh`). 하나라도 맞으면 본문을 지우지 않는다(차단 우세).
+      #   SHRE: 셸·실행 낱말 — 앞뒤가 낱말 글자(영숫자·`_`·`.`·`-`)가 아니면 된다. `s.sh`·`bash-guide.md`·`push` 는 낱말이 아니다.
+      #   DOTRE: 명령 자리의 `.`(source). VARRE: 명령 자리의 `$…`(무엇이 실행될지 알 수 없다 — `do`·`then` 뒤 포함).
+      #   TRAILRE: `|`·`&&` 로 끝나는 줄 — 본문을 받는 명령이 종료자 뒤에 온다(`cat <<EOF |` ⏎ … ⏎ `sh`).
+      SHRE="(^|[^A-Za-z0-9_.-])(bash|sh|zsh|ksh|dash|ash|csh|tcsh|fish|eval|exec|source|xargs)([^A-Za-z0-9_.-]|$)"
+      DOTRE="(^|[;&|({" BQ "])[ \t]*[.][ \t]"
+      VARRE="(^|[;&|({" BQ "]|(^|[ \t;&|({" BQ "])(do|then|else|time)[ \t])[ \t]*[" DQ SQ "]?[$]"
+      TRAILRE="([|]|&&)[ \t]*$"
+    }
     # 한 줄을 훑어 **인용·주석 밖의** heredoc 연산자 수를 돌려주고, 첫 연산자의 위치를 oppos 에 둔다 (20261118).
     #   왜: 종전에는 줄에 든 `<<` 글자를 전부 연산자로 셌다 — `echo "<<EOF"` 처럼 인용 안의 글자도 heredoc 시작으로 보아
     #   그 뒤 `EOF` 줄까지를 본문이라며 지웠고, 그 사이의 진짜 `git commit` 이 트리거 검사에서 사라졌다(독립 리뷰 재현 —
@@ -1085,6 +1096,8 @@ _strip_heredoc_bodies() {
         next                          # 데이터 본문 → 제거
       }
       out[++no]=$0                    # 시작 줄은 항상 유지 (같은 줄의 `; git commit` 을 잡기 위해)
+      ctx=(cont=="" ? $0 : cont " " $0)   # 줄 연속(끝의 역슬래시)으로 이어진 앞 줄까지 — `bash \` ⏎ `<<EOF`
+      if (substr($0,length($0),1)==BS) cont=substr(ctx,1,length(ctx)-1); else cont=""
       nops=scan($0)                   # 인용·주석 밖의 연산자만 센다 — herestring(<<<)은 세지 않는다
       if (bail) next
       if (nops==0) next
@@ -1101,11 +1114,10 @@ _strip_heredoc_bodies() {
       } else if (match(rest,/^[A-Za-z_][A-Za-z0-9_]*/)) {
         delim=substr(rest,RSTART,RLENGTH)
       } else { bail=1; next }         # delimiter 파싱 불가 → 판정 포기(원본)
-      # 실행자 판정은 **시작 줄 1줄**만 본다. 한계: 실행자가 줄-연속(백슬래시 개행)으로 시작 줄과 분리되면
-      #   (bash 다음 줄에 <<EOF) 미탐지 → 본문 제외 → 통과. 실행자를 숨기려는 **의도적 난독화**이므로
-      #   기존 F-3 wrapper-class(sh -c 등, 의도적 WONT-FIX)로 수용한다 — honest-mistake 경로가 없다.
-      #   멀티라인 실행자 추적은 하지 않는다: 매 커밋에 도는 훅에 새 버그를 들이는 비용 > 그 표면의 값.
-      keep=($0 ~ /(^|[ \t;&|(){}`])(bash|sh|zsh|ksh|dash|eval|exec|source)([ \t]|$)/) ? 1 : 0
+      # 실행자 판정 — 시작 줄(과 줄 연속으로 이어진 앞 줄)을 BEGIN 의 네 판정으로 본다.
+      #   남는 표면: 본문을 파일로 쓴 뒤 그 파일을 실행하는 꼴(`cat > s.sh <<EOF` … `bash s.sh`)과 python 등 다른 언어 본문의
+      #   subprocess 는 여기서 보지 않는다(F-3 wrapper-class — 파일·다른 언어를 거친 실행).
+      keep=(ctx ~ SHRE || ctx ~ DOTRE || ctx ~ VARRE || $0 ~ TRAILRE) ? 1 : 0
       inb=1
     }
     END {

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.11.2] — 2026-11-19
+
 ### Changed
 
 - **`/feedback` 을 `/` 메뉴에 다시 보인다**. 5.11.0 에서 숨긴 명령 12개 가운데 feedback 은 불편을 겪은 자리에서 바로 치는 명령이라 직접 입력하는 쪽이 맞다. `/feedback <겪은 일>` 로 다시 부를 수 있고, 5.10.x 때처럼 모델은 스스로 부르지 않는다(`disable-model-invocation` — 공개 저장소에 이슈를 올리는 명령이다). 그래서 말로만 요청하는 경로는 닫힌다. 보이는 명령은 14개, 숨긴 명령은 11개가 됐다.
@@ -4326,7 +4328,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.11.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.11.2...HEAD
+[5.11.2]: https://github.com/andyko18/devFSD/compare/v5.11.1...v5.11.2
 [5.11.1]: https://github.com/andyko18/devFSD/compare/v5.11.0...v5.11.1
 [5.11.0]: https://github.com/andyko18/devFSD/compare/v5.10.1...v5.11.0
 [5.10.1]: https://github.com/andyko18/devFSD/compare/v5.10.0...v5.10.1

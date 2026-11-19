@@ -17,6 +17,14 @@ used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 
 
 선택 marker 필드: skills `discipline: true` (합리화 차단표 의무 — test-skill-conventions T9 스캔), agents `role: evaluator` (Write/Edit 박탈 하드강제 — validate-structure agent_tools 스캔). 신규 discipline/evaluator 항목은 marker 만 달면 자동 검사 편입.
 
+### 본문 길이와 압축 (20,000자)
+
+자동 압축 뒤 Claude Code 는 호출된 skill 을 **앞 20,000 글자만** 다시 붙인다(글자 수 기준 — 토큰·바이트가 아니다 · 끝에 `[... skill content truncated for compaction …]` 표식). 그 뒤의 규칙과 `## 다음 skill` 절은 컨텍스트에서 사라진다.
+
+- 본문이 19,500자를 넘는 skill 은 제목 바로 아래에 **압축 대비 안내 블록**을 둔다(문구는 기존 skill 의 것을 그대로). 실측(20261120 · 실제 `implementing-ko` 사본): 안내가 없으면 2만 자 뒤의 규칙을 0/6 이 적용했고, 있으면 5/6 이 파일을 다시 읽어 적용했다.
+- 긴 본문의 목록은 `test-skill-conventions.sh` T14 가 잠근다 — 새 skill 은 19,500자 아래로 쓰고, 넘기려면 뒤쪽을 보조 파일로 나누는 쪽을 먼저 검토한다.
+- 본문에 `$<숫자>` 를 쓰지 않는다(호출 인자로 치환된다 — bash 는 `${1}`, awk 는 `$(1)`).
+
 ### 서브에이전트 리뷰 패턴 (Generator ↔ Evaluator 분리)
 
 Generator와 Evaluator를 엄격히 분리해 자기평가 편향을 차단한다. `agents/` 의 서브에이전트는 용도가 나뉜다:

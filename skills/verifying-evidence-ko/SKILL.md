@@ -14,6 +14,8 @@ user-invocable: false
 
 # Engine 스킬 — 증거 기반 검증 (verifying-evidence)
 
+> **압축 대비 (본문이 길다)**: 컨텍스트가 압축되면 이 본문은 앞 20,000자만 다시 붙는다. 본문이 `[... skill content truncated for compaction` 으로 끝나 있으면 뒤쪽 규칙이 빠진 상태다 — 이 skill 의 규칙을 적용하거나 다음 단계로 넘어가기 전에 이 SKILL.md 를 Read 로 다시 읽는다.
+
 ## 개요
 
 **검증 없이 완료를 주장하는 것은 효율이 아니라 부정직.**

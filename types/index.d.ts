@@ -15,6 +15,8 @@ export type Main = {
   mode: string
   steps: number
   isRunning: boolean
+  /** devFSD: 세션이 시작할 때 알려 준 모델 — 첫 요청 전 표시용. `model` 이 채워지면 쓰지 않는다. 옛 상태에는 없다. */
+  startModel?: string
   /** The main loop's last answered request: time to its first piece of response. Null until one is
    *  measured, absent in older state; a `tokPerS` kept by 0.5.0 and earlier is ignored. */
   speed?: { ttftMs: number } | null

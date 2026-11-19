@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **화면 수용 기준을 실제 브라우저 시나리오로 검증하는 선택 기능 (기본 끔)**. 하류 프론트 테스트는 가짜 브라우저(jsdom)뿐이고 `ui-probe` 는 화면을 여는 데까지만 본다 — 포커스 이동·키보드·실제 내비게이션은 실제 브라우저에서만 드러난다. 화면 AC 가운데 실브라우저 시나리오가 붙은 비율을 재고 기준(기본 95%) 미달이면 통합 게이트를 막는다. 켜는 법: `.specops/config.yaml` 의 `browser_e2e.enabled: true`(`min_coverage` 로 기준 조정). 안 켠 프로젝트는 변화가 없다. 구성: `scripts/_internal/e2e-coverage.sh`(AC 를 `e2e-scope.txt` 의 `browser`·`backend`·`none` 으로 가르고 `@AC-<id>` 태그와 대조 — 분류에서 빠진 AC·사유 없는 제외는 FAIL 이라 분모를 줄여 비율을 맞출 수 없고, 화면 AC 0개는 SKIP) · `scripts/_internal/e2e-run.sh`(`*.e2e.mjs` 를 `node --test` 로 돌려 한 줄 판정 — 0개 실행·도구 없음·시간 초과는 PASS 가 아니라 SKIP) · `templates/e2e-support.mjs`(하류에 복사해 쓰는 지원 모듈 — Playwright 는 하류 `node_modules` → `~/.cache/devfsd/ui-harness` 순으로 찾아 하류에 의존성을 추가하지 않는다) · `skills/integration-test-ko` Step 3c 와 `browser-e2e.md` 절차. 풀 경로 통합 단계에만 연결했다(기본 경로·모바일은 미포함). **효과는 입증되지 않았다**: 시범(회의실 예약 하류 복제본, AC 33개)에서 브라우저로 볼 수 있는 16개 전부에 시나리오를 붙여 100%·114개 시나리오·31초·불안정 0 이었지만 새로 찾은 결함은 0건이었다(실패 1건은 리뷰가 이미 보류로 올린 것). 기능 화면에서의 수율을 재고 기본값을 정한다.
+
 ## [5.11.2] — 2026-11-19
 
 ### Changed

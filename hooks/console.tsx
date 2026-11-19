@@ -25,6 +25,8 @@ import {
   CMD_INK,
   CMD_NAME,
   boardText,
+  demoBoard,
+  progressLabel,
   openedText,
   surfaceHint,
   DEMO_BOARDS,
@@ -111,6 +113,10 @@ const board = atom({ plugin: 'devfsd', key: 'board' } as const, { running: [], r
 const nowTick = atom({ plugin: 'devfsd', key: 'now' } as const, 0, { shape: 'now-1' })
 
 const PANE = 'devfsd-console'
+// 입력창 위에 전체 화면(compact·wide)을 그릴 때 청하는 줄 수 — 엔진이 터미널 높이에 맞춰 줄인다.
+const FULL_ROWS = 30
+// 백그라운드 작업 종료 알림이 들어오는 문 — 턴 도중이면 delivery, 쉬는 중이면 queue 뒤에 prompt 로 온다(2.1.317 실측).
+const END_DOORS = ['delivery', 'queue', 'prompt'] as const
 const TITLE = 'devFSD 관제판'
 
 
@@ -251,7 +257,9 @@ async function isArchitectType($: EngineInterface, cfg: Config, type: string) {
 
 async function openPane($: EngineInterface, cfg: Config) {
   // columns apply when docked beside the transcript, rows when seated inline above the prompt.
-  return $.ui.open({ id: PANE, title: TITLE, columns: cfg.paneColumns, rows: 8 })
+  // devFSD: 입력창 위의 8줄은 요약(auto·mini)용이다 — compact·wide 를 고른 사람에게 8줄로 자른 전체 화면을 주지 않는다.
+  const layout = normalize(DEFAULT_VIEW, await getView($)).layout ?? cfg.layout
+  return $.ui.open({ id: PANE, title: TITLE, columns: cfg.paneColumns, rows: layout === 'compact' || layout === 'wide' ? FULL_ROWS : 8 })
 }
 
 async function resetAll($: EngineInterface) {
@@ -295,6 +303,8 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
   const C = PALETTES[cfg.palette]
   // tool.check carries no loop id; the tool.call around it does, keyed by the call's id.
   const callLoop = new Map<string, string | null>()
+  // 종료 로그를 남긴 백그라운드 작업 id — 같은 알림이 여러 문으로 와도 한 번만 적는다.
+  const endLogged = new Set<string>()
 
   on('session.start', async ($, e, next) => {
     await $.command.register({
@@ -370,7 +380,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       await update($, view, v => ({ ...normalize(DEFAULT_VIEW, v), demo: to }))
       if (to === null) return { text: 'devFSD 관제판 미리보기를 껐습니다 — 실제 진행을 다시 보입니다.' }
       const shown = await openPane($, cfg)
-      if (!shown.isPlaced) return { text: [`미리보기를 ${CMD_NAME[to]} 로 정했습니다. ${surfaceHint(shown.reason)}`, '', '예시 화면을 글자로 보입니다:', ...boardText(await read($, board), DEMO_BOARDS[to])].join('\n') }
+      if (!shown.isPlaced) return { text: [`미리보기를 ${CMD_NAME[to]} 로 정했습니다. ${surfaceHint(shown.reason)}`, '', '예시 화면을 글자로 보입니다:', ...boardText(demoBoard(await read($, board)), DEMO_BOARDS[to])].join('\n') }
       return { text: `devFSD 관제판 미리보기: ${CMD_NAME[to]} (예시 수치). 다음은 /devfsd demo · 끄기는 /devfsd demo off` }
     }
     const opened = await openPane($, cfg)
@@ -378,7 +388,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     if (!opened.isPlaced) return { text: [surfaceHint(opened.reason), '', ...boardText(await read($, board))].join('\n') }
     // 열렸다고만 하지 않고 실제로 보이는 상태인지 점검해 안 보이는 이유를 알린다(탭 뒤 · 좁은 터미널 · 아직 안 그려짐).
     const panes = await $.ui.panes().catch(() => [])
-    return { text: openedText(panes, PANE).join('\n') }
+    return { text: openedText(panes, PANE, cfg.panels.includes('gate')).join('\n') }
   })
 
   on('classic.UserPromptSubmit', async ($, e, next) => {
@@ -412,8 +422,12 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       const advice = adviceLine(back.body)
       if (advice && advice !== a.lastAdvice) await noteAdvice($, cfg, advice)
     } else if (e.text) {
-      const p = promptLine(e.text)
-      await say($, p.who, p.text)
+      // 쉬는 중에 끝난 백그라운드 작업의 알림이 이 턴을 열었다 — 종료 줄(↻ bg)을 이미 적었으면 `engine task notification` 을 또 적지 않는다.
+      const note = notificationOf(e.text)
+      if (!note || !endLogged.has(note.id)) {
+        const p = promptLine(e.text)
+        await say($, p.who, p.text)
+      }
     }
     return next(e)
   })
@@ -633,9 +647,10 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
 
   // devFSD: 백그라운드 작업 종료 알림 → 로그 한 줄. 종료 처리는 progress-pane 이 하고, 여기서는 board 를 읽어 기록만 한다.
   // 처리기 순서와 무관하게 running·recent 둘 다 본다. 같은 id 는 한 번만 — 실패해도 원 호출은 그대로 통과한다.
-  // 종료 알림은 delivery 문으로 들어온다(progress-pane 의 처리기와 같은 행) — 엔진이 matcher 없는 같은 이벤트 둘째 등록을 막으므로 문으로 좁힌다.
-  const endLogged = new Set<string>()
-  on('session.append', { door: 'delivery' }, async ($, e, next) => {
+  // 종료 알림은 턴 도중이면 delivery 문으로, 메인이 쉬는 중이면 queue 문(대기열 기록) 뒤에 prompt 문(다음 턴의 첫 줄)으로 들어온다
+  //   (progress-pane 의 처리기와 같은 행) — 엔진이 matcher 없는 같은 이벤트 둘째 등록을 막으므로 문마다 좁혀 등록한다.
+  //   종전에는 delivery 만 들어 쉬는 중에 끝난 작업(가장 흔한 경우)의 종료 줄이 로그에 남지 않았다.
+  for (const door of END_DOORS) on('session.append', { door }, async ($, e, next) => {
     const stored = await next(e)
     if (e.agentId || e.message.type !== 'user') return stored
     const note = notificationOf(textOf(e.message.content))
@@ -749,7 +764,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const hasClient = 'Client' in els
     const hasRail = hasClient && !faulted.has(faultKey(e.surface, 'rail.tsx'))
     const hasClock = hasClient && !faulted.has(faultKey(e.surface, 'elapsed.tsx'))
-    const [m, u, a, g, cards, lp, lines, t, r, v, now, b] = await Promise.all([
+    const [m, u, a, g, cards, lp, lines, t, r, v, now, b0] = await Promise.all([
       getMain($),
       getUsage($),
       getArchitect($),
@@ -764,6 +779,9 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       read($, board),
       read($, nowTick), // 구독만 — 값은 쓰지 않는다
     ])
+    // devFSD: 미리보기 중에는 실제 작업의 이름·단계·검증을 빼고 그린다 — 예시 옆에 실제 값이 섞이면 예시가 진짜 진행처럼 읽힌다.
+    const isDemo = !!v.demo && DEMO_BOARDS[v.demo] !== undefined
+    const b = isDemo ? demoBoard(b0) : b0
     // The body's own width, down to the narrowest dock Claude Code seats (24): a wider drawing is cut off at the frame.
     const W = Math.max(24, e.props.bodyColumns)
     // 메인 턴은 쉬지만 백그라운드 작업(또는 CI 대기)이 도는 중 — 완전한 idle 과 구분해 보인다.
@@ -882,9 +900,11 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const mainRows = (w: number) => {
       // 비용 증분: 턴 진행 중이면 시작 이후 쌓인 값, 끝났으면 마지막 턴의 값.
       const delta = m.isRunning ? (u.costUsd !== null && t.costAtStart !== null && u.costUsd - t.costAtStart >= 0.005 ? u.costUsd - t.costAtStart : null) : (r?.costDelta ?? null)
-      const state = m.isRunning ? '● working' : isWaiting ? `◌ 대기${waitSince !== undefined && waitSince > 0 ? ` ${fmtDuration(now - waitSince)}` : ''}` : '○ idle'
+      // 배지가 옆에서 작업 경과(`14초 경과`)를 말할 때는 상태 글자에 같은 시간을 또 쓰지 않는다 — 두 번 쓰면 제목이 밀려 상태에 붙어 잘렸다.
+      const waitTime = badge && W >= 40 ? '' : waitSince !== undefined && waitSince > 0 ? ` ${fmtDuration(now - waitSince)}` : ''
+      const state = m.isRunning ? '● working' : isWaiting ? `◌ 대기${waitTime}` : '○ idle'
       return [
-        <Box justifyContent="space-between">
+        <Box justifyContent="space-between" columnGap={1}>
           <Text color={C.main} bold wrap="truncate">
             {modelName} · main
           </Text>
@@ -1372,7 +1392,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
                 <Text color={K} bold>{`${pg.pct}%`}</Text>
               </Box>
               <Text color={pg.isDone ? C.gate : C.text} bold wrap="truncate">
-                {pg.isDone ? `${pg.step}/${pg.total} 완료` : pg.current ? `${pg.step}/${pg.total} ${pg.current}${pg.next ? ` · 다음 ${pg.next}` : ''}` : `${pg.step}/${pg.total}`}
+                {progressLabel(pg)}
               </Text>
               {cmd.since && !pg.isDone ? <Box flexShrink={0}>{clock('cmd-clock', cmd.since, null, K)}</Box> : null}
             </Box>
@@ -1578,6 +1598,33 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       const counts = `${s.rule} allowed · ${s.cleared} ${decider}${s.ask > 0 ? ` · ${s.ask} pending` : ''} · ${s.deny} denied`
       const strip = g.recent.slice(-Math.max(4, marksIn(W - cfg.gateLabel.length - 2 - counts.length, isTerminal)))
       const mg = ctxFill.pct !== null ? gauge(ctxFill.pct, 6) : null
+      // devFSD: 요약에도 지금 작업 한 줄 — 종전 요약은 모델·비용뿐이라 좁은 터미널(입력창 위)에서는 진행이 전혀 보이지 않았다.
+      const miniVerify = b.fid && b.verify ? { spans: [{ text: b.verify, color: b.verify === '완료' || b.verify === '검증 PASS' ? C.gate : b.verify === '검증 FAIL' ? C.warn : C.amber }] } : null
+      const miniSp = stageProgress(b.stages ?? [])
+      const devLine = cmdNow
+        ? (() => {
+            const K = CMD_COLORS[cfg.palette][cmdNow.kind]
+            const pg = cmdProgress(cmdFlow(cmdNow, b.stages ?? []))
+            return line(
+              [
+                { spans: [{ text: `◆ ${CMD_NAME[cmdNow.kind]}`, color: K, bold: true }] },
+                { spans: [{ text: `${pg.pct}%`, color: K, bold: true }] },
+                { spans: [{ text: `${progressLabel(pg)}${cmdNow.title ? ` · ${cmdNow.title}` : ''}` }], fill: true },
+                miniVerify,
+              ],
+              W,
+            )
+          })()
+        : b.fid
+          ? line(
+              [
+                { spans: [{ text: 'devFSD', color: C.gate, bold: true }] },
+                { spans: [{ text: [b.fid, b.lane, miniSp.total > 0 ? progressLabel(miniSp) : null].filter(Boolean).join(' · ') }], fill: true },
+                miniVerify,
+              ],
+              W,
+            )
+          : null
       return (
         <Box flexDirection="column" width={W}>
           {line(
@@ -1606,6 +1653,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             ],
             W,
           )}
+          {devLine}
           {badge ? <Text color={badgeColor} wrap="truncate">{badge.text}</Text> : null}
           {strip.length > 0 && cfg.panels.includes('gate') ? (
             <Box columnGap={1}>
@@ -1642,7 +1690,8 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     // ---- 헤더: 한 줄 요약 `DEVFSD · 상태 · 단계 · 검증 · BG N` (좁으면 뒤 조각부터 빠진다)
     const status = m.isRunning ? 'WORKS' : isWaiting ? '◌ 대기' : 'IDLE'
     const sp = stageProgress(b.stages ?? [])
-    const stageWord = b.fid ? sp.current ?? (sp.isDone ? '완료' : null) : null
+    // 단계가 없는 작업(직접 수정)은 단계 낱말을 쓰지 않는다 — 빈 목록은 "모두 끝남"이 아니다.
+    const stageWord = b.fid && sp.total > 0 ? sp.current ?? (sp.isDone ? '완료' : null) : null
     const verifyWord = b.fid && b.verify ? b.verify.replace(/^검증 /, '') : null
     const verifyColor = verifyWord === 'PASS' || verifyWord === '완료' ? C.gate : verifyWord === 'FAIL' ? C.warn : C.amber
     const mode = cfg.motion ? (m.isRunning ? 'working' : isWaiting ? 'waiting' : 'idle') : 'idle'

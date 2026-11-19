@@ -60,7 +60,7 @@ BLOCKING 항목을 **best-guess 자동 응답**으로 처리한다:
 `grep -qE '^\*\*§일괄\*\*:[[:space:]]*true' .specops/<FID>/spec.md` 이면 아래가 이 skill 의 다른 절(사용자 대화 규칙의 'BLOCKING 은 한 번에 한 질문'·경량 모드의 묶음 1회)보다 우선한다. 규칙 원본 `../specifying-ko/once-approval.md` 를 Read 해 따른다.
 
 1. 모호성 탐지·범주표·분류(Step 2~3)는 그대로 한다. clarifications.md 머리 `**mode**` 는 `once`(형식 블록의 `**mode**: full | lite` 줄도 `full | lite | once` 로 고친다). Step 7 에서 더할 AC 는 승인 묶음 4번에 미리 싣는다.
-2. BLOCKING·DESIRABLE 후보를 **한 번에 묶어** 묻는다 — 질문 묶음 2회째 · 많아야 4개 · 추천 먼저(AskUserQuestion 이 있으면 그것으로). 서로 답에 의존하는 질문은 먼저 정할 것만 넣는다.
+2. 후보마다 **근거를 댈 수 있는 추천안이 있는가**를 본다. 있으면 **묻지 않는다** — `status: ASSUMED` 로 적고 승인 묶음 7번에 선택지와 함께 싣는다. 없는 것만 **한 번에 묶어** 묻는다 — 질문 묶음 2회째 · 많아야 4개(AskUserQuestion 이 있으면 그것으로). 물을 것이 없으면 2회째는 건너뛴다.
 3. 묶음에 넣지 못한 것은 묻지 않고 `status: ASSUMED` + `**가정 근거**` 로 적는다.
 4. 질문이 끝나면(후보가 없었으면 곧바로) 승인 묶음을 제시한다. 승인 전에는 planning-ko 를 호출하지 않는다. 수정 요청은 반영한 뒤 승인 묶음을 다시 제시한다.
 5. 승인되면 once-approval.md 의 기록을 남기고 Step 5~10 을 마친 뒤 planning-ko 로 간다.

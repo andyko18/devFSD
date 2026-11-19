@@ -9,6 +9,7 @@
 ## 1. 질문 묶음
 
 - **최대 2회**: 1회째는 specifying Step 3(설계 전 명확화), 2회째는 clarifying(spec 작성 뒤 BLOCKING·DESIRABLE). trivial 은 clarifying 이 없으므로 1회째뿐이다.
+- **2회째는 추천을 정할 수 없는 질문에만 쓴다** (20261119): spec 을 쓴 뒤 나온 질문(clarifying 의 후보 · 요구사항 전문가의 「확인 필요」)에 **근거를 댈 수 있는 추천안이 있으면 묻지 않는다** — 추천안으로 정해 `status: ASSUMED` + `**가정 근거**` 로 적고, 선택지와 함께 승인 묶음 7번에 싣는다(사용자는 거기서 바꾼다). 따로 묻는 것은 추천을 정할 수 없는 것뿐이다 — 답에 따라 설계가 갈리는데 코드·문서·요청 어디에도 기울 근거가 없는 질문. 그런 질문이 없으면 2회째는 건너뛰고 곧바로 승인 묶음이다. 근거: 풀 경로 실주행(20261117)에서 사람이 세 번 멈췄고(질문 2회 + 승인) 2회째 두 문항은 둘 다 추천안 그대로 답했다 — 멈춤 한 번이 추천을 확인하는 데만 쓰였다.
 - 회마다 **많아야 4개**를 한 메시지로 묻는다(AskUserQuestion 이 있으면 그것으로). 질문마다 선택지와 영향 한 줄, **추천 선택지와 근거 한 줄을 맨 앞에** 둔다.
 - 1회째에 넣을 것: 목적·제약·성공 기준 · 유지보수 오분류 확인(기존 코드를 실제로 고칠 때만) · 신규 trivial 축약 제안(해당 시 — `<!-- full: true -->` 면 넣지 않는다).
 - 묶음에 넣지 못한 질문은 묻지 않고 best-guess 로 정해 `(ASSUMED)`(intent·spec) 또는 `status: ASSUMED`(clarifications)로 적는다. 승인 묶음과 PR 게이트에 보인다.
@@ -24,15 +25,15 @@
 4. **spec·AC** — 경로와 AC 마다 한 줄(clarify 가 더할 AC 포함)
 5. **화면 경로** — 만든 `screens/{name}.md`·`.html` 목록(모두 만든 뒤)
 6. **IF 변경** — `api-spec.md`·`data-model.md` 에서 바꾼 행 · 계약 칸 점검 `WARN` · memory 문서 생성 여부
-7. **질문 답** — 질문 묶음의 답과 `ASSUMED` 로 정한 것
+7. **질문 답** — 질문 묶음의 답과 `ASSUMED` 로 정한 것. 묻지 않고 추천안으로 정한 질문은 **고를 수 있게** 싣는다: `A1. <질문> — (a) <추천안> ← 정해 둠 · 근거 한 줄 / (b) <다른 선택지> · 영향 한 줄`. 번호는 `A1`·`A2`… 로 매긴다
 8. **승인 뒤 자동 진행** — clarify(남았으면) → plan(전문가 패스·plan-reviewer) → decompose → implement(B/C) → verify → security → integration → performance → **데모 → PR 생성**을 묻지 않고 진행한다 · 실행 방식은 서브에이전트 주도 · **병렬 worktree** 를 쓸 수 있다 · 사용자가 보는 결과가 바뀐 작업은 PR 을 **초안**으로 만들고 결과 확인을 청한다 · **머지는 자동으로 하지 않는다**
 9. **그래도 멈추는 곳** — 비가역 작업(`irreversible`·NEEDS_APPROVAL) · 보안 Critical/High · plan-reviewer Critical · B/C 한도 초과 뒤 남은 Critical · NEEDS_DISCUSSION · 실행 환경 없는 게이트 · FID 10태스크 이상 분할 · verify 재시도 뒤 남은 실패 · 머지
 
-끝 문장: "이대로 구현까지 진행할까요? [y/수정]"
+끝 문장: "이대로 구현까지 진행할까요? [y/수정]" — 7번에 `A` 번호로 실은 것이 있으면 그 앞에 "정해 둔 것을 바꾸려면 번호와 선택지로 답하세요(예: `A1b`)." 한 줄을 둔다.
 
 ## 3. 수정 요청과 기록
 
-- 수정 요청이 오면 고친 뒤 승인 묶음을 **다시 제시**한다(질문 묶음 횟수에 넣지 않는다).
+- 수정 요청이 오면 고친 뒤 승인 묶음을 **다시 제시**한다(질문 묶음 횟수에 넣지 않는다). `A1b` 처럼 정해 둔 것을 바꾸는 답도 수정 요청이다 — clarifications 의 그 항목을 `status: RESOLVED` 와 고른 답으로 고치고, 그 답에 따라 달라지는 spec·AC 를 고친 뒤 다시 제시한다. `y` 는 정해 둔 것을 그대로 받아들인다는 뜻이다(그 항목은 `ASSUMED` 로 남는다).
 - 승인되면: `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/dev-decision.sh add <FID> approval "승인 묶음 승인 · PR 생성 포함" "<요지 1줄>"` · intent `Status: accepted` · `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /approve 완료 "승인 묶음"`.
 - 승인 뒤 범위가 바뀌는 일(trivial 규모 초과 승격 등)이 생기면 clarifying 의 승인 묶음을 한 번 더 받는다.
 

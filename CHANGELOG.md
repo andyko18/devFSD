@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **`/` 메뉴에는 자주 쓰는 명령만 보인다 — 명령 12개와 skill 26개를 숨겼다**. 메뉴에 명령 25개와 skill 26개가 모두 떠서 자주 쓰는 진입점을 찾기 어려웠다. 보이는 명령은 `start` · `maintain` · `quick-fix` · `start-all` · `init-project` · `start-foundation` · `status` · `gbrain` · `design-screen(s)` · `design-interface(s)` · `design-overview` 13개와 관제판의 `/devfsd` 다. **호환성 주의**: 숨긴 명령(`basic` · `brainstorming` · `doctor` · `e2e-test` · `feedback` · `improve-arch` · `log` · `promote` · `release` · `security-scan` · `start-all-auto` · `statusline-install`)은 `/이름` 으로 입력해도 실행되지 않는다 — 말로 요청하면 Claude 가 실행한다(예: "devfsd doctor 돌려줘" · "start-all 을 무인으로 돌려줘"). 그래서 이 명령들에서 `disable-model-invocation` 을 뺐고, 부작용이 있는 명령(`release` · `e2e-test` · `start-all-auto` · `promote` · `feedback` · `basic`)은 설명에 "사용자가 명시적으로 요청할 때만 호출한다"를 적었다(문구이지 강제 장치는 아니다). 숨긴 명령 12개의 설명은 이제 상시 문맥에 실린다. skill 은 내부 단계라 전부 숨겼고 모델의 호출은 그대로다. `test-gate-presence` 의 `menu` 검사가 이 계약을 잠근다.
+- **README 첫 화면을 소개 페이지로 바꿨다**. 배너(`docs/assets/hero.svg`)를 새로 그렸고(옛 이름 specops-ko 가 남아 있었다), 특징 카드 6칸과 바로가기 줄을 넣었다. 숨긴 명령은 「말로 요청하는 기능」 표로 옮겼다.
+
 ## [5.10.1] — 2026-11-19
 
 ### Fixed

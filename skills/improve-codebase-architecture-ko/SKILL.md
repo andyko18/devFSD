@@ -74,7 +74,7 @@ find "$TARGET" -type f \( \
   lines=$(wc -l < "$f" 2>/dev/null || echo 0)
   [ "$lines" -lt 50 ] && dirname "$f"
 done | sort | uniq -c | sort -rn | \
-  awk '$1 >= 3 { printf "MERGE 후보: %s (%d개 소형 파일)\n", $2, $1 }'
+  awk '$(1) >= 3 { printf "MERGE 후보: %s (%d개 소형 파일)\n", $(2), $(1) }'
 ```
 
 ### Phase 3: deep/shallow 판정

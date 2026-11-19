@@ -104,7 +104,7 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 당신: 진행 전 코드 리뷰를 요청합니다.
 
-BASE_SHA=$(git log --oneline | grep "Task 1" | head -1 | awk '{print $1}')  # 단일 모드 예시 — batch 는 §1 [batch 모드] 분기(review-base.sha) 사용
+BASE_SHA=$(git log --oneline | grep "Task 1" | head -1 | cut -d' ' -f1)  # 단일 모드 예시 — batch 는 §1 [batch 모드] 분기(review-base.sha) 사용
 HEAD_SHA=$(git rev-parse HEAD)
 
 [code-reviewer 서브에이전트 dispatch]

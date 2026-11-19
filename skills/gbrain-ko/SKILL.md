@@ -42,7 +42,7 @@ echo ""
 echo "### 최신 10건"
 
 parse_line() {
-  local line="$1"
+  local line="${1}"
   if command -v python3 >/dev/null 2>&1; then
     python3 - "$line" <<'PYEOF'
 import sys, json

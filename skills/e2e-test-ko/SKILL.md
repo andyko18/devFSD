@@ -84,7 +84,7 @@ echo "FID: $FID"
 # 검증 헬퍼 + 카운터 (S0~S7 전 단계 공유)
 E2E_PASS=0; E2E_FAIL=0
 e2e_check() {
-  local id="$1" desc="$2" result="$3"
+  local id="${1}" desc="${2}" result="${3}"
   if [ "$result" = "0" ]; then
     printf "%-4s %-40s PASS\n" "$id" "$desc"; E2E_PASS=$((E2E_PASS+1))
   else
@@ -364,7 +364,7 @@ if [ $# -eq 0 ]; then
   exit 1
 fi
 
-name="$1"
+name="${1}"
 if [ -z "$name" ]; then
   echo "이름을 입력해 주세요." >&2
   exit 1
@@ -382,7 +382,7 @@ cat > ".specops/$FID/test-greet-cli.sh" << TESTEOF
 #!/usr/bin/env bash
 set -u
 PASS=0; FAIL=0
-SCRIPT="\$(cd "\$(dirname "\$0")" && pwd)/greet-cli.sh"
+SCRIPT="\$(cd "\$(dirname "\${0}")" && pwd)/greet-cli.sh"
 
 # T1.a AC-1: 정상 인사 출력
 out=\$(bash "\$SCRIPT" "철수" 2>/dev/null)

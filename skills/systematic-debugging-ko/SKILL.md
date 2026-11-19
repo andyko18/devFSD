@@ -100,11 +100,11 @@ Phase 1을 완료하지 않았다면 픽스 제안 불가.
 ```bash
 # Layer 1: Workflow
 echo "=== 워크플로 시크릿: ==="
-echo "IDENTITY: ${IDENTITY:+SET}${IDENTITY:-UNSET}"
+echo "IDENTITY: $([ -n "${IDENTITY:-}" ] && echo SET || echo UNSET)"
 
 # Layer 2: Build script
 echo "=== 빌드 스크립트 환경변수: ==="
-env | grep IDENTITY || echo "IDENTITY 환경에 없음"
+printenv IDENTITY >/dev/null 2>&1 && echo "IDENTITY 환경에 있음" || echo "IDENTITY 환경에 없음"
 
 # Layer 3: Signing script
 echo "=== Keychain 상태: ==="

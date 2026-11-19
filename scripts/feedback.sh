@@ -288,7 +288,7 @@ cmd_draft() {
     shift
   done
   if [ "$from_stdin" = 1 ]; then [ "$got" = 0 ] || _die "draft: --stdin 과 본문 인자를 함께 줄 수 없다"; body=$(cat); fi
-  [ -n "$(printf '%s' "$body" | tr -d '[:space:]')" ] || _die "본문이 비었다 — 겪은 일을 함께 적어 요청한다"
+  [ -n "$(printf '%s' "$body" | tr -d '[:space:]')" ] || _die "본문이 비었다 — /feedback <겪은 일> 로 적는다"
   _repo >/dev/null || _die "올릴 저장소 이름이 [host/]owner/name 꼴이 아니다 (FEEDBACK_REPO)"
   dir=$(_draft_dir) || _die "초안 폴더를 만들 수 없다"
   # 같은 초에 두 번 불려도 앞 초안을 덮지 않는다

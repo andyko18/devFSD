@@ -267,7 +267,7 @@ out=$(_fb nope); rc=$?
 
 # ── F7 명령 문서 ↔ 스크립트 계약 ──
 C="$PLUGIN/commands/feedback.md"
-grep -q '^user-invocable: false$' "$C" && grep '^description:' "$C" | grep -q '사용자가 명시적으로 요청할 때만 호출한다' && ok "F7.a /feedback 은 메뉴에서 숨기고 사용자가 요청할 때만 부른다" || no "F7.a"
+grep -q '^disable-model-invocation: true$' "$C" && ! grep -q '^user-invocable' "$C" && ok "F7.a /feedback 은 메뉴에 보이고 사용자가 부를 때만 돈다(모델이 스스로 부르지 않는다)" || no "F7.a"
 for w in 'feedback.sh summary' 'feedback.sh draft --stdin' 'feedback.sh submit' 'DRAFT:' 'WARN:' 'REPO:' 'SUBMITTED:' 'MANUAL:' 'MANUAL-FILE:' '공개 저장소'; do
   grep -qF -- "$w" "$C" || { no "F7.b" "명령 문서에 '$w' 없음"; w=""; break; }
 done

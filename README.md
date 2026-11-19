@@ -356,7 +356,6 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | `security-scan` | "보안 스캔 돌려줘" | 온디맨드 SAST + DAST (`--self-config` 로 자기 번들 적대감사) |
 | `improve-arch` | "아키텍처 개선점 분석해줘" | deep module 기준 split/merge 권고 |
 | `promote` | "이 자유작업을 lifecycle 로 승격해줘" | 자유작업 mini-FID 를 lifecycle 로 승격 |
-| `feedback` | "이 불편을 devfsd 피드백으로 올려줘" | 쓰다 겪은 불편을 플러그인 저장소에 알린다 — 초안을 보여 주고 확인받은 뒤 GitHub 이슈로 올린다. `--summary` 는 사용 요약(숫자만)을 붙인다. 공개 저장소라 작업 이름·경로·코드·요청 문장은 자동으로 붙지 않는다 |
 | `statusline-install` | "devfsd 상태줄 설치해줘" | HUD 상태줄 등록 |
 | `log` | "이 인사이트 기록해줘" | 자유작업 인사이트 즉석 기록 |
 | `start-all-auto` | "start-all 을 무인으로 돌려줘" | `/start-all` 의 무인 변형 |
@@ -372,6 +371,7 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | `/status` | 진행 중 FID 의 단계·아티팩트 현황 (내장 `/status` 와 겹치면 `/devfsd:status`) |
 | `/design-overview` | 설계 문서를 읽기 전용 HTML 한 장으로 — 구성도·프로세스 흐름·ERD 그림, 추적표, 미확정/가정 목록 (`--check` 로 낡음 확인 · 설계가 끝나는 지점마다 자동으로 다시 만든다) |
 | `/gbrain` | 세션 인사이트 조회 (즉석 기록 `log` 는 말로 요청) |
+| `/feedback` | 쓰다 겪은 불편을 플러그인 저장소에 알린다 — 초안을 보여 주고 확인받은 뒤 GitHub 이슈로 올린다. `--summary` 는 사용 요약(숫자만)을 붙인다. 공개 저장소라 작업 이름·경로·코드·요청 문장은 자동으로 붙지 않는다 |
 | `/devfsd-progress` | 진행 패널 열기 — 실행 중 서브에이전트·백그라운드 명령·경과 시간·단계·FID (`commands/` 가 아니라 진행 패널 mod 가 등록) |
 
 **진행 패널** — devFSD 관할 repo(`.specops/` 가 있는 폴더와 그 worktree)에서 세션을 열면 채팅 옆에 "devFSD 진행" 패널이 자동으로 뜬다. 메인 대화가 띄운 서브에이전트·백그라운드 명령의 실행 중 목록과 경과 시간, 최근 완료 5개(✓/✗), 현재 단계·FID 를 보여 준다. lifecycle 단계 막대(✓ 완료 · – 생략 · ✗ 실패 · ● 진행 · ○ 남음)와 verify 상태 배지(PASS·STALE 등 — 끝난 FID 는 완료)도 함께 보여 주고, 코드를 바꾸는 도구 호출이 끝날 때마다 갱신한다. 관찰만 하며 어떤 호출도 막거나 바꾸지 않는다. Claude Code 2.1.309 이상(mod 지원)에서 동작하고, mod API 는 early access 다. 같은 패널을 개인 mod 로 쓰던 경우 `~/.claude/settings.json` 의 `CLAUDE_CODE_PLUGIN_DIRS` 에서 그 폴더를 지운다(두 번 뜬다).

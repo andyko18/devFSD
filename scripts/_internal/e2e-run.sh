@@ -5,6 +5,7 @@
 # 출력(마지막 줄):
 #   E2E-RUN: PASS (<N>개 · 통과 <p> · 판정 보류 <t>)
 #   E2E-RUN: FAIL (<N>개 · 통과 <p> · 실패 <f> · 판정 보류 <t>)   — 그 위에 실패한 시나리오 이름
+#   E2E-RUN: OBSERVE (막았을 것 — …)                               — 관찰 모드에서 FAIL 이었을 판정. 막지 않는다(rc 0)
 #   E2E-RUN: SKIP (NO_TOOL|NO_SPEC|TIMEOUT — 사유)                  — 판정하지 못함. PASS 로 적지 않는다
 #   전문은 .specops/<FID>/e2e/run.txt
 # rc: 0 PASS · 1 FAIL · 3 SKIP · 2 사용법
@@ -37,6 +38,10 @@ limit="${DEVFSD_E2E_TIMEOUT_SEC:-600}"; case "$limit" in ''|*[!0-9]*|0) limit=60
 
 # shellcheck source=/dev/null
 . "$HERE/run-bounded.sh"
+CONFIG="${SPECOPS_CONFIG:-$SPECOPS/config.yaml}"
+# shellcheck source=/dev/null
+. "$HERE/e2e-mode.sh"
+e2e_resolve   # 관찰 모드면 실패해도 막지 않고 기록만 한다(판정 규칙은 e2e-mode.sh)
 DEVFSD_UI_HARNESS_DIR="${DEVFSD_UI_HARNESS_DIR:-$HOME/.cache/devfsd/ui-harness}" \
   bounded_run "$limit" node --test --test-concurrency=1 --test-reporter=tap "${files[@]}" > "$OUT" 2>&1
 rc=$?
@@ -50,6 +55,13 @@ case "$total" in ''|*[!0-9]*) echo "  (요약을 읽지 못했다 — $OUT 확�
 if [ "${fail:-0}" -gt 0 ] || [ "$rc" -ne 0 ]; then
   # 실패한 시나리오 이름(판정 보류는 `# TODO` 가 붙어 나온다 — 뺀다)
   grep -E '^[[:space:]]*not ok ' "$OUT" | grep -v '# TODO' | sed -E 's/^[[:space:]]*not ok [0-9]+ - /  - /' | head -n 20
-  echo "E2E-RUN: FAIL (${total}개 · 통과 ${pass:-0} · 실패 ${fail:-0} · 판정 보류 ${todo:-0})"; exit 1
+  summary="${total}개 · 통과 ${pass:-0} · 실패 ${fail:-0} · 판정 보류 ${todo:-0}"
+  if [ "$E2E_MODE" = observe ]; then
+    e2e_observe_record "$FID" run true "$summary"
+    echo "E2E-RUN: OBSERVE (막았을 것 — $summary)"; exit 0
+  fi
+  echo "E2E-RUN: FAIL ($summary)"; exit 1
 fi
-echo "E2E-RUN: PASS (${total}개 · 통과 ${pass:-0} · 판정 보류 ${todo:-0})"
+summary="${total}개 · 통과 ${pass:-0} · 판정 보류 ${todo:-0}"
+[ "$E2E_MODE" = observe ] && { e2e_observe_record "$FID" run false "$summary"; summary="$summary · 관찰 모드"; }
+echo "E2E-RUN: PASS ($summary)"

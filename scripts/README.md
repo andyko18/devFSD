@@ -195,9 +195,12 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 
 ```yaml
 browser_e2e:
-  enabled: true        # 기본 false (환경변수 DEVFSD_BROWSER_E2E=1)
+  mode: observe        # off(기본) | observe(돌리되 막지 않고 기록) | enforce(막는다) · 환경변수 DEVFSD_BROWSER_E2E_MODE · 옛 `enabled: true` 는 enforce
   min_coverage: 95     # 화면 AC 가운데 시나리오가 붙어야 하는 비율(%) · 기본 95 (DEVFSD_E2E_MIN_COVERAGE)
 ```
+
+- **새 게이트는 `observe` 부터**: 막았을 판정이 `.specops/e2e-observe.jsonl`(`ts`·`fid`·`kind`·`would_block`·`detail`)에 쌓인다. 오탐을 본 뒤 `enforce` 로 올린다.
+- **설정은 기준 브랜치 값보다 느슨해질 수 없다** (`_internal/e2e-mode.sh`): config 가 git 에 추적되면 기본 브랜치와의 갈림점 값과 작업 트리 값 가운데 더 엄한 쪽을 쓴다 — 같은 변경에서 `min_coverage` 를 낮추거나 `mode` 를 내려도 효력이 없고 `게이트 설정:` 알림이 나온다. 환경변수도 엄하게만 바꾼다. 느슨하게 바꾸려면 그 변경을 먼저 기본 브랜치에 넣는다. 한계: config 가 추적되지 않는 저장소(`.specops/` 전체 ignore)에서는 대조할 수 없어 알림만 낸다 · FID 마다 새로 만드는 `e2e-scope.txt` 는 이 방식으로 지키지 못한다(사유 필수·건수 표시로 드러낸다).
 
 - `_internal/e2e-coverage.sh <FID> [--force]` — `acceptance-criteria.md` 의 AC 를 `e2e-scope.txt`(AC 마다 `browser`|`backend — 사유`|`none — 사유`)로 가르고, `FID: <FID>` 줄이 있는 `*.e2e.mjs` 의 `@AC-<id>` 태그와 대조한다. `E2E-COVERAGE: PASS|FAIL|SKIP` 한 줄 · rc 0·1·3. 분류에서 빠진 AC · 사유 없는 제외는 FAIL 이다(분모를 줄여 비율을 맞추지 못하게).
 - `_internal/e2e-run.sh <FID>` — 그 파일들을 `node --test` 로 하나씩 돌린다. `E2E-RUN: PASS|FAIL|SKIP` 한 줄 · 전문은 `.specops/<FID>/e2e/run.txt` · 상한 `DEVFSD_E2E_TIMEOUT_SEC`(기본 600). 0개 실행 · 도구 없음 · 시간 초과는 PASS 가 아니라 SKIP 이다.

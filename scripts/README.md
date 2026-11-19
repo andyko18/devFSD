@@ -189,6 +189,20 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 - `docs/ARCHITECTURE.md` §7
 - `hooks/README.md` — v0.2 evaluator 메타 훅 + post-implement·pre-commit
 
+## e2e-coverage.sh · e2e-run.sh — 실제 브라우저 시나리오 (선택 기능 · 기본 끔)
+
+`integration-test-ko` Step 3c 가 부른다(절차: `skills/integration-test-ko/browser-e2e.md`). 켜는 곳: `.specops/config.yaml`
+
+```yaml
+browser_e2e:
+  enabled: true        # 기본 false (환경변수 DEVFSD_BROWSER_E2E=1)
+  min_coverage: 95     # 화면 AC 가운데 시나리오가 붙어야 하는 비율(%) · 기본 95 (DEVFSD_E2E_MIN_COVERAGE)
+```
+
+- `_internal/e2e-coverage.sh <FID> [--force]` — `acceptance-criteria.md` 의 AC 를 `e2e-scope.txt`(AC 마다 `browser`|`backend — 사유`|`none — 사유`)로 가르고, `FID: <FID>` 줄이 있는 `*.e2e.mjs` 의 `@AC-<id>` 태그와 대조한다. `E2E-COVERAGE: PASS|FAIL|SKIP` 한 줄 · rc 0·1·3. 분류에서 빠진 AC · 사유 없는 제외는 FAIL 이다(분모를 줄여 비율을 맞추지 못하게).
+- `_internal/e2e-run.sh <FID>` — 그 파일들을 `node --test` 로 하나씩 돌린다. `E2E-RUN: PASS|FAIL|SKIP` 한 줄 · 전문은 `.specops/<FID>/e2e/run.txt` · 상한 `DEVFSD_E2E_TIMEOUT_SEC`(기본 600). 0개 실행 · 도구 없음 · 시간 초과는 PASS 가 아니라 SKIP 이다.
+- `templates/e2e-support.mjs` — 하류의 e2e 폴더에 복사해 쓰는 지원 모듈(Playwright 탐색 · 브라우저 · 서버 기동 · 요청 가로채기). Playwright 는 하류 `node_modules` → `~/.cache/devfsd/ui-harness` 순으로 찾는다 — 하류에 의존성을 추가하지 않는다.
+
 ## split-session.sh — 구현 구간을 새 대화 맥락(자식 세션)에서 실행
 
 풀 경로(`/start`·`/maintain`)에서 `decomposing-ko` 가 부른다. 절차는 `skills/decomposing-ko/session-split.md`.

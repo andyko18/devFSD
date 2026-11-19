@@ -166,6 +166,10 @@ evidence.md 의 INTEGRATION 줄 아래에 **브라우저 줄을 반드시** 남�
 
 `demo-ko` 는 이 폴더의 PNG 를 그대로 보여 준다.
 
+### Step 3c: 실제 브라우저 시나리오 (선택 기능 · 기본 끔)
+
+화면 신호가 있는 FID 면 `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/e2e-coverage.sh <FID>` 를 1회 실행한다. `E2E-COVERAGE: SKIP (OFF …)` 면 아무것도 하지 않고 넘어간다(알리지 않는다). 그 밖이면 같은 디렉터리 `browser-e2e.md` 를 Read 해 따른다 — 수용 기준대로 실제 브라우저에서 눌러 보는 시나리오를 쓰고 돌려 비율을 잰다.
+
 ---
 
 ## FAIL 분기 (chain 차단)

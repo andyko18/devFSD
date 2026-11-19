@@ -394,7 +394,7 @@ devFSD/
 │                       layer 1 메타 · layer 2 Engine(lifecycle) · layer 3 E2E (원칙 5종은 docs/harness-principles.md)
 ├── agents/             ← 16건  implementer · req-designer · ui-designer · db-designer · arch-designer · api-designer · security-designer · test-designer · spec-reviewer · code-reviewer · plan-reviewer
 │                              design-reviewer · comprehension-reviewer · red-team · blue-team · auditor
-├── templates/          ← 41건 (lifecycle 21 + /init-project 산출 14 + 기타 6)
+├── templates/          ← 42건 (lifecycle 21 + /init-project 산출 14 + 기타 7)
 ├── scripts/            doctor · release · gbrain · security-scan · dag/ · tests/ · _internal/
 ├── docs/               설계 노트 · 갭 분석 · upstream drift log · audit/(자기 평가·제안 스냅샷) · adoption-notes(도입 전 알아둘 것 상세) · assets/(히어로 SVG)
 └── CLAUDE.md · DESIGN.md · CONTRIBUTING.md · CHANGELOG.md

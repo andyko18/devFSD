@@ -3415,3 +3415,59 @@ test('devFSD: 진행 한마디 — 카드·요약·글자 안내가 같은 말�
   expect(progressLabel({ step: 7, total: 7, current: null, next: null, isDone: true })).toBe('7/7 완료')
   expect(progressLabel({ step: 0, total: 7, current: null, next: null, isDone: false })).toBe('0/7')
 })
+
+// devFSD (20261119 실세션 점검): 첫 요청 전에는 모델 칸이 `—` 였다 — 세션은 이미 모델을 알고 있는데 첫 turn.step 까지 묻지 않았다.
+test('devFSD: the main card names the session model before the first request', async ($, on) => {
+  mock.clock(on)
+  on('ui.status', () => ({ value: undefined }))
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: { command: 'devfsd' } }))
+  on('ui.open', () => ({ value: { isPlaced: true as const } }))
+  on('session.usage', () => ({ value: { startedAt: 0, rateLimits: [], context: { window: 1_000_000 } } }))
+  on('session.model', () => ({ value: 'claude-sonnet-5-5' }))
+  await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...pane(64), surface: 'terminal' })
+  expect(await ui.find({ text: /^— · main$/ })).toBeUndefined()
+  expect(await ui.find({ text: /Sonnet.* · main$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('devFSD: a host that cannot name the session model still starts, the card reading — until the first request', async ($, on) => {
+  mock.clock(on)
+  on('ui.status', () => ({ value: undefined }))
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('command.register', () => ({ value: { command: 'devfsd' } }))
+  on('ui.open', () => ({ value: { isPlaced: true as const } }))
+  on('session.usage', () => ({ value: { startedAt: 0, rateLimits: [], context: { window: 1_000_000 } } }))
+  on('session.model', () => {
+    throw new Error('no model on this host')
+  })
+  await $.session.start({ cwd: '/w', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...pane(64), surface: 'terminal' })
+  expect(await ui.find({ text: /^— · main$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+// devFSD (20261119 실세션 점검): 이름 칸(13칸)을 꽉 채운 이름은 본문과 붙어 `Count Python…done · 8s` 로 보였다.
+test('devFSD: a session log name that fills its column keeps a gap before the text', async ($, on) => {
+  engine(on)
+  on('agent.spawn', () => ({ model: 'claude-sonnet-5-5', agentId: 'g1' }))
+  await $.turn.start({ text: 'go', turnId: 'T1' })
+  await $.agent.spawn(spawn('Explore', 'Count Python files in orders'))
+  const whoBoxes = (n: unknown, out: Drawn[] = []): Drawn[] => {
+    if (!isDrawn(n)) return out
+    const kids = (n.children ?? []).filter(isDrawn)
+    // 이름 칸: 폭이 정해진(9 또는 13) 줄어들지 않는 Box 에 굵은 Text 하나 — 로그 줄의 가운데 칸만 이 꼴이다
+    const w = n.props?.width
+    if (n.type === 'Box' && (w === 9 || w === 13) && n.props?.flexShrink === 0 && kids.length === 1 && kids[0].type === 'Text' && kids[0].props?.bold === true) out.push(n)
+    kids.forEach(k => whoBoxes(k, out))
+    return out
+  }
+  for (const cols of [36, 64]) {
+    const ui = await $.ui.mount({ ...pane(cols), surface: 'terminal' })
+    const boxes = whoBoxes(await ui.drawn())
+    expect(boxes.length).toBeGreaterThan(0)
+    for (const b of boxes) expect(b.props?.paddingRight).toBe(1)
+    await ui.unmount()
+  }
+})

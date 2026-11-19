@@ -263,7 +263,7 @@ async function openPane($: EngineInterface, cfg: Config) {
 }
 
 async function resetAll($: EngineInterface) {
-  await update($, main, m => ({ ...DEFAULT_MAIN, model: normalize(DEFAULT_MAIN, m).model, mode: normalize(DEFAULT_MAIN, m).mode }))
+  await update($, main, m => ({ ...DEFAULT_MAIN, model: normalize(DEFAULT_MAIN, m).model, mode: normalize(DEFAULT_MAIN, m).mode, startModel: normalize(DEFAULT_MAIN, m).startModel }))
   await update($, architect, () => DEFAULT_ARCHITECT)
   await update($, gate, () => DEFAULT_GATE)
   await update($, agents, () => [])
@@ -333,6 +333,10 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
         limits: u.rateLimits.map(limitOf),
       }))
     }
+    // devFSD: 첫 요청 전에도 모델 이름을 보인다 — turn.step 이 와야 채워져 그때까지 `—` 였다(20261119 실세션 점검).
+    //   알려 주지 못하는 호스트는 종전대로 `—` 로 시작한다. 이미 아는 이름(이어 가는 세션)은 덮지 않는다.
+    const startModel = await $.session.model().catch(() => '')
+    if (startModel) await update($, main, m => ({ ...normalize(DEFAULT_MAIN, m), startModel }))
     if (cfg.openOnStart) void openPane($, cfg).catch(() => undefined)
     await refreshStatus($, cfg)
     const done = await next(e)
@@ -793,7 +797,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     const endedJobs = b.recent.filter(j => j.kind === 'bash' && j.endedAt !== undefined && now - j.endedAt < 60_000).slice(0, 3)
     const badgeColor = badge?.stalled ? C.warn : C.dim
     const layout = v.layout ?? cfg.layout
-    const modelName = prettyModel(m.model)
+    const modelName = prettyModel(m.model || m.startModel || '')
     const viewed = e.props.view?.agentId ?? null
     const advising = isAdvising(a)
     const running = cards.filter(c => c.status === 'running')
@@ -1295,7 +1299,8 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
             <Box width={w < 40 ? 6 : 9} flexShrink={0}>
               <Text color={C.dim}>{w < 40 ? fmtClock(l.at).slice(0, 5) : fmtClock(l.at)}</Text>
             </Box>
-            <Box width={w < 40 ? 9 : 13} flexShrink={0}>
+            {/* devFSD: 칸을 꽉 채운 이름이 본문과 붙지 않게 오른쪽 한 칸을 비운다 — `Count Python…done` 으로 보였다 */}
+            <Box width={w < 40 ? 9 : 13} flexShrink={0} paddingRight={1}>
               <Text color={colorOf(l)} bold wrap="truncate">
                 {l.who}
               </Text>

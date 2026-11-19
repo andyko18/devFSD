@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **브라우저 E2E 게이트에 지켜보기 모드(`observe`)를 넣었다**. 5.12.0 의 게이트는 끄기/켜기 두 칸뿐이라, 효과를 재려면 켜야 하고 켜면 바로 막았다. 이제 `.specops/config.yaml` 의 `browser_e2e.mode` 가 `off`(기본) · `observe` · `enforce` 세 칸이다. `observe` 는 돌리되 막지 않고, 막았을 판정을 `E2E-…: OBSERVE (막았을 것 — …)` 로 내며 `.specops/e2e-observe.jsonl` 에 남긴다(통과한 판정도 기록한다 — 수율의 분모다). 새 게이트는 여기서 시작해 오탐을 본 뒤 `enforce` 로 올린다. 옛 표기 `enabled: true` 는 `enforce` 로 읽고, 모르는 `mode` 값도 `enforce` 로 읽는다(오타로 게이트가 꺼지지 않게).
+
+### Changed
+
+- **변경이 자기를 심사하는 기준을 느슨하게 바꾸지 못한다**. 같은 변경 안에서 `min_coverage` 를 낮추거나 `mode` 를 내리거나 config 를 지워 게이트를 통과할 수 있었다. 이제 config 가 git 에 추적되면 기본 브랜치와의 갈림점 값과 작업 트리 값 가운데 **더 엄한 쪽**으로 판정하고, 느슨해진 항목을 `게이트 설정:` 알림 줄로 드러낸다(`scripts/_internal/e2e-mode.sh`). 느슨하게 바꾸려면 그 설정 변경을 먼저 기본 브랜치에 넣는다. 엄하게 바꾸는 것과 처음 켜는 변경은 바로 적용된다. **호환성 주의**: 환경변수 `DEVFSD_E2E_MIN_COVERAGE` · `DEVFSD_BROWSER_E2E_MODE` 는 이제 엄하게만 바꾼다 — 기준을 낮추는 값은 무시하고 알린다. 한계: config 가 추적되지 않는 저장소(`.specops/` 전체 ignore)에서는 대조하지 못해 알림만 낸다 · FID 마다 새로 만드는 `e2e-scope.txt` 와 다른 게이트 파일(접근성 기준선 등)은 이 변경으로 지키지 못한다.
+
 ## [5.12.0] — 2026-11-19
 
 ### Added

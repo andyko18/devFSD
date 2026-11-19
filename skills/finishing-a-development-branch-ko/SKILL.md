@@ -82,7 +82,7 @@ fi
 
 ```bash
 # 전체 worktree 순회 — provenance 필터는 루프 내 case 1곳 (이중화 금지)
-git worktree list | awk '{print $1}' | while read wt_path; do
+git worktree list | awk '{print $(1)}' | while read wt_path; do
   case "$wt_path" in
     */.worktrees/*) ;;  # 플러그인 생성분 — 정리 진행
     *) echo "사용자 소유 worktree ($wt_path) — 정리 대상 제외 (provenance)"; continue ;;

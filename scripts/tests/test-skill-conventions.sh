@@ -328,5 +328,30 @@ if [ -z "${SPECOPS_T9_INNER:-}" ]; then
   fi
 fi
 
+
+# T13: skill·command 본문에 `$<숫자>` 금지 (인자 치환 — 20261120 실측)
+#   Claude Code 는 skill·command 본문의 `$0`·`$1`… 을 호출 인자로 바꾼다. `/x alpha beta` 로 부르면
+#   `awk '{print $1}'` 이 `awk '{print beta}'` 가 되어 모델에 전달된다. 백슬래시 이스케이프(`\$1`)는
+#   **인자가 없어도** 백슬래시가 벗겨져 `$1` 이 되므로 heredoc 안의 `\$0` 도 깨진다.
+#   치환을 타지 않는 표기를 쓴다 — bash 위치 인자는 `${1}`, awk 필드는 `$(1)`.
+#   (상류 obra/superpowers v7.0.0 이 같은 결함을 requesting-code-review 에서 고쳤다.)
+_argsub_pat='\$[0-9]'
+# T13.a: 판정식 자체의 양성·음성 대조 — 이 식이 아무것도 못 잡으면 T13.b 는 항상 통과한다
+_ctl_bad=$(printf '%s\n' "awk '{print \$1}'" 'x="\$0"' | grep -cE "$_argsub_pat")
+_ctl_ok=$(printf '%s\n' 'x="${1}"' "awk '{print \$(1)}'" '$ARGUMENTS' '${CLAUDE_PLUGIN_ROOT}' | grep -cE "$_argsub_pat")
+if [ "$_ctl_bad" -eq 2 ] && [ "$_ctl_ok" -eq 0 ]; then
+  PASS=$((PASS+1)); echo "PASS: T13.a 인자 치환 판정식 대조 (잡을 것 2/2 · 안 잡을 것 0/4)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL: T13.a 판정식 대조 — bad=$_ctl_bad(기대 2) ok=$_ctl_ok(기대 0)"
+fi
+# T13.b: 실제 본문 전수
+_argsub_hits=$(grep -nE "$_argsub_pat" "$PLUGIN"/skills/*/SKILL.md "$PLUGIN"/commands/*.md 2>/dev/null | sed "s#^$PLUGIN/##")
+if [ -z "$_argsub_hits" ]; then
+  PASS=$((PASS+1)); echo "PASS: T13.b skill·command 본문에 \$<숫자> 0건"
+else
+  FAIL=$((FAIL+1)); echo "FAIL: T13.b 인자 치환에 깨지는 표기 — \${1}(bash)·\$(1)(awk) 로 바꾼다:"
+  printf '%s\n' "$_argsub_hits" | cut -c1-160 | sed 's/^/    /'
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

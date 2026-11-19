@@ -1,20 +1,61 @@
-<p align="center">
-  <img src="docs/assets/hero.svg" alt="devFSD 의 자율 Lifecycle: 명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 까지의 단계 흐름" width="100%">
-</p>
+<div align="center">
+
+<img src="docs/assets/hero.svg" alt="devFSD 의 자율 Lifecycle: 명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 까지의 단계 흐름" width="100%">
 
 # devFSD
 
 **개발 자율주행(devFSD) — Claude Code 전용 한국어 자율 Lifecycle 플러그인** (v5.10.1)
 
-> 감독형 자율주행이다 — 설계 승인과 PR 병합은 사람이 한다. (이전 이름 specops-ko)
+감독형 자율주행이다 — 설계 승인과 PR 병합은 사람이 한다. <sub>(이전 이름 specops-ko)</sub>
 
-[![release](https://img.shields.io/github/v/release/andyko18/devFSD?label=release&color=0969da)](https://github.com/andyko18/devFSD/releases)
+[![release](https://img.shields.io/github/v/release/andyko18/devFSD?style=for-the-badge&label=release&color=7c3aed)](https://github.com/andyko18/devFSD/releases)
+[![license: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
+![Claude Code only](https://img.shields.io/badge/Claude%20Code-only-f97316?style=for-the-badge)
+![한국어](https://img.shields.io/badge/언어-한국어-0ea5e9?style=for-the-badge)
+[![stars](https://img.shields.io/github/stars/andyko18/devFSD?style=for-the-badge&color=eab308)](https://github.com/andyko18/devFSD/stargazers)
+
 [![tests](https://github.com/andyko18/devFSD/actions/workflows/test.yml/badge.svg)](https://github.com/andyko18/devFSD/actions/workflows/test.yml)
-[![license: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-![Claude Code only](https://img.shields.io/badge/Claude%20Code-only-8957e5)
 
-슬래시 1회 또는 자연어 1회로 **spec → clarify → plan → decompose → TDD implement(끝에 스펙·코드 리뷰) → verify → security → integration-test → performance-test → PR** 전 단계를 자동으로 이어서 진행한다.
-한글로는 **명세 → 명확화 → 계획 → 분해 → TDD 구현 → 검증 → 리뷰 → 보안 → 통합 테스트 → 성능 테스트 → PR** 이다.
+**[설치](#설치)** &nbsp;·&nbsp; **[빠른 시작](#빠른-시작)** &nbsp;·&nbsp; **[진입로](#진입로)** &nbsp;·&nbsp; **[Lifecycle](#lifecycle)** &nbsp;·&nbsp; **[전문가 패스](#전문가-패스)** &nbsp;·&nbsp; **[거버넌스](#거버넌스-엔진)** &nbsp;·&nbsp; **[아키텍처 문서](docs/architecture.md)**
+
+</div>
+
+<br>
+
+> **한마디면 출발한다.** `/start 로그인 기능 만들어줘` — 또는 그냥 말로.
+> 슬래시 1회 또는 자연어 1회로 **spec → clarify → plan → decompose → TDD implement(끝에 스펙·코드 리뷰) → verify → security → integration-test → performance-test → PR** 전 단계를 자동으로 이어서 진행한다.
+> 한글로는 **명세 → 명확화 → 계획 → 분해 → TDD 구현 → 검증 → 리뷰 → 보안 → 통합 테스트 → 성능 테스트 → PR** 이다.
+
+<table>
+<tr>
+<td width="33%" valign="top" align="center">
+<h3>🚗 한마디로 출발</h3>
+슬래시 한 번, 또는 자연어 한 번.<br>단계마다 다음 지시를 다시 할 필요가 없다 —<br>각 단계가 <b>다음 단계를 스스로 부른다</b>.
+</td>
+<td width="33%" valign="top" align="center">
+<h3>🛑 증거 없으면 정지</h3>
+검증 없이 <code>git commit</code> · <code>gh pr create</code> 하면<br><b>훅이 실행 전에 차단</b>한다.<br>"다 됐다"는 말이 아니라 실행 기록으로 연다.
+</td>
+<td width="33%" valign="top" align="center">
+<h3>🧑‍🔬 분야 전문가 7종</h3>
+요구사항 · 화면 · DB · 구조 · API · 보안 · 테스트.<br>그 분야만 보는 별도 패스가<br><b>한 번 더</b> 본다.
+</td>
+</tr>
+<tr>
+<td valign="top" align="center">
+<h3>📁 파일이 기억한다</h3>
+모든 산출물이 <code>.specops/&lt;FID&gt;/</code> 에 남는다.<br>세션이 끊겨도 <b>파일만 읽고 이어 간다</b>.
+</td>
+<td valign="top" align="center">
+<h3>🗳️ 묻는 것은 최소로</h3>
+질문 묶음 최대 2회 + <b>승인 1회</b>.<br>승인 뒤에는 PR 생성까지 멈추지 않는다.<br>머지는 사람이 한다.
+</td>
+<td valign="top" align="center">
+<h3>🖥️ 달리는 동안 보인다</h3>
+채팅 옆 <b>진행 패널</b>이 단계 · 서브에이전트 ·<br>백그라운드 명령 · 경과 시간을 보여 준다.
+</td>
+</tr>
+</table>
 
 ## 왜 쓰나
 
@@ -64,7 +105,7 @@ claude plugin marketplace add andyko18/devFSD
 claude plugin install devfsd@devfsd
 
 # 2) 확인
-/doctor        # Claude Code 내장 명령과 겹치면 /devfsd:doctor
+devfsd doctor 돌려줘        # 말로 요청한다 — `/` 메뉴에는 자주 쓰는 명령만 있다(아래 「말로 요청하는 기능」)
 ```
 
 로컬 개발은 `claude plugin marketplace add /절대경로/devFSD`.
@@ -95,9 +136,7 @@ claude plugin install devfsd@devfsd
 | **`/maintain`** | 기존 코드 수정. 같은 판정 — 기본 경로는 spec 1장에 현재 동작과 "기존 동작 유지" 수용 기준(`AC-R-1`)을 받고, 풀 경로는 영향 분석을 먼저 한다 |
 | **`/quick-fix`** | 몇 줄짜리 수정 — 명세·분해 문서 없이 테스트 실행 + 코드 리뷰 1회. 크기 상한과 고위험 신호를 커밋 때 훅이 판정하고, 넘으면 `/maintain` 으로 간다 |
 | `/start-foundation` | 공통부(라우팅·인증·레이아웃·공통 스키마) 먼저 개발 (1회) |
-| `/start-all` · `/start-all-auto` | `requirements.md` FR 표 전체 일괄 구현 (`-auto` 는 무인 — 가역 게이트 자동 통과, batch PR만 확인). 갈래 자동 고르기는 적용하지 않는다(종전 풀 경로) |
-| `/basic` | 기본 경로를 직접 지정(`/start`·`/maintain` 이 자동으로 고르는 그 경로). 진행 중 위험 신호가 나오면 만든 spec·코드를 들고 풀 경로로 올라간다 |
-| `/brainstorming` | (선택) 구현 전 아이디어 탐색 |
+| `/start-all` | `requirements.md` FR 표 전체 일괄 구현 (무인 변형 `start-all-auto` 는 말로 요청 — 가역 게이트 자동 통과, batch PR만 확인). 갈래 자동 고르기는 적용하지 않는다(종전 풀 경로) |
 | `/design-screen(s)` · `/design-interface(s)` | lifecycle 밖 화면·인터페이스 단발 설계 |
 
 **갈래 자동 고르기**: `/start`·`/maintain` 과 자연어 진입("X 만들어줘"·"Y 고쳐줘")은 같은 스크립트 판정(`scripts/basic-path.sh route`)을 거친다 — 모델이 "가벼워 보인다"로 고르지 않는다. 애매하면 풀이고, `--step` 을 붙여도 풀이다. 실측(20261112 · 기계 시간): 기본 경로 42분(원인 조사 15분 포함)·12분, 풀 경로 149~157분 — 표본은 기본 2건이고 자동 분기·승격의 실제 주행은 아직 재지 않았다.
@@ -298,12 +337,31 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 
 도입 전에 읽어 두면 시행착오가 줄어드는 사실 4가지다. 전체(필요한 도구 · 소요 · 적용 범위 · 저장소에 생기는 변화 · 끄는 법 · 로컬 산출물 · 설계 한 화면 · 프라이버시 · 업그레이드·삭제)는 **[docs/adoption-notes.md](docs/adoption-notes.md)** 에 있다.
 
-- **`jq` 가 없으면 훅이 전면 fail-open** — 에러 없이 R-1~R-5 차단·감사가 꺼진다. 설치 직후 `/doctor` 의 `deps` 항목으로 확인한다.
+- **`jq` 가 없으면 훅이 전면 fail-open** — 에러 없이 R-1~R-5 차단·감사가 꺼진다. 설치 직후 doctor(말로 요청)의 `deps` 항목으로 확인한다.
 - **기본 설치(`user` 범위)는 모든 repo 의 세션 시작에 메타 스킬을 주입한다** — 일부 repo 에서만 쓰려면 `claude plugin install devfsd@devfsd --scope project`(또는 `local`)로 설치한다.
 - **산출물은 기본적으로 로컬이다** — `intent.md` 만 커밋되고 spec·plan·evidence·리뷰는 저장소에 올라가지 않아 PR 리뷰어가 볼 수 없다.
 - **풀 경로는 구현 구간을 새 세션에서 돌린다** — `/start`·`/maintain` 은 태스크 분해 뒤 구현~성능 게이트를 대화 맥락이 빈 자식 세션(`claude -p`)에 맡기고 결과만 받아 PR 게이트로 간다(사용자 동작 없음 · 진행은 `bash scripts/split-session.sh status <FID>`). 자식은 사용자의 권한 설정을 그대로 따르고 권한 건너뛰기 옵션은 쓰지 않는다 — 기본 권한 모드가 auto 가 아니면 나누지 않고 종전대로 한 세션에서 한다. 끄기: `--no-split` · `.specops/config.yaml` 의 `session_split.enabled: false`. `/basic`·`/quick-fix`·`/start-all` 은 나누지 않는다.
 - **작업을 마치면 다음 작업은 새 세션에서 하라고 1줄 알린다** — PR 을 만든 뒤 끝 보고 마지막 줄에 지금 대화 크기와 함께(`SESSION-NEXT:`). `/start`·`/maintain` 을 이미 작업을 끝낸 대화에서 다시 시작하면 시작할 때도 1줄 알린다(새 세션의 첫 작업에는 알리지 않는다). 둘 다 묻지도 막지도 않는다 — 같은 대화에서 이어 가면 커진 대화를 호출마다 다시 읽는다(하류 실측: 비용의 약 51%). 끄기: `.specops/config.yaml` 의 `session_split.warn_context_tokens: 0`.
 - **한 건에 걸리는 시간** — FID 1건(spec → verify) 중앙값 약 2시간, p90 약 7.6시간 — **속도 개선(v2.32~2.36: 승인 1회·리뷰 병렬·전문가 동시 실행) 전** 측정이다. 개선 뒤 수치는 아직 재지 않았다.
+
+## 말로 요청하는 기능 (`/` 메뉴에 없음)
+
+`/` 메뉴에는 자주 쓰는 명령만 둔다. 아래 기능은 메뉴에 없고 `/이름` 으로 입력해도 실행되지 않는다 — 말로 요청하면 Claude 가 실행한다.
+
+| 기능 | 이렇게 말한다 | 용도 |
+|---|---|---|
+| `basic` | "기본 경로로 진행해줘" | 기본 경로를 직접 지정(`/start`·`/maintain` 이 자동으로 고르는 그 경로). 진행 중 위험 신호가 나오면 만든 spec·코드를 들고 풀 경로로 올라간다 |
+| `brainstorming` | "브레인스토밍 하자" | (선택) 구현 전 아이디어 탐색 |
+| `doctor` | "devfsd doctor 돌려줘" | 설치·환경 건강 진단 10항목 (read-only) |
+| `security-scan` | "보안 스캔 돌려줘" | 온디맨드 SAST + DAST (`--self-config` 로 자기 번들 적대감사) |
+| `improve-arch` | "아키텍처 개선점 분석해줘" | deep module 기준 split/merge 권고 |
+| `promote` | "이 자유작업을 lifecycle 로 승격해줘" | 자유작업 mini-FID 를 lifecycle 로 승격 |
+| `feedback` | "이 불편을 devfsd 피드백으로 올려줘" | 쓰다 겪은 불편을 플러그인 저장소에 알린다 — 초안을 보여 주고 확인받은 뒤 GitHub 이슈로 올린다. `--summary` 는 사용 요약(숫자만)을 붙인다. 공개 저장소라 작업 이름·경로·코드·요청 문장은 자동으로 붙지 않는다 |
+| `statusline-install` | "devfsd 상태줄 설치해줘" | HUD 상태줄 등록 |
+| `log` | "이 인사이트 기록해줘" | 자유작업 인사이트 즉석 기록 |
+| `start-all-auto` | "start-all 을 무인으로 돌려줘" | `/start-all` 의 무인 변형 |
+| `e2e-test` · `release` | "e2e 테스트 돌려줘" · "릴리즈 해줘" | **플러그인 개발자 전용** — lifecycle 9단계 fixture 완주 검증(수동 · 토큰 비용 · 임시 저장소에 파일 생성) · 릴리즈 자동화(플러그인 저장소에서만) |
+
 
 ---
 
@@ -312,16 +370,9 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | 슬래시 | 용도 |
 |---|---|
 | `/status` | 진행 중 FID 의 단계·아티팩트 현황 (내장 `/status` 와 겹치면 `/devfsd:status`) |
-| `/doctor` | 설치·환경 건강 진단 10항목 (read-only) (내장 `/doctor` 와 겹치면 `/devfsd:doctor`) |
 | `/design-overview` | 설계 문서를 읽기 전용 HTML 한 장으로 — 구성도·프로세스 흐름·ERD 그림, 추적표, 미확정/가정 목록 (`--check` 로 낡음 확인 · 설계가 끝나는 지점마다 자동으로 다시 만든다) |
-| `/gbrain` · `/log` | 세션 인사이트 조회 · 즉석 기록 |
-| `/feedback` | 쓰다 겪은 불편을 플러그인 저장소에 알린다 — 초안을 보여 주고 확인받은 뒤 GitHub 이슈로 올린다. `--summary` 는 사용 요약(숫자만)을 붙인다. 공개 저장소라 작업 이름·경로·코드·요청 문장은 자동으로 붙지 않는다 |
-| `/promote` | 자유작업 mini-FID 를 lifecycle 로 승격 |
-| `/security-scan` | 온디맨드 SAST + DAST (`--self-config` 로 자기 번들 적대감사) |
-| `/improve-arch` | deep module 기준 split/merge 권고 |
-| `/statusline-install` | HUD 상태줄 등록 |
+| `/gbrain` | 세션 인사이트 조회 (즉석 기록 `log` 는 말로 요청) |
 | `/devfsd-progress` | 진행 패널 열기 — 실행 중 서브에이전트·백그라운드 명령·경과 시간·단계·FID (`commands/` 가 아니라 진행 패널 mod 가 등록) |
-| `/e2e-test` · `/release` | **플러그인 개발자 전용** — lifecycle 9단계 fixture 완주 검증(수동 · 토큰 비용 · 임시 저장소에 파일 생성) · 릴리즈 자동화(플러그인 저장소에서만) |
 
 **진행 패널** — devFSD 관할 repo(`.specops/` 가 있는 폴더와 그 worktree)에서 세션을 열면 채팅 옆에 "devFSD 진행" 패널이 자동으로 뜬다. 메인 대화가 띄운 서브에이전트·백그라운드 명령의 실행 중 목록과 경과 시간, 최근 완료 5개(✓/✗), 현재 단계·FID 를 보여 준다. lifecycle 단계 막대(✓ 완료 · – 생략 · ✗ 실패 · ● 진행 · ○ 남음)와 verify 상태 배지(PASS·STALE 등 — 끝난 FID 는 완료)도 함께 보여 주고, 코드를 바꾸는 도구 호출이 끝날 때마다 갱신한다. 관찰만 하며 어떤 호출도 막거나 바꾸지 않는다. Claude Code 2.1.309 이상(mod 지원)에서 동작하고, mod API 는 early access 다. 같은 패널을 개인 mod 로 쓰던 경우 `~/.claude/settings.json` 의 `CLAUDE_CODE_PLUGIN_DIRS` 에서 그 폴더를 지운다(두 번 뜬다).
 
@@ -383,7 +434,7 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 | `file_counts FAIL` | `validate-structure.sh --update-baseline` |
 | `version_sync` · `readme_counts FAIL` | README 헤더/footer 버전, 자산 구조 카운트가 실측과 불일치 |
 | `chain_consistency FAIL` | `chain.yaml` · SKILL.md `## 다음 skill` · 메타 스킬 목록 세 곳 동기 수정 |
-| 어디까지 했는지 모름 | `/status` · 환경 이상은 `/doctor` |
+| 어디까지 했는지 모름 | `/status` · 환경 이상은 doctor("devfsd doctor 돌려줘") |
 
 ---
 

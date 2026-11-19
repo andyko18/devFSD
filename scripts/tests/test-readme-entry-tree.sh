@@ -18,7 +18,7 @@ awk '/^## 진입로/{f=1; next} f && /^## /{exit} f' "$R" > "$SEC"
 ! grep -qE '(^|[^a-z-])/start-auto([^a-z-]|$)' "$R" && ok "AC-1 start-auto 폐지 반영" || nope "AC-1" "start-auto 잔존"
 # AC-2: 7종 모두 등장 (start-all-auto 포함 — lite 2종은 20261114 제거)
 miss=""
-for s in '/start ' '/start-foundation' '/start-all' '/start-all-auto' '/init-project' '/maintain' '/brainstorming'; do
+for s in '/start ' '/start-foundation' '/start-all' 'start-all-auto' '/init-project' '/maintain' '`brainstorming`'; do  # start-all-auto·brainstorming 은 20261119 부터 `/` 메뉴에 없다(말로 요청) — 이름만 본다
   grep -q -- "$s" "$R" || miss="$miss $s"
 done
 [ -z "$miss" ] && ok "AC-2 9종 진입로 등장" || nope "AC-2" "누락:$miss"

@@ -231,7 +231,7 @@ if has templates/dispatch-context.md '## 7\. 실행 모드'; then ok "fable-tips
 #   (실측 `/context`: specops skill 행 54→32, ~870 tok 절감 — `claude plugin details` 투영값은 이 플래그를 반영하지 않는다).
 #   모델이 부를 수 있어야 하는 init-project(메타 skill 이 y 응답 시 호출)·status(재개 조회)는 켜 두지 않는다.
 _dmi_ok=ok; _dmi_n=0
-for c in design-interface design-interfaces design-screen design-screens gbrain maintain start-all start-foundation start; do
+for c in design-interface design-interfaces design-screen design-screens feedback gbrain maintain start-all start-foundation start; do
   _dmi_n=$((_dmi_n+1))
   awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$PLUGIN/commands/$c.md" | grep -qx 'disable-model-invocation: true' || { _dmi_ok=no; echo "  (플래그 누락: commands/$c.md)"; }
 done
@@ -246,22 +246,22 @@ done
 #   스스로 부르지 않게 설명에 조건을 적는다. ③ 보이는 명령에 숨김이 붙으면 진입점이 사라진다. ④ skill 은 내부 단계라 전부 숨긴다.
 _fm() { awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$1"; }
 _menu_ok=ok
-for c in basic brainstorming doctor e2e-test feedback improve-arch log promote release security-scan start-all-auto statusline-install; do
+for c in basic brainstorming doctor e2e-test improve-arch log promote release security-scan start-all-auto statusline-install; do
   _fm "$PLUGIN/commands/$c.md" | grep -qx 'user-invocable: false' || { _menu_ok=no; echo "  (숨김 누락: commands/$c.md)"; }
   _fm "$PLUGIN/commands/$c.md" | grep -q 'disable-model-invocation' && { _menu_ok=no; echo "  (숨긴 명령을 모델도 못 부른다: $c)"; }
 done
-for c in e2e-test feedback promote release start-all-auto; do  # basic 은 아래에서 따로(갈래 추론 금지 문구)
+for c in e2e-test promote release start-all-auto; do  # basic 은 아래에서 따로(갈래 추론 금지 문구)
   _fm "$PLUGIN/commands/$c.md" | grep '^description:' | grep -q '사용자가 명시적으로 요청할 때만 호출한다' || { _menu_ok=no; echo "  (부작용 명령 설명에 호출 조건 없음: $c)"; }
 done
 _fm "$PLUGIN/commands/basic.md" | grep '^description:' | grep -q '명시적으로 요청할 때만 호출한다(갈래를 추론해 부르지 않는다)' || { _menu_ok=no; echo "  (basic 설명에 갈래 추론 금지 조건 없음)"; }
-for c in start maintain quick-fix start-all init-project start-foundation status gbrain design-screen design-screens design-interface design-interfaces design-overview; do
+for c in start maintain quick-fix start-all init-project start-foundation status gbrain feedback design-screen design-screens design-interface design-interfaces design-overview; do
   _fm "$PLUGIN/commands/$c.md" | grep -q 'user-invocable' && { _menu_ok=no; echo "  (보여야 할 명령이 숨겨졌다: $c)"; }
 done
 for s in "$PLUGIN"/skills/*/SKILL.md; do
   _fm "$s" | grep -qx 'user-invocable: false' || { _menu_ok=no; echo "  (skill 숨김 누락: ${s#"$PLUGIN"/})"; }
   _fm "$s" | grep -q 'disable-model-invocation' && { _menu_ok=no; echo "  (skill 을 모델이 못 부른다 — 체인이 끊긴다: ${s#"$PLUGIN"/})"; }
 done
-[ "$_menu_ok" = ok ] && ok "menu: 보이는 명령 13종 · 숨긴 명령 12종(말로 요청하면 모델이 호출) · skill 전부 숨김" || nope "menu: 메뉴 노출 계약 위반"
+[ "$_menu_ok" = ok ] && ok "menu: 보이는 명령 14종 · 숨긴 명령 11종(말로 요청하면 모델이 호출) · skill 전부 숨김" || nope "menu: 메뉴 노출 계약 위반"
 # 비활성 command 를 skill 호출 문법(devfsd:<cmd>)으로 부르는 본문이 없다 — 있으면 모델이 못 불러 체인이 끊긴다
 _dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'devfsd:(brainstorming|design-interfaces?|design-screens?|doctor|e2e-test|gbrain|improve-arch|log|maintain|promote|release|security-scan|start-all-auto|start-all|start-foundation|start|statusline-install)([^-a-z]|$)' -- skills agents hooks 2>/dev/null | head -3)
 [ -z "$_dmi_ref" ] && ok "dmi: 비활성 command 를 모델이 skill 로 호출하는 본문 0건" || nope "dmi: 비활성 command 호출 참조" "$_dmi_ref"

@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.13.0] — 2026-11-20
+
 ### Added
 
 - **브라우저 E2E 게이트에 지켜보기 모드(`observe`)를 넣었다**. 5.12.0 의 게이트는 끄기/켜기 두 칸뿐이라, 효과를 재려면 켜야 하고 켜면 바로 막았다. 이제 `.specops/config.yaml` 의 `browser_e2e.mode` 가 `off`(기본) · `observe` · `enforce` 세 칸이다. `observe` 는 돌리되 막지 않고, 막았을 판정을 `E2E-…: OBSERVE (막았을 것 — …)` 로 내며 `.specops/e2e-observe.jsonl` 에 남긴다(통과한 판정도 기록한다 — 수율의 분모다). 새 게이트는 여기서 시작해 오탐을 본 뒤 `enforce` 로 올린다. 옛 표기 `enabled: true` 는 `enforce` 로 읽고, 모르는 `mode` 값도 `enforce` 로 읽는다(오타로 게이트가 꺼지지 않게).
@@ -4342,7 +4344,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.12.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.13.0...HEAD
+[5.13.0]: https://github.com/andyko18/devFSD/compare/v5.12.0...v5.13.0
 [5.12.0]: https://github.com/andyko18/devFSD/compare/v5.11.2...v5.12.0
 [5.11.2]: https://github.com/andyko18/devFSD/compare/v5.11.1...v5.11.2
 [5.11.1]: https://github.com/andyko18/devFSD/compare/v5.11.0...v5.11.1

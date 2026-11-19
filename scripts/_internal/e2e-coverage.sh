@@ -6,6 +6,7 @@
 # 출력(마지막 줄):
 #   E2E-COVERAGE: PASS (화면 AC <n>/<m> = <p>% · 기준 <t>% · 백엔드 <b> · 해당 없음 <k>)
 #   E2E-COVERAGE: FAIL (… 같은 꼴 …)  또는  FAIL (분류 안 된 AC <N>건 | 사유 없는 제외 <N>건)
+#   E2E-COVERAGE: OBSERVE (막았을 것 — …)                          — 관찰 모드에서 FAIL 이었을 판정. 막지 않는다(rc 0)
 #   E2E-COVERAGE: SKIP (OFF|NO_AC|NO_SCOPE|NO_BROWSER_AC — 사유)   — 판정하지 못함. PASS 로 적지 않는다
 #   그 위에 문제마다 `  - <AC> <내용>` 한 줄
 # rc: 0 PASS · 1 FAIL · 3 SKIP · 2 사용법
@@ -20,28 +21,20 @@
 #                                           backend·none 은 사유가 있어야 한다.
 #   시나리오 파일                            이름이 `*.e2e.mjs|js|cjs` 이고 본문에 `FID: <FID>` 줄이 있는 파일의 `@AC-<id>` 태그
 #                                           (node_modules·.git·dist·build 는 보지 않는다)
-# 설정 (`.specops/config.yaml` 의 `browser_e2e:` 블록 · 환경변수 우선):
-#   enabled: true|false     DEVFSD_BROWSER_E2E=1        (기본 false)
-#   min_coverage: 95        DEVFSD_E2E_MIN_COVERAGE     (0~100 · 기본 95)
+# 설정 (`.specops/config.yaml` 의 `browser_e2e:` 블록 — 읽는 규칙은 e2e-mode.sh):
+#   mode: off|observe|enforce   DEVFSD_BROWSER_E2E_MODE   (기본 off · 옛 `enabled: true` 는 enforce)
+#   min_coverage: 95            DEVFSD_E2E_MIN_COVERAGE   (0~100 · 기본 95)
+#   observe 는 막지 않는다 — 막았을 판정이면 `E2E-COVERAGE: OBSERVE (막았을 것 — …)` rc 0 을 내고 .specops/e2e-observe.jsonl 에 남긴다.
+#   mode·min_coverage 는 기준 브랜치 값보다 느슨해질 수 없다(같은 변경이 자기 기준을 낮추지 못하게) · 환경변수도 엄하게만 바꾼다.
 set -u
 
 SPECOPS="${SPECOPS_ROOT:-.specops}"
 CONFIG="${SPECOPS_CONFIG:-$SPECOPS/config.yaml}"
+HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=/dev/null
+. "$HERE/e2e-mode.sh"
 
-usage() { sed -n '4,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
-
-cfg() {  # browser_e2e: 블록의 한 단계 키. 없으면 빈 문자열
-  [ -r "$CONFIG" ] || return 0
-  awk -v key="$1" '
-    /^browser_e2e:[[:space:]]*(#.*)?$/ { inb = 1; next }
-    inb && /^[^[:space:]#]/ { inb = 0 }
-    inb {
-      line = $0; sub(/[[:space:]]+#.*$/, "", line)
-      if (match(line, "^[[:space:]]+" key ":[[:space:]]*")) {
-        v = substr(line, RLENGTH + 1); sub(/[[:space:]]+$/, "", v); gsub(/^["\047]|["\047]$/, "", v); print v; exit
-      }
-    }' "$CONFIG"
-}
+usage() { sed -n '4,11p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' >&2; }
 
 FID="${1:-}"; FORCE=0
 [ "${2:-}" = "--force" ] && FORCE=1
@@ -49,15 +42,21 @@ case "$FID" in ''|*/*|*..*|-*) usage; exit 2 ;; esac
 
 skip() { echo "E2E-COVERAGE: SKIP ($1)"; exit 3; }
 
-enabled="${DEVFSD_BROWSER_E2E:-}"; [ -n "$enabled" ] || enabled=$(cfg enabled)
-case "$(printf '%s' "$enabled" | tr 'A-Z' 'a-z')" in
-  true|yes|on|1) : ;;
-  *) [ "$FORCE" = 1 ] || skip "OFF — config browser_e2e.enabled: true 로 켠다" ;;
-esac
+e2e_resolve
+MODE="$E2E_MODE"; min="$E2E_MIN"
+if [ "$MODE" = off ]; then
+  [ "$FORCE" = 1 ] || skip "OFF — config browser_e2e.mode: observe|enforce 로 켠다"
+  MODE=enforce   # --force: 꺼져 있어도 있는 그대로 판정한다
+fi
 
-min="${DEVFSD_E2E_MIN_COVERAGE:-}"; [ -n "$min" ] || min=$(cfg min_coverage)
-case "$min" in ''|*[!0-9]*) min=95 ;; esac
-[ "$min" -le 100 ] || min=100
+# 판정을 낸다. observe 면 막았을 판정을 기록만 하고 통과시킨다
+fail() {  # $1=요약
+  if [ "$MODE" = observe ]; then
+    e2e_observe_record "$FID" coverage true "$1"
+    echo "E2E-COVERAGE: OBSERVE (막았을 것 — $1)"; exit 0
+  fi
+  echo "E2E-COVERAGE: FAIL ($1)"; exit 1
+}
 
 AC_FILE="$SPECOPS/$FID/acceptance-criteria.md"
 SCOPE="$SPECOPS/$FID/e2e-scope.txt"
@@ -102,13 +101,17 @@ done <<EOF
 $tags
 EOF
 
+[ -n "$E2E_NOTES" ] && printf '%b' "$E2E_NOTES"
 [ -n "$problems" ] && printf '%b' "$problems"
 if [ "$n_unclassified" -gt 0 ] || [ "$n_noreason" -gt 0 ]; then
-  echo "E2E-COVERAGE: FAIL (분류 안 된 AC ${n_unclassified}건 · 사유 없는 제외 ${n_noreason}건)"; exit 1
+  fail "분류 안 된 AC ${n_unclassified}건 · 사유 없는 제외 ${n_noreason}건"
 fi
 [ "$n_browser" -gt 0 ] || skip "NO_BROWSER_AC — 브라우저로 볼 AC 가 없다(백엔드 $n_backend · 해당 없음 $n_none)"
 
 pct=$((n_cover * 100 / n_browser))
 summary="화면 AC $n_cover/$n_browser = ${pct}% · 기준 ${min}% · 백엔드 $n_backend · 해당 없음 $n_none"
-if [ "$pct" -ge "$min" ]; then echo "E2E-COVERAGE: PASS ($summary)"; exit 0; fi
-echo "E2E-COVERAGE: FAIL ($summary)"; exit 1
+if [ "$pct" -ge "$min" ]; then
+  [ "$MODE" = observe ] && { e2e_observe_record "$FID" coverage false "$summary"; summary="$summary · 관찰 모드"; }
+  echo "E2E-COVERAGE: PASS ($summary)"; exit 0
+fi
+fail "$summary"

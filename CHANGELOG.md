@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.11.1] — 2026-11-19
+
 ### Fixed
 
 - **관제판 표시 2건을 고쳤다** (Claude Code 2.1.317 · tmux 실세션 점검). ① 첫 요청을 보내기 전에는 모델 칸이 `—` 였다 — 세션은 이미 모델을 아는데 첫 `turn.step` 때만 채웠다. 세션 시작 때 `$.session.model()` 로 받아 보이고, 못 알려 주는 호스트는 종전대로 `—` 로 시작한다(`/devfsd reset` 뒤에도 유지). effort 칸은 엔진에 시작 시점 조회가 없어 첫 요청 전까지 그대로 `—` 다. ② session log 에서 이름 칸을 꽉 채운 이름이 본문과 붙어 `Count Python…done · 8s` 로 보였다 — 이름 칸 오른쪽 한 칸을 비웠다. 테스트 3건을 더했다(수정 전 실패 확인).
@@ -4320,7 +4322,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.11.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.11.1...HEAD
+[5.11.1]: https://github.com/andyko18/devFSD/compare/v5.11.0...v5.11.1
 [5.11.0]: https://github.com/andyko18/devFSD/compare/v5.10.1...v5.11.0
 [5.10.1]: https://github.com/andyko18/devFSD/compare/v5.10.0...v5.10.1
 [5.10.0]: https://github.com/andyko18/devFSD/compare/v5.9.3...v5.10.0

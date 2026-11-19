@@ -6,6 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/dispatching-parallel-agents/S
 specops_version: 2.9.0
 used_by: implementing-ko (독립 leaf 태스크 2개+ 감지 시 자동 분기)
 integrates_with: docs/harness-principles.md (파일 기반 전달 · 컨텍스트 리셋)
+user-invocable: false
 ---
 
 # Engine 스킬 — 병렬 서브에이전트 dispatch

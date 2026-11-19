@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
 specops_version: 3.1.21
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구 · end-loaded/per-task), /start-all (FR별 implementing)
+user-invocable: false
 ---
 
 # Engine 스킬 — 서브에이전트 주도 구현 (implementing)

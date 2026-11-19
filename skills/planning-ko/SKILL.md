@@ -6,6 +6,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
   - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
 specops_version: 3.1.21
 used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all (Phase 2 batch plan-review)
+user-invocable: false
 ---
 
 # Engine 스킬 — 구현 플랜 작성 (planning)

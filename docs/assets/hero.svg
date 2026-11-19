@@ -1,69 +1,119 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-labelledby="t d">
-  <title id="t">specops-ko — 명세에서 PR 까지 이어지는 자율 Lifecycle</title>
-  <desc id="d">명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 순서로 이어지는 단계. 사람이 확인하는 곳은 명확화 끝의 승인 묶음 1회와 PR 이다(--step 이면 단계마다).</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 460" width="1280" height="460" role="img" aria-labelledby="t d">
+  <title id="t">devFSD — 명세에서 PR 까지 이어지는 개발 자율주행</title>
+  <desc id="d">명세, 명확화, 계획, 분해, TDD 구현, 검증, 리뷰, 보안·통합·성능, PR 순서로 이어지는 단계 위를 빛나는 점이 달린다. 사람이 확인하는 곳은 명확화 끝의 승인 묶음 1회와 PR 머지다(--step 이면 단계마다).</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop class="a1" offset="0"/><stop class="a2" offset="1"/></linearGradient>
-    <linearGradient id="strip" x1="0" y1="0" x2="1" y2="0"><stop class="c0" offset="0"/><stop class="c1" offset="0.35"/><stop class="c2" offset="0.7"/><stop class="c3" offset="1"/></linearGradient>
-    <filter id="glow" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-    <clipPath id="card"><rect x="1" y="1" width="1278" height="318" rx="20"/></clipPath>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop class="b0" offset="0"/><stop class="b1" offset="0.55"/><stop class="b2" offset="1"/></linearGradient>
+    <linearGradient id="road" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#38bdf8"/><stop offset="0.35" stop-color="#34d399"/><stop offset="0.7" stop-color="#fbbf24"/><stop offset="1" stop-color="#fb7185"/></linearGradient>
+    <linearGradient id="title" x1="0" y1="0" x2="1" y2="0"><stop class="t0" offset="0"/><stop class="t1" offset="0.5"/><stop class="t2" offset="1"/></linearGradient>
+    <radialGradient id="blobA" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#38bdf8" stop-opacity="0.55"/><stop offset="1" stop-color="#38bdf8" stop-opacity="0"/></radialGradient>
+    <radialGradient id="blobB" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#a78bfa" stop-opacity="0.5"/><stop offset="1" stop-color="#a78bfa" stop-opacity="0"/></radialGradient>
+    <radialGradient id="blobC" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#fb7185" stop-opacity="0.4"/><stop offset="1" stop-color="#fb7185" stop-opacity="0"/></radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="soft" x="-20%" y="-60%" width="140%" height="220%"><feGaussianBlur stdDeviation="9"/></filter>
+    <clipPath id="card"><rect x="2" y="2" width="1276" height="456" rx="28"/></clipPath>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path class="grid" d="M40 0H0V40" fill="none" stroke-width="1"/></pattern>
   </defs>
   <style>
     text{font-family:-apple-system,'Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic','Segoe UI',sans-serif}
-    .a1{stop-color:#ffffff}.a2{stop-color:#eef2ff}
-    .c0{stop-color:#3b82f6}.c1{stop-color:#10b981}.c2{stop-color:#f59e0b}.c3{stop-color:#f43f5e}
-    .bg{stroke:#e2e8f0}
-    .chip{fill:#ffffff;stroke:#cbd5e1;stroke-width:1.5}
-    .gate{fill:#ffffff;stroke:#334155;stroke-width:3}
-    .lbl,.gl{fill:#0f172a}.gl{font-weight:700}
-    .name{fill:#0f172a}.tag{fill:#475569}.note{fill:#475569}.arrow{stroke:#94a3b8}
-    .bar0{fill:#3b82f6}.bar1{fill:#10b981}.bar2{fill:#f59e0b}.bar3{fill:#f43f5e}
+    .b0{stop-color:#f8fbff}.b1{stop-color:#eef2ff}.b2{stop-color:#fdf2f8}
+    .t0{stop-color:#0284c7}.t1{stop-color:#7c3aed}.t2{stop-color:#e11d48}
+    .frame{stroke:#dbe3f3}
+    .grid{stroke:#c7d2fe;stroke-opacity:.35}
+    .blob{opacity:.55}
+    .pill{fill:#ffffff;stroke:#c7d2fe}.pillt{fill:#4338ca}
+    .tag{fill:#1e293b}.sub{fill:#475569}
+    .node{fill:#ffffff;stroke:#94a3b8;stroke-width:2}
+    .gate{fill:#ffffff;stroke:#7c3aed;stroke-width:3}
+    .lbl{fill:#1e293b}.gl{fill:#5b21b6;font-weight:700}
+    .roadbase{stroke:#cbd5e1}
+    .chip{fill:#ffffff;fill-opacity:.85;stroke:#dbe3f3}.chipt{fill:#334155}.chipk{fill:#0f172a;font-weight:700}
+    .dash{stroke-dasharray:14 14;animation:run 1.6s linear infinite}
+    .pulse{animation:pulse 2.4s ease-in-out infinite}
+    .float{animation:float 9s ease-in-out infinite}
+    @keyframes run{to{stroke-dashoffset:-28}}
+    @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
     @media (prefers-color-scheme: dark){
-      .a1{stop-color:#0b1020}.a2{stop-color:#141c36}
-      .bg{stroke:#1e293b}
-      .chip{fill:#111a33;stroke:#334155}
-      .gate{fill:#111a33;stroke:#e2e8f0}
-      .lbl,.gl{fill:#f1f5f9}.name{fill:#f8fafc}.tag{fill:#94a3b8}.note{fill:#94a3b8}.arrow{stroke:#475569}
+      .b0{stop-color:#070b1a}.b1{stop-color:#0d1430}.b2{stop-color:#1a0f2e}
+      .t0{stop-color:#7dd3fc}.t1{stop-color:#c4b5fd}.t2{stop-color:#fda4af}
+      .frame{stroke:#27325a}
+      .grid{stroke:#6366f1;stroke-opacity:.16}
+      .blob{opacity:.9}
+      .pill{fill:#111a3a;stroke:#3b4a86}.pillt{fill:#c7d2fe}
+      .tag{fill:#f1f5f9}.sub{fill:#a5b4cf}
+      .node{fill:#0f1733;stroke:#475a8f}
+      .gate{fill:#161040;stroke:#c4b5fd}
+      .lbl{fill:#e2e8f0}.gl{fill:#ddd6fe}
+      .roadbase{stroke:#27325a}
+      .chip{fill:#0f1733;fill-opacity:.8;stroke:#27325a}.chipt{fill:#a5b4cf}.chipk{fill:#f8fafc}
     }
+    @media (prefers-reduced-motion: reduce){.dash,.pulse,.float{animation:none}.car{display:none}}
   </style>
-  <rect class="bg" x="1" y="1" width="1278" height="318" rx="20" fill="url(#bg)" stroke-width="2"/>
-  <rect x="1" y="1" width="1278" height="8" fill="url(#strip)" clip-path="url(#card)"/>
-  <text class="name" x="640" y="108" font-size="66" font-weight="800" text-anchor="middle">specops-ko</text>
-  <text class="tag" x="640" y="150" font-size="22" text-anchor="middle">Claude Code 전용 한국어 자율 Lifecycle 플러그인</text>
-  <rect class="chip" x="45" y="190" width="118" height="48" rx="12"/>
-  <rect class="bar0" x="55" y="190" width="98" height="5" rx="2.5"/>
-  <text class="lbl" x="104" y="220" font-size="17" text-anchor="middle">명세</text>
-  <path class="arrow" d="M163 214H179" fill="none" stroke-width="2.5" stroke-linecap="round"/>
-  <rect class="gate" x="179" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>
-  <rect class="bar0" x="189" y="190" width="98" height="5" rx="2.5"/>
-  <text class="gl" x="238" y="220" font-size="17" text-anchor="middle">★ 명확화</text>
-  <path class="arrow" d="M297 214H313" fill="none" stroke-width="2.5" stroke-linecap="round"/>
-  <rect class="chip" x="313" y="190" width="118" height="48" rx="12"/>
-  <rect class="bar0" x="323" y="190" width="98" height="5" rx="2.5"/>
-  <text class="lbl" x="372" y="220" font-size="17" text-anchor="middle">계획</text>
-  <path class="arrow" d="M431 214H447" fill="none" stroke-width="2.5" stroke-linecap="round"/>
-  <rect class="chip" x="447" y="190" width="118" height="48" rx="12"/>
-  <rect class="bar1" x="457" y="190" width="98" height="5" rx="2.5"/>
-  <text class="lbl" x="506" y="220" font-size="17" text-anchor="middle">분해</text>
-  <path class="arrow" d="M565 214H581" fill="none" stroke-width="2.5" stroke-linecap="round"/>
-  <rect class="chip" x="581" y="190" width="118" height="48" rx="12"/>
-  <rect class="bar1" x="591" y="190" width="98" height="5" rx="2.5"/>
-  <text class="lbl" x="640" y="220" font-size="17" text-anchor="middle">TDD 구현</text>
-  <path class="arrow" d="M699 214H715" fill="none" stroke-width="2.5" stroke-linecap="round"/>
-  <rect class="chip" x="715" y="190" width="118" height="48" rx="12"/>
-  <rect class="bar2" x="725" y="190" width="98" height="5" rx="2.5"/>
-  <text class="lbl" x="774" y="220" font-size="17" text-anchor="middle">검증</text>
-  <path class="arrow" d="M833 214H849" fill="none" stroke-width="2.5" stroke-linecap="round"/>
-  <rect class="chip" x="849" y="190" width="118" height="48" rx="12"/>
-  <rect class="bar2" x="859" y="190" width="98" height="5" rx="2.5"/>
-  <text class="lbl" x="908" y="220" font-size="17" text-anchor="middle">리뷰</text>
-  <path class="arrow" d="M967 214H983" fill="none" stroke-width="2.5" stroke-linecap="round"/>
-  <rect class="chip" x="983" y="190" width="118" height="48" rx="12"/>
-  <rect class="bar2" x="993" y="190" width="98" height="5" rx="2.5"/>
-  <text class="lbl" x="1042" y="220" font-size="15" text-anchor="middle">보안·통합·성능</text>
-  <path class="arrow" d="M1101 214H1117" fill="none" stroke-width="2.5" stroke-linecap="round"/>
-  <rect class="gate" x="1117" y="190" width="118" height="48" rx="12" filter="url(#glow)"/>
-  <rect class="bar3" x="1127" y="190" width="98" height="5" rx="2.5"/>
-  <text class="gl" x="1176" y="220" font-size="17" text-anchor="middle">★ PR</text>
-  <text class="note" x="640" y="266" font-size="16" text-anchor="middle">★ = 사람이 확인하는 곳 — 승인 묶음 1회와 PR (--step 이면 단계마다)</text>
-  <text class="note" x="640" y="294" font-size="16" text-anchor="middle">verify 없이 git commit·gh pr create 하면 훅이 실행 전에 차단한다 (.specops/ 가 있는 repo)</text>
+
+  <g clip-path="url(#card)">
+    <rect x="2" y="2" width="1276" height="456" fill="url(#bg)"/>
+    <rect x="2" y="2" width="1276" height="456" fill="url(#grid)"/>
+    <g class="blob">
+      <circle class="float" cx="150" cy="70" r="230" fill="url(#blobA)"/>
+      <circle class="float" cx="1130" cy="120" r="260" fill="url(#blobB)" style="animation-delay:-3s"/>
+      <circle class="float" cx="700" cy="470" r="240" fill="url(#blobC)" style="animation-delay:-6s"/>
+    </g>
+    <rect x="2" y="2" width="1276" height="7" fill="url(#road)"/>
+  </g>
+  <rect class="frame" x="2" y="2" width="1276" height="456" rx="28" fill="none" stroke-width="2"/>
+
+  <rect class="pill" x="478" y="38" width="324" height="34" rx="17" stroke-width="1.5"/>
+  <circle class="pulse" cx="500" cy="55" r="5" fill="#34d399"/>
+  <text class="pillt" x="648" y="61" font-size="15" font-weight="600" text-anchor="middle" letter-spacing="1">CLAUDE CODE 전용 · 한국어 Lifecycle</text>
+
+  <text x="640" y="158" font-size="96" font-weight="800" text-anchor="middle" fill="url(#title)" letter-spacing="-2">devFSD</text>
+  <text class="tag" x="640" y="204" font-size="27" font-weight="700" text-anchor="middle">개발 자율주행 — 한마디 요청이 PR 까지 스스로 달린다</text>
+  <text class="sub" x="640" y="236" font-size="18" text-anchor="middle">감독형이다 · 설계 승인과 PR 머지는 사람이 한다</text>
+
+  <path class="roadbase" d="M104 316H1176" fill="none" stroke-width="10" stroke-linecap="round"/>
+  <path d="M104 316H1176" fill="none" stroke="url(#road)" stroke-width="10" stroke-linecap="round" opacity=".28" filter="url(#soft)"/>
+  <path class="dash" d="M104 316H1176" fill="none" stroke="url(#road)" stroke-width="4" stroke-linecap="round"/>
+
+  <g class="car" filter="url(#glow)">
+    <circle r="9" fill="#ffffff"><animateMotion dur="7s" repeatCount="indefinite" path="M104 316H1176" keyTimes="0;1" calcMode="linear"/></circle>
+    <circle r="15" fill="#7dd3fc" opacity=".45"><animateMotion dur="7s" repeatCount="indefinite" path="M104 316H1176" keyTimes="0;1" calcMode="linear"/></circle>
+  </g>
+
+  <g font-size="16" text-anchor="middle">
+    <circle class="node" cx="104" cy="316" r="13"/><circle cx="104" cy="316" r="5" fill="#38bdf8"/>
+    <text class="lbl" x="104" y="356">명세</text>
+
+    <circle class="gate" cx="238" cy="316" r="17" filter="url(#glow)"/><text class="gl" x="238" y="322" font-size="17">★</text>
+    <text class="gl" x="238" y="356">명확화 · 승인</text>
+
+    <circle class="node" cx="372" cy="316" r="13"/><circle cx="372" cy="316" r="5" fill="#38bdf8"/>
+    <text class="lbl" x="372" y="356">계획</text>
+
+    <circle class="node" cx="506" cy="316" r="13"/><circle cx="506" cy="316" r="5" fill="#34d399"/>
+    <text class="lbl" x="506" y="356">분해</text>
+
+    <circle class="node" cx="640" cy="316" r="13"/><circle cx="640" cy="316" r="5" fill="#34d399"/>
+    <text class="lbl" x="640" y="356">TDD 구현</text>
+
+    <circle class="node" cx="774" cy="316" r="13"/><circle cx="774" cy="316" r="5" fill="#fbbf24"/>
+    <text class="lbl" x="774" y="356">검증</text>
+
+    <circle class="node" cx="908" cy="316" r="13"/><circle cx="908" cy="316" r="5" fill="#fbbf24"/>
+    <text class="lbl" x="908" y="356">리뷰</text>
+
+    <circle class="node" cx="1042" cy="316" r="13"/><circle cx="1042" cy="316" r="5" fill="#fb7185"/>
+    <text class="lbl" x="1042" y="356">보안·통합·성능</text>
+
+    <circle class="gate" cx="1176" cy="316" r="17" filter="url(#glow)"/><text class="gl" x="1176" y="322" font-size="17">★</text>
+    <text class="gl" x="1176" y="356">PR · 머지</text>
+  </g>
+
+  <g font-size="15" text-anchor="middle">
+    <rect class="chip" x="96" y="392" width="340" height="40" rx="20" stroke-width="1.5"/>
+    <text x="266" y="417"><tspan class="chipk">★ 사람이 확인하는 곳</tspan><tspan class="chipt"> — 승인 1회와 머지</tspan></text>
+    <rect class="chip" x="470" y="392" width="340" height="40" rx="20" stroke-width="1.5"/>
+    <text x="640" y="417"><tspan class="chipk">증거 없는 커밋</tspan><tspan class="chipt"> 은 훅이 실행 전에 차단</tspan></text>
+    <rect class="chip" x="844" y="392" width="340" height="40" rx="20" stroke-width="1.5"/>
+    <text x="1014" y="417"><tspan class="chipk">산출물은 파일로</tspan><tspan class="chipt"> — 끊겨도 이어 간다</tspan></text>
+  </g>
 </svg>

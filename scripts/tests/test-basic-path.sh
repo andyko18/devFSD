@@ -412,7 +412,7 @@ FID=$FID_KEEP
 
 # ── D 문서 잠금 ──
 C="$PLUGIN/commands/basic.md"
-has "$C" 'disable-model-invocation: true' '/basic' && ok "D1 슬래시 전용 명령(모델 자동 호출 금지)" || no "D1"
+has "$C" 'user-invocable: false' '갈래를 추론해 부르지 않는다' '/basic' && ! grep -q '^disable-model-invocation' "$C" && ok "D1 메뉴 숨김 · 명시 요청일 때만 호출(갈래 추론 금지)" || no "D1"
 has "$C" '**주 세션이 직접 구현**' '서브에이전트에게 구현을 맡기지 않는다' '**실패하는 테스트를 먼저**' '**관련 테스트만**' \
   && ok "D2 주 세션 직접 구현 · 테스트 먼저 · 관련 테스트만" || no "D2"
 has "$C" '한 메시지에서 함께 보낸다' 'devfsd:spec-reviewer-ko' 'devfsd:code-reviewer-ko' 'security-scan.sh' '**PR 본문을 준비**' '재리뷰는 없다' \

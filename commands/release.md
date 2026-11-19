@@ -1,7 +1,7 @@
 ---
 name: release
-disable-model-invocation: true
-description: devFSD 플러그인 릴리즈 자동화 — bash scripts/release.sh <semver> 실행
+user-invocable: false
+description: devFSD 플러그인 릴리즈 자동화 — bash scripts/release.sh <semver> 실행 · 사용자가 명시적으로 요청할 때만 호출한다.
 triggers:
   - "/release"
 mode: ask

@@ -1,7 +1,7 @@
 ---
 name: basic
-disable-model-invocation: true
-description: "[단일·기본] 기본 경로 직접 지정 — spec 1장 승인 → 주 세션 직접 구현 → 스펙·코드 리뷰 + 보안 스캔 동시 1회 → 검증 1회 → PR (`/start`·`/maintain` 이 무거운 위험 신호가 없으면 자동으로 고르는 경로)"
+user-invocable: false
+description: "[단일·기본] 기본 경로 직접 지정 — spec 1장 승인 → 주 세션 직접 구현 → 스펙·코드 리뷰 + 보안 스캔 동시 1회 → 검증 1회 → PR (`/start`·`/maintain` 이 무거운 위험 신호가 없으면 자동으로 고르는 경로) · 사용자가 기본 경로를 명시적으로 요청할 때만 호출한다(갈래를 추론해 부르지 않는다)."
 triggers:
   - "/basic"
 mode: ask

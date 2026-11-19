@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: forrestchang/andrej-karpathy-skills@main skills/karpathy-guidelines/SKILL.md
 specops_version: 1.0.0
 used_by: using-specops-ko (cross-cutting), implementing-ko, tdd-ko
+user-invocable: false
 ---
 
 # Karpathy 행동 원칙

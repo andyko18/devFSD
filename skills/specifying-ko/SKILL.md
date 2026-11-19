@@ -7,6 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - skills/brainstorming-ko/SKILL.md
 specops_version: 3.1.21
 used_by: using-specops-ko, /start, /start-foundation, /start-all, /start-all-auto, /maintain, /promote
+user-invocable: false
 ---
 
 # Engine 스킬 — 아이디어를 설계로 (specifying)

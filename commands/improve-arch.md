@@ -1,6 +1,6 @@
 ---
 name: improve-arch
-disable-model-invocation: true
+user-invocable: false
 description: 코드베이스 아키텍처 분석 슬래시 — improve-codebase-architecture-ko 호출. deep module 원칙 기준 split/merge 권고안 제시.
 triggers:
   - "/improve-arch"

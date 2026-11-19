@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: "specops-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)"
 specops_version: 1.63.0
 used_by: /improve-arch
+user-invocable: false
 ---
 
 # 코드베이스 아키텍처 개선 (improve-codebase-architecture)

@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: specops-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills/release/ 패턴 bash 번안)
 specops_version: 3.1.33
 used_by: /release
+user-invocable: false
 ---
 
 # release-ko — 릴리즈 자동화

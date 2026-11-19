@@ -5,6 +5,7 @@ layer: 1
 reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
 specops_version: 2.20.0
 used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
+user-invocable: false
 ---
 
 # Harness 메타 스킬 — specops-ko 자율 Lifecycle 진입

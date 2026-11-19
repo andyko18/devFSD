@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.1.0 skills/finishing-a-development-branch/SKILL.md
 specops_version: 1.61.0
 used_by: using-git-worktrees-ko (짝 스킬 — 작업 완료 후 호출), performance-test-ko, e2e-test-ko
+user-invocable: false
 ---
 
 # Engine 스킬 — 개발 브랜치 정리 (finishing-a-development-branch)

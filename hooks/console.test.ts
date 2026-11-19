@@ -73,6 +73,9 @@ import {
   wideWidth,
   openedText,
   boardText,
+  demoBoard,
+  progressLabel,
+  autoOpenHint,
   surfaceHint,
   CMD_NAME,
   DEMO_BOARDS,
@@ -1893,15 +1896,16 @@ const subtree = (n: unknown, key: string): Drawn | undefined => {
 const PROG_IMPLEMENT = '# p\n<!-- active-fid: 20261106-x -->\n\n## 20261106-x · y\n\n- 2026-11-06 10:00 /implement 진행 (x)\n'
 
 /** 활성 FID 가 있는 세계: progress 는 넘긴 문자열, verification-state.sh 는 verify 낱말, hasFid:false 는 FID 없는 progress. */
-const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean; gh?: () => unknown; mode?: () => string; noSurface?: boolean; panes?: () => unknown } = {}) => {
+const fidWorld = (on: On, o: { progress?: string; verify?: string; hasFid?: () => boolean; gh?: () => unknown; mode?: () => string; noSurface?: boolean; panes?: () => unknown; exists?: (path: string) => boolean; open?: (rows: number | undefined) => unknown; toasts?: string[] } = {}) => {
   const clock = engine(on)
   const progress = o.progress ?? PROG_IMPLEMENT
   const hasFid = o.hasFid ?? (() => true)
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('command.register', (_$, e) => ({ value: { command: e.name } }))
-  on('ui.open', () => ({ value: o.noSurface ? { isPlaced: false as const, reason: 'no-surface: no surface is attached' } : { isPlaced: true as const } }))
+  on('ui.open', (_$, e) => ({ value: (o.open ? o.open(e.rows) : o.noSurface ? { isPlaced: false as const, reason: 'no-surface: no surface is attached' } : { isPlaced: true as const }) as never }))
+  on('ui.toast', (_$, e) => (o.toasts?.push(e.text), { value: undefined }))
   on('ui.panes', () => ({ value: (o.panes ? o.panes() : [{ id: 'devfsd-console', title: 'devFSD 관제판', isShown: true, isFocused: false, isPlaced: true }]) as never }))
-  on('fs.exists', () => ({ value: true }))
+  on('fs.exists', (_$, e) => ({ value: o.exists ? o.exists(e.path) : true }))
   on('fs.read', () => ({ value: hasFid() ? progress : '# p\n' }))
   on('process.run', (_$, e) => {
     const argv = (e as unknown as { argv: string[] }).argv
@@ -3199,4 +3203,215 @@ test('devFSD: 열기 안내 — /devfsd 는 패널 상태를 점검해 그 말�
   expect((await $.command.run({ command: 'devfsd', args: '' })).text).toMatch(/뒤의 탭에 있습니다/)
   panes = [{ ...PANE_OK, isPlaced: false }]
   expect((await $.command.run({ command: 'devfsd', args: '' })).text).toMatch(/아직 그려지지 않았습니다/)
+})
+
+// ---------------------------------------------------------------- devFSD: 실제로 띄워 본 증상 (20261119)
+//   tmux 안의 Claude Code 2.1.317 에서 관제판을 띄워 재현한 것들이다. 각 테스트는 고치기 전에 실패하던 것을 잡는다.
+
+/** 쉬는 중에 끝난 작업의 알림 — 대기열 기록(queue) 뒤에 다음 턴의 첫 줄(prompt)로 온다. delivery 문으로는 오지 않는다. */
+const NOTE = (id: string, status = 'completed') => `<task-notification>\n<task-id>t-${id}</task-id>\n<tool-use-id>${id}</tool-use-id>\n<status>${status}</status>\n</task-notification>`
+const idleDone = (id: string, door: 'queue' | 'prompt', status = 'completed') =>
+  ({
+    door,
+    origin: door === 'queue' ? { kind: 'engine' } : { kind: 'task-notification' },
+    uuid: `row-${id}-${door}`,
+    message: { type: 'user', content: [{ type: 'text', text: NOTE(id, status) }] },
+  }) as never
+
+test('devFSD: BG end log — a job that ends while the main loop is idle (queue then prompt doors) logs one "↻ bg" line and no "engine" line', async ($, on) => {
+  const clock = await bgLogWorld($, on)
+  await $.turn.complete(finished('L1'))
+  await clock.advance(25_000)
+  // 실측 순서: queue 문 → prompt 문 → 그 알림이 여는 턴
+  await $.session.append(idleDone('r1', 'queue'))
+  await $.session.append(idleDone('r1', 'prompt'))
+  await $.turn.start({ text: NOTE('r1'), turnId: 'L2' })
+  const lines = await bgLines($)
+  expect(lines.filter(l => l[1]!.text === '↻ bg').map(l => l[2]!.text)).toEqual(['✓ publish · 25초'])
+  expect(lines.filter(l => l[1]!.text === 'engine')).toEqual([]) // 같은 일을 `engine task notification` 으로 또 적지 않는다
+  // 실패한 작업도 같은 길로 — prompt 문만 와도 적는다
+  await $.session.append(idleDone('r2', 'prompt', 'failed'))
+  expect((await bgLines($)).filter(l => l[1]!.text === '↻ bg').map(l => l[2]!.text)).toEqual(['✓ publish · 25초', '✗ lint · 25초'])
+})
+
+test('devFSD: BG end log — a notification for a job the board never saw still logs the engine line when it opens a turn', async ($, on) => {
+  await bgLogWorld($, on)
+  await $.turn.complete(finished('L1'))
+  await $.session.append(idleDone('zzz', 'queue'))
+  await $.turn.start({ text: NOTE('zzz'), turnId: 'L2' })
+  const lines = await bgLines($)
+  expect(lines.filter(l => l[1]!.text === '↻ bg')).toEqual([])
+  expect(lines.filter(l => l[1]!.text === 'engine').map(l => l[2]!.text)).toEqual(['task notification'])
+})
+
+const inlineTexts = async ($: Parameters<TestBody>[0], cols = 100) => {
+  const ui = await $.ui.mount({ ...inline(cols), surface: 'terminal' })
+  const leaves = leavesOf(await ui.drawn())
+  await ui.unmount()
+
+  return leaves.join('|')
+}
+
+test('devFSD: the inline summary names the work in hand — command, progress and verify, or the FID when no command is judged', async ($, on) => {
+  let mode = ''
+  fidWorld(on, { progress: PROG_B, verify: 'STALE', mode: () => mode })
+  await startFid($)
+  // 판정된 명령이 없으면 작업 이름과 단계 진행
+  const plain = await inlineTexts($)
+  expect(plain).toContain('devFSD')
+  expect(plain).toMatch(/20261106-x · \d+\/\d+ 구현/)
+  expect(plain).toContain('검증 STALE')
+  // 명령이 판정되면 명령 이름·진행률
+  mode = MODE_ALL
+  await $.tool.call({ tool: 'Edit', tool_use_id: 'e1', file_path: '/w/a.ts', old_string: 'a', new_string: 'b' } as never)
+  await settle()
+  const cmd = await inlineTexts($)
+  expect(cmd).toContain('◆ /start-all')
+  expect(cmd).toMatch(/\d+%/)
+  expect(cmd).toMatch(/일괄 묶음 1\/3/)
+})
+
+test('devFSD: the inline summary has no work line when there is no FID and no command', async ($, on) => {
+  fidWorld(on, { hasFid: () => false })
+  await startFid($)
+  const text = await inlineTexts($)
+  expect(text).not.toContain('devFSD')
+  expect(text).not.toContain('◆')
+})
+
+test('devFSD: 미리보기는 실제 작업의 이름·단계·검증을 섞지 않는다 (판 · 글자 안내 둘 다)', async ($, on) => {
+  expect(demoBoard({ fid: 'x', stages: [], verify: '검증 PASS', lane: '기본 경로', running: [1] })).toEqual({ fid: undefined, stages: undefined, verify: undefined, lane: undefined, running: [1] })
+  fidWorld(on, { progress: PROG_B, verify: 'STALE' })
+  await startFid($)
+  await $.command.run({ command: 'devfsd', args: 'demo start-all' })
+  const ui = await $.ui.mount({ ...pane(86), surface: 'terminal' })
+  const tree = await ui.drawn()
+  await ui.unmount()
+  const card = leavesOf(subtree(tree, 'panel-fid')).join('|')
+  expect(card).toContain('일괄 묶음 1/5 (예시)') // 양성 대조 — 예시가 그려졌다
+  expect(card).not.toContain('검증 STALE')
+  expect(card).not.toMatch(/분석✓|명확화/) // 실제 작업의 단계 줄(예시 흐름에는 없는 이름)
+  expect(textOf(subtree(tree, 'header'))).not.toMatch(/STALE|구현/)
+  await $.command.run({ command: 'devfsd', args: 'demo off' })
+  expect(leavesOf(subtree(await (async () => { const u = await $.ui.mount({ ...pane(86), surface: 'terminal' }); const d = await u.drawn(); await u.unmount(); return d })(), 'panel-fid')).join('|')).toContain('검증 STALE') // 끄면 실제 값이 돌아온다
+})
+
+test('devFSD: 미리보기 — 화면 없는 세션의 글자 안내에도 실제 검증 배지가 붙지 않는다', async ($, on) => {
+  fidWorld(on, { progress: PROG_B, verify: 'STALE', noSurface: true })
+  await startFid($)
+  const demo = await $.command.run({ command: 'devfsd', args: 'demo start-all' })
+  expect(demo.text).toContain(`◆ /start-all · ${DEMO_BOARDS.batch.title}`)
+  expect(demo.text).not.toContain('검증 STALE')
+})
+
+const PROG_DIRECT = '# p\n<!-- active-fid: 20261116-direct -->\n\n## 20261116-direct\n\n- 2026-11-16 17:04 /verify PASS (run-all 230/230)\n- 2026-11-16 16:00 /freework 완료 (x)\n'
+const noDocs = (path: string) => !/\/(spec\.md|tasks\.md|intent\.md|steps\.txt)$/.test(path)
+
+test('devFSD: 직접 고치고 검증만 기록한 작업은 단계 막대 없이 이름·검증만 보인다 — 돌지 않는 단계를 진행 중으로 그리지 않는다', async ($, on) => {
+  fidWorld(on, { progress: PROG_DIRECT, verify: 'NOT_RUN', exists: noDocs })
+  await startFid($)
+  const ui = await $.ui.mount({ ...pane(86), surface: 'terminal' })
+  const tree = await ui.drawn()
+  await ui.unmount()
+  const card = leavesOf(subtree(tree, 'panel-fid')).join('|')
+  expect(card).toContain('devFSD · 20261116-direct · 직접 수정')
+  expect(card).toContain('검증 NOT_RUN')
+  expect(card).not.toMatch(/보안|통합|검증✓|▶/) // 종전: `검증✓ ▶ 보안● 통합○ …` · `2/11 보안 · 다음 통합`
+  expect(subtree(tree, 'stage-bar')).toBeUndefined()
+  const header = textOf(subtree(tree, 'header'))
+  expect(header).toContain('NOT_RUN')
+  expect(header).not.toMatch(/완료|보안/) // 단계가 없다고 `완료` 라 하지 않는다
+  // 글자 안내도 같은 판을 읽는다
+  expect(boardText({ fid: '20261116-direct', stages: undefined, verify: '검증 NOT_RUN', lane: '직접 수정', cmd: undefined, running: [] })).toEqual(['◆ devFSD · 20261116-direct — 검증 NOT_RUN'])
+})
+
+test('devFSD: 검증 기록뿐이어도 작업 문서(spec·tasks)가 있으면 lifecycle 작업이다 — 단계 막대를 그대로 그린다', async ($, on) => {
+  fidWorld(on, { progress: PROG_DIRECT, verify: 'PASS', exists: path => !/\/(tasks\.md|intent\.md|steps\.txt)$/.test(path) }) // spec.md 만 있다
+  await startFid($)
+  const ui = await $.ui.mount({ ...pane(86), surface: 'terminal' })
+  const tree = await ui.drawn()
+  await ui.unmount()
+  expect(subtree(tree, 'stage-bar')).toBeDefined()
+  expect(leavesOf(subtree(tree, 'panel-fid')).join('|')).not.toContain('직접 수정')
+})
+
+test('devFSD: 세션 시작 때 관제판이 자리를 못 잡으면 여는 법을 한 줄 알린다 — 화면이 아예 없으면 조용하다', async ($, on) => {
+  expect(autoOpenHint({ isPlaced: true })).toBeUndefined()
+  expect(autoOpenHint({ isPlaced: false, reason: 'no-surface: no surface is attached' })).toBeUndefined()
+  expect(autoOpenHint({ isPlaced: false, reason: 'unasked below 110 columns (100 now)' })).toMatch(/\/devfsd 로 엽니다/)
+  const toasts: string[] = []
+  fidWorld(on, { toasts, open: () => ({ isPlaced: false, reason: 'unasked below 110 columns (100 now): placed when the person opens it' }) })
+  await startFid($)
+  expect(toasts).toHaveLength(1)
+  expect(toasts[0]).toMatch(/좁아 자동으로 열지 않았습니다.*\/devfsd/)
+})
+
+for (const [name, open] of [['자리를 잡았다', () => ({ isPlaced: true })], ['화면이 없다', () => ({ isPlaced: false, reason: 'no-surface: no surface is attached' })]] as const) {
+  test(`devFSD: 세션 시작 안내 — ${name} → 알림 없음`, async ($, on) => {
+    const toasts: string[] = []
+    fidWorld(on, { toasts, open })
+    await startFid($)
+    expect(toasts).toEqual([])
+  })
+}
+
+test('devFSD: 열기 안내는 게이트 패널을 켠 사람에게만 f/s/o 를 말한다', { options: { panels: 'main,fid,gate,log' } }, async ($, on) => {
+  expect(openedText([PANE_OK], 'devfsd-console')[0]).not.toMatch(/f\/s\/o/)
+  expect(openedText([PANE_OK], 'devfsd-console', true)[0]).toMatch(/f\/s\/o 로 게이트 줄/)
+  fidWorld(on, { progress: PROG_B })
+  await startFid($)
+  expect((await $.command.run({ command: 'devfsd', args: '' })).text).toMatch(/f\/s\/o/)
+})
+
+test('devFSD: 열기 안내 — 기본 설정(게이트 없음)의 /devfsd 는 f/s/o 를 말하지 않는다', async ($, on) => {
+  fidWorld(on, { progress: PROG_B })
+  await startFid($)
+  const text = (await $.command.run({ command: 'devfsd', args: '' })).text
+  expect(text).toMatch(/^devFSD 관제판이 열렸습니다\./)
+  expect(text).not.toMatch(/f\/s\/o/)
+})
+
+test('devFSD: 대기 중 main 첫 줄은 작업 경과를 한 번만 쓴다 — 배지가 말하면 상태 글자는 `◌ 대기` 뿐이다', async ($, on) => {
+  const clock = engine(on)
+  on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: '' } }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+  await clock.advance(3_600_000) // 시작 시각 0 은 "모름"으로 읽힌다 — 실제 시각처럼 0 이 아닌 값에서 시작한다
+  await $.turn.start({ text: 'go', turnId: 'W1' })
+  await $.tool.call(bg('w1'))
+  await $.turn.complete(finished('W1'))
+  await clock.advance(14_000)
+  // 헤더에도 `◌ 대기` 가 있으므로 main 패널 안의 글자만 본다
+  const mainAt = async (cols: number) => {
+    const ui = await $.ui.mount({ ...pane(cols), surface: 'terminal' })
+    const leaves = leavesOf(subtree(await ui.drawn(), 'panel-main'))
+    await ui.unmount()
+
+    return leaves
+  }
+  const wide = await mainAt(66)
+  expect(wide).toContain('◌ 대기') // 종전: `◌ 대기 14s` + 배지 `14초 경과` — 제목이 밀려 상태에 붙어 잘렸다
+  expect(wide.join('|')).not.toContain('대기 14s')
+  expect(wide.join('|')).toContain('14초 경과')
+  // 배지를 그리지 않는 좁은 폭(40칸 미만)에서는 상태 글자가 시간을 맡는다
+  expect(await mainAt(36)).toContain('◌ 대기 14s')
+})
+
+test('devFSD: compact·wide 를 고르면 입력창 위에서도 전체를 그릴 줄 수를 청한다 — 요약(auto·mini)은 8줄 그대로', async ($, on) => {
+  const rows: (number | undefined)[] = []
+  fidWorld(on, { progress: PROG_B, open: r => (rows.push(r), { isPlaced: true }) })
+  await startFid($)
+  rows.length = 0
+  await $.command.run({ command: 'devfsd', args: '' })
+  await $.command.run({ command: 'devfsd', args: 'layout compact' })
+  await $.command.run({ command: 'devfsd', args: 'layout wide' })
+  await $.command.run({ command: 'devfsd', args: 'layout mini' })
+  await $.command.run({ command: 'devfsd', args: 'layout auto' })
+  expect(rows).toEqual([8, 30, 30, 8, 8])
+})
+
+test('devFSD: 진행 한마디 — 카드·요약·글자 안내가 같은 말을 쓴다', () => {
+  expect(progressLabel({ step: 5, total: 7, current: '구현', next: '통합', isDone: false })).toBe('5/7 구현 · 다음 통합')
+  expect(progressLabel({ step: 7, total: 7, current: 'PR', next: null, isDone: false })).toBe('7/7 PR')
+  expect(progressLabel({ step: 7, total: 7, current: null, next: null, isDone: true })).toBe('7/7 완료')
+  expect(progressLabel({ step: 0, total: 7, current: null, next: null, isDone: false })).toBe('0/7')
 })

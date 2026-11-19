@@ -3,7 +3,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import type { Board, CmdBoard, CmdFr, CmdSeg, CmdStep, Job, StageMark } from '../types'
 import { pollCi } from './ci-watch'
-import { STAT_SCRIPT, outputPathOf, latestMtimeMs, redact, withActivity } from './core'
+import { STAT_SCRIPT, autoOpenHint, outputPathOf, latestMtimeMs, redact, withActivity } from './core'
 
 const PANE = 'devfsd-progress'
 const TITLE = 'devFSD 진행'
@@ -190,6 +190,18 @@ function stageDefsOf(recs: readonly { cmd: string }[], isBatch = false): readonl
 }
 
 const FULL_LANE = '풀 경로'
+/** lifecycle 밖에서 직접 고친 작업의 갈래 이름 — 단계 막대 없이 이름과 검증만 보인다. */
+export const DIRECT_LANE = '직접 수정'
+// 단계가 있는 작업임을 말해 주는 기록 — 검증(`/verify`)과 자유작업(`/freework`)만으로는 어느 경로도 시작된 것이 아니다.
+const LIFECYCLE_CMDS: readonly string[] = [...new Set([...STAGES, ...BASIC_STAGES, BASIC_ANALYZE, BASIC_PLAN].flatMap(s => s.cmds)), BASIC_CMD, PROMOTED_CMD, '/quick-fix'].filter(c => c !== '/verify')
+
+/** 기록이 있는데 lifecycle 단계 기록은 하나도 없는가 — `/verify`·`/freework` 뿐인 작업(직접 고치고 검증만 남김).
+ *  기록이 아예 없는 작업은 false 다 — 막 만든 작업일 수 있어 종전 표시를 둔다. */
+export function isDirectRecord(progress: string, fid: string): boolean {
+  const recs = recordsOf(progress, fid)
+
+  return recs.length > 0 && !recs.some(r => LIFECYCLE_CMDS.includes(r.cmd))
+}
 /** 어느 경로인지 한마디 — 머리 줄에 붙인다(풀 경로는 표시부가 생략한다). */
 export function laneLabel(progress: string, fid: string, batch?: BatchInfo): string {
   if (batch) return `일괄 ${batch.done}/${batch.total}`
@@ -434,6 +446,21 @@ async function governedDir($: EngineInterface, cwd: string): Promise<string | un
   return undefined
 }
 
+/** 이 FID 폴더에 lifecycle 이 만드는 문서(명세·태스크·의도·기본 경로 판정)가 있는가 — 판독 실패는 없다로 본다. */
+async function hasLifecycleDocs($: EngineInterface, dirs: readonly (string | undefined)[], fid: string): Promise<boolean> {
+  for (const dir of [...new Set(dirs.filter((d): d is string => !!d))]) {
+    for (const doc of ['spec.md', 'tasks.md', 'intent.md', 'steps.txt']) {
+      try {
+        if (await $.fs.exists(`${dir}/.specops/${fid}/${doc}`)) return true
+      } catch {
+        // 판정 불가 — 다음 후보
+      }
+    }
+  }
+
+  return false
+}
+
 type RefreshGate = { refreshing: boolean; again: boolean }
 
 /** 단계 막대·배지를 다시 계산한다. 겹치면 끝난 뒤 1회만 다시. 실패는 `?`. */
@@ -458,6 +485,12 @@ async function refreshStatus($: EngineInterface, cwd: string, gate: RefreshGate)
         continue
       }
       const batch = record ? await batchFor($, record.dir, fid).catch(() => undefined) : undefined
+      // 직접 고치고 검증만 기록한 작업(단계 기록·작업 문서 없음) — 단계 막대를 그리면 `검증✓ ▶ 보안●` 처럼 돌지 않는 단계가 진행 중으로 보인다.
+      if (!batch && isDirectRecord(progress, fid) && !(await hasLifecycleDocs($, [record?.dir, cwd, projectRoot(cwd)], fid))) {
+        const verify = await verifyFor($, cwd, fid, record?.dir).catch(() => '검증 ?')
+        await update($, board, b => ({ ...b, fid, stages: undefined, verify, lane: DIRECT_LANE, cmd: undefined }))
+        continue
+      }
       const stages = stagesOf(progress, fid, batch)
       const verify = isLifecycleDone(progress, fid) ? '완료' : await verifyFor($, cwd, fid, record?.dir).catch(() => '검증 ?')
       const marked = withVerifyMark(stages, verify, currentStageKey(progress, fid, batch))
@@ -610,7 +643,13 @@ export async function progressStart($: EngineInterface, cwdNow: string, ciOpt?: 
         })
       })
     })
-    if (await isGoverned($, cwd)) void $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })
+    // 청하지 않은 열기는 엔진이 넓은 터미널에서만 자리를 준다(처음 144칸 · 연 뒤 110칸) — 못 잡았으면 여는 법을 한 줄 알린다(종전: 말없이 안 뜸).
+    if (await isGoverned($, cwd)) {
+      void safe(async () => {
+        const hint = autoOpenHint(await $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 }))
+        if (hint) $.ui.toast(hint)
+      })
+    }
     void refreshStatus($, cwd, gate)
 }
 

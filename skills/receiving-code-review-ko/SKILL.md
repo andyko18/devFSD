@@ -7,6 +7,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.m
   - skills/receiving-code-review-ko/SKILL.md
 specops_version: 2.13.0
 used_by: requesting-code-review-ko (chain 진입), security-review-ko (단일 모드 chain 출구), /start-all (batch 모드 BATCH-REVIEW-DONE halt 진출)
+user-invocable: false
 ---
 
 # Engine 스킬 — 코드 리뷰 수용 (receiving-code-review)

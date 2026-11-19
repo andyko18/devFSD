@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: obra/superpowers@v5.0.7 skills/requesting-code-review/SKILL.md
 specops_version: 2.18.0
 used_by: verifying-evidence-ko (chain 진입), receiving-code-review-ko (chain 출구)
+user-invocable: false
 ---
 
 # Engine 스킬 — 코드 리뷰 요청 (requesting-code-review)

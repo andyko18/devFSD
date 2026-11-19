@@ -1,6 +1,6 @@
 ---
 name: brainstorming
-disable-model-invocation: true
+user-invocable: false
 description: 구현 전 아이디어 탐색·수요 검증 슬래시 — devfsd:brainstorming-ko 호출. pre-init-project 선택 진입점.
 triggers:
   - "/brainstorming"

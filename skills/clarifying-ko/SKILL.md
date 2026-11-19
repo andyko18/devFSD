@@ -9,6 +9,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/brainstorming/SKILL.md
   - mattpocock/skills@5beb35b skills/engineering/domain-modeling/SKILL.md (MIT — 용어 정밀화·설명과 코드 대조·개념 경계 시나리오, 한국어 재작성)
 specops_version: 2.9.0
 used_by: specifying-ko (chain 진입), planning-ko (chain 출구)
+user-invocable: false
 ---
 
 # Engine 스킬 — 명확화 (clarifying)

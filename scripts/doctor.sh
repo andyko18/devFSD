@@ -384,7 +384,7 @@ _chk_stale() {
     _add stale unknown "적체 지표 판정 불가 (pending·freelog·friction-log 전부 부재)" ""
   elif [ -n "$msgs" ]; then
     [ "$bad" -gt 0 ] && msgs="${msgs} · 손상 라인 ${bad}줄 제외"
-    _add stale warn "$msgs" "/log 로 기록하거나 pending 을 처리하세요"
+    _add stale warn "$msgs" "\"인사이트 기록해줘\" 로 기록하거나 pending 을 처리하세요"
   elif [ "$bad" -gt 0 ]; then
     # ★ 손상 라인이 있으면 "적체 없음" 이 아니라 판정 불가다 — 읽지 못한 줄에 적체가 있었을 수
     #   있으므로 무음 낙관 보고를 금지한다(Phase C Important 1·2).

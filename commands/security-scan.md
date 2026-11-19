@@ -1,6 +1,6 @@
 ---
 name: security-scan
-disable-model-invocation: true
+user-invocable: false
 description: 온디맨드 보안 점검 슬래시 — SAST(소스코드) + DAST(동적) 능동 스캔
 triggers:
   - "/security-scan"

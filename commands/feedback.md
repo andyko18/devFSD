@@ -1,7 +1,7 @@
 ---
 name: feedback
-disable-model-invocation: true
-description: "[운영] 쓰다 겪은 불편을 플러그인 저장소에 알린다 — 초안(본문 + 버전·단계·차단 규칙 번호)을 보여 주고 확인받은 뒤 GitHub 이슈로 올린다. `--summary` 는 사용 요약(숫자만)을 붙인다"
+user-invocable: false
+description: "[운영] 쓰다 겪은 불편을 플러그인 저장소에 알린다 — 초안(본문 + 버전·단계·차단 규칙 번호)을 보여 주고 확인받은 뒤 GitHub 이슈로 올린다. `--summary` 는 사용 요약(숫자만)을 붙인다 · 사용자가 명시적으로 요청할 때만 호출한다."
 triggers:
   - "/feedback"
 mode: ask

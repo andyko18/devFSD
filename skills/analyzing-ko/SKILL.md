@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패턴 분석 결과)
 specops_version: 2.14.0
 used_by: using-specops-ko (maintenance flag = true 시), /maintain, /promote (promote-fid 분기)
+user-invocable: false
 ---
 
 # Engine 스킬 — 분석 (analyzing)

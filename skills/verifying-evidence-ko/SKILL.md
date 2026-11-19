@@ -9,6 +9,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/verification-before-completio
   - skills/verifying-evidence-ko/SKILL.md
 specops_version: 2.0.0
 used_by: implementing-ko (chain 진입), requesting-code-review-ko (chain 출구)
+user-invocable: false
 ---
 
 # Engine 스킬 — 증거 기반 검증 (verifying-evidence)

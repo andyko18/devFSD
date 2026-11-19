@@ -9,6 +9,7 @@ reference_upstream: obra/superpowers@v5.0.7 skills/test-driven-development/SKILL
   - skills/tdd-ko/SKILL.md
 specops_version: 1.73.0
 used_by: implementing-ko (서브에이전트가 각 태스크마다 본 스킬 따름)
+user-invocable: false
 ---
 
 # Engine 스킬 — 테스트 주도 개발 (TDD)

@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: specops-ko 독자 추가 (Anthropic Claude Code advisor 도구 활용 패턴)
 specops_version: 2.18.0
 used_by: using-specops-ko (cross-cutting 상시 — 기획·분석·설계·구현 중 애매성 발생 시 ambient 적용), planning-ko (advisor() 실호출)
+user-invocable: false
 ---
 
 # Advisor 활용 원칙

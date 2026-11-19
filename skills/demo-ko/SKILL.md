@@ -6,6 +6,7 @@ discipline: true
 reference_upstream: specops-ko 독자 추가
 specops_version: 3.1.22
 used_by: performance-test-ko (PR 생성 게이트 직전 호출-복귀), /start-all·/start-all-auto (batch PR 직전 batch-final 호출)
+user-invocable: false
 ---
 
 # Engine 스킬 — 데모 (demo)

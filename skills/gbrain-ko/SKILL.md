@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
 specops_version: 1.73.0
 used_by: /gbrain
+user-invocable: false
 ---
 
 # gbrain — 세션 인사이트 조회·요약

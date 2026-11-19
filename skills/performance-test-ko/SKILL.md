@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
 specops_version: 3.1.22
 used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출), demo-ko (PR 생성 게이트 직전 호출 → 복귀)
+user-invocable: false
 ---
 
 # Engine 스킬 — 성능 테스트 (performance-test)

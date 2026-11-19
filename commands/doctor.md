@@ -1,6 +1,6 @@
 ---
 name: doctor
-disable-model-invocation: true
+user-invocable: false
 description: specops 설치·환경 건강 진단 — git hook 2단 게이트·memory 채움·고아 FID·progress 정합·부트스트랩 종결·무음 실패 적체·거버넌스 훅 활성·필수 의존·관제판 버전·effort 환경변수 10항목 read-only 점검
 triggers:
   - "/doctor"

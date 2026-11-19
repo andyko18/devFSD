@@ -6,6 +6,7 @@ reference_upstream: obra/superpowers@v5.1.0 skills/using-git-worktrees/SKILL.md
 specops_version: 1.0.0
 used_by: specifying-ko (Phase 4 — 설계 승인 후 구현 직전), implementing-ko (모든 태스크 실행 전), planning-ko (참조)
 integrates_with: devfsd:finishing-a-development-branch-ko
+user-invocable: false
 ---
 
 # Engine 스킬 — Git Worktree 격리 작업

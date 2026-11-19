@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
 specops_version: 4.0.9
 used_by: security-review-ko (단일 모드 chain 진입), /start-all (batch 모드 직접 호출), performance-test-ko (chain 출구)
+user-invocable: false
 ---
 
 # Engine 스킬 — 통합 테스트 (integration-test)

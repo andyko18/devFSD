@@ -1,7 +1,7 @@
 ---
 name: e2e-test
-disable-model-invocation: true
-description: devFSD E2E 자동 테스트 — (init-project 부트스트랩)→specify→…→verify→(integration/performance SKIP)→(finishing 정리) 9단계를 greet-cli fixture로 완주하고 산출물 구조를 검증
+user-invocable: false
+description: devFSD E2E 자동 테스트 — (init-project 부트스트랩)→specify→…→verify→(integration/performance SKIP)→(finishing 정리) 9단계를 greet-cli fixture로 완주하고 산출물 구조를 검증 · 사용자가 명시적으로 요청할 때만 호출한다.
 triggers:
   - "/e2e-test"
 mode: auto

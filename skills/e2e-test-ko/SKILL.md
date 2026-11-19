@@ -5,6 +5,7 @@ layer: 3
 reference_upstream: specops-ko 독자 추가 (upstream 미존재)
 specops_version: 2.18.0
 used_by: /e2e-test
+user-invocable: false
 ---
 
 # Harness 스킬 — E2E 자동 테스트 (e2e-test-ko)

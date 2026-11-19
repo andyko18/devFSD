@@ -5,6 +5,7 @@ layer: 2
 reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
 specops_version: 1.72.0
 used_by: /brainstorming, 선택적 pre-init-project 진입
+user-invocable: false
 ---
 
 # 브레인스토밍 — 아이디어 탐색 & 수요 검증

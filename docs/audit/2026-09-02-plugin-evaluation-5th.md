@@ -160,7 +160,7 @@ security:    total=37 PASS=32 SKIP=5  FAIL=0 (SKIP 13%) bare=4  ⚠️ 근거 �
 **(+) 5회 만의 실질 변화**
 - **GitHub 저장소 공개** (2026-08-11 생성, `isPrivate: false`). 4회차까지는 로컬 경로 marketplace 뿐이었다.
 - **설치 경로가 3줄로 정형화** — `claude plugin marketplace add andyko18/specops-ko` → `install` → **`/doctor` 로 확인**. 진단 명령이 온보딩 마지막 스텝에 배치됐다.
-- **도입 검토자용 문서 신설** — `docs/architecture.md`(284) · `docs/openspec-gap-analysis.md`(262) · `docs/speckit-repositioning-study.md`(213) · 사례 연구 `argus-batch-stall`(335). 경쟁 도구 대비 포지셔닝을 스스로 문서화했다.
+- **도입 검토자용 문서 신설** — `docs/architecture.md`(284) · 사례 연구 `argus-batch-stall`(335).
 - `CONTRIBUTING.md` 갱신.
 
 **(−) 그대로인 것**

@@ -1,4 +1,4 @@
-<!-- reference_upstream: addyosmani/agent-skills@aeac41d skills/security-and-hardening (SKILL.md · references/hardening-patterns.md) · references/security-checklist.md · davila7/claude-code-templates@8b65a52 cli-tool/components/agents/api-graphql/api-designer.md (모두 MIT) — specops-ko 한국어 재작성 -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 # 위험 기능 — 서버가 가져오는 URL · 파일 업로드 · 웹훅 수신
 
 plan 이 서버에서 사용자가 준 URL 을 가져오거나, 파일을 받거나, 외부가 보내는 웹훅·콜백을 받을 때 읽는다. 이 세 기능은 "사람 승인이 필요한 변경" 목록에 든다 — plan 에 아래 결정이 적혀 있는지 본다.
@@ -13,9 +13,9 @@ plan 이 서버에서 사용자가 준 URL 을 가져오거나, 파일을 받거
 ## 파일 업로드
 
 - 받을 MIME 형식을 허용 목록으로 정하고 크기 상한을 둔다. 확장자는 형식의 증거가 아니다 — 중요한 경로면 파일 앞부분(magic bytes)으로 형식을 확인한다.
-- 올라온 파일을 실행·해석될 수 있는 위치(웹 루트·정적 서빙 경로)에 두지 않고, 저장 이름은 서버가 만든다(specops-ko 추가 — 원문에 없음).
+- 올라온 파일을 실행·해석될 수 있는 위치(웹 루트·정적 서빙 경로)에 두지 않고, 저장 이름은 서버가 만든다.
 
 ## 웹훅·콜백 수신
 
 - 들어오는 웹훅·콜백은 서명(HMAC 등)으로 보낸 쪽과 본문 무결성을 검증한다 — 서명 검증이 없는 수신 엔드포인트는 누구나 결제 완료·상태 변경을 꾸며 보낼 수 있다.
-- 서명 비교는 원본 바이트로, 상수 시간 비교로 하고, 타임스탬프 허용 오차를 둬 재전송을 막는다(specops-ko 추가 — 원문에 없음).
+- 서명 비교는 원본 바이트로, 상수 시간 비교로 하고, 타임스탬프 허용 오차를 둬 재전송을 막는다.

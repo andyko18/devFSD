@@ -1,6 +1,6 @@
 <!-- FID: <YYYYMMDD-kebab-slug> -->
 <!-- OWNER_COMMAND: /specify -->
-<!-- reference_upstream: github/spec-kit templates/spec-template.md -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 <!-- layer: Lifecycle-Artifact -->
 
 # <기능명> 명세 — <FID>

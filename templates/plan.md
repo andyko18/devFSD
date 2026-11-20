@@ -1,6 +1,6 @@
 <!-- FID: <YYYYMMDD-kebab-slug> -->
 <!-- OWNER_COMMAND: /plan -->
-<!-- reference_upstream: github/spec-kit plan-template.md -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 <!-- layer: Lifecycle-Artifact -->
 
 # <기능명> 구현 플랜 — <FID>

@@ -1,10 +1,10 @@
-<!-- reference_upstream: github/spec-kit .specify/memory/constitution-template.md -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 <!-- OWNER_COMMAND: /init-project -->
 <!-- layer: Project-Memory -->
 
 # <PROJECT_NAME> 헌법
 
-> AI 에이전트와 사람 모두 읽는 프로젝트의 **불변 원칙** 문서. spec-kit `.specify/memory/constitution-template.md` 패턴 차용.
+> AI 에이전트와 사람 모두 읽는 프로젝트의 **불변 원칙** 문서.
 > 본 파일은 `/init-project` 가 1회 생성. 이후 변경은 거버넌스 §개정 절차 준수.
 
 **version**: 1.0.0
@@ -86,7 +86,6 @@
 ## 참조
 
 - 의존 문서: `PRD.md`, `CLAUDE.md`, `.specops/memory/requirements.md`, `.specops/memory/test-strategy.md`
-- 거버넌스 원본: github/spec-kit `.specify/memory/constitution-template.md`
 
 ---
 

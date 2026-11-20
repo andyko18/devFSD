@@ -38,16 +38,16 @@ Argus 실사용 FID 에서 구조·도메인 결함이 확인된 규칙만 이 �
 
 ## 공통 원칙
 
-- **얕은 통과 모듈 금지**: 새 모듈마다 "지우면 복잡도가 사라지는가, 호출자 N곳으로 흩어지는가"를 묻는다(삭제 테스트). 사라지면 통과용 껍데기이므로 합치거나 동작을 그 뒤로 옮긴다. 깊이는 줄 수 비율이 아니라 인터페이스 하나당 호출자가 얻는 동작의 양이다 — 출처: mattpocock/skills skills/engineering/codebase-design/SKILL.md (MIT)
-- **인터페이스는 호출자가 알아야 할 전부**: 새 모듈의 인터페이스를 plan 에 적을 때 타입 시그니처뿐 아니라 불변식·호출 순서 제약·오류 방식·필요한 설정·성능 특성을 함께 적는다. 이 중 빠진 것이 호출자 쪽에서 추측돼야 한다면 지적한다 — 출처: mattpocock/skills skills/engineering/codebase-design/SKILL.md (MIT)
-- **이음새는 어댑터 둘일 때**: 포트(추상 인터페이스)는 실제로 갈아끼울 구현이 둘 이상(보통 운영용과 테스트용)일 때만 둔다. 어댑터가 하나뿐인 포트는 가설 속 이음새이고 간접층일 뿐이다 — 출처: mattpocock/skills skills/engineering/codebase-design/DEEPENING.md (MIT)
-- **의존성 4분류**: 새 모듈의 의존성을 ① 프로세스 안(순수 계산·메모리) ② 로컬 대체물 있음(PGLite·메모리 파일시스템) ③ 소유한 원격(사내 서비스 — 포트 + HTTP 어댑터·메모리 어댑터) ④ 외부 서비스(결제·메시징 — 주입한 포트 + 목 어댑터)로 나누고, 분류에 맞는 이음새와 테스트 방식이 plan 에 있는지 본다. ①에 포트를 두거나 ④를 실제로 호출하는 테스트는 지적한다 — 출처: mattpocock/skills skills/engineering/codebase-design/DEEPENING.md (MIT)
-- **의존 방향은 안쪽으로**: 도메인은 프레임워크·ORM·HTTP 를 import 하지 않고, 유스케이스는 구체 어댑터가 아니라 포트를 import 한다. 경계 약속의 허용 의존이 자유 문장이면 화살표 형식(`` `src/domain/` → 없음 · `src/app/` → `src/domain/` ``)으로 고친 문안을 준다 — 그래야 검증의 import 방향 대조가 돈다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
-- **순환 금지**: plan 의 새 모듈 사이 import 가 순환을 만들면 지적한다. 흔한 원인은 유스케이스가 포트 대신 구체 어댑터를 import 하는 것이다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
-- **컨텍스트 간 엔티티 직접 import 금지**: 한 컨텍스트(예: 주문)가 다른 컨텍스트(예: 회원)의 엔티티를 import 하면, 자기 쪽에 가벼운 ID 값 객체(`CustomerId`)를 두고 번역 계층(ACL)을 거쳐 상대 컨텍스트의 공개 인터페이스만 부르게 고친다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
-- **집합체는 일관성 경계**: 새 도메인 개념이 여러 엔티티를 묶으면 집합체 루트 하나만 밖에서 접근하게 하고, 집합체마다 지켜야 할 불변식 목록과 트랜잭션 경계(한 트랜잭션 = 한 집합체 · specops-ko 추가 — 원문에 없음), 저장소(repository) 계약을 plan 에 적는다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
-- **값 객체는 생성 시점에 검증**: 이메일·금액·기간처럼 규칙이 있는 값은 생성자(또는 팩토리)에서 불변식을 검사해 잘못된 값이 아예 만들어지지 않게 한다. 검증이 서비스 깊숙이 흩어져 있으면 지적한다 — 출처: wshobson/agents plugins/backend-development/skills/architecture-patterns/SKILL.md (MIT)
-- **DDD 는 필요할 때만**: 업무 규칙이 복잡하거나 자주 바뀜 · 여러 팀의 모델이 충돌 · 연동 계약이 불안정 · 감사와 명시적 불변식이 필수 — 이 넷 중 둘 이상일 때만 집합체·도메인 이벤트·컨텍스트 지도를 전면 적용한다. 단순 CRUD 에 이 장치를 들이는 plan 은 과설계로 지적한다 — 출처: davila7/claude-code-templates cli-tool/components/skills/development/domain-driven-design/SKILL.md (MIT)
+- **얕은 통과 모듈 금지**: 새 모듈마다 "지우면 복잡도가 사라지는가, 호출자 N곳으로 흩어지는가"를 묻는다(삭제 테스트). 사라지면 통과용 껍데기이므로 합치거나 동작을 그 뒤로 옮긴다. 깊이는 줄 수 비율이 아니라 인터페이스 하나당 호출자가 얻는 동작의 양이다
+- **인터페이스는 호출자가 알아야 할 전부**: 새 모듈의 인터페이스를 plan 에 적을 때 타입 시그니처뿐 아니라 불변식·호출 순서 제약·오류 방식·필요한 설정·성능 특성을 함께 적는다. 이 중 빠진 것이 호출자 쪽에서 추측돼야 한다면 지적한다
+- **이음새는 어댑터 둘일 때**: 포트(추상 인터페이스)는 실제로 갈아끼울 구현이 둘 이상(보통 운영용과 테스트용)일 때만 둔다. 어댑터가 하나뿐인 포트는 가설 속 이음새이고 간접층일 뿐이다
+- **의존성 4분류**: 새 모듈의 의존성을 ① 프로세스 안(순수 계산·메모리) ② 로컬 대체물 있음(PGLite·메모리 파일시스템) ③ 소유한 원격(사내 서비스 — 포트 + HTTP 어댑터·메모리 어댑터) ④ 외부 서비스(결제·메시징 — 주입한 포트 + 목 어댑터)로 나누고, 분류에 맞는 이음새와 테스트 방식이 plan 에 있는지 본다. ①에 포트를 두거나 ④를 실제로 호출하는 테스트는 지적한다
+- **의존 방향은 안쪽으로**: 도메인은 프레임워크·ORM·HTTP 를 import 하지 않고, 유스케이스는 구체 어댑터가 아니라 포트를 import 한다. 경계 약속의 허용 의존이 자유 문장이면 화살표 형식(`` `src/domain/` → 없음 · `src/app/` → `src/domain/` ``)으로 고친 문안을 준다 — 그래야 검증의 import 방향 대조가 돈다
+- **순환 금지**: plan 의 새 모듈 사이 import 가 순환을 만들면 지적한다. 흔한 원인은 유스케이스가 포트 대신 구체 어댑터를 import 하는 것이다
+- **컨텍스트 간 엔티티 직접 import 금지**: 한 컨텍스트(예: 주문)가 다른 컨텍스트(예: 회원)의 엔티티를 import 하면, 자기 쪽에 가벼운 ID 값 객체(`CustomerId`)를 두고 번역 계층(ACL)을 거쳐 상대 컨텍스트의 공개 인터페이스만 부르게 고친다
+- **집합체는 일관성 경계**: 새 도메인 개념이 여러 엔티티를 묶으면 집합체 루트 하나만 밖에서 접근하게 하고, 집합체마다 지켜야 할 불변식 목록과 트랜잭션 경계(한 트랜잭션 = 한 집합체), 저장소(repository) 계약을 plan 에 적는다
+- **값 객체는 생성 시점에 검증**: 이메일·금액·기간처럼 규칙이 있는 값은 생성자(또는 팩토리)에서 불변식을 검사해 잘못된 값이 아예 만들어지지 않게 한다. 검증이 서비스 깊숙이 흩어져 있으면 지적한다
+- **DDD 는 필요할 때만**: 업무 규칙이 복잡하거나 자주 바뀜 · 여러 팀의 모델이 충돌 · 연동 계약이 불안정 · 감사와 명시적 불변식이 필수 — 이 넷 중 둘 이상일 때만 집합체·도메인 이벤트·컨텍스트 지도를 전면 적용한다. 단순 CRUD 에 이 장치를 들이는 plan 은 과설계로 지적한다
 
 ## 읽기 상한
 

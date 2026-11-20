@@ -6,7 +6,7 @@ triggers:
 mode: ask
 specops_version: 4.0.14
 specops_layer: Lifecycle-Bootstrap
-reference_upstream: specops-ko 독자 추가 (github/spec-kit 패턴 번안)
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /init-project [<프로젝트명>] [<기존 기획 문서 경로>]
@@ -155,7 +155,7 @@ bash 10 Phase 가 생성한 산출물은 템플릿 골격이다. Phase 11 에서
   - 재시도 뒤에도 `FAIL` 이면 남은 이슈가 걸린 화면에는 표지를 달지 않고(`init 보강` 으로 둔다) 이슈가 인터페이스에 걸렸으면 머리 주석도 넣지 않는다 — 남은 이슈는 승인 요약에 싣고, 표지 없는 것은 `/start-all` Phase 2.5 가 종전대로 설계·리뷰한다. 리뷰를 돌리지 못했으면 아무 표지도 달지 않는다.
 - **graceful skip**: 비UI KIND 는 화면 축을, `api-spec.md`·`data-model.md` 가 둘 다 없는 KIND(CLI·라이브러리 등)는 인터페이스 축을 건너뛴다. 두 축이 다 없으면 이 규약 전체를 건너뛴다(FAIL 아님 · 전문가·리뷰 dispatch 없음).
 
-**사실성 계약 (Karpathy 원칙 — karpathy-ko)**:
+**사실성 계약 (karpathy-ko)**:
 - 서술 근거는 **근거 4원**만: ① 사전 문서(브레인스토밍 메모 · Phase 0 에서 사용자가 확인한 기존 기획 문서) ② 사용자 응답(Phase 2~8 입력) ③ 검증 가능한 사실 ④ 인터뷰 응답(Phase 11.5). 이 외 창작 금지.
 - **일반론 boilerplate 금지** — 어느 프로젝트에나 맞는 문장 대신 프로젝트 특화 구체값(이름·수치·결정)으로 작성.
 - 불확실 항목은 `<미확정 — 근거 필요>` 마커로 남긴다. **깊게 대상 문서**에는 원시 placeholder `<...>` 를 남기지 않는다(미확정 마커만 허용) — 얕게/스킵 문서의 골격 placeholder 는 위 깊이 규칙대로 남을 수 있고, 종결 커밋이 남은 건수를 알린다.

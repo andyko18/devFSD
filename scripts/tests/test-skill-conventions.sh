@@ -191,7 +191,7 @@ if [ -z "${SPECOPS_T9_INNER:-}" ]; then
   rm -rf "$sb"
 fi
 
-# ── T10 정적 밀도/bloat lint (리포트/정보성 — wshobson PluginEval Layer1 이식) ──
+# ── T10 정적 밀도/bloat lint (리포트/정보성) ──
 # outer+inner 모두 실행 (meta-test 가 inner 산출 라인을 grep)
 T10_BLOAT_MAX=800                 # specops coding-style "800 max" norm
 T10_BLOAT_EXCEPTIONS="e2e-test-ko"   # 문서화된 예외 (대규모 리팩터 별개)
@@ -334,7 +334,6 @@ fi
 #   `awk '{print $1}'` 이 `awk '{print beta}'` 가 되어 모델에 전달된다. 백슬래시 이스케이프(`\$1`)는
 #   **인자가 없어도** 백슬래시가 벗겨져 `$1` 이 되므로 heredoc 안의 `\$0` 도 깨진다.
 #   치환을 타지 않는 표기를 쓴다 — bash 위치 인자는 `${1}`, awk 필드는 `$(1)`.
-#   (상류 obra/superpowers v7.0.0 이 같은 결함을 requesting-code-review 에서 고쳤다.)
 _argsub_pat='\$[0-9]'
 # T13.a: 판정식 자체의 양성·음성 대조 — 이 식이 아무것도 못 잡으면 T13.b 는 항상 통과한다
 _ctl_bad=$(printf '%s\n' "awk '{print \$1}'" 'x="\$0"' | grep -cE "$_argsub_pat")

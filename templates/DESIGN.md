@@ -1,10 +1,8 @@
-<!-- reference: https://github.com/VoltAgent/awesome-design-md -->
 <!-- layer: Project-Document -->
 
 # DESIGN.md — [Project Name]
 
 > AI 에이전트용 디자인 시스템 문서. UI 컴포넌트 생성 시 이 파일을 읽고 일관된 스타일을 유지한다.
-> (awesome-design-md 포맷 기반 — https://getdesign.md/)
 
 ## 1. Color System
 

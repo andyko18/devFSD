@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scan-shortcuts.sh — `shortcut:` 의도적 단순화 주석을 부채 장부 1장으로 모은다 (ponytail-debt 번안)
+# scan-shortcuts.sh — `shortcut:` 의도적 단순화 주석을 부채 장부 1장으로 모은다
 # Usage: scan-shortcuts.sh [ROOT]   (기본 .)  · read-only · 항상 rc 0 (보고 도구 — 게이트 아님)
 #
 # 규약: 의도적으로 모서리를 자른 코드(전역 락·O(n²) 스캔·단순 휴리스틱)에 주석을 남긴다 —

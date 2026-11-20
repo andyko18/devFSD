@@ -5,7 +5,6 @@
 #      → Claude Code 세션 진입 시 `<EXTREMELY_IMPORTANT>` 블록으로 자동 활성
 #   2) .specops/session-progress.md 최신 블록(있으면)을 동일 additionalContext 뒤에 이어 주입
 #      → 재접속 세션에서 FID/상태 rehydrate
-# 참조 upstream: obra/superpowers@v5.0.7 hooks/session-start
 # 단일 JSON 출력 — Claude Code 가 `hookSpecificOutput.additionalContext` 키를 소비
 set -euo pipefail
 
@@ -50,7 +49,7 @@ if [ -f "$target" ]; then
   ' "$target")
 fi
 
-# JSON escape (superpowers hooks/session-start 방식 차용)
+# JSON escape
 escape_for_json() {
   local s="$1"
   s="${s//\\/\\\\}"

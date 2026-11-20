@@ -7,7 +7,7 @@ triggers:
 mode: ask
 specops_version: 4.0.15
 specops_layer: Lifecycle
-reference_upstream: obra/superpowers@v5.0.7 commands/brainstorm.md
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /start [--full] [--step] [--no-split] [<기능 설명>]
@@ -71,7 +71,6 @@ specops-ko 한국어 자율 Lifecycle의 **단일 진입 슬래시**. 자연어 
 - `skills/specifying-ko/SKILL.md` — 풀 경로의 첫 Lifecycle 단계
 - `docs/harness-principles.md` 「아티팩트 구조 규약」 — `.specops/<FID>/` 경로 규약
 - 설계 근거: specops-ko 설계 케이스 스터디 `2026-04-21-specops-auto-ko-design.md §15.5` (진입 흐름)
-- 참조: affaan-m/everything-claude-code@1.2.0 commands/orchestrate.md
 
 ---
 

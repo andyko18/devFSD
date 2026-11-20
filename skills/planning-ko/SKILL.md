@@ -2,8 +2,7 @@
 name: planning-ko
 description: 스펙·요구사항이 확보된 다단계 작업에서 코드 건드리기 전에 사용 — 구현 플랜을 bite-sized task 단위로 작성
 layer: 2
-reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
-  - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
+reference_upstream: specops-ko 독자 추가
 specops_version: 3.1.21
 used_by: clarifying-ko (chain 진입), decomposing-ko (chain 출구), /start-all (Phase 2 batch plan-review)
 user-invocable: false
@@ -310,7 +309,7 @@ API 전문가 패스 뒤, plan-reviewer 를 부르기 **전에** 판단한다. p
 
 ### 이해 검사 (comprehension-reviewer — 처음 읽는 독자, 20261111)
 
-비-batch 에서 plan-reviewer **1회차**를 부를 때마다 — 테스트 전문가 패스가 발동했든 아니든 — 같은 메시지의 `Agent` 호출에 `devfsd:comprehension-reviewer-ko` 를 **하나 더** 넣는다(순차 추가 금지 — 이해 검사가 plan 시간을 늘리지 않게 한다). 출처: google/elephant-goldfish-model@67353fc4 의 Comprehension 리뷰어(문서만 읽고 자기 말로 다시 쓰기).
+비-batch 에서 plan-reviewer **1회차**를 부를 때마다 — 테스트 전문가 패스가 발동했든 아니든 — 같은 메시지의 `Agent` 호출에 `devfsd:comprehension-reviewer-ko` 를 **하나 더** 넣는다(순차 추가 금지 — 이해 검사가 plan 시간을 늘리지 않게 한다).
 
 - **입력**: 경로만 — `.specops/<FID>/spec.md` · `acceptance-criteria.md` · `plan.md`. 코드·memory·intent 는 주지 않는다.
 - **제외**: `§batch`(plan-reviewer DEFER)·`§유형: trivial`·promote(`promote-fid`)·foundation 은 부르지 않고 기록 행도 남기지 않는다. 2회차에는 부르지 않는다.

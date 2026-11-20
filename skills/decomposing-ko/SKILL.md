@@ -2,11 +2,7 @@
 name: decomposing-ko
 description: planning-ko 완료 후 호출 — plan.md를 함께 변하는 파일 단위의 TDD 5스텝 태스크로 분해(작은 변경은 3개 이하). 모든 must AC가 최소 1 태스크에 매핑되도록 보장. bash 테스트 컨벤션 (templates/test-conventions-bash.md) 준수 점검 포함
 layer: 2
-reference_upstream: obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md
-  - github/spec-kit commands/tasks.md (specops-ko 경유)
-  - specops-ko commands/tasks.md
-  - specops-ko templates/tasks.md
-  - obra/superpowers@v5.0.7 skills/writing-plans/SKILL.md (bite-sized task 단위)
+reference_upstream: specops-ko 독자 추가
 specops_version: 2.18.0
 used_by: planning-ko (chain 진입), implementing-ko (chain 출구), /start-all (BATCH-PHASE1-DONE halt 분기)
 user-invocable: false
@@ -345,7 +341,6 @@ tasks:
 - `skills/planning-ko/SKILL.md` — 선행 스킬
 - `skills/tdd-ko/SKILL.md` — TDD 5스텝 규약
 - `templates/tasks.md` — 출력 포맷
-- upstream 근거: Spec-Kit `commands/tasks.md` (specops-ko 경유) + bite-sized 태스크 단위 규약
 - 템플릿: `templates/tasks.md`
 - `docs/harness-principles.md` 「아티팩트 구조 규약」 — .specops/<FID>/ 아티팩트 경로 규약
 - `skills/karpathy-ko/SKILL.md` — Think·Simplicity·Surgical·Goal 4원칙 (cross-cutting)

@@ -38,25 +38,25 @@ tools: Read, Grep, Glob, Bash, Write, Edit
 
 ## 공통 원칙
 
-- FK 컬럼 인덱스를 설계 문서에 명시한다. Oracle 은 FK 인덱스를 권고(자동 생성은 문서에 없음, PK·UNIQUE 만 암묵 인덱스). MySQL InnoDB 는 참조하는(자식) 테이블에 FK 컬럼이 선두인 인덱스가 없을 때만 자동 생성하며, 나중에 다른 인덱스를 만들면 조용히 삭제될 수 있으니 명시적으로 만든다. 참조되는(부모) 키의 인덱스는 자동 생성되지 않는다(MySQL 8.0 기준). PostgreSQL·SQL Server 는 자동 생성하지 않는다 — 출처: dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html · docs.oracle.com/en/database/oracle/oracle-database/19/cncpt/data-integrity.html · supabase/agent-skills skills/supabase-postgres-best-practices/references/schema-foreign-key-indexes.md (MIT)
-- 유일성·참조 무결성은 앱 검사(check-then-insert)가 아니라 DB 제약(UNIQUE·FK)으로 건다 — 동시 요청 두 개가 둘 다 "없음"을 보고 중복 삽입한다 — 출처: supabase/agent-skills skills/supabase-postgres-best-practices/references/data-upsert.md (MIT)
-- 컬럼 추가는 nullable(또는 안전 기본값) → 백필 → 검증 → NOT NULL 강화 순서로 단계 분리한다. 백필 전에 강화하면 기존 행이 거부된다 — 출처: get-convex/agent-skills skills/convex-migrate/SKILL.md (Apache-2.0) · davila7/claude-code-templates cli-tool/components/skills/database/database-migration/SKILL.md (MIT)
-- 컬럼 이름·타입 변경은 새 컬럼 추가 → 양쪽 쓰기 → 백필 → 읽기 전환 → 구 컬럼 삭제의 단계별 배포로 하고, 큰 테이블에서 제자리 타입 변경(ALTER TYPE)을 하지 않는다 — 출처: davila7/claude-code-templates cli-tool/components/skills/database/database-migration/SKILL.md (MIT)
-- 모든 마이그레이션 up 에는 down(되돌림) 짝이 있고, down 이 실제로 동작하는지 테스트한다 — 출처: davila7/claude-code-templates cli-tool/components/skills/database/database-migration/SKILL.md (MIT)
-- 이미 적용된 마이그레이션 파일은 수정하지 않고 새 마이그레이션으로 고친다(체크섬 충돌). 스키마 변경과 데이터 변경은 별도 마이그레이션으로 분리한다 — 출처: claude-dev-suite/claude-dev-suite skills/databases/migrations/SKILL.md (MIT)
-- 마이그레이션은 재실행해도 안전하게(존재 검사/IF NOT EXISTS) 쓰고, 변경 전 프로덕션 모양 데이터 사본(스냅샷)에서 리허설한다 — 출처: davila7/claude-code-templates cli-tool/components/skills/database/database-migration/SKILL.md (MIT) · get-convex/agent-skills skills/convex-migrate-rehearse/SKILL.md (Apache-2.0)
-- 문제 발견 시 되돌림보다 보정(forward-fix) 마이그레이션을 우선한다 — undo 는 데이터 유실 가능, PITR/전체 복원은 시간·유실이 더 크다 — 출처: claude-dev-suite/claude-dev-suite skills/databases/migrations/quick-ref/rollback.md (MIT)
-- 파괴적 변경(DROP·타입 축소·행 삭제) 전에는 백업/스냅샷을 만들고, 롤백 시 복구 가능한지 확인한다. down 이 컬럼만 되살리고 값은 못 되살리는 경우를 명시한다 — 출처: davila7/claude-code-templates cli-tool/components/skills/database/database-migration/SKILL.md (MIT)
-- 트랜잭션 안에서 외부 호출(HTTP·결제 API)이나 긴 작업을 하지 않는다. 락을 쥔 채 대기하면 같은 행이 전부 막힌다. 잠금은 짧게, statement_timeout 류 상한을 둔다 — 출처: supabase/agent-skills skills/supabase-postgres-best-practices/references/lock-short-transactions.md (MIT)
-- 여러 행/테이블을 갱신하는 트랜잭션은 항상 같은 순서(예: PK 오름차순)로 잠가 교착을 막는다 — 출처: supabase/agent-skills skills/supabase-postgres-best-practices/references/lock-deadlock-prevention.md (MIT)
-- 풀은 프로세스당 하나이고 `인스턴스 수 × max` 가 DB 연결 한도 아래여야 한다. 연결 고갈을 풀 크기 증설로 풀지 않고 연결을 쥐는 원인을 찾는다 — 출처: supabase/agent-skills skills/supabase-postgres-best-practices/references/conn-pooling.md (MIT)
-- 복합 인덱스 컬럼 순서는 동등(=) 조건 컬럼 → 정렬 컬럼 → 범위 컬럼 — 출처: supabase/agent-skills skills/supabase-postgres-best-practices/references/query-composite-indexes.md (MIT)
-- 새 인덱스는 EXPLAIN 전후 계획으로 정당화한다. 계획이 바뀌지 않으면 철회하고, 모든 인덱스는 쓰기 비용임을 고려한다. 추정 행 수가 크게 어긋나면 인덱스 추가가 아니라 통계 갱신(ANALYZE)부터 — 출처: supabase/agent-skills skills/supabase-postgres-best-practices/references/monitor-explain-analyze.md (MIT)
-- 컬럼에 함수를 씌운 조건(`lower(email)=?`)이나 앞 와일드카드 `LIKE '%x'` 는 일반 인덱스를 못 쓴다 — 표현식(함수 기반) 인덱스 또는 전문 검색을 쓴다 — 출처: addyosmani/agent-skills skills/performance-optimization/SKILL.md (MIT)
-- 반복문 안 쿼리(N+1)를 금지하고 JOIN 또는 일괄 조회를 쓴다. 목록 조회는 항상 LIMIT·안정 정렬이 있고, 깊은 OFFSET 대신 keyset(커서) 페이지네이션을 쓴다 — 출처: supabase/agent-skills skills/supabase-postgres-best-practices/references/data-n-plus-one.md (MIT)
-- 금액·정확 소수는 정확 십진형(NUMERIC/DECIMAL/NUMBER)이며 float 금지. PK·카운터는 64비트 정수(int 는 21억에서 넘친다). 시각은 타임존을 명시하는 타입 — 출처: supabase/agent-skills skills/supabase-postgres-best-practices/references/schema-data-types.md (MIT)
+- FK 컬럼 인덱스를 설계 문서에 명시한다. Oracle 은 FK 인덱스를 권고(자동 생성은 문서에 없음, PK·UNIQUE 만 암묵 인덱스). MySQL InnoDB 는 참조하는(자식) 테이블에 FK 컬럼이 선두인 인덱스가 없을 때만 자동 생성하며, 나중에 다른 인덱스를 만들면 조용히 삭제될 수 있으니 명시적으로 만든다. 참조되는(부모) 키의 인덱스는 자동 생성되지 않는다(MySQL 8.0 기준). PostgreSQL·SQL Server 는 자동 생성하지 않는다 — 출처: dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html · docs.oracle.com/en/database/oracle/oracle-database/19/cncpt/data-integrity.html
+- 유일성·참조 무결성은 앱 검사(check-then-insert)가 아니라 DB 제약(UNIQUE·FK)으로 건다 — 동시 요청 두 개가 둘 다 "없음"을 보고 중복 삽입한다
+- 컬럼 추가는 nullable(또는 안전 기본값) → 백필 → 검증 → NOT NULL 강화 순서로 단계 분리한다. 백필 전에 강화하면 기존 행이 거부된다
+- 컬럼 이름·타입 변경은 새 컬럼 추가 → 양쪽 쓰기 → 백필 → 읽기 전환 → 구 컬럼 삭제의 단계별 배포로 하고, 큰 테이블에서 제자리 타입 변경(ALTER TYPE)을 하지 않는다
+- 모든 마이그레이션 up 에는 down(되돌림) 짝이 있고, down 이 실제로 동작하는지 테스트한다
+- 이미 적용된 마이그레이션 파일은 수정하지 않고 새 마이그레이션으로 고친다(체크섬 충돌). 스키마 변경과 데이터 변경은 별도 마이그레이션으로 분리한다
+- 마이그레이션은 재실행해도 안전하게(존재 검사/IF NOT EXISTS) 쓰고, 변경 전 프로덕션 모양 데이터 사본(스냅샷)에서 리허설한다
+- 문제 발견 시 되돌림보다 보정(forward-fix) 마이그레이션을 우선한다 — undo 는 데이터 유실 가능, PITR/전체 복원은 시간·유실이 더 크다
+- 파괴적 변경(DROP·타입 축소·행 삭제) 전에는 백업/스냅샷을 만들고, 롤백 시 복구 가능한지 확인한다. down 이 컬럼만 되살리고 값은 못 되살리는 경우를 명시한다
+- 트랜잭션 안에서 외부 호출(HTTP·결제 API)이나 긴 작업을 하지 않는다. 락을 쥔 채 대기하면 같은 행이 전부 막힌다. 잠금은 짧게, statement_timeout 류 상한을 둔다
+- 여러 행/테이블을 갱신하는 트랜잭션은 항상 같은 순서(예: PK 오름차순)로 잠가 교착을 막는다
+- 풀은 프로세스당 하나이고 `인스턴스 수 × max` 가 DB 연결 한도 아래여야 한다. 연결 고갈을 풀 크기 증설로 풀지 않고 연결을 쥐는 원인을 찾는다
+- 복합 인덱스 컬럼 순서는 동등(=) 조건 컬럼 → 정렬 컬럼 → 범위 컬럼
+- 새 인덱스는 EXPLAIN 전후 계획으로 정당화한다. 계획이 바뀌지 않으면 철회하고, 모든 인덱스는 쓰기 비용임을 고려한다. 추정 행 수가 크게 어긋나면 인덱스 추가가 아니라 통계 갱신(ANALYZE)부터
+- 컬럼에 함수를 씌운 조건(`lower(email)=?`)이나 앞 와일드카드 `LIKE '%x'` 는 일반 인덱스를 못 쓴다 — 표현식(함수 기반) 인덱스 또는 전문 검색을 쓴다
+- 반복문 안 쿼리(N+1)를 금지하고 JOIN 또는 일괄 조회를 쓴다. 목록 조회는 항상 LIMIT·안정 정렬이 있고, 깊은 OFFSET 대신 keyset(커서) 페이지네이션을 쓴다
+- 금액·정확 소수는 정확 십진형(NUMERIC/DECIMAL/NUMBER)이며 float 금지. PK·카운터는 64비트 정수(int 는 21억에서 넘친다). 시각은 타임존을 명시하는 타입
 - 테스트 DB 는 운영과 같은 엔진·버전으로 마이그레이션을 적용해 만든다(SQLite 등 대체 엔진은 제약·타입·잠금 차이로 DDL 불일치를 가린다) — 출처: Argus 사고 사례(20260801-daily-candle-sync)에서 나온 경험칙 — 공식 문서 근거 아님
-- 마이그레이션 전후로 대상 테이블 행 수를 비교하고, 프로덕션 적용은 리허설 성공의 반복으로만 한다(승격 시 새 승인) — 출처: get-convex/agent-skills skills/convex-migrate/SKILL.md (Apache-2.0)
+- 마이그레이션 전후로 대상 테이블 행 수를 비교하고, 프로덕션 적용은 리허설 성공의 반복으로만 한다(승격 시 새 승인)
 
 ## 읽기 상한
 

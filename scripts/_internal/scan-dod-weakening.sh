@@ -20,7 +20,6 @@
 # 한계: 줄 단위 패턴이다. 프로젝트 고유 단언 관용구 · 기대 건수 하향 · 여러 줄에 걸친 skip · 파일 이동을 동반한 약화는 못 본다.
 #   `*.md` · `.specops/` · node_modules · dist · build · vendor 는 보지 않는다(규칙을 설명하는 산문이 후보를 오염시킨다).
 #   스캐너 자신과 그 테스트(정확한 두 경로)도 보지 않는다 — 패턴 글자를 그대로 담고 있다.
-# 출처: addyosmani/agent-skills@301b02b skills/constraint-driven-development/references/floor-guard.md (MIT) 의 계약을 bash 로 옮김.
 set -u
 export LC_ALL=C
 

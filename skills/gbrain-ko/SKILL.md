@@ -2,7 +2,7 @@
 name: gbrain-ko
 description: 개발 세션 인사이트를 learnings.jsonl에서 조회·요약 — 최신 10건 + 전체 개수 출력, --fid 필터링 가능
 layer: 2
-reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours gbrain 패턴 한국어 재창작)
+reference_upstream: specops-ko 독자 추가
 specops_version: 1.73.0
 used_by: /gbrain
 user-invocable: false
@@ -84,7 +84,7 @@ echo ""
 bash "${CLAUDE_PLUGIN_ROOT:-.}/scripts/gbrain-friction.sh" || true
 ```
 
-- 반복 임계는 `GBRAIN_FRICTION_MIN`(기본 3 — Hermes 학습 루프의 "3회 이상 반복 → 증류" 차용).
+- 반복 임계는 `GBRAIN_FRICTION_MIN`(기본 3 — "3회 이상 반복 → 증류").
 - 기계 판독은 `--json`.
 - **증류 후보는 제시일 뿐 자동 조치하지 않는다.** 게이트화 여부는 사람이 정한다 (정적 패턴 자동 판별은 클래스 B 메타 규칙에서 후보 4건 전부 오탐(4/4)으로 철회된 전례).
 - **BYPASS vs receipt** — BYPASS-ENV 행수·FID수와 `.specops/*/receipts/*.json` 파일수를 대조해 우회 관성 vs 정직 중간커밋 경로 사용을 기본 출력에 포함한다.
@@ -136,7 +136,6 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/gbrain-append.sh "인사이트 내용" --fi
 - `scripts/gbrain-append.sh` — 인사이트 추가 스크립트
 - `commands/gbrain.md` — 슬래시 진입점
 - `.specops/memory/learnings.jsonl` — 저장소
-- upstream 패턴: garrytan/gstack office-hours gbrain 누적 패턴
 
 ## 다음 skill
 

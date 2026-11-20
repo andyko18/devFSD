@@ -2,7 +2,7 @@
   "pairs": {
     "integration-test-ko~performance-test-ko": 0.238,
     "integration-test-ko~security-review-ko": 0.323,
-    "karpathy-ko~tdd-ko": 0.158,
+    "karpathy-ko~tdd-ko": 0.179,
     "performance-test-ko~security-review-ko": 0.207,
     "systematic-debugging-ko~tdd-ko": 0.155
   },

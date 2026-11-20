@@ -64,7 +64,7 @@ bash scripts/tests/run-all.sh
 name: <kebab-case-ko>
 description: <한 줄 — 언제 사용·무엇·결과>
 layer: 1 | 2 | 3
-reference_upstream: <owner/repo@version path> 또는 "specops-ko 독자 추가"
+reference_upstream: specops-ko 독자 추가
 specops_version: <semver>
 used_by: </command 또는 skill short name>  # command=/start, skill=specifying-ko (devfsd: prefix 금지)
 ---

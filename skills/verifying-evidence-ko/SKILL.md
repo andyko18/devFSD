@@ -3,10 +3,7 @@ name: verifying-evidence-ko
 description: 작업이 완료·수정·통과됐다고 주장하기 직전, 커밋·PR 생성 전 반드시 사용 — 검증 명령을 실행하고 출력을 확인한 뒤에만 성공 주장 허용
 layer: 2
 discipline: true
-reference_upstream: obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
-  - obra/superpowers@v5.0.7 skills/verification-before-completion/SKILL.md
-  - affaan-m/everything-claude-code@1.2.0 skills/verification-loop
-  - skills/verifying-evidence-ko/SKILL.md
+reference_upstream: specops-ko 독자 추가
 specops_version: 2.0.0
 used_by: implementing-ko (chain 진입), requesting-code-review-ko (chain 출구)
 user-invocable: false
@@ -240,12 +237,11 @@ NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
 ## 참조
 
-- ECC 보완: `affaan-m/everything-claude-code@1.2.0 skills/verification-loop/`
 - specops-ko 한국어 선례: `skills/verifying-evidence-ko/SKILL.md`
 
 ## Bounded verify→fix 루프 (P2-2)
 
-검증 FAIL 시 즉시 HARD GATE 대신 **bounded 자율 수렴**. OMC `max_fix_loops=3` 패턴 차용.
+검증 FAIL 시 즉시 HARD GATE 대신 **bounded 자율 수렴**.
 
 ### 루프 상태 파일
 

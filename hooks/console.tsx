@@ -102,6 +102,7 @@ const SVG_LABEL = '#888780'
 
 // devFSD: 진행 기록(FID·단계·verify)은 progress-pane 이 채우는 board 를 읽기만 한다.
 import { notificationOf, progressStart, textOf } from './progress-pane'
+import { gaugeStart } from './gauge'
 import { ciLine, ciPending } from './ci-watch'
 import type { Board, CmdSeg, StageMark } from '../types'
 
@@ -341,6 +342,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
     await refreshStatus($, cfg)
     const done = await next(e)
     await progressStart($, e.cwd, { watch: cfg.ciWatch, intervalSec: cfg.ciIntervalSec })
+    await gaugeStart($, e.cwd) // devFSD: 계기판(입력창 위 띠)
     if (resumedWindow > 0) {
       await readCompactWindow($, resumedWindow)
       await refreshStatus($, cfg)

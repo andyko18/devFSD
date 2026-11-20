@@ -304,7 +304,7 @@ export function projectRoot(cwd: string): string {
 }
 
 /** devFSD 관할: cwd 또는 그 worktree 의 프로젝트 폴더에 `.specops/` 가 있다. */
-async function isGoverned($: EngineInterface, cwd: string): Promise<boolean> {
+export async function isGoverned($: EngineInterface, cwd: string): Promise<boolean> {
   for (const dir of [cwd, projectRoot(cwd)]) {
     try {
       if (await $.fs.exists(`${dir}/.specops`)) return true

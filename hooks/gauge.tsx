@@ -1,4 +1,4 @@
-// devFSD 계기판 — 입력창 바로 위 띠. 관제판·진행 패널이 채운 상태를 읽어 그리기만 한다(차단·수정 없음).
+// devFSD 계기판 — 입력창 바로 위 띠. 자료 수집(progress-pane.tsx)이 채운 상태를 읽어 그리기만 한다(차단·수정 없음).
 //   그림을 그리는 화면(데스크톱 앱 등): 왼쪽에 이름(모델) · 명령·작업·누구 차례 · 버튼, 오른쪽에 둥근 계기 셋(gauge-dial.ts — 명령의 단계 · Claude 5h · Claude 7d).
 //   터미널: 그림 요소가 없어 글자 세 줄로 그린다(상태+버튼 · 단계 점 · 모델·한도·비용).
 import { atom, read, update } from 'claude-code'
@@ -21,7 +21,7 @@ const ACCENT = 'suggestion'
 const BAR_WIDTH = 5
 const HOT_PCT = 80 // 이 아래로는 막대에 색을 쓰지 않는다 — 평소엔 무채색
 const LIMITS_SHOWN = 2
-// 보안·통합·성능·데모는 계기판에서 한 점(게이트)으로 묶는다 — 상세는 진행 패널이 보여 준다.
+// 보안·통합·성능·데모는 계기판에서 한 점(게이트)으로 묶는다 — 상세는 관제판이 보여 준다.
 const GATE_KEYS: readonly string[] = ['security', 'integration', 'performance', 'demo']
 // 승인은 기록에 단계로 남지 않는다 — 이 단계 바로 뒤에 끼워 앞뒤 단계로 상태를 추정한다.
 const APPROVAL_AFTER: readonly string[] = ['clarify', 'specify']
@@ -65,7 +65,7 @@ function approvalState(before: Stop, after: readonly Stop[]): StopState {
   return before.state === 'done' ? 'now' : 'todo'
 }
 
-/** 진행 패널의 단계 막대 → 계기판의 점 줄(게이트 묶음 · 승인 · 머지 추가). 단계가 없으면 빈 배열. */
+/** 자료 수집이 만든 단계 막대 → 계기판의 점 줄(게이트 묶음 · 승인 · 머지 추가). 단계가 없으면 빈 배열. */
 export function stopsOf(stages: readonly StageMark[] | undefined, isDone: boolean): Stop[] {
   if (!stages || stages.length === 0) return []
   const plain: Stop[] = []

@@ -3183,9 +3183,9 @@ const PANE_OK = { id: 'devfsd-console', title: 'devFSD 관제판', isShown: true
 test('devFSD: 열기 안내 — 보이면 조작을 알리고, 안 보이는 세 경우는 이유와 해결을 말한다', () => {
   expect(openedText([PANE_OK], 'devfsd-console')[0]).toMatch(/^devFSD 관제판이 열렸습니다\. .*ctrl\+x tab/)
   expect(openedText([PANE_OK], 'devfsd-console')[1]).toMatch(/110칸.*입력창 위/)
-  // 탭 뒤 — 같은 플러그인의 진행 패널이 앞에 있다
-  const behind = openedText([{ ...PANE_OK, isShown: false }, { id: 'devfsd-progress', title: 'devFSD 진행', isShown: true, isFocused: false, isPlaced: true }], 'devfsd-console')
-  expect(behind[0]).toBe('관제판이 열려 있지만 다른 패널(devFSD 진행) 뒤의 탭에 있습니다.')
+  // 탭 뒤 — 같은 플러그인의 다른 패널(도움말)이 앞에 있다
+  const behind = openedText([{ ...PANE_OK, isShown: false }, { id: 'devfsd-help', title: 'devFSD 도움말', isShown: true, isFocused: false, isPlaced: true }], 'devfsd-console')
+  expect(behind[0]).toBe('관제판이 열려 있지만 다른 패널(devFSD 도움말) 뒤의 탭에 있습니다.')
   expect(behind[1]).toMatch(/탭에서 "devFSD 관제판"/)
   // 아직 안 그려짐 — 좁은 터미널
   expect(openedText([{ ...PANE_OK, isPlaced: false }], 'devfsd-console').join(' ')).toMatch(/아직 그려지지 않았습니다.*110칸/)
@@ -3199,7 +3199,7 @@ test('devFSD: 열기 안내 — /devfsd 는 패널 상태를 점검해 그 말�
   fidWorld(on, { progress: PROG_B, panes: () => panes })
   await startFid($)
   expect((await $.command.run({ command: 'devfsd', args: '' })).text).toMatch(/^devFSD 관제판이 열렸습니다\./)
-  panes = [{ ...PANE_OK, isShown: false }, { id: 'devfsd-progress', title: 'devFSD 진행', isShown: true, isFocused: false, isPlaced: true }]
+  panes = [{ ...PANE_OK, isShown: false }, { id: 'devfsd-help', title: 'devFSD 도움말', isShown: true, isFocused: false, isPlaced: true }]
   expect((await $.command.run({ command: 'devfsd', args: '' })).text).toMatch(/뒤의 탭에 있습니다/)
   panes = [{ ...PANE_OK, isPlaced: false }]
   expect((await $.command.run({ command: 'devfsd', args: '' })).text).toMatch(/아직 그려지지 않았습니다/)

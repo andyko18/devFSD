@@ -1,10 +1,11 @@
-import { expect, mock, test } from 'claude-code/testing'
+import { expect, mock, test as engineTest } from 'claude-code/testing'
+
+import type { Board } from '../types'
 
 import {
   activeFid,
   batchOf,
   currentStageKey,
-  elapsed,
   fidOf,
   isBasicLane,
   isLifecycleDone,
@@ -21,21 +22,71 @@ import {
   segsOf,
 } from './progress-pane'
 
-const PANE = {
+/** 관제판 패널 — 백그라운드 작업 배지(활동 신호) 시험이 그린다. */
+const CONSOLE = {
   plugin: 'devfsd',
   component: 'Pane',
-  requestId: 'devfsd-progress',
+  requestId: 'devfsd-console',
   props: {
-    title: 'devFSD 진행',
+    title: 'devFSD 관제판',
     isFocused: false,
-    bodyColumns: 60,
+    bodyColumns: 86,
     placement: 'dock',
     scroll: { offset: 0, bodyRows: 30 },
     view: {},
   },
 } as const
 
-const SURFACES = ['terminal', 'desktop'] as const
+/** `3m12s` — 경과 시간 형식(자료 수집 시험의 읽기 보조). */
+const elapsed = (ms: number): string => {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const minutes = Math.floor(total / 60)
+  const seconds = total % 60
+
+  return minutes > 0 ? `${minutes}m${String(seconds).padStart(2, '0')}s` : `${seconds}s`
+}
+
+/**
+ * 자료 수집 결과(board·now)를 줄로 읽는다 — 진행 패널을 걷어내기 전에 패널이 그리던 줄 그대로다.
+ * 화면 없이 상태에서 만들어, 수집 시험의 단언이 그대로 유지된다.
+ */
+const rowsFromBoard = (b: Board, at: number): string[] => [
+  ['devFSD', b.fid, b.lane, b.stage].filter(Boolean).join(' · '),
+  ...(b.stages ? [b.stages.map(st => `${st.label}${st.mark}`).join(' ')] : []),
+  ...(b.verify ? [b.verify] : []),
+  ' ',
+  `▶ 실행 중 (${b.running.length})`,
+  ...(b.running.length === 0 ? ['  없음'] : b.running.map(job => `  ${job.label} · ${job.detail} · ${elapsed(at - job.startedAt)}`)),
+  ' ',
+  '최근 완료',
+  ...(b.recent.length === 0 ? ['  없음'] : b.recent.map(job => `  ${job.isFailed ? '✗' : '✓'} ${job.label} · ${elapsed((job.endedAt ?? at) - job.startedAt)}`)),
+]
+
+/**
+ * 자료 수집이 상태(board·now)에 쓰는 값을 시험이 복사해 둔다 — 운영 화면 없이 수집 결과를 읽기 위해서다.
+ * 상태를 쓰는 이벤트(`state.set`)는 값을 그대로 지나가게 두고(`next`) 복사만 한다.
+ */
+let written = new Map<string, unknown>()
+const writtenValue = <T,>(key: string, fallback: T): T => {
+  const stored = written.get(key) as { shape?: string; value?: T } | undefined
+
+  return stored === undefined ? fallback : stored.shape !== undefined && 'value' in stored ? (stored.value as T) : (stored as unknown as T)
+}
+
+/** 모든 시험이 복사본을 새로 시작한다. */
+const test = ((name: string, run: Parameters<typeof engineTest>[1]) =>
+  engineTest(name, async ($, on) => {
+    written = new Map()
+    // devfsd 상태만, 저장에 성공한 쓰기만 복사한다 — `ifVersion` 에서 진 쓰기는 곧 재시도 쓰기가 오므로 실제 저장값과 어긋나지 않는다.
+    on('state.set', { plugin: 'devfsd' }, async (_, e, next) => {
+      const done = await next(e)
+      if (done.value.isSet) written.set(`${e.plugin}.${e.key}`, e.value)
+
+      return done
+    })
+
+    return run($, on)
+  })) as typeof engineTest
 
 test('helpers read stage, FID, notification and elapsed time', () => {
   expect(stageOf('devfsd:planning-ko')).toBe('설계 (planning-ko)')
@@ -48,8 +99,6 @@ test('helpers read stage, FID, notification and elapsed time', () => {
   })
   expect(notificationOf('<tool-use-id>toolu_2</tool-use-id><status>failed</status>')?.isFailed).toBe(true)
   expect(notificationOf('plain text')).toBe(undefined)
-  expect(elapsed(192_000)).toBe('3m12s')
-  expect(elapsed(9_000)).toBe('9s')
   expect(projectRoot('/repo/.worktrees/20261030-x')).toBe('/repo')
   expect(projectRoot('/repo/.claude/worktrees/wt')).toBe('/repo')
   expect(projectRoot('/repo')).toBe('/repo')
@@ -57,12 +106,8 @@ test('helpers read stage, FID, notification and elapsed time', () => {
   expect(projectRoot('/repo/.claude/worktrees')).toBe('/repo/.claude/worktrees')
 })
 
-test('the pane shows nothing running before any work', async ($, on) => {
-  for (const surface of SURFACES) {
-    const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /실행 중/ }))?.text).toBe('▶ 실행 중 (0)')
-    await ui.unmount()
-  }
+test('nothing is running before any work', async ($, on) => {
+  expect(await rowOf(/실행 중/)).toBe('▶ 실행 중 (0)')
 })
 
 test('a foreground agent runs, then lands in recent', async ($, on) => {
@@ -85,20 +130,12 @@ test('a foreground agent runs, then lands in recent', async ($, on) => {
     subagent_type: 'devfsd:spec-reviewer-ko',
   })
   await reached
-  for (const surface of SURFACES) {
-    const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /리뷰 B/ }))?.text).toMatch(/리뷰 B · devfsd:spec-reviewer-ko/)
-    await ui.unmount()
-  }
+  expect(await rowOf(/리뷰 B/)).toMatch(/리뷰 B · devfsd:spec-reviewer-ko/)
 
   release()
   await call
-  for (const surface of SURFACES) {
-    const ui = await $.ui.mount({ ...PANE, surface })
-    expect((await ui.find({ type: 'Text', text: /실행 중/ }))?.text).toBe('▶ 실행 중 (0)')
-    expect((await ui.find({ type: 'Text', text: /리뷰 B/ }))?.text).toMatch(/✓ 리뷰 B/)
-    await ui.unmount()
-  }
+  expect(await rowOf(/실행 중/)).toBe('▶ 실행 중 (0)')
+  expect(await rowOf(/리뷰 B/)).toMatch(/✓ 리뷰 B/)
 })
 
 test('a background command stays running until its notification', async ($, on) => {
@@ -112,9 +149,7 @@ test('a background command stays running until its notification', async ($, on) 
     description: 'run-all',
     run_in_background: true,
   })
-  const running = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await running.find({ type: 'Text', text: /run-all/ }))?.text).toMatch(/run-all · 백그라운드/)
-  await running.unmount()
+  expect(await rowOf(/run-all/)).toMatch(/run-all · 백그라운드/)
 
   await $.session.append({
     door: 'delivery',
@@ -125,34 +160,28 @@ test('a background command stays running until its notification', async ($, on) 
       content: [{ type: 'text', text: '<tool-use-id>toolu_b</tool-use-id><status>failed</status>' }],
     },
   })
-  const done = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await done.find({ type: 'Text', text: /실행 중/ }))?.text).toBe('▶ 실행 중 (0)')
-  expect((await done.find({ type: 'Text', text: /run-all/ }))?.text).toMatch(/✗ run-all/)
-  await done.unmount()
+  expect(await rowOf(/실행 중/)).toBe('▶ 실행 중 (0)')
+  expect(await rowOf(/run-all/)).toMatch(/✗ run-all/)
 })
 
 test('a foreground command is not tracked', async ($, on) => {
   on('tool.call', () => ({ result: {}, text: 'ok' }))
   await $.tool.call({ tool: 'Bash', tool_use_id: 'toolu_c', command: 'ls' })
 
-  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /실행 중/ }))?.text).toBe('▶ 실행 중 (0)')
-  expect(await ui.find({ type: 'Text', text: /ls/ })).toBe(undefined)
-  await ui.unmount()
+  expect(await rowOf(/실행 중/)).toBe('▶ 실행 중 (0)')
+  expect(await rowOf(/ls/)).toBe(undefined)
 })
 
 test('a devFSD skill call sets the stage', async ($, on) => {
   on('tool.call', () => ({ result: {}, text: 'loaded' }))
   await $.tool.call({ tool: 'Skill', tool_use_id: 'toolu_d', skill: 'devfsd:implementing-ko' })
 
-  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect((await ui.find({ type: 'Text', text: /^devFSD/ }))?.text).toMatch(/구현 \(implementing-ko\)/)
-  await ui.unmount()
+  expect(await rowOf(/^devFSD/)).toMatch(/구현 \(implementing-ko\)/)
 })
 
 const opened = (on: Parameters<Parameters<typeof test>[1]>[1]) => {
   const calls: string[] = []
-  on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('clock.every', () => ({ value: { cancel: () => {} } }))
   on('clock.now', () => ({ value: 1_000 }))
   on('fs.read', () => { throw new Error('ENOENT') })
@@ -177,13 +206,32 @@ test('a worktree of a governed repo opens the pane', async ($, on) => {
   expect(calls).toEqual(['devfsd-console'])
 })
 
+test('session start registers devfsd and devfsd-gauge and not devfsd-progress', async ($, on) => {
+  const names: string[] = []
+  on('command.register', (_, e) => {
+    names.push(e.name)
+
+    return { value: { command: e.name } }
+  })
+  on('clock.every', () => ({ value: { cancel: () => {} } }))
+  on('clock.now', () => ({ value: 1_000 }))
+  on('fs.read', () => { throw new Error('ENOENT') })
+  on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  await $.session.start({ cwd: '/repo', ...START })
+  expect(names).toContain('devfsd')
+  expect(names).toContain('devfsd-gauge')
+  expect(names).not.toContain('devfsd-progress')
+})
+
 test('another repo does not open the pane, the command still does', async ($, on) => {
   const calls = opened(on)
   on('fs.exists', () => ({ value: false }))
   await $.session.start({ cwd: '/other', ...START })
   expect(calls).toEqual([])
-  await $.command.run({ command: 'devfsd-progress', args: '' })
-  expect(calls).toEqual(['devfsd-progress'])
+  await $.command.run({ command: 'devfsd', args: '' })
+  expect(calls).toEqual(['devfsd-console'])
 })
 
 test('a worktree with its own .specops opens the pane', async ($, on) => {
@@ -214,14 +262,11 @@ test('a failing existence check keeps the pane closed without rejecting', async 
 type Pane$ = Parameters<Parameters<typeof test>[1]>[0]
 type PaneOn = Parameters<Parameters<typeof test>[1]>[1]
 
-/** 한 번 마운트해 Text 줄을 모두 읽는다. */
-const rowsOf = async ($: Pane$): Promise<string[]> => {
-  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  const rows = (await ui.findAll({ type: 'Text' })).map(one => one.text ?? '')
-  await ui.unmount()
+/** 자료 수집 결과를 줄로 모두 읽는다(복사해 둔 board·now 에서). */
+const rowsOf = async (): Promise<string[]> => rowsFromBoard(writtenValue<Board>('devfsd.board', { running: [], recent: [] }), writtenValue('devfsd.now', 0))
 
-  return rows
-}
+/** 정규식에 처음 맞는 줄. */
+const rowOf = async (re: RegExp): Promise<string | undefined> => (await rowsOf()).find(row => re.test(row))
 
 const agentCall = (id: string, extra: Record<string, unknown> = {}) =>
   ({ tool: 'Agent', tool_use_id: id, description: `작업 ${id}`, prompt: 'p', subagent_type: 'general-purpose', ...extra }) as never
@@ -245,12 +290,12 @@ test('a background agent stays running after launch, then lands in recent on its
   on('tool.call', () => ({ result: {}, text: 'Async agent launched successfully' }))
   await $.tool.call(agentCall('toolu_bg'))
 
-  const launched = await rowsOf($)
+  const launched = await rowsOf()
   expect(running(launched)).toBe('▶ 실행 중 (1)')
   expect(launched.some(row => row.includes('✓ 작업 toolu_bg'))).toBe(false)
 
   await notify($, 'toolu_bg', 'completed')
-  const done = await rowsOf($)
+  const done = await rowsOf()
   expect(running(done)).toBe('▶ 실행 중 (0)')
   expect(done.some(row => row.includes('✓ 작업 toolu_bg'))).toBe(true)
 })
@@ -261,7 +306,7 @@ test('a foreground agent that errors or is denied lands as failed', async ($, on
   await $.tool.call(agentCall('toolu_err'))
   await $.tool.call(agentCall('toolu_deny'))
 
-  const rows = await rowsOf($)
+  const rows = await rowsOf()
   expect(running(rows)).toBe('▶ 실행 중 (0)')
   expect(rows.some(row => row.includes('✗ 작업 toolu_err'))).toBe(true)
   expect(rows.some(row => row.includes('✗ 작업 toolu_deny'))).toBe(true)
@@ -272,7 +317,7 @@ test('a denied background command lands as failed', async ($, on) => {
   on('tool.call', () => ({ deny: '막힘' }))
   await $.tool.call(bgBash('toolu_bd'))
 
-  const rows = await rowsOf($)
+  const rows = await rowsOf()
   expect(running(rows)).toBe('▶ 실행 중 (0)')
   expect(rows.some(row => row.includes('✗ 명령 toolu_bd'))).toBe(true)
 })
@@ -283,7 +328,7 @@ test('a background command notified as completed lands as done', async ($, on) =
   await $.tool.call(bgBash('toolu_bok'))
   await notify($, 'toolu_bok', 'completed')
 
-  const rows = await rowsOf($)
+  const rows = await rowsOf()
   expect(rows.some(row => row.includes('✓ 명령 toolu_bok'))).toBe(true)
   expect(rows.some(row => row.includes('✗ 명령 toolu_bok'))).toBe(false)
 })
@@ -293,14 +338,14 @@ test('calls and notifications from inside a subagent are ignored', async ($, on)
   on('tool.call', () => ({ result: {}, text: 'Async agent launched successfully' }))
   await $.tool.call(agentCall('toolu_sub', { agentId: 'sub1' }))
   await $.tool.call(bgBash('toolu_subb', { agentId: 'sub1' }))
-  expect(running(await rowsOf($))).toBe('▶ 실행 중 (0)')
+  expect(running(await rowsOf())).toBe('▶ 실행 중 (0)')
 
   await $.tool.call(agentCall('toolu_top'))
   await notify($, 'toolu_top', 'completed', { agentId: 'sub1' })
-  expect(running(await rowsOf($))).toBe('▶ 실행 중 (1)')
+  expect(running(await rowsOf())).toBe('▶ 실행 중 (1)')
 
   await notify($, 'toolu_top', 'completed')
-  expect(running(await rowsOf($))).toBe('▶ 실행 중 (0)')
+  expect(running(await rowsOf())).toBe('▶ 실행 중 (0)')
 })
 
 test('recent keeps the latest five, newest on top', async ($, on) => {
@@ -309,7 +354,7 @@ test('recent keeps the latest five, newest on top', async ($, on) => {
   on('tool.call', () => ({ result: {}, text: 'done' }))
   for (const n of [1, 2, 3, 4, 5, 6]) await $.tool.call(agentCall(`a${n}`))
 
-  const done = (await rowsOf($)).filter(row => row.includes('✓'))
+  const done = (await rowsOf()).filter(row => row.includes('✓'))
   expect(done.length).toBe(5)
   expect(done.some(row => row.includes('작업 a1 '))).toBe(false)
   // 관제판 훅도 같은 시계를 읽으므로 소요 초는 고정하지 않고 순서만 본다.
@@ -385,7 +430,7 @@ test('a failing clock does not break any observed call', async ($, on) => {
 test('a skill call puts the FID and stage on the head line; others leave it alone', async ($, on) => {
   on('fs.read', () => ({ value: '# s\n\n## 20261030-x · 설명\n' }))
   on('tool.call', () => ({ result: {}, text: 'loaded' }))
-  const head = async () => (await rowsOf($)).find(row => row.startsWith('devFSD'))
+  const head = async () => (await rowsOf()).find(row => row.startsWith('devFSD'))
 
   expect(await head()).toBe('devFSD')
   await $.tool.call({ tool: 'Skill', tool_use_id: 'toolu_s0', skill: 'simplify' } as never)
@@ -415,7 +460,7 @@ const clockWorld = (on: PaneOn, tool: ToolHandler, now = 1_000, onNow: () => voi
     return (on as (...args: unknown[]) => unknown)(event, ...rest)
   }) as PaneOn
   const clock = mock.clock(counting, { now })
-  on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('fs.read', () => { throw new Error('ENOENT') })
   on('fs.exists', () => ({ value: false }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
@@ -434,15 +479,15 @@ test('the tick moves elapsed time of a running job, and an ended job keeps its o
 
   const call = $.tool.call(agentCall('toolu_t'))
   await reached
-  expect((await rowsOf($)).find(row => row.includes('작업 toolu_t'))).toBe('  작업 toolu_t · general-purpose · 0s')
+  expect((await rowsOf()).find(row => row.includes('작업 toolu_t'))).toBe('  작업 toolu_t · general-purpose · 0s')
 
   await clock.advance(3_000)
   release()
   await call
-  expect((await rowsOf($)).find(row => row.includes('작업 toolu_t'))).toBe('  ✓ 작업 toolu_t · 3s')
+  expect((await rowsOf()).find(row => row.includes('작업 toolu_t'))).toBe('  ✓ 작업 toolu_t · 3s')
 
   await clock.advance(190_000)
-  expect((await rowsOf($)).find(row => row.includes('작업 toolu_t'))).toBe('  ✓ 작업 toolu_t · 3s')
+  expect((await rowsOf()).find(row => row.includes('작업 toolu_t'))).toBe('  ✓ 작업 toolu_t · 3s')
 })
 
 test('the tick refreshes now while something runs', async ($, on) => {
@@ -451,7 +496,7 @@ test('the tick refreshes now while something runs', async ($, on) => {
   await $.tool.call(agentCall('toolu_u'))
 
   await clock.advance(190_000)
-  expect((await rowsOf($)).find(row => row.includes('작업 toolu_u'))).toBe('  작업 toolu_u · general-purpose · 3m10s')
+  expect((await rowsOf()).find(row => row.includes('작업 toolu_u'))).toBe('  작업 toolu_u · general-purpose · 3m10s')
 })
 
 test('the tick leaves the clock alone while nothing runs', async ($, on) => {
@@ -478,7 +523,7 @@ test('a second session start leaves one live ticker', async ($, on) => {
 
 test('a second session start asks for a second timer', async ($, on) => {
   let every = 0
-  on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('clock.every', () => { every += 1; return { value: undefined } })
   on('clock.now', () => ({ value: 1_000 }))
   on('fs.read', () => { throw new Error('ENOENT') })
@@ -491,7 +536,7 @@ test('a second session start asks for a second timer', async ($, on) => {
 
 test('a failing clock at session start still opens the pane of a governed repo', async ($, on) => {
   const opens: string[] = []
-  on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('clock.every', () => ({ value: undefined }))
   on('clock.now', () => { throw new Error('boom') })
   on('fs.read', () => { throw new Error('ENOENT') })
@@ -618,7 +663,7 @@ const verifyWorld = (on: PaneOn) => {
     mode: { exitCode: 0, stdout: '', stderr: '' }, // board-mode.sh 의 답 — 비어 있으면 명령별 구성이 없다(종전 표시)
     modeRuns: [] as Run[], // board-mode.sh 호출은 따로 센다 — 표시용 읽기라 검증기 호출 수와 섞지 않는다
   }
-  on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('clock.every', () => ({ value: undefined }))
   on('clock.now', () => ({ value: 1_000 }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -666,7 +711,7 @@ const editCall = (id: string, extra: Record<string, unknown> = {}) =>
   ({ tool: 'Edit', tool_use_id: id, file_path: '/repo/a.ts', old_string: 'a', new_string: 'b', ...extra }) as never
 const fgBash = (id: string, extra: Record<string, unknown> = {}) =>
   ({ tool: 'Bash', tool_use_id: id, command: 'ls', ...extra }) as never
-const headOf = async ($: Pane$) => (await rowsOf($)).find(row => row.startsWith('devFSD'))
+const headOf = async () => (await rowsOf()).find(row => row.startsWith('devFSD'))
 
 test('an edit in a governed session recomputes verify once, after the tool finished', async ($, on) => {
   const w = verifyWorld(on)
@@ -777,7 +822,7 @@ test('a worktree whose own .specops holds the FID verifies there, with an empty 
   expect(base).toBe(1)
   expect(w.runs.filter(r => r.argv[0] === 'git').length).toBe(0)
   expect(bash(w)[0]?.init).toEqual({ cwd: wt, env: {}, timeoutMs: 10000 })
-  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 STALE')
+  expect(await badgeOn()).toBe('검증 STALE')
 })
 
 test('a worktree with the FID folder in neither place shows a question mark and runs nothing', async ($, on) => {
@@ -788,7 +833,7 @@ test('a worktree with the FID folder in neither place shows a question mark and 
   await begin($, w, wt)
 
   expect(w.runs.length).toBe(0)
-  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 ?')
+  expect(await badgeOn()).toBe('검증 ?')
 })
 
 test('the worktree wins when both it and the project folder hold the FID', async ($, on) => {
@@ -837,19 +882,19 @@ test('a finished lifecycle skips the verifier until progress says otherwise', as
 test('no FID in progress means no verifier call and a bare head line', async ($, on) => {
   const w = verifyWorld(on)
   const base = await begin($, w)
-  expect(await headOf($)).toBe('devFSD · 20261104-b')
+  expect(await headOf()).toBe('devFSD · 20261104-b')
 
   w.progress = '# p\n\n## 활용 방법\n'
   await $.tool.call(editCall('toolu_f1'))
   await drain()
   expect(bash(w).length - base).toBe(0)
-  expect(await headOf($)).toBe('devFSD')
+  expect(await headOf()).toBe('devFSD')
 
   w.progress = PROG
   await $.tool.call(editCall('toolu_f2'))
   await drain()
   expect(bash(w).length - base).toBe(1)
-  expect(await headOf($)).toBe('devFSD · 20261104-b')
+  expect(await headOf()).toBe('devFSD · 20261104-b')
 })
 
 test('an unreadable progress file means no verifier call', async ($, on) => {
@@ -861,7 +906,7 @@ test('an unreadable progress file means no verifier call', async ($, on) => {
   await drain()
 
   expect(bash(w).length).toBe(0)
-  expect(await headOf($)).toBe('devFSD')
+  expect(await headOf()).toBe('devFSD')
 })
 
 test('the FID is re-read on every trigger', async ($, on) => {
@@ -875,7 +920,7 @@ test('the FID is re-read on every trigger', async ($, on) => {
   await drain()
 
   expect(bash(w).slice(base).map(r => r.argv[3])).toEqual(['20261104-b', '20261104-c'])
-  expect(await headOf($)).toBe('devFSD · 20261104-c')
+  expect(await headOf()).toBe('devFSD · 20261104-c')
 })
 
 test('a marker FID without a section still verifies, a missing FID folder does not', async ($, on) => {
@@ -980,38 +1025,29 @@ const BAR_B = '분석✓ 명세✓ 명확화– 설계– 분해✓ 구현● �
 const BAR_NONE = '명세○ 명확화○ 설계○ 분해○ 구현○ 검증○ 보안○ 통합○ 성능○ 데모○ PR○'
 const BAR_DONE = '명세○ 명확화○ 설계○ 분해○ 구현○ 검증✓ 보안○ 통합○ 성능○ 데모○ PR✓'
 
-/** 한 surface 로 마운트해 비지 않은 Text 줄을 trim 해 읽는다. */
-const rowsOn = async ($: Pane$, surface: (typeof SURFACES)[number]): Promise<string[]> => {
-  const ui = await $.ui.mount({ ...PANE, surface })
-  const rows = (await ui.findAll({ type: 'Text' })).map(one => (one.text ?? '').trim()).filter(Boolean)
-  await ui.unmount()
+/** 비지 않은 줄을 trim 해 읽는다. */
+const rowsOn = async (): Promise<string[]> => (await rowsOf()).map(row => row.trim()).filter(Boolean)
+const badgeOn = async () => (await rowsOn()).find(row => row.startsWith('검증 ') || row === '완료')
 
-  return rows
-}
-const badgeOn = async ($: Pane$, surface: (typeof SURFACES)[number]) =>
-  (await rowsOn($, surface)).find(row => row.startsWith('검증 ') || row === '완료')
-
-test('the pane lists head, stage bar, verify badge, running and recent in that order on both surfaces', async ($, on) => {
+test('the collected rows list head, stage bar, verify badge, running and recent in that order', async ($, on) => {
   const w = verifyWorld(on)
   await begin($, w)
 
-  for (const surface of SURFACES) {
-    expect(await rowsOn($, surface)).toEqual([
-      'devFSD · 20261104-b', BAR_B, '검증 STALE', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
-    ])
-  }
+  expect(await rowsOn()).toEqual([
+    'devFSD · 20261104-b', BAR_B, '검증 STALE', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
+  ])
 })
 
-test('every verifier word reaches the badge line on both surfaces', async ($, on) => {
+test('every verifier word reaches the badge line', async ($, on) => {
   const w = verifyWorld(on)
   w.answer = { exitCode: 0, stdout: 'NOT_RUN\n', stderr: '' }
   await begin($, w)
-  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 NOT_RUN')
+  expect(await badgeOn()).toBe('검증 NOT_RUN')
 
   w.answer = { exitCode: 0, stdout: 'PASS\n', stderr: '' }
   await $.tool.call(editCall('toolu_w1'))
   await drain()
-  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 PASS')
+  expect(await badgeOn()).toBe('검증 PASS')
 })
 
 test('a rejected verifier shows a question mark and the next trigger restores the value', async ($, on) => {
@@ -1021,12 +1057,12 @@ test('a rejected verifier shows a question mark and the next trigger restores th
   w.answer = 'reject'
   await $.tool.call(editCall('toolu_q1'))
   await drain()
-  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 ?')
+  expect(await badgeOn()).toBe('검증 ?')
 
   w.answer = { exitCode: 0, stdout: 'PASS\n', stderr: '' }
   await $.tool.call(editCall('toolu_q2'))
   await drain()
-  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 PASS')
+  expect(await badgeOn()).toBe('검증 PASS')
 })
 
 test('a finished lifecycle shows done on the badge line without calling the verifier', async ($, on) => {
@@ -1035,11 +1071,9 @@ test('a finished lifecycle shows done on the badge line without calling the veri
   await begin($, w)
 
   expect(bash(w).length).toBe(0)
-  for (const surface of SURFACES) {
-    expect(await rowsOn($, surface)).toEqual([
-      'devFSD · 20261104-b', BAR_DONE, '완료', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
-    ])
-  }
+  expect(await rowsOn()).toEqual([
+    'devFSD · 20261104-b', BAR_DONE, '완료', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
+  ])
 })
 
 test('a missing FID folder shows a question mark', async ($, on) => {
@@ -1048,7 +1082,7 @@ test('a missing FID folder shows a question mark', async ($, on) => {
   await begin($, w)
 
   expect(bash(w).length).toBe(0)
-  for (const surface of SURFACES) expect(await badgeOn($, surface)).toBe('검증 ?')
+  expect(await badgeOn()).toBe('검증 ?')
 })
 
 test('without an active FID neither the stage bar nor the badge is drawn', async ($, on) => {
@@ -1057,9 +1091,7 @@ test('without an active FID neither the stage bar nor the badge is drawn', async
   await begin($, w)
 
   expect(bash(w).length).toBe(0)
-  for (const surface of SURFACES) {
-    expect(await rowsOn($, surface)).toEqual(['devFSD', '▶ 실행 중 (0)', '없음', '최근 완료', '없음'])
-  }
+  expect(await rowsOn()).toEqual(['devFSD', '▶ 실행 중 (0)', '없음', '최근 완료', '없음'])
 })
 
 test('a marker FID without a section draws an all-open bar with no analysis cell', async ($, on) => {
@@ -1067,32 +1099,9 @@ test('a marker FID without a section draws an all-open bar with no analysis cell
   w.progress = '<!-- active-fid: 20261104-z -->\n## 20261104-a · x\n'
   await begin($, w)
 
-  for (const surface of SURFACES) {
-    expect(await rowsOn($, surface)).toEqual([
-      'devFSD · 20261104-z', BAR_NONE, '검증 STALE', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
-    ])
-  }
-})
-
-test('the badge is bold except for done and pass', async ($, on) => {
-  const w = verifyWorld(on)
-  await begin($, w)
-  const boldOf = async (surface: (typeof SURFACES)[number], text: RegExp) => {
-    const ui = await $.ui.mount({ ...PANE, surface })
-    const node = (await ui.find({ type: 'Text', text })) as unknown as Record<string, any> | undefined
-    await ui.unmount()
-
-    return node?.bold ?? node?.props?.bold
-  }
-
-  // The head line is always bold: if the kit cannot show that, bold is not observable here.
-  if ((await boldOf('terminal', /^devFSD/)) !== true) return
-
-  for (const surface of SURFACES) expect(await boldOf(surface, /^검증 /)).toBe(true)
-  w.answer = { exitCode: 0, stdout: 'PASS\n', stderr: '' }
-  await $.tool.call(editCall('toolu_b1'))
-  await drain()
-  for (const surface of SURFACES) expect(await boldOf(surface, /^검증 /)).not.toBe(true)
+  expect(await rowsOn()).toEqual([
+    'devFSD · 20261104-z', BAR_NONE, '검증 STALE', '▶ 실행 중 (0)', '없음', '최근 완료', '없음',
+  ])
 })
 
 test('devFSD: stagesOf puts 데모 between 성능 and PR, marked by its own /demo row only', () => {
@@ -1165,14 +1174,13 @@ test('devFSD: a throwing scan is retried on the next tick and the job stays list
   await $.tool.call(bgBash('b1'))
   await clock.advance(5_000)
   expect(calls).toBeGreaterThanOrEqual(1) // 스캔이 시도됐다
-  expect((await rowsOf($)).find(row => row.startsWith('▶ 실행 중'))).toBe('▶ 실행 중 (1)')
+  expect((await rowsOf()).find(row => row.startsWith('▶ 실행 중'))).toBe('▶ 실행 중 (1)')
   await clock.advance(5_000)
   expect(calls).toBeGreaterThanOrEqual(2) // 던진 뒤에도 시계가 살아 있다
 })
 
 // ---------------------------------------------------------------- activity badge on the console pane
 
-const CONSOLE = { ...PANE, requestId: 'devfsd-console', props: { ...PANE.props, title: 'devFSD 관제판', bodyColumns: 86 } } as const
 const mainDone = (turnId: string) => ({ answer: '', durationMs: 1000, isAborted: false, turnId, reason: 'answer' as const })
 
 test('devFSD: a fresh output-file mtime beats a 9m30s-old hook signal and clears the stall', async ($, on) => {
@@ -1388,9 +1396,7 @@ test('devFSD: a stale verify with a PASS record shows 검증! in the stage bar',
   const w = verifyWorld(on)
   w.progress = PROG.replace('- 2026-11-04 10:05 /implement', '- 2026-11-04 10:06 /verify PASS (x)\n- 2026-11-04 10:05 /implement')
   await begin($, w)
-  for (const surface of SURFACES) {
-    expect((await rowsOn($, surface)).some(row => row.includes('검증!'))).toBe(true)
-  }
+  expect((await rowsOn()).some(row => row.includes('검증!'))).toBe(true)
 })
 
 // --- 기록 위치 선택: 두 폴더 중 최신 기록 (FID 20261110-progress-pane-record-root) ---------
@@ -1417,7 +1423,7 @@ const ROOT_PROGRESS = '/repo/.specops/session-progress.md'
 /** 파일 맵으로 읽기를 흉내 낸다 — 없는 경로는 ENOENT. */
 const recordWorld = (on: PaneOn, files: Record<string, string>, fidDirs: string[] = []) => {
   const runs: Run[] = []
-  on('command.register', () => ({ value: { command: 'devfsd-progress' } }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('clock.every', () => ({ value: undefined }))
   on('clock.now', () => ({ value: 1_000 }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -1444,14 +1450,14 @@ test('the newer of the worktree and project records wins', async ($, on) => {
   recordWorld(on, { [WT_PROGRESS]: REC_OLD, [ROOT_PROGRESS]: REC_NEW })
   await $.session.start({ cwd: WT, ...START })
   await drain()
-  expect(await headOf($)).toBe('devFSD · 20261110-new')
+  expect(await headOf()).toBe('devFSD · 20261110-new')
 })
 
 test('a worktree record that is at least as new keeps winning, as before', async ($, on) => {
   recordWorld(on, { [WT_PROGRESS]: REC_NEW, [ROOT_PROGRESS]: REC_OLD })
   await $.session.start({ cwd: WT, ...START })
   await drain()
-  expect(await headOf($)).toBe('devFSD · 20261110-new')
+  expect(await headOf()).toBe('devFSD · 20261110-new')
 })
 
 test('equal times and unreadable times keep the worktree record', async ($, on) => {
@@ -1459,7 +1465,7 @@ test('equal times and unreadable times keep the worktree record', async ($, on) 
   recordWorld(on, { [WT_PROGRESS]: same, [ROOT_PROGRESS]: REC_NEW })
   await $.session.start({ cwd: WT, ...START })
   await drain()
-  expect(await headOf($)).toBe('devFSD · 20261110-same')
+  expect(await headOf()).toBe('devFSD · 20261110-same')
 })
 
 test('unreadable record times keep the worktree record', async ($, on) => {
@@ -1467,14 +1473,14 @@ test('unreadable record times keep the worktree record', async ($, on) => {
   recordWorld(on, { [WT_PROGRESS]: noStamp, [ROOT_PROGRESS]: REC_NEW })
   await $.session.start({ cwd: WT, ...START })
   await drain()
-  expect(await headOf($)).toBe('devFSD · 20261110-nostamp')
+  expect(await headOf()).toBe('devFSD · 20261110-nostamp')
 })
 
 test('a record in only one folder is used as before', async ($, on) => {
   recordWorld(on, { [ROOT_PROGRESS]: REC_NEW })
   await $.session.start({ cwd: WT, ...START })
   await drain()
-  expect(await headOf($)).toBe('devFSD · 20261110-new')
+  expect(await headOf()).toBe('devFSD · 20261110-new')
 })
 
 test('verify and stages follow the chosen record and look for the FID folder there first', async ($, on) => {
@@ -1491,7 +1497,7 @@ test('verify and stages follow the chosen record and look for the FID folder the
     expect(run.argv[3]).toBe('20261110-new')
     expect((run.init as { cwd?: string } | undefined)?.cwd).toBe('/repo')
   }
-  expect(await headOf($)).toBe('devFSD · 20261110-new')
+  expect(await headOf()).toBe('devFSD · 20261110-new')
 })
 
 test('verify looks in the chosen record folder first even when the worktree also has the FID folder', async ($, on) => {
@@ -1546,12 +1552,12 @@ test('devFSD: a batch FR shows the per-FR stages only, with the batch count as i
 test('devFSD: the head line names the lane for a /basic FID and stays bare for a full-path one', async ($, on) => {
   const w = verifyWorld(on)
   await begin($, w)
-  expect((await rowsOn($, SURFACES[0]))[0]).toBe('devFSD · 20261104-b') // 풀 경로는 종전 그대로
+  expect((await rowsOn())[0]).toBe('devFSD · 20261104-b') // 풀 경로는 종전 그대로
 
   w.progress = '# p\n\n## 20261104-b · y\n\n- 2026-11-12 14:45 /plan 진행 (x)\n- 2026-11-12 14:41 /approve 완료 (x)\n- 2026-11-12 14:22 /basic 시작 (요청)\n'
   await $.tool.call(editCall('toolu_lane1'))
   await drain()
-  const rows = await rowsOn($, SURFACES[0])
+  const rows = await rowsOn()
   expect(rows[0]).toBe('devFSD · 20261104-b · 기본 경로+')
   expect(rows[1]).toBe('명세✓ 계획● 구현○ 리뷰○ 검증○ PR○')
   expect(w.runs.filter(r => r.argv[0] === 'bash' && r.argv[1] === '-c').length).toBe(0) // §batch 라벨이 없으면 큐를 세지 않는다
@@ -1562,7 +1568,7 @@ test('devFSD: a batch FR (spec labelled §batch, queue counted by the script) sh
   w.spec = '# s\n\n**§batch**: batch-20261114-0900\n'
   w.batch = { exitCode: 0, stdout: 'batch-20261114-0900 3 14\n', stderr: '' }
   await begin($, w)
-  const rows = await rowsOn($, SURFACES[0])
+  const rows = await rowsOn()
   expect(rows[0]).toBe('devFSD · 20261104-b · 일괄 3/14')
   expect(rows[1]?.split(' ').map(c => c.slice(0, -1))).toEqual(['분석', '명세', '명확화', '설계', '분해', '구현', '검증']) // FR 막대에 보안·통합·성능·데모·PR 이 없다
   const run = w.runs.find(r => String(r.argv[1]).endsWith('/scripts/_internal/batch-progress.sh'))
@@ -1571,7 +1577,7 @@ test('devFSD: a batch FR (spec labelled §batch, queue counted by the script) sh
   w.batch = { exitCode: 0, stdout: '', stderr: '' } // 묶음이 끝났다(ACTIVE 없음) — 종전 풀 경로 표시로 돌아가고 경로 이름도 지워진다
   await $.tool.call(editCall('toolu_batch1'))
   await drain()
-  const after = await rowsOn($, SURFACES[0])
+  const after = await rowsOn()
   expect(after[0]).toBe('devFSD · 20261104-b')
   expect(after[1]).toBe(BAR_B)
 })

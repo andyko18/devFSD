@@ -2,7 +2,6 @@
 
 > `systematic-debugging-ko` 의 보조 문서. 본문 Phase 1 에서 아래 네 경우 중 하나를 만났을 때만 읽는다. 철칙(근본 원인 조사 없이는 픽스 없음)은 그대로다 — 이 문서는 조사 방법을 더할 뿐 단계를 건너뛰게 하지 않는다.
 >
-> 출처: addyosmani/agent-skills@301b02b skills/debugging-and-error-recovery/SKILL.md (MIT) — specops-ko 한국어 재작성.
 
 ## 1. 재현되지 않을 때
 

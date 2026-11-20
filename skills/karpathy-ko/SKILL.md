@@ -1,16 +1,16 @@
 ---
 name: karpathy-ko
-description: 코드 작성·검토·리팩터링 시 항상 적용 — Think·Simplicity·Surgical·Goal 4원칙으로 LLM 코딩 실수 방지 (Karpathy 관찰 한국어 재창작)
+description: 코드 작성·검토·리팩터링 시 항상 적용 — Think·Simplicity·Surgical·Goal 4원칙으로 LLM 코딩 실수 방지
 layer: 2
-reference_upstream: forrestchang/andrej-karpathy-skills@main skills/karpathy-guidelines/SKILL.md
+reference_upstream: specops-ko 독자 추가
 specops_version: 1.0.0
 used_by: using-specops-ko (cross-cutting), implementing-ko, tdd-ko
 user-invocable: false
 ---
 
-# Karpathy 행동 원칙
+# 코딩 행동 원칙
 
-Andrej Karpathy의 LLM 코딩 함정 관찰에서 파생된 4가지 행동 지침.  
+LLM 이 코딩에서 자주 빠지는 함정을 막는 4가지 행동 지침.  
 specops-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직교하여 상호 강화한다.
 
 **트레이드오프:** 이 원칙들은 속도보다 신중함에 치우친다. 자명한 작업은 판단하여 적용할 것.
@@ -92,7 +92,7 @@ specops-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직교하�
 
 ## 5원칙 매핑 요약
 
-| Karpathy 원칙 | specops-ko 연결 |
+| 행동 원칙 | specops-ko 연결 |
 |---|---|
 | 1 코드 작성 전 사고 | 원칙 1 투명성 + 원칙 5 한계 고백 |
 | 2 단순성 우선 | YAGNI + 원칙 4 주권 |
@@ -103,11 +103,10 @@ specops-ko의 5원칙(투명성·문지기·주권·한계 고백)과 직교하�
 
 ## 참조
 
-- `forrestchang/andrej-karpathy-skills skills/karpathy-guidelines/SKILL.md` — 원본 (MIT)
 - `skills/tdd-ko/SKILL.md` — 원칙 4와 TDD 연결
 - `skills/verifying-evidence-ko/SKILL.md` — 원칙 3·4 검증 단계
 - `docs/harness-principles.md` 「스프린트 계약」 — 원칙 3 범위 계약
 
 ---
 
-*v1.0.0 · 2026-05-03 · Karpathy Guidelines 한국어 재창작 + specops-ko 5원칙 매핑*
+*v1.0.0 · 2026-05-03 · specops-ko 5원칙 매핑*

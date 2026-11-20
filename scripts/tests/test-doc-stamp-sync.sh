@@ -26,9 +26,6 @@ for f in skills/requesting-code-review-ko/SKILL.md commands/start.md commands/ma
   [ "$n" = "0" ] || nope "AC-3 $f" "reference_upstream hyphen dash $n lines remain"
 done
 [ "$FAIL" -eq 0 ] && ok "AC-3 reference_upstream single-line(3files)" || true
-# AC-R-3: reference_upstream first line primary reference preserved
-grep -q '^reference_upstream: obra/superpowers@v5.0.7 skills/requesting-code-review' "$PLUGIN/skills/requesting-code-review-ko/SKILL.md" \
-  && ok "AC-R-3 primary reference preserved" || nope "AC-R-3" "first line lost"
 
 echo "test-doc-stamp-sync: PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

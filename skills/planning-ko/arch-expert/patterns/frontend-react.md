@@ -1,4 +1,4 @@
-<!-- reference_upstream: wshobson/agents@0874a27 plugins/frontend-mobile-development/skills/react-state-management/SKILL.md (MIT) — specops-ko 한국어 재작성 (20261021-arch-designer-agent) -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 # 프론트 React 상태 관리 규칙 — arch-designer-ko 보조 파일
 
 `frontend-architecture.md` §1 주 프레임워크가 React 또는 Next.js 일 때 arch-designer-ko 가 읽는다.

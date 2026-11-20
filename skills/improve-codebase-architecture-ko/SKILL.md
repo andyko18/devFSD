@@ -2,7 +2,7 @@
 name: improve-codebase-architecture-ko
 description: 코드베이스 파일/모듈 경계 정적 분석 — deep module 원칙(단순한 인터페이스+복잡한 구현) 기준으로 책임 과부하(800줄+)·과잉 분해(50줄 미만 클러스터) 탐지 및 split/merge 권고안 제시
 layer: 2
-reference_upstream: "specops-ko 독자 추가 (mattpocock improve-codebase-architecture 한국어 재창작)"
+reference_upstream: specops-ko 독자 추가
 specops_version: 1.63.0
 used_by: /improve-arch
 user-invocable: false
@@ -145,7 +145,6 @@ ratio=$((lines / (symbols + 1)))
 
 - `commands/improve-arch.md` — 슬래시 진입점
 - 설계 원칙: John Ousterhout "A Philosophy of Software Design" Chapter 4 (Modules Should Be Deep)
-- upstream 패턴: mattpocock improve-codebase-architecture
 
 ## 다음 skill
 

@@ -1,6 +1,6 @@
 <!-- FID: 20260101-example-slug -->
 <!-- OWNER_COMMAND: /specify -->
-<!-- reference_upstream: Anthropic "The AI-Native SDLC playbook" (claude.com/blog, 2026-08-21) intent.md -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 <!-- layer: Lifecycle-Artifact -->
 
 # Intent: <기능명>

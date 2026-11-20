@@ -7,7 +7,7 @@ triggers:
 mode: ask
 specops_version: 4.0.15
 specops_layer: Lifecycle
-reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /maintain [--full] [--step] [--no-split] [<대상 또는 변경 설명>]

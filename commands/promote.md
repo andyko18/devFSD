@@ -7,7 +7,7 @@ triggers:
 mode: ask
 specops_version: 2.6.0
 specops_layer: Lifecycle
-reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재)
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /promote <mini-FID>

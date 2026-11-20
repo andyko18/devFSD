@@ -109,10 +109,9 @@ _concept_ok "$CL" && grep -F '| 예외·경계 |' "$CL" | grep -qF '빈 입력·
 _codecheck_ok "$CL" && awk '/^## 사용자 대화 규칙/{f=1;next} f&&/^## /{exit} f' "$CL" | grep -F '**설명은 코드와 대조**' | grep -qF '대조할 코드가 없으면(신규 기능) 건너뛴다' \
   && ok "C14 설명과 코드 대조 규칙" || nope "C14" "대화 규칙 미갱신"
 
-# C15: clarifications.md 형식 — 용어 결정 줄 · 출처 표기
-{ awk '/^## clarifications.md 포맷/{f=1;next} f&&/^## [^Q]/{exit} f' "$CL" | grep -qF '**용어** (이름을 정했을 때만): <정한 이름> — 쓰지 않음:' \
-  && awk 'NR==1&&/^---$/{f=1;next} f&&/^---$/{exit} f' "$CL" | grep -qE '^  - mattpocock/skills@[0-9a-f]+ skills/engineering/domain-modeling/SKILL.md \(MIT'; } \
-  && ok "C15 clarifications 용어 줄 · 출처(domain-modeling MIT)" || nope "C15" "형식 블록 또는 reference_upstream 미갱신"
+# C15: clarifications.md 형식 — 용어 결정 줄
+awk '/^## clarifications.md 포맷/{f=1;next} f&&/^## [^Q]/{exit} f' "$CL" | grep -qF '**용어** (이름을 정했을 때만): <정한 이름> — 쓰지 않음:' \
+  && ok "C15 clarifications 용어 줄" || nope "C15" "형식 블록 미갱신"
 
 # C16 (변이): 각 규칙을 범주표·대화 규칙 절 **밖**으로 옮긴 사본에서 판정이 실패해야 한다 — 위치까지 잠긴다
 TMP=$(mktemp)

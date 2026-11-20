@@ -56,7 +56,7 @@ t T13.m "마커 수 상한 없음"          '마커 수 상한.*두지 않는'  
 # AC-6 소비측 배선 — 생성측(Phase 11)만 강화하고 읽는 쪽을 빼먹는 패턴 차단
 t T13.i "specifying 이 소비"          '\| `process-design\.md` \|'                       "$SPEC_SKILL"
 t T13.j "화면 보강 DESIGN.md 준수"  'DESIGN\.md.*(§6\.1|화면 원형)'                    "$CMD"
-# AC-3 사실성·상세성 계약 (Karpathy)
+# AC-3 사실성·상세성 계약
 t T3.a "근거 N원 (3→4 진화 수용)"  '근거 [34]원'                                     "$CMD"
 t T3.b "boilerplate 금지"          '(일반론|boilerplate).*금지'                        "$CMD"
 t T3.c "미확정 마커"                '미확정 — 근거 필요'                               "$CMD"

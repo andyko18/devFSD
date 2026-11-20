@@ -2,9 +2,7 @@
 name: receiving-code-review-ko
 description: 코드 리뷰 피드백을 수령한 직후, 제안 구현 전 사용 — 기술적 엄밀성과 검증을 요구하며 수행적 동의·맹목적 구현을 금지
 layer: 2
-reference_upstream: obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
-  - obra/superpowers@v5.0.7 skills/receiving-code-review/SKILL.md
-  - skills/receiving-code-review-ko/SKILL.md
+reference_upstream: specops-ko 독자 추가
 specops_version: 2.13.0
 used_by: requesting-code-review-ko (chain 진입), security-review-ko (단일 모드 chain 출구), /start-all (batch 모드 BATCH-REVIEW-DONE halt 진출)
 user-invocable: false

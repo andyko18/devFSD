@@ -1,4 +1,4 @@
-<!-- reference_upstream: wshobson/agents@0874a27 plugins/python-development/skills/python-resilience/SKILL.md (MIT) — 파이썬 표현을 언어 일반으로 바꿈 · specops-ko 한국어 재작성 (20261021-arch-designer-agent) -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 # 백엔드 런타임(재시도·타임아웃) 규칙 — arch-designer-ko 보조 파일
 
 `backend-architecture.md` 가 있으면 항상 읽는다. plan 에 외부 호출(HTTP·DB 원격·메시지 브로커·서드파티 API)이 새로 생길 때만 대조한다.

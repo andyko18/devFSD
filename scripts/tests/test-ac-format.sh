@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test-ac-format.sh — AC 필드 게이트 회귀 (20260807, OpenSpec 대비 갭분석 G1)
+# test-ac-format.sh — AC 필드 게이트 회귀 (20260807)
 #
 # 무엇을 잠그나: `emit-context.sh` 의 **must AC 역방향 커버리지** 검사는
 #   `**우선순위**: must` 가 있는 AC 만 대상으로 삼는다(코드 주석: "우선순위 필드가

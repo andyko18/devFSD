@@ -1,4 +1,3 @@
-<!-- reference: https://github.com/VoltAgent/awesome-design-md -->
 <!-- brand: Claude (AI-native, dark-first) -->
 
 # DESIGN.md — specops-ko

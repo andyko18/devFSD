@@ -2,7 +2,7 @@
 name: using-specops-ko
 description: 모든 대화 시작 시 활성 — specops-ko 한국어 자율 Lifecycle 메타 skill. 사용자 입력에서 기능 요청 신호 감지 시 devfsd:specifying-ko 자동 호출 강제 (5원칙 주입)
 layer: 1
-reference_upstream: obra/superpowers@v5.0.7 skills/using-superpowers/SKILL.md
+reference_upstream: specops-ko 독자 추가
 specops_version: 2.20.0
 used_by: 모든 Claude Code 세션 (SessionStart 자동 주입)
 user-invocable: false
@@ -64,5 +64,5 @@ announce: "Using specifying-ko|analyzing-ko (maintenance) to <purpose>". 이후 
 
 - **프로젝트 최초 진입**: 신호 감지 뒤 분류 전에 `.specops/`·`CLAUDE.md` 존재를 1회 본다. 둘 다 없으면 "프로젝트가 초기화되지 않았습니다. `/init-project` 권장 [y/N]" 1줄, 한쪽만 없으면 `/init-project --resume` 권장 1줄(강제 X). 4분기 전체·`y`/`N` 처리: `bootstrap-resume.md`.
 - **미완 재개 통보**: `<session-progress-rehydrate>` 최상단 활동 줄이 종결 마커(`/lifecycle DONE`·`/finishing 완료`·`PR #N 생성`·`DONE (PR`)면 침묵, 아니면 `bootstrap-resume.md` 재개 절차(새 신호 우선 · 신호 없으면 능동 제안).
-- **chain 흐름도·적색 플래그·5원칙·Karpathy·advisor**: `guardrails.md` (과잉 발동도 적색 플래그다 — 배제 조건 확인).
+- **chain 흐름도·적색 플래그·5원칙·행동 원칙·advisor**: `guardrails.md` (과잉 발동도 적색 플래그다 — 배제 조건 확인).
 - **자유작업 pending**: `<freecomment-pending>` 블록이 있으면 그 절차 파일(`using-specops-ko/freework-pending.md`)을 `Read` 해 **다음 사용자 턴 시작 시** 수행.

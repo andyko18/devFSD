@@ -1,4 +1,4 @@
-<!-- reference_upstream: addyosmani/agent-skills@aeac41d skills/security-and-hardening (SKILL.md · references/hardening-patterns.md) · references/security-checklist.md (OWASP Top 10 for LLM Applications 2025 대응표) (MIT) — specops-ko 한국어 재작성 -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 # 위험 기능 — LLM 호출
 
 plan 이 LLM(챗봇·요약·에이전트·RAG)을 부르거나 그 출력을 쓸 때 읽는다. LLM 은 새 공격 표면이다 — plan 에 아래 결정이 적혀 있는지 본다.

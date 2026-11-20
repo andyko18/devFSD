@@ -106,4 +106,3 @@ bash scripts/_internal/validate-structure.sh
 
 - `file_counts FAIL` → 파일 추가/삭제 시 스크립트 내 기대값(commands, skills, templates 개수) 업데이트
 - `frontmatter FAIL` → YAML `{{placeholder}}`는 따옴표로 감싸야 함
-- `ref_upstream_fmt` → `owner/repo@version path` 포맷 또는 `specops-ko 독자 추가` 명시 필요

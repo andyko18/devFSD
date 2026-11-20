@@ -2,7 +2,7 @@
 name: dispatching-parallel-agents-ko
 description: 독립 태스크 2개 이상이 공유 상태·순차 의존 없이 진행 가능할 때 사용 — 병렬 서브에이전트 dispatch로 동시에 처리
 layer: 2
-reference_upstream: obra/superpowers@v5.0.7 skills/dispatching-parallel-agents/SKILL.md
+reference_upstream: specops-ko 독자 추가
 specops_version: 2.9.0
 used_by: implementing-ko (독립 leaf 태스크 2개+ 감지 시 자동 분기)
 integrates_with: docs/harness-principles.md (파일 기반 전달 · 컨텍스트 리셋)

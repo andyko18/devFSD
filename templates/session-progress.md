@@ -1,6 +1,6 @@
 <!-- OWNER_COMMAND: 모든 커맨드가 append -->
 <!-- SCOPE: 프로젝트 전역 (.specops/ 루트) -->
-<!-- reference_upstream: revfactory/harness session-progress -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 <!-- layer: Harness-Foundation-Artifact -->
 
 # Session Progress — <project-name>

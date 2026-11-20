@@ -9,7 +9,7 @@
 name: <스킬명>
 description: <한 줄 설명>
 layer: <1|2|3>
-reference_upstream: <owner/repo@version path>  # 포맷 필수 (독자 추가 시 "specops-ko 독자 추가" 허용)
+reference_upstream: specops-ko 독자 추가
 specops_version: <semver>  # 본 skill 본문이 마지막으로 substantive 변경된 플러그인 버전 (자동 갱신 아님)
 used_by: <호출자 목록>  # 표기 규약 — command 는 /<name>, skill 은 short name (<skill>-ko)
 ---

@@ -1,7 +1,7 @@
 <!-- FID: <FID> -->
 <!-- OWNER_COMMAND: /tasks -->
 <!-- MUTABLE_BY: /implement (상태 마킹만) -->
-<!-- reference_upstream: github/spec-kit tasks-template.md -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 <!-- layer: Lifecycle-Artifact -->
 
 # greet-cli 태스크 목록 — <FID>

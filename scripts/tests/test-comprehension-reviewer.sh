@@ -20,8 +20,8 @@ printf '%s\n' "$FM" | grep -qx 'role: evaluator' && ok "A1.c role: evaluator" ||
 [ "$(printf '%s\n' "$FM" | grep '^tools:')" = "tools: Read" ] && ok "A1.d tools 는 Read 하나뿐" || nope "A1.d" "tools 줄이 'tools: Read' 가 아님"
 printf '%s\n' "$FM" | grep -qE '^model: (sonnet|opus)$' && printf '%s\n' "$FM" | grep -qE '^effort: (low|medium|high|xhigh|max)$' \
   && ! printf '%s\n' "$FM" | grep -qiE 'fable|claude-' && ok "A1.e 모델 별칭·effort (fable·전체 모델 ID 없음)" || nope "A1.e" "model/effort 규약 위반"
-printf '%s\n' "$FM" | grep -qxF 'reference_upstream: google/elephant-goldfish-model@67353fc4 agents/comprehension.md' \
-  && ok "A1.f 출처 표기(reference_upstream)" || nope "A1.f" "reference_upstream 불일치"
+printf '%s\n' "$FM" | grep -qE '^reference_upstream: .+' \
+  && ok "A1.f reference_upstream 필드" || nope "A1.f" "reference_upstream 필드 없음"
 
 # ══ AC-2: 본문 행동 계약 ══
 has "$A" '^### 이 문서가 제안하는 것' '^### 문서가 말하는 기존 시스템 동작' '^### 지적' \

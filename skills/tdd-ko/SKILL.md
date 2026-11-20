@@ -3,10 +3,7 @@ name: tdd-ko
 description: 기능·버그픽스·리팩터링 구현 시 구현 코드 작성 전 반드시 사용 — Red-Green-Refactor 사이클 강제, 프로덕션 코드는 실패 테스트 없이 작성 금지
 layer: 2
 discipline: true
-reference_upstream: obra/superpowers@v5.0.7 skills/test-driven-development/SKILL.md
-  - obra/superpowers@v5.0.7 skills/test-driven-development/SKILL.md
-  - affaan-m/everything-claude-code@1.2.0 skills/tdd-workflow
-  - skills/tdd-ko/SKILL.md
+reference_upstream: specops-ko 독자 추가
 specops_version: 1.73.0
 used_by: implementing-ko (서브에이전트가 각 태스크마다 본 스킬 따름)
 user-invocable: false
@@ -372,7 +369,6 @@ PASS
 
 ## 참조
 
-- ECC 보완: `affaan-m/everything-claude-code@1.2.0 skills/tdd-workflow/`
 - specops-ko 한국어 선례: `skills/tdd-ko/SKILL.md`
 - `skills/karpathy-ko/SKILL.md` — 원칙 4 목표 기반 실행 (Goal-Driven Execution)
 

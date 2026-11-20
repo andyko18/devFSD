@@ -4,8 +4,7 @@
 # 왜 필요한가: `friction-log.jsonl` 이 **FID 디렉터리마다 흩어져** 아무도 읽지 않았다.
 #   실측 20260807: 25개 파일 130행, 그중 **R-1 이 89행(68%)**.
 #   한 규칙이 25개 FID 에 걸쳐 89번 위반됐는데 그 신호로 바뀐 것이 0이다.
-#   Hermes 학습 루프의 observe→distill 에서 specops 는 observe 만 있고 distill 이 없다
-#   (`docs/openspec-gap-analysis.md` 와 별개 — 학습 루프 축).
+#   학습 루프의 observe→distill 에서 specops 는 observe 만 있고 distill 이 없다.
 #   본 집계기가 그 첫 단계다: 흩어진 관찰을 **반복 패턴으로 묶어 사람에게 제시**한다.
 #   게이트 자동 생성은 하지 않는다 — 클래스 B 정적 메타 규칙이 4/4 오탐으로 철회된 전례.
 set -u

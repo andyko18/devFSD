@@ -26,7 +26,7 @@ MAX_TURNS="${LLM_EVAL_MAX_TURNS:-4}"
 #   120s=TIMEOUT → 300s=판정 결과 노출(`got=none`)로 뒤집혔다. TIMEOUT 은 원인을 감추는 층이었다.
 TIMEOUT_S="${LLM_EVAL_TIMEOUT:-300}"
 
-# N-run 신뢰성 모드 (LLM_EVAL_RUNS>1) — wshobson PluginEval Layer3 이식
+# N-run 신뢰성 모드 (LLM_EVAL_RUNS>1)
 RUNS="${LLM_EVAL_RUNS:-1}"
 case "$RUNS" in
   ''|*[!0-9]*|0*)   # 빈값·비숫자·선행0(0·01·10줄바꿈 등) → 폴백

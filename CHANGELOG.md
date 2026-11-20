@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.14.1] — 2026-11-20
+
 ### Fixed
 
 - **계기판이 새 세션마다 빨간 "내 차례"를 띄우던 것을 고쳤다**. 며칠 전 끝난 직접 수정 기록이 남아 있으면 세션을 열 때마다 `내 차례 — 답을 기다린다` 가 빨갛게 떴다(5.14.0 실화면). 빨강은 "지금 봐야 한다"는 뜻 하나만 가져야 하므로, 이 세션에서 실제로 움직인 lifecycle 작업(단계가 있고 활동이 기록된 작업)에만 켠다. 단계가 없는 기록과 이 세션이 건드리지 않은 지난 작업은 `대기 · 최근 <작업>` 으로 조용히 둔다.
@@ -4375,7 +4377,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.14.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.14.1...HEAD
+[5.14.1]: https://github.com/andyko18/devFSD/compare/v5.14.0...v5.14.1
 [5.14.0]: https://github.com/andyko18/devFSD/compare/v5.13.2...v5.14.0
 [5.13.2]: https://github.com/andyko18/devFSD/compare/v5.13.1...v5.13.2
 [5.13.1]: https://github.com/andyko18/devFSD/compare/v5.13.0...v5.13.1

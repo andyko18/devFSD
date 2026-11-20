@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.13.2] — 2026-11-20
+
 ### Changed
 
 - **README 를 처음 쓰는 사람이 위에서부터 따라 하는 사용 설명서 형태로 다시 짰다**. 앞쪽은 `출발부터 도착까지 → 왜 쓰나 → 준비물 → 설치 → 빠른 시작 → 진입로 → 안전장치 → 산출물 → 막혔을 때 → 한 장 요약` 순서이고, 동작 원리와 세부 규칙(Lifecycle · 전문가 패스 · 거버넌스 엔진 · 모델 운용 등)은 본문을 고치지 않고 `더 알아보기` 뒤로 옮겼다. 움직이는 그림 3장을 넣었다(`docs/assets/journey.svg` 진행 순서 · `first-run.svg` 첫 실행 대화 · `gate.svg` 커밋 차단기) — 스크립트 없이 CSS 로만 움직이고 다크 모드와 동작 줄이기 설정을 따른다. `트러블슈팅` 절은 `막혔을 때` 로 이름을 바꾸고 초보자 문답 5줄을 더했다. 플러그인 동작은 바뀌지 않았다.
@@ -4357,7 +4359,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.13.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.13.2...HEAD
+[5.13.2]: https://github.com/andyko18/devFSD/compare/v5.13.1...v5.13.2
 [5.13.1]: https://github.com/andyko18/devFSD/compare/v5.13.0...v5.13.1
 [5.13.0]: https://github.com/andyko18/devFSD/compare/v5.12.0...v5.13.0
 [5.12.0]: https://github.com/andyko18/devFSD/compare/v5.11.2...v5.12.0

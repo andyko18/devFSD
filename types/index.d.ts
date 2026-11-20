@@ -177,6 +177,9 @@ export type Board = {
   working?: boolean // 메인 턴이 열려 있는 동안 true (시계가 계속 돌게)
 }
 
+/** devFSD 계기판(입력창 위 띠) — 관할 저장소에서만 뜨고, 숨김은 세션마다 풀린다. */
+export type GaugeView = { isGoverned: boolean; isHidden: boolean }
+
 declare module 'claude-code' {
   interface PluginState {
     'devfsd': {
@@ -194,6 +197,7 @@ declare module 'claude-code' {
       roster: Roster
       board: Shaped<Board>
       now: Shaped<number>
+      gauge: Shaped<GaugeView>
     }
   }
 }

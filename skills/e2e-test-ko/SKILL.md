@@ -10,6 +10,8 @@ user-invocable: false
 
 # Harness 스킬 — E2E 자동 테스트 (e2e-test-ko)
 
+> **압축 대비 (본문이 길다)**: 컨텍스트가 압축되면 이 본문은 앞 20,000자만 다시 붙는다. 본문이 `[... skill content truncated for compaction` 으로 끝나 있으면 뒤쪽 규칙이 빠진 상태다 — 이 skill 의 규칙을 적용하거나 다음 단계로 넘어가기 전에 이 SKILL.md 를 Read 로 다시 읽는다.
+
 specops-ko lifecycle chain의 **완전 자동 E2E 검증**. 내장 `greet-cli` fixture를 사용해
 (init-project 부트스트랩) → specify → clarify → plan → decompose → implement → verify → (security/integration/performance SKIP) → (finishing 정리)
 9단계를 HARD GATE 없이 완주하고 25개 검증 항목(V1~V25)을 점검한다.

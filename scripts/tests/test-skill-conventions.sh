@@ -353,5 +353,36 @@ else
   printf '%s\n' "$_argsub_hits" | cut -c1-160 | sed 's/^/    /'
 fi
 
+# T14: 긴 skill 본문의 압축 대비 (20261120 실측)
+#   자동 압축 뒤 Claude Code 는 호출된 skill 을 **앞 20,000 글자만** 다시 붙이고 끝에
+#   `[... skill content truncated for compaction; use Read on the skill path …]` 를 단다(글자 수 기준 — 토큰·바이트 아님).
+#   그 뒤에 있는 규칙·`## 다음 skill` 절은 컨텍스트에서 사라진다. 실측(실제 implementing-ko 사본 · 2만 자 뒤 규칙 1줄 ·
+#   규칙을 언급하지 않는 상황 질문): 상단 안내가 없으면 0/6 이 그 규칙을 적용했고(파일을 다시 읽지 않는다), 있으면 5/6 이 적용했다.
+#   그래서 (a) 긴 본문은 맨 위에 안내 블록을 두고 (b) 긴 본문의 목록을 잠가 새로 늘지 않게 한다.
+_long_limit=19500    # 20,000 에서 여유 — 첨부 전체가 20,000자라 남는 본문은 그보다 조금 짧다
+_long_allow="decomposing-ko e2e-test-ko implementing-ko planning-ko specifying-ko verifying-evidence-ko"
+_long_now=""; _long_noguide=""
+for _f in "$PLUGIN"/skills/*/SKILL.md; do
+  _n=$(basename "$(dirname "$_f")")
+  _len=$(perl -CSD -0777 -ne 'print length($_)' "$_f" 2>/dev/null)
+  [ -n "$_len" ] || { FAIL=$((FAIL+1)); echo "FAIL: T14 글자 수를 셀 수 없다 — $_n (perl 필요)"; continue; }
+  [ "$_len" -gt "$_long_limit" ] || continue
+  _long_now="$_long_now $_n"
+  # 안내는 본문 앞 1,500자 안에 있어야 한다 — 뒤에 두면 그것부터 잘린다
+  perl -CSD -0777 -ne 'exit(index(substr($_,0,1500),"truncated for compaction") >= 0 ? 0 : 1)' "$_f" || _long_noguide="$_long_noguide $_n"
+done
+if [ -z "$_long_noguide" ]; then
+  PASS=$((PASS+1)); echo "PASS: T14.a ${_long_limit}자 넘는 본문은 모두 앞 1,500자 안에 압축 대비 안내가 있다 ($(echo $_long_now | wc -w | tr -d ' ')개)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL: T14.a 압축 대비 안내 없음(본문 ${_long_limit}자 초과):$_long_noguide"
+fi
+_long_new=""
+for _n in $_long_now; do case " $_long_allow " in *" $_n "*) ;; *) _long_new="$_long_new $_n" ;; esac; done
+if [ -z "$_long_new" ]; then
+  PASS=$((PASS+1)); echo "PASS: T14.b ${_long_limit}자 넘는 본문이 새로 늘지 않았다"
+else
+  FAIL=$((FAIL+1)); echo "FAIL: T14.b 본문이 ${_long_limit}자를 넘었다 — 뒤쪽을 보조 파일로 나누거나, 안내 블록을 넣고 이 테스트의 _long_allow 에 사유와 함께 올린다:$_long_new"
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

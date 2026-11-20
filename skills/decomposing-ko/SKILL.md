@@ -14,6 +14,8 @@ user-invocable: false
 
 # Engine 스킬 — 태스크 분해 (decomposing)
 
+> **압축 대비 (본문이 길다)**: 컨텍스트가 압축되면 이 본문은 앞 20,000자만 다시 붙는다. 본문이 `[... skill content truncated for compaction` 으로 끝나 있으면 뒤쪽 규칙이 빠진 상태다 — 이 skill 의 규칙을 적용하거나 다음 단계로 넘어가기 전에 이 SKILL.md 를 Read 로 다시 읽는다.
+
 `plan.md`의 카테고리·순서를 **함께 변하는 파일 묶음 단위의 TDD 태스크**로 분해한다(스텝 하나가 2~5분 — 태스크는 그보다 크다). 모든 `must` AC가 **최소 1 태스크**에 매핑되도록 보장.
 
 <HARD-GATE>

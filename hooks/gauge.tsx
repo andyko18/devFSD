@@ -1,5 +1,5 @@
 // devFSD 계기판 — 입력창 바로 위 띠. 관제판·진행 패널이 채운 상태를 읽어 그리기만 한다(차단·수정 없음).
-//   1줄: 상태 · 명령 · 작업 · 내 차례 + 버튼(? 도움말 · ↗ 관제판 — 기호만 색을 입힌 글자 · 계기판 숨기기는 앱의 닫기 단추)   2줄: 단계 점(작업 중에만)   3줄: 모델 · effort · 5h · 7d · 비용(참고 수치 — 흐리게)
+//   1줄: 상태 · 명령 · 작업 · 내 차례 + 버튼(? 도움말 · ↗ 관제판 · × 계기판 숨기기 — 기호만 색을 입힌 글자)   2줄: 단계 점(작업 중에만)   3줄: 모델 · effort · 5h · 7d · 비용(참고 수치 — 흐리게)
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
@@ -13,6 +13,8 @@ const HELP_TITLE = 'devFSD 도움말'
 const CONSOLE_PANE = 'devfsd-console'
 const CONSOLE_TITLE = 'devFSD 관제판'
 const COMMAND = 'devfsd-gauge'
+// 강조색 하나 — 이름 · 지금 단계 · 버튼 기호에만 쓴다. 초록은 '달리는 중' 상태 점의 뜻이라 이름에는 쓰지 않는다.
+const ACCENT = 'suggestion'
 const BAR_WIDTH = 5
 const HOT_PCT = 80 // 이 아래로는 막대에 색을 쓰지 않는다 — 평소엔 무채색
 const LIMITS_SHOWN = 2
@@ -179,7 +181,10 @@ export function registerGauge(on: Parameters<Register>[0]): void {
       <Box flexDirection="column">
         <Box flexDirection="row" justifyContent="space-between" gap={2}>
           <Text>
-            <Text color={lead}>●</Text> <Text bold>devFSD</Text>
+            <Text color={lead}>●</Text>{' '}
+            <Text bold color={ACCENT}>
+              devFSD
+            </Text>
             {work ? ` ${work}` : ''}
             {isAlert ? (
               <Text bold color="error">
@@ -196,12 +201,14 @@ export function registerGauge(on: Parameters<Register>[0]): void {
           </Text>
           <Box flexDirection="row" gap={2}>
             <Button key="help" plain onPress={() => void $.ui.open({ id: HELP_PANE, title: HELP_TITLE })}>
-              <Text color="suggestion">?</Text> 도움말
+              <Text color={ACCENT}>?</Text> 도움말
             </Button>
             <Button key="console" plain onPress={() => void $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })}>
-              <Text color="suggestion">↗</Text> 관제판
+              <Text color={ACCENT}>↗</Text> 관제판
             </Button>
-            <Button key="hide" label="계기판 숨기기" role="dismiss" onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))} />
+            <Button key="hide" plain onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))}>
+              <Text color={ACCENT}>×</Text> 계기판 숨기기
+            </Button>
           </Box>
         </Box>
         {stops.length > 0 && note.tone !== 'idle' && (
@@ -211,7 +218,7 @@ export function registerGauge(on: Parameters<Register>[0]): void {
                 {i > 0 ? <Text dimColor>{s.state === 'done' || s.state === 'now' || s.state === 'fail' ? ' ━ ' : ' ┄ '}</Text> : ''}
                 <Text
                   bold={s.state === 'now'}
-                  color={s.state === 'done' ? 'success' : s.state === 'fail' ? 'error' : s.state === 'now' ? (isAlert ? 'error' : 'warning') : undefined}
+                  color={s.state === 'fail' ? 'error' : s.state === 'now' ? (isAlert ? 'error' : ACCENT) : undefined}
                   dimColor={s.state === 'todo' || s.state === 'skip' || s.state === 'gate'}
                 >
                   {DOT[s.state]} {s.label}

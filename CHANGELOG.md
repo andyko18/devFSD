@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.15.0] — 2026-11-20
+
 ### Removed
 
 - **채팅 옆 진행 패널과 `/devfsd-progress` 명령을 걷어냈다**. 진행 패널이 보여 주던 것(실행 중 서브에이전트·백그라운드 명령과 경과 시간 · 최근 완료 · 단계 막대 · 검증 배지)은 관제판에 더 자세히 있고, 세션 시작 때 자동으로 열리는 것도 관제판이라 화면이 셋(관제판·진행 패널·계기판)으로 겹쳐 있었다. 이제 계기판(요약)과 관제판(상세) 둘이다. **호환성 주의**: `/devfsd-progress` 를 직접 치던 경우 이 명령은 더 이상 없다 — 지금 상태는 계기판을, 상세는 `/devfsd`(관제판)를 쓴다. `hooks/progress-pane.tsx` 는 이름과 달리 화면이 아니라 진행 기록(작업 목록·단계·검증·종료 알림)을 모으는 모듈이라 그대로 남고 관제판과 계기판이 읽는다. 그 모듈의 시험은 화면 대신 모아 둔 상태에서 같은 줄을 만들어 읽도록 바꿨고(단언은 그대로 · 굵기만 보던 시험 1건과, 화면에서만 쓰던 경과 시간 형식 함수가 시험 파일로 옮겨지며 그 함수만 보던 단언 2건 제거), 배선 검사는 진행 패널 이벤트가 **없어야** 통과하도록 뒤집었다.
@@ -4392,7 +4394,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.14.2...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.0...HEAD
+[5.15.0]: https://github.com/andyko18/devFSD/compare/v5.14.2...v5.15.0
 [5.14.2]: https://github.com/andyko18/devFSD/compare/v5.14.1...v5.14.2
 [5.14.1]: https://github.com/andyko18/devFSD/compare/v5.14.0...v5.14.1
 [5.14.0]: https://github.com/andyko18/devFSD/compare/v5.13.2...v5.14.0

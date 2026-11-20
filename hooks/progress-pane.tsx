@@ -5,13 +5,11 @@ import type { Board, CmdBoard, CmdFr, CmdSeg, CmdStep, Job, StageMark } from '..
 import { pollCi } from './ci-watch'
 import { STAT_SCRIPT, autoOpenHint, outputPathOf, latestMtimeMs, redact, withActivity } from './core'
 
-const PANE = 'devfsd-progress'
-const TITLE = 'devFSD 진행'
 const TICK_MS = 5000
 const END_TICK_MS = 1000 // 끝난 명령이 카드에서 빠지는 순간을 맞추는 보조 틱
 const RECENT_MS = 60_000 // 끝난 명령이 카드에 남는 시간(console.tsx 의 60_000 과 같다)
 const RECENT_MAX = 5
-// devFSD: 세션 시작 때 여는 패널은 관제판(console.tsx)이다. 진행 패널은 /devfsd-progress 로 연다.
+// devFSD: 세션 시작 때 여는 패널은 관제판(console.tsx)이다. 이 모듈은 화면을 그리지 않고 자료(board·now)만 모은다 — 관제판과 계기판이 읽는다.
 const CONSOLE_PANE = 'devfsd-console'
 const CONSOLE_TITLE = 'devFSD 관제판'
 const PROGRESS_FILE = '.specops/session-progress.md'
@@ -283,15 +281,6 @@ export function notificationOf(
   const status = text.match(/<status>([^<]+)<\/status>/)?.[1] ?? ''
 
   return { id: id.trim(), isFailed: /fail|error|kill/i.test(status) }
-}
-
-/** `3m12s` style, from milliseconds. */
-export function elapsed(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const minutes = Math.floor(total / 60)
-  const seconds = total % 60
-
-  return minutes > 0 ? `${minutes}m${String(seconds).padStart(2, '0')}s` : `${seconds}s`
 }
 
 const WORKTREE_MARKERS = ['/.claude/worktrees/', '/.worktrees/']
@@ -581,9 +570,9 @@ async function noteOutput($: EngineInterface, id: string, text: string | undefin
   await update($, board, b => ({ ...b, running: b.running.map(j => (j.id === id ? { ...j, outputPath } : j)) }))
 }
 
-/** 진행 패널의 세션 시작 — 관제판(console.tsx)의 session.start 가 엔진 동작 뒤에 부른다.
+/** 자료 수집의 세션 시작 — 관제판(console.tsx)의 session.start 가 엔진 동작 뒤에 부른다.
  *  엔진은 같은 이벤트를 matcher 없이 두 번 등록하는 것을 거부하므로 session.start 는 한 곳에만 둔다. */
-// 진행 패널의 세션 값 — 모듈 변수는 재로드 때 새로 시작하고, registerProgress 가 다시 비운다.
+// 자료 수집의 세션 값 — 모듈 변수는 재로드 때 새로 시작하고, registerProgress 가 다시 비운다.
 let cwd = ''
 let ticker: { cancel(): void } | undefined
 let ciTicker: { cancel(): void } | undefined
@@ -618,10 +607,6 @@ export async function progressStart($: EngineInterface, cwdNow: string, ciOpt?: 
       // 이전 세션이 남긴 CI 잡이 합산되지 않게 비운다.
       void safe(() => update($, board, b => (b.ci ? { ...b, ci: undefined } : b)))
     }
-    await $.command.register({
-      name: 'devfsd-progress',
-      description: 'devFSD 진행 패널 열기',
-    })
     await safe(async () => {
       const fid = await readFid($, cwd)
       await update($, board, b => ({ ...b, fid }))
@@ -663,12 +648,6 @@ export function registerProgress(on: Parameters<Register>[0]): void {
   endTicker = undefined
   isCiPolling = false
   gate = { refreshing: false, again: false }
-
-  on('command.run', { command: 'devfsd-progress' }, async $ => {
-    await $.ui.open({ id: PANE, title: TITLE })
-
-    return { text: 'devFSD 진행 패널을 열었습니다.' }
-  })
 
   // Subagents: done when a foreground call returns, else on its notification.
   on('tool.call', { tool: 'Agent' }, async ($, e, next) => {
@@ -762,38 +741,4 @@ export function registerProgress(on: Parameters<Register>[0]): void {
 
     return stored
   }).catch(($, e, next) => next(e))
-
-  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text } = $.ui.resolve(e)
-    const b = await read($, board)
-    const at = await read($, now)
-    const head = ['devFSD', b.fid, b.lane, b.stage].filter(Boolean).join(' · ')
-
-    return (
-      <Box flexDirection="column">
-        <Text bold>{head}</Text>
-        {b.stages && <Text>{b.stages.map(s => `${s.label}${s.mark}`).join(' ')}</Text>}
-        {b.verify && <Text bold={b.verify !== '완료' && b.verify !== '검증 PASS'}>{b.verify}</Text>}
-        <Text> </Text>
-        <Text bold>▶ 실행 중 ({b.running.length})</Text>
-        {b.running.length === 0 && <Text dimColor>  없음</Text>}
-        {b.running.map(job => (
-          <Text>
-            {'  '}
-            {job.label} · {job.detail} · {elapsed(at - job.startedAt)}
-          </Text>
-        ))}
-        <Text> </Text>
-        <Text bold>최근 완료</Text>
-        {b.recent.length === 0 && <Text dimColor>  없음</Text>}
-        {b.recent.map(job => (
-          <Text dimColor={!job.isFailed}>
-            {'  '}
-            {job.isFailed ? '✗' : '✓'} {job.label} · {elapsed((job.endedAt ?? at) - job.startedAt)}
-          </Text>
-        ))}
-      </Box>
-    )
-  })
-
 }

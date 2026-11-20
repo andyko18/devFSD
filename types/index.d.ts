@@ -1,4 +1,4 @@
-// devFSD 상태 계약 — 관제판(Flightdeck 이식)과 진행 패널을 한 플러그인 상태 'devfsd' 아래에 둔다.
+// devFSD 상태 계약 — 관제판(Flightdeck 이식)과 자료 수집(진행 기록)을 한 플러그인 상태 'devfsd' 아래에 둔다.
 // Flightdeck types: Copyright (c) 2026 Stephen Casella — MIT License. See NOTICE.
 
 // ---- 관제판 (Flightdeck 이식) ----
@@ -122,7 +122,7 @@ export type View = { expanded: string | null; gateOpen: Bucket | null; layout: L
 
 export type Roster = { architectTypes: string[] }
 
-// ---- devFSD 진행 ----
+// ---- devFSD 자료 수집 (진행 기록) ----
 export type JobKind = 'agent' | 'bash'
 
 export type Job = {

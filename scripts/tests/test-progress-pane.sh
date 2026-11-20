@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 진행 패널 mod 배선·동작 (FID 20261030-progress-pane-mod)
+# 진행 기록(자료 수집) mod 배선·동작 (FID 20261030-progress-pane-mod · 진행 패널 화면은 20261120 에 걷어냈다)
 #   --part=self   : 이 스위트의 SKIP 경로 (claude CLI 없으면 PP-7 을 SKIP 하고 PASS 로 끝나는지)
 #   --part=mod    : STAGE_NAMES 의 skill 실재(+변이) · mod 소스 단독 엔진 검사(임시 조립본)
 #   --part=wiring : hooks.json modules·plugin.json types 배선 · classic 6종·명령 경로 보존 · 변이 4건 · .claude-plugin/types/ 무시 · 엔진 검사(실 배선 사본)
@@ -54,12 +54,15 @@ engine_check() {
     mods=register.tsx   # progress-pane.tsx 는 이제 register.tsx 가 부르는 하위 모듈 — modules[0] 은 register.tsx
     echo "$out" | grep -q "$mods" || miss="$miss $mods"
     for ev in $EVENTS; do echo "$out" | grep -q "$ev" || miss="$miss $ev"; done
-    if [ "$label" = wiring ]; then   # 실 배선: 진행 패널·관제판 둘 다의 등록 이벤트가 validate 출력에 있다
-      for ev in 'requestId=devfsd-progress' 'requestId=devfsd-console' 'command.run{command=devfsd-progress}' 'command.run{command=devfsd}'; do
+    if [ "$label" = wiring ]; then   # 실 배선: 관제판·계기판의 등록 이벤트는 validate 출력에 있고, 걷어낸 진행 패널(화면·명령)의 것은 없다
+      for ev in 'requestId=devfsd-console' 'command.run{command=devfsd}' 'command.run{command=devfsd-gauge}'; do
         echo "$out" | grep -qF "$ev" || miss="$miss $ev"
       done
+      for ev in 'requestId=devfsd-progress' 'command.run{command=devfsd-progress}'; do
+        echo "$out" | grep -qF "$ev" && miss="$miss 걷어낸_${ev}_가_남아있다"
+      done
     fi
-    [ -z "$miss" ] && ok "PP-7a ($label) validate · 모듈·이벤트 5종" || ng "PP-7a ($label) validate 출력 누락:$miss"
+    [ -z "$miss" ] && ok "PP-7a ($label) validate · 모듈·이벤트 5종 · 진행 패널 없음" || ng "PP-7a ($label) validate 출력 이상:$miss"
   else
     echo "$out" | tail -10; ng "PP-7a ($label) validate 실패"
   fi
@@ -317,8 +320,10 @@ fi
 # ── docs ─────────────────────────────────────────────────────────────
 if want docs; then
   R="$PLUGIN/README.md"; miss=""
-  for s in '/devfsd-progress' '2.1.309' 'CLAUDE_CODE_PLUGIN_DIRS' 'devFSD 진행'; do grep -qF "$s" "$R" || miss="$miss [$s]"; done
-  [ -z "$miss" ] && ok "PP-5 README 안내" || ng "PP-5 README 안내 누락:$miss"
+  gone=""
+  for s in '2.1.309' '/devfsd-gauge' '관제판' '계기판'; do grep -qF "$s" "$R" || miss="$miss [$s]"; done
+  for s in '/devfsd-progress' '진행 패널' 'devFSD 진행'; do grep -qF "$s" "$R" && gone="$gone [$s]"; done   # 걷어낸 화면·명령을 가리키는 낡은 문장
+  [ -z "$miss" ] && [ -z "$gone" ] && ok "PP-5 README 안내(계기판·관제판 있음 · 진행 패널 없음)" || ng "PP-5 README 안내 누락:${miss:- 없음} · 남은 낡은 문장:${gone:- 없음}"
   # PP-6: 어느 버전 절이든 그 절의 ### Added 하위에 '- 진행 패널' 항목이 있다.
   added_has() { awk '/^## \[/{s="";next} /^### /{s=$0;next} s=="### Added"' "$1" | grep -q '^- 진행 패널'; }
   added_has "$PLUGIN/CHANGELOG.md" && ok "PP-6 CHANGELOG ### Added (버전 절 무관)" || ng "PP-6 CHANGELOG ### Added (버전 절 무관)"

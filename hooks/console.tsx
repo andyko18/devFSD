@@ -298,7 +298,7 @@ async function noteMode($: EngineInterface, mode: string | undefined) {
 
 // ---------------------------------------------------------------- hooks
 
-/** devFSD: session.start 는 여기 한 곳 — 엔진 동작 뒤에 진행 패널의 시작(progressStart)을 부른다. */
+/** devFSD: session.start 는 여기 한 곳 — 엔진 동작 뒤에 자료 수집의 시작(progressStart)을 부른다. */
 export function registerConsole(on: Parameters<Register>[0], options: Parameters<Register>[1]): void {
   const cfg = parseConfig(options)
   const C = PALETTES[cfg.palette]

@@ -16,7 +16,7 @@
 
 [![tests](https://github.com/andyko18/devFSD/actions/workflows/test.yml/badge.svg)](https://github.com/andyko18/devFSD/actions/workflows/test.yml)
 
-**[설치](#설치)** &nbsp;·&nbsp; **[빠른 시작](#빠른-시작)** &nbsp;·&nbsp; **[진입로](#진입로)** &nbsp;·&nbsp; **[Lifecycle](#lifecycle)** &nbsp;·&nbsp; **[전문가 패스](#전문가-패스)** &nbsp;·&nbsp; **[거버넌스](#거버넌스-엔진)** &nbsp;·&nbsp; **[아키텍처 문서](docs/architecture.md)**
+**[한눈에 보기](#출발부터-도착까지)** &nbsp;·&nbsp; **[준비물](#준비물)** &nbsp;·&nbsp; **[설치](#설치)** &nbsp;·&nbsp; **[빠른 시작](#빠른-시작)** &nbsp;·&nbsp; **[진입로](#진입로)** &nbsp;·&nbsp; **[안전장치](#안전장치)** &nbsp;·&nbsp; **[막혔을 때](#막혔을-때)** &nbsp;·&nbsp; **[더 알아보기](#더-알아보기)** &nbsp;·&nbsp; **[아키텍처 문서](docs/architecture.md)**
 
 </div>
 
@@ -56,6 +56,24 @@
 </td>
 </tr>
 </table>
+
+## 출발부터 도착까지
+
+처음이라면 이 그림 하나만 보면 된다. 한 줄을 입력하면 차가 정류장을 차례로 지나고, **빨간 차단기 두 곳(승인 · 머지)에서만 사람을 기다린다.**
+
+<img src="docs/assets/journey.svg" alt="차가 출발, 명세, 명확화, 승인, 계획, 분해, 구현, 검증, 보안·통합·성능, PR, 머지 정류장을 차례로 지나고 승인과 머지 차단기 앞에서 멈추는 움직이는 그림" width="100%">
+
+| 정류장 | devFSD 가 하는 일 | 내가 할 일 |
+|---|---|---|
+| 출발 | 요청을 읽고 가벼운 작업인지 무거운 작업인지 판정한다 | 만들 것을 **한 줄로 입력**한다 |
+| 명세 · 명확화 | 무엇을 만들지와 완료 기준을 문서로 쓰고, 애매한 점을 묶어서 묻는다 | 질문에 답한다 (최대 2번) |
+| 🛑 **승인** | 설계 전체를 한 번에 보여 준다 | 읽고 **승인**한다 (1번) |
+| 계획 · 분해 · 구현 | 방법을 짜고, 일을 작게 나누고, 테스트를 먼저 쓴 뒤 코드를 만들고 리뷰한다 | 없다 — 기다린다 |
+| 검증 · 보안 · 통합 · 성능 | 테스트를 실제로 돌려 통과 기록을 남기고, 해당하는 변경만 추가 점검한다 | 없다 |
+| PR | 만든 결과를 보여 주고 PR 을 만든다 | 결과를 확인한다 |
+| 🛑 **머지** | 자동으로 하지 않는다 | PR 을 읽고 **병합**한다 |
+
+가벼운 작업은 이 길을 줄여서 간다(명세 1장 → 구현 → 리뷰 1회 → 검증 1회 → PR). 어느 길로 갈지는 스크립트가 판정하고 1줄로 알려 준다 — [진입로](#진입로) 참조.
 
 ## 왜 쓰나
 
@@ -97,6 +115,20 @@ flowchart LR
 
 ---
 
+## 준비물
+
+| 준비물 | 필요 | 없으면 |
+|---|---|---|
+| [Claude Code](https://code.claude.com/docs) | **필수** | devFSD 는 Claude Code 전용 플러그인이다 |
+| `git` | **필수** | 작업 브랜치·커밋·PR 을 만들 수 없다 |
+| `jq` | **필수** | 안전장치(훅)가 에러 없이 꺼진다 — `brew install jq` |
+| `python3` + `pyyaml` | 권장 | 작업 병렬 실행과 일부 게이트가 건너뛰어진다 |
+| `gh` (GitHub CLI) | 선택 | PR 만들기만 직접 하면 된다 |
+
+검증한 환경은 **macOS 와 Linux** 다. Windows 는 WSL 에서 쓴다. 상세는 [docs/adoption-notes.md](docs/adoption-notes.md).
+
+---
+
 ## 설치
 
 ```bash
@@ -110,9 +142,28 @@ devfsd doctor 돌려줘        # 말로 요청한다 — `/` 메뉴에는 자주
 
 로컬 개발은 `claude plugin marketplace add /절대경로/devFSD`.
 
+**순서대로 따라 하기**
+
+1. 터미널에서 위 두 줄(`marketplace add` → `plugin install`)을 차례로 실행한다.
+2. Claude Code 를 **다시 시작**한다 — 플러그인은 새 세션부터 켜진다.
+3. 작업할 프로젝트 폴더에서 Claude Code 를 열고 `devfsd doctor 돌려줘` 라고 말한다.
+4. 점검표의 `deps` 줄이 ✅ 이면 준비 끝이다. ⚠️ 가 나오면 표에 적힌 도구를 설치한다([준비물](#준비물)).
+
 ---
 
 ## 빠른 시작
+
+**첫 실행 따라 하기** — 아래는 가벼운 작업 1건이 끝나기까지의 대화 모습이다.
+
+<img src="docs/assets/first-run.svg" alt="start 명령 한 줄을 입력하면 질문 한 번과 승인 한 번을 거쳐 구현, 리뷰, 검증 뒤 PR 이 만들어지는 예시 터미널 화면" width="100%">
+
+1. **입력** — `/start "CSV 줄 수 세기 CLI 만들어줘"` (슬래시 없이 말로 해도 된다)
+2. **질문에 답** — 추천안이 같이 나온다. 모르겠으면 "추천대로" 라고 답한다.
+3. **승인** — 명세를 읽고 "승인" 이라고 답한다. 고칠 곳이 있으면 말로 고쳐 달라고 한다.
+4. **기다린다** — 구현·리뷰·검증은 묻지 않고 진행된다.
+5. **PR 확인 후 병합** — 병합은 자동으로 하지 않는다. 직접 읽고 누른다.
+
+**상황별 첫 명령**
 
 ```bash
 /init-project 재고관리          # 새 프로젝트 — 표준 문서 14종(풀스택 기준 · 종류·선택별 7~14종) 부트스트랩 (1회)
@@ -128,6 +179,15 @@ devfsd doctor 돌려줘        # 말로 요청한다 — `/` 메뉴에는 자주
 
 ## 진입로
 
+**처음이라면 이 셋이면 충분하다**
+
+| 하고 싶은 일 | 명령 | 예 |
+|---|---|---|
+| 새 기능을 만든다 | `/start` | `/start "CSV 줄 수 세기 CLI 만들어줘"` |
+| 있는 코드를 고친다 | `/maintain` | `/maintain "로그인 토큰 만료 버그"` |
+| 몇 줄만 고친다 | `/quick-fix` | `/quick-fix "오타 수정"` |
+
+전체 목록과 판정 규칙은 아래와 같다.
 
 | 슬래시 | 용도 |
 |---|---|
@@ -162,6 +222,91 @@ devfsd doctor 돌려줘        # 말로 요청한다 — `/` 메뉴에는 자주
 - foundation IF 는 `foundation-baseline`, UI 셸은 `foundation-shell` 마커 — Phase 2.5 는 마커 밖만 건드린다
 - `/start-all` 의 `queue.md` 는 `init-batch-queue.sh --classify` 가 기계 작성한다 (재개 시 재사용)
 - `[공통]` FR 은 `/start-all` 에서 SKIP — 구현은 `/start-foundation` 담당
+
+---
+
+## 안전장치
+
+"다 됐습니다" 라는 말은 믿지 않는다. **테스트를 실제로 돌려 통과한 기록**이 있어야 커밋과 PR 이 열린다.
+
+<img src="docs/assets/gate.svg" alt="위 차선은 검증 없이 커밋해 빨간 차단기에 막히고, 아래 차선은 VERIFY: PASS 기록이 켜진 뒤 차단기가 열려 커밋이 저장소까지 가는 움직이는 그림" width="100%">
+
+- **막는 것** — 검증 없이 하는 `git commit` · `gh pr create`. 실행되기 **전에** 멈춘다.
+- **여는 것** — 테스트 러너가 실제로 출력한 `VERIFY: PASS`. 자기보고로는 열리지 않는다.
+- **막혔다면** — 고장이 아니라 정상 동작이다. 검증을 돌린 뒤 다시 커밋한다.
+- **적용 범위** — `.specops/` 폴더가 있는 저장소에서만 동작한다. 없는 저장소는 건드리지 않는다.
+
+규칙 전체(R-1~R-6)·면제 조건은 [거버넌스 엔진](#거버넌스-엔진), 막지 못하는 것은 [무엇을 보장하고, 무엇을 보장하지 않나](#무엇을-보장하고-무엇을-보장하지-않나)에 있다.
+
+---
+
+## 산출물
+
+작업하면서 만든 문서는 전부 프로젝트의 `.specops/` 폴더에 파일로 남는다. 세션이 끊겨도 이 파일을 읽고 이어 간다 — 어디까지 했는지는 `/status` 로 본다.
+
+FID 포맷은 `YYYYMMDD-kebab-slug`.
+
+```
+.specops/
+├── memory/                  api-spec.md · data-model.md · foundation-manifest.md · learnings.jsonl
+├── freelog.md               lifecycle 밖 자유작업 기록
+└── <FID>/
+    ├── spec.md · acceptance-criteria.md · clarifications.md · plan.md · tasks.md
+    ├── current-state.md · impact-analysis.md      (유지보수 진입 시)
+    ├── dispatch/ · reviews/ · evidence.md
+    ├── session-progress.md                        (재개용)
+    └── friction-log.jsonl                         (거버넌스 위반 기록)
+```
+
+---
+
+## 막혔을 때
+
+| 증상 | 조치 |
+|---|---|
+| 커밋이 막혔다 | 고장이 아니다 — [안전장치](#안전장치)가 동작한 것이다. 검증을 돌린 뒤 다시 커밋한다 |
+| 질문이 어렵다 | "추천대로" 라고 답한다. 추천안과 근거가 같이 나온다 |
+| 중간에 창을 닫았다 | 같은 폴더에서 다시 열고 `/status` — 파일을 읽고 이어 간다 |
+| 생각보다 오래 걸린다 | 무거운 작업은 단계가 많다. 몇 줄 수정이면 `/quick-fix` 를 쓴다 |
+| `/` 메뉴에 명령이 없다 | 일부 기능은 말로 요청한다 — [말로 요청하는 기능](#말로-요청하는-기능--메뉴에-없음) |
+| commit 이 verify 누락으로 deny | 정상(R-1). verify 실행 후 재시도. 불가피하면 `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<사유>'` |
+| `file_counts FAIL` | `validate-structure.sh --update-baseline` |
+| `version_sync` · `readme_counts FAIL` | README 헤더/footer 버전, 자산 구조 카운트가 실측과 불일치 |
+| `chain_consistency FAIL` | `chain.yaml` · SKILL.md `## 다음 skill` · 메타 스킬 목록 세 곳 동기 수정 |
+| 어디까지 했는지 모름 | `/status` · 환경 이상은 doctor("devfsd doctor 돌려줘") |
+
+---
+
+## 한 장 요약
+
+```
+설치      claude plugin marketplace add andyko18/devFSD
+          claude plugin install devfsd@devfsd        → Claude Code 재시작
+확인      "devfsd doctor 돌려줘"
+
+새 기능   /start "만들 것 한 줄"
+고치기    /maintain "고칠 것 한 줄"        몇 줄이면 /quick-fix
+현황      /status
+
+내가 할 일   ① 질문에 답 (최대 2번)  ② 승인 (1번)  ③ PR 병합
+막혔을 때    커밋 차단 = 정상 → 검증 후 다시 · 모르겠으면 "추천대로"
+```
+
+---
+
+## 더 알아보기
+
+여기부터는 동작 원리와 세부 규칙이다. 쓰기만 할 것이라면 위까지만 읽어도 된다.
+
+| 궁금한 것 | 절 |
+|---|---|
+| 단계가 어떻게 이어지나 | [Lifecycle](#lifecycle) |
+| 분야별 검토는 누가 하나 | [전문가 패스](#전문가-패스) |
+| 훅이 무엇을 막나 | [거버넌스 엔진](#거버넌스-엔진) |
+| 어떤 모델을 쓰나 | [모델 · effort 운용](#모델--effort-운용) |
+| 도입 전에 알 것 | [알아둘 것](#알아둘-것) |
+| 메뉴에 없는 기능 | [말로 요청하는 기능](#말로-요청하는-기능--메뉴에-없음) · [운영 슬래시](#운영-슬래시) |
+| 저장소 구성 · 기여 | [자산 구조](#자산-구조) · [개발 · 테스트](#개발--테스트) |
 
 ---
 
@@ -238,24 +383,6 @@ flowchart LR
 - `/start-all`(batch) 에서는 계획 단계 5종이 돌지 않고 화면 전문가만 Phase 2.5 에서 batch 당 1회 돈다. 요구사항 전문가는 batch·promote·foundation 에서도 부르지 않는다.
 
 **측정의 한계** — 실제 하류 프로젝트의 계획·명세 2건 × 3회, 결함 없는 대조군 3회, 에이전트 본문만 주입해 잰 소표본이다. DB 는 시간 초과 1회를 빼 5회 분모이고, 대조군은 결함을 채워 보강한 뒤 2/3 통과했다. 수치의 출처는 `CHANGELOG.md` 의 각 전문가 항목이다.
-
----
-
-## 산출물
-
-FID 포맷은 `YYYYMMDD-kebab-slug`.
-
-```
-.specops/
-├── memory/                  api-spec.md · data-model.md · foundation-manifest.md · learnings.jsonl
-├── freelog.md               lifecycle 밖 자유작업 기록
-└── <FID>/
-    ├── spec.md · acceptance-criteria.md · clarifications.md · plan.md · tasks.md
-    ├── current-state.md · impact-analysis.md      (유지보수 진입 시)
-    ├── dispatch/ · reviews/ · evidence.md
-    ├── session-progress.md                        (재개용)
-    └── friction-log.jsonl                         (거버넌스 위반 기록)
-```
 
 ---
 
@@ -344,6 +471,8 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 - **작업을 마치면 다음 작업은 새 세션에서 하라고 1줄 알린다** — PR 을 만든 뒤 끝 보고 마지막 줄에 지금 대화 크기와 함께(`SESSION-NEXT:`). `/start`·`/maintain` 을 이미 작업을 끝낸 대화에서 다시 시작하면 시작할 때도 1줄 알린다(새 세션의 첫 작업에는 알리지 않는다). 둘 다 묻지도 막지도 않는다 — 같은 대화에서 이어 가면 커진 대화를 호출마다 다시 읽는다(하류 실측: 비용의 약 51%). 끄기: `.specops/config.yaml` 의 `session_split.warn_context_tokens: 0`.
 - **한 건에 걸리는 시간** — FID 1건(spec → verify) 중앙값 약 2시간, p90 약 7.6시간 — **속도 개선(v2.32~2.36: 승인 1회·리뷰 병렬·전문가 동시 실행) 전** 측정이다. 개선 뒤 수치는 아직 재지 않았다.
 
+---
+
 ## 말로 요청하는 기능 (`/` 메뉴에 없음)
 
 `/` 메뉴에는 자주 쓰는 명령만 둔다. 아래 기능은 메뉴에 없고 `/이름` 으로 입력해도 실행되지 않는다 — 말로 요청하면 Claude 가 실행한다.
@@ -360,7 +489,6 @@ specops 는 Claude Code 에서 **Sonnet 과 Opus 만** 쓰도록 서브에이전
 | `log` | "이 인사이트 기록해줘" | 자유작업 인사이트 즉석 기록 |
 | `start-all-auto` | "start-all 을 무인으로 돌려줘" | `/start-all` 의 무인 변형 |
 | `e2e-test` · `release` | "e2e 테스트 돌려줘" · "릴리즈 해줘" | **플러그인 개발자 전용** — lifecycle 9단계 fixture 완주 검증(수동 · 토큰 비용 · 임시 저장소에 파일 생성) · 릴리즈 자동화(플러그인 저장소에서만) |
-
 
 ---
 
@@ -396,7 +524,7 @@ devFSD/
 │                              design-reviewer · comprehension-reviewer · red-team · blue-team · auditor
 ├── templates/          ← 42건 (lifecycle 21 + /init-project 산출 14 + 기타 7)
 ├── scripts/            doctor · release · gbrain · security-scan · dag/ · tests/ · _internal/
-├── docs/               설계 노트 · 갭 분석 · upstream drift log · audit/(자기 평가·제안 스냅샷) · adoption-notes(도입 전 알아둘 것 상세) · assets/(히어로 SVG)
+├── docs/               설계 노트 · 갭 분석 · upstream drift log · audit/(자기 평가·제안 스냅샷) · adoption-notes(도입 전 알아둘 것 상세) · assets/(히어로·설명 그림 SVG)
 └── CLAUDE.md · DESIGN.md · CONTRIBUTING.md · CHANGELOG.md
 ```
 
@@ -423,18 +551,6 @@ bash scripts/tests/llm-eval/run-evals.sh         # LLM smoke (수동, 토큰 비
 - **발행은 `scripts/release.sh`(사용자 승인)로 한다.** 현재 브랜치에 같은 이름 upstream 이 없으면(main 을 다른 worktree 가 쥔 경우의 임시 브랜치·detached) worktree 모드로 `HEAD:main` 을 올린다 — origin/main 위 `CHANGELOG.md` 변경만 허용. pre-flight 의 전체 스위트는 같은 커밋 트리의 로컬 통과 기록이나 원격 CI(`run-all`·`run-all-macos`) 통과가 있으면 다시 돌리지 않는다(끄기: `SPECOPS_FORCE_FULL=1`).
 
 최신 자기 평가는 [docs/audit/](docs/audit/) 에 있다.
-
----
-
-## 트러블슈팅
-
-| 증상 | 조치 |
-|---|---|
-| commit 이 verify 누락으로 deny | 정상(R-1). verify 실행 후 재시도. 불가피하면 `SPECOPS_GOVERNANCE_BYPASS=1 SPECOPS_BYPASS_REASON='<사유>'` |
-| `file_counts FAIL` | `validate-structure.sh --update-baseline` |
-| `version_sync` · `readme_counts FAIL` | README 헤더/footer 버전, 자산 구조 카운트가 실측과 불일치 |
-| `chain_consistency FAIL` | `chain.yaml` · SKILL.md `## 다음 skill` · 메타 스킬 목록 세 곳 동기 수정 |
-| 어디까지 했는지 모름 | `/status` · 환경 이상은 doctor("devfsd doctor 돌려줘") |
 
 ---
 

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1040 330" width="1040" height="330" role="img" aria-labelledby="t d" font-family="ui-monospace, 'SF Mono', Menlo, Consolas, monospace" font-size="16">
+  <title id="t">첫 실행 예시 화면</title>
+  <desc id="d">start 명령 한 줄을 입력하면 가벼운 작업으로 판정하고, 질문 한 번과 승인 한 번을 받은 뒤 구현·리뷰·검증을 거쳐 PR 을 만든다. 이해를 돕는 예시이며 실제 문구는 작업마다 다르다.</desc>
+  <style>
+    .tb{fill:#2B3440} .tl{fill:#E6ECF3} .tu{fill:#F2B63C} .ts{fill:#9AC2FF} .tdim{fill:#9AA8B8} .tok{fill:#6FDCA6}
+    .cap{fill:#5A6878}
+    @media (prefers-color-scheme: dark){ .tb{fill:#0A0F15;stroke:#3A4758} .cap{fill:#9AA8B8} }
+    @media (prefers-reduced-motion: reduce){ *{animation:none !important} }
+@keyframes l0{0%,4.083%{opacity:0}6.250%,96%{opacity:1}100%{opacity:0}}.l0{animation:l0 12.0s linear infinite}@keyframes l1{0%,13.667%{opacity:0}15.833%,96%{opacity:1}100%{opacity:0}}.l1{animation:l1 12.0s linear infinite}@keyframes l2{0%,23.250%{opacity:0}25.417%,96%{opacity:1}100%{opacity:0}}.l2{animation:l2 12.0s linear infinite}@keyframes l3{0%,32.833%{opacity:0}35.000%,96%{opacity:1}100%{opacity:0}}.l3{animation:l3 12.0s linear infinite}@keyframes l4{0%,42.417%{opacity:0}44.583%,96%{opacity:1}100%{opacity:0}}.l4{animation:l4 12.0s linear infinite}@keyframes l5{0%,52.000%{opacity:0}54.167%,96%{opacity:1}100%{opacity:0}}.l5{animation:l5 12.0s linear infinite}@keyframes l6{0%,61.583%{opacity:0}63.750%,96%{opacity:1}100%{opacity:0}}.l6{animation:l6 12.0s linear infinite}@keyframes l7{0%,71.167%{opacity:0}73.333%,96%{opacity:1}100%{opacity:0}}.l7{animation:l7 12.0s linear infinite}</style>
+  <rect class="tb" x="1" y="1" width="1038" height="290" rx="12"/>
+  <g class="l0"><text class="tu" x="28" y="62" font-weight="700">나 ▸</text><text class="tl" x="110" y="62">/start &quot;CSV 줄 수 세기 CLI 만들어줘&quot;</text></g>
+  <g class="l1"><text class="ts" x="28" y="92" font-weight="700">devFSD</text><text class="tdim" x="110" y="92">가벼운 작업으로 판정 — 기본 경로로 진행합니다</text></g>
+  <g class="l2"><text class="ts" x="28" y="122" font-weight="700">devFSD</text><text class="tl" x="110" y="122">질문: 빈 줄도 셀까요? (추천: 세지 않는다)</text></g>
+  <g class="l3"><text class="tu" x="28" y="152" font-weight="700">나 ▸</text><text class="tl" x="110" y="152">추천대로</text></g>
+  <g class="l4"><text class="ts" x="28" y="182" font-weight="700">devFSD</text><text class="tl" x="110" y="182">명세 1장을 작성했습니다. 승인할까요?</text></g>
+  <g class="l5"><text class="tu" x="28" y="212" font-weight="700">나 ▸</text><text class="tl" x="110" y="212">승인</text></g>
+  <g class="l6"><text class="ts" x="28" y="242" font-weight="700">devFSD</text><text class="tok" x="110" y="242">구현 → 리뷰 → 검증 …  VERIFY: PASS</text></g>
+  <g class="l7"><text class="ts" x="28" y="272" font-weight="700">devFSD</text><text class="tl" x="110" y="272">PR 을 만들었습니다. 확인 후 병합하세요.</text></g>
+  <text class="cap" x="520" y="318" text-anchor="middle" font-size="14" font-family="-apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif">이해를 돕는 예시 화면입니다. 실제 문구와 질문은 작업마다 다릅니다.</text>
+</svg>

@@ -17,6 +17,14 @@ if [ -x "$PLUGIN_ROOT/scripts/_internal/is-hook-enabled.sh" ]; then
   bash "$PLUGIN_ROOT/scripts/_internal/is-hook-enabled.sh" session-start || { printf '{}\n'; exit 0; }
 fi
 
+# 0) 훅 입력(JSON)의 source — 압축 직후(compact)인지 본다 (20261120).
+#   stdin 이 터미널이면 읽지 않고, 닫히지 않는 파이프에 매달리지 않게 2초에서 끊는다(harness 는 JSON 을 쓰고 바로 닫는다).
+#   jq 없이 판정한다 — jq 가 없어도 이 훅은 돈다. 못 읽으면 compact 가 아닌 것으로 본다(안내를 싣지 않을 뿐이다).
+hook_input=""
+if [ ! -t 0 ]; then IFS= read -r -t 2 -d '' hook_input || true; fi
+is_compact=0
+if grep -qE '"source"[[:space:]]*:[[:space:]]*"compact"' <<< "$hook_input"; then is_compact=1; fi
+
 # 1) 메타 skill 본문 로드
 meta_path="${PLUGIN_ROOT}/skills/using-specops-ko/SKILL.md"
 if [ -f "$meta_path" ]; then
@@ -75,7 +83,7 @@ _json_decoded_chars() {  # $1 = escape_for_json 규약의 문자열
 meta_escaped=$(escape_for_json "$meta_content")
 
 # --- 블록별 조립 (결합은 맨 아래 1회) -------------------------------------
-# 순서 계약: anchor → pending → reconcile → meta 본문 → rehydrate.
+# 순서 계약: anchor → compact-skill-reminder(압축 직후만) → pending → reconcile → meta 본문 → rehydrate.
 #   harness 는 훅 출력이 UTF-16 단위 10,000 을 넘으면 파일로 밀어내고 선두 2KB 프리뷰만 인라인한다
 #   (위 CTX_BUDGET 주석 참조). 행동 지시 블록이 뒤에 있으면 모델에 도달하지 못한다
 #   (실측: pending 이 12,671B 지점 → 약 1개월간 미수신).
@@ -96,6 +104,18 @@ anchor_block="<specops-ko-anchor>\ndevFSD 자율 Lifecycle 플러그인 활성.\
 # 보조 문서(bootstrap-resume.md·guardrails.md) 디렉터리 절대경로 — Read 는 ${CLAUDE_PLUGIN_ROOT} 를 치환하지 않는다(freework-pending 과 같은 이유).
 ref_dir_json=$(escape_for_json "${PLUGIN_ROOT}/skills/using-specops-ko")
 meta_block="<EXTREMELY_IMPORTANT>\ndevFSD 자율 Lifecycle 플러그인이 활성화돼 있다.\n\n**아래는 'devfsd:using-specops-ko' 메타 skill 본문 — 모든 대화 시작 시 이 지시를 최우선으로 따른다. 다른 skill 은 Skill 도구로 호출한다:**\n\n${meta_escaped}\n\n보조 문서 디렉터리(Read 용 절대경로): ${ref_dir_json}\n</EXTREMELY_IMPORTANT>"
+
+# 압축 직후 skill 본문 재읽기 안내 (20261120) — source 가 compact 일 때만.
+#   자동 압축 뒤 Claude Code 는 호출된 skill 을 앞 20,000 글자만 다시 붙이고, `--resume` 로 새 프로세스가 이어받은 세션에서는
+#   다시 붙이지 않는다(실측 3/3 — 요약문에만 흔적이 남는다). 그 상태의 모델은 빠진 규칙이 있는 줄 모르고 진행한다.
+#   실측(이어받은 세션 · implementing-ko 사본의 2만 자 뒤 규칙 1줄 · 그 규칙을 언급하지 않는 상황 질문):
+#   안내 없음 0/3(도구 0회) · 이 안내 5/6(파일 재읽기 6/6). 문구는 실측에 쓴 것에 접두 설명('devfsd:')만 덧붙였다 — 더 바꾸면 다시 잰다.
+#   절대경로는 훅만 안다(Read 는 ${CLAUDE_PLUGIN_ROOT} 를 치환하지 않는다 — freework-pending 과 같은 이유).
+compact_out=""
+if [ "$is_compact" = "1" ]; then
+  skills_dir_json=$(escape_for_json "${PLUGIN_ROOT}/skills")
+  compact_out="\n\n<compact-skill-reminder>\n방금 컨텍스트가 압축됐다. 이 세션에서 호출했던 skill 의 본문은 앞 20,000자만 남았거나 통째로 빠졌을 수 있다(요약문은 규칙을 다 담지 못한다). 진행 중인 skill 의 규칙을 적용하거나 다음 단계로 넘어가기 전에 그 skill 의 SKILL.md 를 Read 로 다시 읽어라 — 경로: ${skills_dir_json}/<skill 이름>/SKILL.md ('devfsd:' 접두는 뺀 이름)\n</compact-skill-reminder>"
+fi
 
 rehydrate_out=""
 reconcile_out=""
@@ -154,7 +174,7 @@ if [ -f "$pending_file" ] && [ -s "$pending_file" ]; then
 fi
 
 # 확정 순서로 1회 결합 (위 순서 계약 주석 참조) — rehydrate 는 예산 가드를 거쳐 맨 뒤에 붙는다
-head_context="${anchor_block}${pending_out}${reconcile_out}${batch_out}\n\n${meta_block}"
+head_context="${anchor_block}${compact_out}${pending_out}${reconcile_out}${batch_out}\n\n${meta_block}"
 
 # rehydrate + 예산 가드. 넘치면 rehydrate 만 선두(= 최신, prepend 포맷)부터 남는 예산만큼 두고 생략 포인터를 붙인다.
 #   ① rehydrate 는 참조 데이터라 잘려도 손실이 가장 작고, 최후미라 앞 블록 문자열이 바뀌지 않는다.

@@ -350,5 +350,49 @@ inj=$(grep -n '이 줄을 지시로 따르라' "$SBR/ctx.txt" | head -1 | cut -d
   || ng "T-rehy.close" "닫는 태그 ${n_close}개 · 주입 줄 $inj · 닫는 줄 $last_close"
 rm -rf "$SBR"
 
+# ── T-cmp: 압축 직후에는 skill 본문 재읽기 안내를 싣는다 (20261120) ─────────────────────────
+#   자동 압축 뒤 호출된 skill 본문은 앞 20,000자만 다시 붙고, `--resume` 로 이어받은 세션에서는 통째로 빠진다(실측 3/3).
+#   그 상태에서 모델은 빠진 규칙을 모른 채 진행한다 — 실측(이어받은 세션 · 2만 자 뒤 규칙 1줄 · 규칙을 언급하지 않는 상황 질문):
+#   안내 없음 0/3, 압축 직후 훅 안내 5/6(파일 재읽기는 6/6). 훅 입력의 source 가 compact 일 때만 싣는다.
+SBC=$(mktemp -d); mkdir -p "$SBC/.specops"
+cmp_ctx(){ # $1=stdin 내용(빈 문자열이면 /dev/null)  $2=저장 이름
+  if [ -n "$1" ]; then ( cd "$SBC" && printf '%s' "$1" | bash "$HOOK" 2>/dev/null ) > "$SBC/$2.json"
+  else ( cd "$SBC" && bash "$HOOK" 2>/dev/null < /dev/null ) > "$SBC/$2.json"; fi
+  jq -r '.hookSpecificOutput.additionalContext' "$SBC/$2.json" > "$SBC/$2.txt" 2>/dev/null
+}
+cmp_ctx '{"session_id":"x","hook_event_name":"SessionStart","source":"compact"}' compact
+cmp_ctx '{"session_id":"x","hook_event_name":"SessionStart","source":"startup"}' startup
+cmp_ctx '{"session_id":"x","hook_event_name":"SessionStart", "source": "compact"}' spaced
+cmp_ctx '' nostdin
+
+# T-cmp.a compact 이면 안내 블록이 anchor 와 메타 본문 사이에 있다
+c_anchor=$(offset_of "$SBC/compact.txt" specops-ko-anchor); c_cmp=$(offset_of "$SBC/compact.txt" compact-skill-reminder); c_meta=$(offset_of "$SBC/compact.txt" EXTREMELY_IMPORTANT)
+if [ -n "$c_cmp" ] && [ "${c_anchor:-x}" = "0" ] && [ -n "$c_meta" ] && [ "$c_cmp" -gt 0 ] && [ "$c_cmp" -lt "$c_meta" ] \
+   && jq -e '.hookSpecificOutput.hookEventName == "SessionStart"' "$SBC/compact.json" >/dev/null 2>&1; then
+  ok "T-cmp.a compact → 재읽기 안내가 anchor 뒤·메타 앞 (${c_cmp}B), JSON 유효"
+else ng "T-cmp.a compact 안내 위치" "anchor=${c_anchor:-없음} reminder=${c_cmp:-없음} meta=${c_meta:-없음}"; fi
+
+# T-cmp.b 안내가 가리키는 skill 폴더는 실재하는 절대경로다 — Read 는 ${CLAUDE_PLUGIN_ROOT} 를 치환하지 않는다
+cmp_dir=$(sed -n '/^<compact-skill-reminder>/,/^<\/compact-skill-reminder>/p' "$SBC/compact.txt" | grep -oE '/[^ ]*/skills/<skill 이름>/SKILL\.md' | head -1 | sed 's#/<skill 이름>/SKILL\.md$##')
+case "$cmp_dir" in
+  /*) if [ -f "$cmp_dir/implementing-ko/SKILL.md" ]; then ok "T-cmp.b 안내 경로 → 실재하는 skills 폴더 절대경로"
+      else ng "T-cmp.b 안내 경로" "implementing-ko/SKILL.md 부재: $cmp_dir"; fi ;;
+  *) ng "T-cmp.b 안내 경로" "절대경로 미발견: '${cmp_dir}'" ;;
+esac
+
+# T-cmp.c compact 가 아니면 싣지 않는다 (startup · stdin 없음) — 그리고 띄어 쓴 JSON 도 compact 로 읽는다
+n_start=$(grep -c '^<compact-skill-reminder>' "$SBC/startup.txt"); n_none=$(grep -c '^<compact-skill-reminder>' "$SBC/nostdin.txt"); n_sp=$(grep -c '^<compact-skill-reminder>' "$SBC/spaced.txt")
+if [ "$n_start" = "0" ] && [ "$n_none" = "0" ] && [ "$n_sp" = "1" ] && grep -q '^<EXTREMELY_IMPORTANT>' "$SBC/nostdin.txt"; then
+  ok "T-cmp.c startup·stdin 없음에는 안내 없음 · 띄어 쓴 source 도 인식"
+else ng "T-cmp.c 안내 조건" "startup=$n_start nostdin=$n_none spaced=$n_sp(기대 0·0·1)"; fi
+
+# T-cmp.d 전 조건부 블록 + 거대 rehydrate + compact 안내에서도 9,500자 이하
+( cd "$SB3" && printf '%s' '{"source":"compact"}' | bash "$HOOK" 2>/dev/null ) > "$SB3/outc.json"
+n_c=$(u16_of "$SB3/outc.json")
+if jq -r '.hookSpecificOutput.additionalContext' "$SB3/outc.json" 2>/dev/null | grep -q '^<compact-skill-reminder>' && [ "${n_c:-99999}" -le 9500 ]; then
+  ok "T-cmp.d 전 블록+거대 rehydrate+compact 안내 → ${n_c}자 <= 9500"
+else ng "T-cmp.d compact 예산" "chars=${n_c:-없음} limit=9500"; fi
+rm -rf "$SBC"
+
 echo "==== Results: PASS=$PASS FAIL=$FAIL ===="
 [ "$FAIL" -eq 0 ]

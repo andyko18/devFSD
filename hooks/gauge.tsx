@@ -1,10 +1,11 @@
 // devFSD 계기판 — 입력창 바로 위 띠. 관제판·진행 패널이 채운 상태를 읽어 그리기만 한다(차단·수정 없음).
-//   1줄: 모델 · effort · 5h · 7d   2줄: 상태 · 명령 · 작업 · 내 차례   3줄: 단계 점   4줄: 버튼
+//   1줄: 상태 · 명령 · 작업 · 내 차례 + 버튼(도움말 · 관제판 보기 · 계기판 숨기기)   2줄: 단계 점(작업 중에만)   3줄: 모델 · effort · 5h · 7d · 비용(참고 수치 — 흐리게)
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { Board, GaugeView, Main, StageMark, Usage } from '../types'
-import { DEFAULT_MAIN, DEFAULT_USAGE, fmtResetIn, fmtUsd, gauge, limitLabel, prettyModel } from './core'
+import { DEFAULT_MAIN, DEFAULT_USAGE, fmtResetIn, fmtUsd, limitLabel, prettyModel } from './core'
+import { HELP_SECTIONS } from './gauge-help'
 import { isGoverned } from './progress-pane'
 
 const HELP_PANE = 'devfsd-help'
@@ -12,8 +13,8 @@ const HELP_TITLE = 'devFSD 도움말'
 const CONSOLE_PANE = 'devfsd-console'
 const CONSOLE_TITLE = 'devFSD 관제판'
 const COMMAND = 'devfsd-gauge'
-const STATUS_PROMPT = 'devFSD 현황을 보여줘 (devfsd:status)'
 const BAR_WIDTH = 5
+const HOT_PCT = 80 // 이 아래로는 막대에 색을 쓰지 않는다 — 평소엔 무채색
 const LIMITS_SHOWN = 2
 // 보안·통합·성능·데모는 계기판에서 한 점(게이트)으로 묶는다 — 상세는 진행 패널이 보여 준다.
 const GATE_KEYS: readonly string[] = ['security', 'integration', 'performance', 'demo']
@@ -87,25 +88,44 @@ export function stopsOf(stages: readonly StageMark[] | undefined, isDone: boolea
   return [...withApproval, { key: 'merge', label: '머지', state: isDone ? 'now' : 'gate' }]
 }
 
-/** 오른쪽 위 알림 — 지금 누구 차례인가. 정확히 읽을 수 있는 상태만 빨강(me·bad)으로 낸다. */
+/** `20261116-plan-reflect` → `plan-reflect` — 날짜 접두는 사람에게 소음이다. */
+export function shortFid(fid: string): string {
+  return fid.replace(/^\d{8}-/, '')
+}
+
+/**
+ * 상태 줄 알림 — 지금 누구 차례인가. 빨강(me·bad)은 이 세션에서 실제로 움직인 lifecycle 작업에만 낸다:
+ * 단계가 없는 작업(직접 수정 기록)이나 이 세션이 건드리지 않은 지난 작업은 `대기` 다 — 새 세션마다 경보가 켜지면 무시하게 된다.
+ */
 export function turnOf(b: Board, isRunning: boolean, stops: readonly Stop[]): TurnNote {
   if (!b.fid) return { tone: 'idle', text: '대기 — /start 또는 /maintain 으로 출발' }
+  if (isRunning || b.working === true || b.running.length > 0) return { tone: 'run', text: '기다리면 된다' }
+  const isLive = stops.length > 0 && b.activityAt !== undefined
+  if (!isLive) return { tone: 'idle', text: b.verify === '완료' ? '완료 — PR 확인·병합은 직접' : '대기' }
   const failed = stops.find(s => s.state === 'fail')
   if (failed) return { tone: 'bad', text: `${failed.label} 실패` }
   if (b.verify !== undefined && /FAIL/.test(b.verify)) return { tone: 'bad', text: '검증 실패' }
   if (b.verify === '완료') return { tone: 'idle', text: '완료 — PR 확인·병합은 직접' }
-  if (isRunning || b.working === true || b.running.length > 0) return { tone: 'run', text: '기다리면 된다' }
   const isApproval = stops.some(s => s.key === 'approve' && s.state === 'now')
 
   return { tone: 'me', text: isApproval ? '내 차례 — 설계를 읽고 승인' : '내 차례 — 답을 기다린다' }
 }
 
-/** `five_hour 42% (2시간 39분 뒤 초기화)` → `5h ██░░░ 42% · 2h39m` 의 조각들. */
-export function limitParts(l: Usage['limits'][number], now: number): { label: string; on: string; off: string; tail: string } {
-  const bar = gauge(l.pct, BAR_WIDTH)
+/**
+ * `five_hour 53% (1시간 54분 뒤 초기화)` → `5h ■■■□□ 53% · 1h54m` 의 조각들.
+ * 칸은 꽉 찬 것과 빈 것 두 글자뿐이다 — 부분 블록(▌)과 음영(░)은 앱 글꼴에서 칸 크기가 서로 달라 막대가 울퉁불퉁해진다.
+ */
+export function limitParts(l: Usage['limits'][number], now: number): { label: string; on: string; off: string; tail: string; isHot: boolean } {
+  const filled = Math.max(0, Math.min(BAR_WIDTH, Math.round((l.pct * BAR_WIDTH) / 100)))
   const resetIn = fmtResetIn(l.resetsAt, now)
 
-  return { label: limitLabel(l.kind), on: bar.on, off: bar.off, tail: `${Math.round(l.pct)}%${resetIn ? ` · ${resetIn}` : ''}` }
+  return {
+    label: limitLabel(l.kind),
+    on: '■'.repeat(filled),
+    off: '□'.repeat(BAR_WIDTH - filled),
+    tail: `${Math.round(l.pct)}%${resetIn ? ` · ${resetIn}` : ''}`,
+    isHot: l.pct >= HOT_PCT,
+  }
 }
 
 /** 도움말 맨 위 한 줄 — 지금 상태에 맞는 안내. */
@@ -116,23 +136,6 @@ export function helpLead(note: TurnNote): string {
 
   return note.text.startsWith('완료') ? 'PR 을 읽고 직접 병합한다. 병합은 자동으로 하지 않는다.' : '만들 것을 /start 뒤에 한 줄로 적으면 출발한다.'
 }
-
-export const HELP_SECTIONS: readonly { title: string; lines: readonly string[] }[] = [
-  {
-    title: '시작하기',
-    lines: ['/start "만들 것 한 줄"      새 기능', '/maintain "고칠 것 한 줄"   있는 코드 수정', '/quick-fix "몇 줄 수정"      작은 수정'],
-  },
-  { title: '내가 할 일', lines: ['① 질문에 답 (최대 2번)', '② 승인 (1번)', '③ PR 병합'] },
-  {
-    title: '계기판 읽는 법',
-    lines: ['● 지난 단계   ◉ 지금 단계   ○ 남은 단계   ✗ 실패', '5h · 7d  사용 한도와 초기화까지 남은 시간', '빨간 알림  내 차례이거나 문제가 생김'],
-  },
-  {
-    title: '막혔을 때',
-    lines: ['커밋이 막혔다 — 정상이다. 검증을 돌린 뒤 다시 한다', '질문이 어렵다 — "추천대로" 라고 답한다', '창을 닫았다 — 다시 열고 "현황" 을 누른다'],
-  },
-  { title: '더 보기', lines: ['진행 패널 /devfsd-progress · 관제판 /devfsd', '계기판 다시 켜기 /devfsd-gauge', '사용 설명서는 README 에 있다'] },
-]
 
 const DOT: Record<StopState, string> = { done: '●', now: '◉', todo: '○', skip: '–', fail: '✗', gate: '○' }
 
@@ -169,60 +172,66 @@ export function registerGauge(on: Parameters<Register>[0]): void {
     const model = prettyModel(m.model || m.startModel || '')
     const lead = isAlert ? 'error' : note.tone === 'run' ? 'success' : 'inactive'
 
+    const work = [b.cmd?.title, b.fid && note.tone !== 'idle' ? shortFid(b.fid) : undefined].filter(Boolean).join(' · ')
+    const recent = b.fid && note.tone === 'idle' ? ` · 최근 ${shortFid(b.fid)}` : ''
+
     return (
       <Box flexDirection="column">
-        <Box flexDirection="row" gap={3}>
-          <Text bold>
-            {model}
-            {m.effort ? ` · ${m.effort}` : ''}
-          </Text>
-          {u.limits.slice(0, LIMITS_SHOWN).map(l => {
-            const p = limitParts(l, at)
-
-            return (
-              <Text>
-                <Text dimColor>{p.label} </Text>
-                <Text color={l.pct >= 80 ? 'error' : 'warning'}>{p.on}</Text>
-                <Text dimColor>{p.off}</Text> {p.tail}
-              </Text>
-            )
-          })}
-        </Box>
-        <Box flexDirection="row" gap={2}>
+        <Box flexDirection="row" justifyContent="space-between" gap={2}>
           <Text>
             <Text color={lead}>●</Text> <Text bold>devFSD</Text>
-            {b.cmd ? ` ${b.cmd.title}` : ''}
-            {b.fid ? <Text dimColor> {b.fid}</Text> : ''}
-            {b.lane ? <Text dimColor> · {b.lane}</Text> : ''}
+            {work ? ` ${work}` : ''}
+            {isAlert ? (
+              <Text bold color="error">
+                {' '}
+                · {note.text}
+              </Text>
+            ) : (
+              <Text dimColor>
+                {' '}
+                · {note.text}
+                {recent}
+              </Text>
+            )}
           </Text>
-          <Text bold={isAlert} color={isAlert ? 'error' : undefined} dimColor={!isAlert}>
-            {note.text}
-            {u.costUsd !== null ? ` · ${fmtUsd(u.costUsd)}` : ''}
-          </Text>
+          <Box flexDirection="row" gap={1}>
+            <Button key="help" label="도움말" dimColor onPress={() => void $.ui.open({ id: HELP_PANE, title: HELP_TITLE })} />
+            <Button key="console" label="관제판 보기" dimColor onPress={() => void $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })} />
+            <Button key="hide" label="계기판 숨기기" dimColor onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))} />
+          </Box>
         </Box>
-        {stops.length > 0 && (
+        {stops.length > 0 && note.tone !== 'idle' && (
           <Text>
             {stops.map((s, i) => (
               <Text>
-                {i > 0 ? <Text dimColor>{s.state === 'todo' || s.state === 'gate' ? '┄' : '━'}</Text> : ''}
+                {i > 0 ? <Text dimColor>{s.state === 'done' || s.state === 'now' || s.state === 'fail' ? ' ━ ' : ' ┄ '}</Text> : ''}
                 <Text
                   bold={s.state === 'now'}
-                  color={s.state === 'done' ? 'success' : s.state === 'now' ? 'warning' : s.state === 'fail' || s.state === 'gate' ? 'error' : undefined}
-                  dimColor={s.state === 'todo' || s.state === 'skip'}
+                  color={s.state === 'done' ? 'success' : s.state === 'fail' ? 'error' : s.state === 'now' ? (isAlert ? 'error' : 'warning') : undefined}
+                  dimColor={s.state === 'todo' || s.state === 'skip' || s.state === 'gate'}
                 >
-                  {DOT[s.state]}
-                  {s.label}
+                  {DOT[s.state]} {s.label}
                 </Text>
               </Text>
             ))}
           </Text>
         )}
-        <Box flexDirection="row" gap={1}>
-          <Button key="status" label="현황" onPress={() => void $.prompt.submit({ text: STATUS_PROMPT })} />
-          <Button key="help" label="도움말" onPress={() => void $.ui.open({ id: HELP_PANE, title: HELP_TITLE })} />
-          <Button key="console" label="관제판 보기" onPress={() => void $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })} />
-          <Button key="hide" label="계기판 숨기기" onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))} />
-        </Box>
+        <Text dimColor>
+          {model}
+          {m.effort ? ` · ${m.effort}` : ''}
+          {u.limits.slice(0, LIMITS_SHOWN).map(l => {
+            const p = limitParts(l, at)
+
+            return (
+              <Text>
+                {'   '}
+                {p.label} <Text color={p.isHot ? 'warning' : undefined}>{p.on}</Text>
+                {p.off} {p.tail}
+              </Text>
+            )
+          })}
+          {u.costUsd !== null ? `   ${fmtUsd(u.costUsd)}` : ''}
+        </Text>
       </Box>
     )
   })

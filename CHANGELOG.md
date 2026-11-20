@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.14.2] — 2026-11-20
+
 ### Changed
 
 - **계기판에 둥근 계기를 넣었다 (그림을 그리는 화면)**. 데스크톱 앱 등에서는 계기판 오른쪽에 자동차 계기판처럼 둥근 계기 셋이 놓인다 — 지금 도는 명령의 단계(눈금 = 그 명령의 단계 · 바늘 = 지금 단계 · 아래 = 명령 이름), Claude 5시간 한도, Claude 7일 한도. 단계 계기의 색은 단계 묶음을 따른다(정하기 파랑 · 만들기 청록 · 확인 초록 · 내 차례·실패 빨강). 왼쪽 글자는 `devFSD (모델 effort)` · 명령과 작업 · 누구 차례 · 버튼 셋으로 줄였다. 단계가 8개를 넘으면 이름표는 지금 단계와 양 끝만 단다. 터미널에는 그림 요소가 없어 종전 글자 계기판을 그대로 쓴다. `/init-project` 는 질문을 기다리며 멈춰 있는 동안에도 계기와 눈금을 남기고 `<단계> 중 — 질문이 있으면 답한다` 를 흐리게 보인다. 빨강은 켜지 않는다(중단된 초기화의 표시 파일이 남은 저장소에서 거짓 경보가 나지 않게). 명령 자기 흐름을 눈금으로 쓰는 것은 흐름을 주는 `/init-project` · `/start-all` · `/quick-fix` 뿐이다. 그림은 `hooks/gauge-dial.ts` 가 만든다. 배치·크기·색은 실제 화면에 미리보기를 띄워 여러 번 고친 결과다.
@@ -4382,7 +4384,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.14.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.14.2...HEAD
+[5.14.2]: https://github.com/andyko18/devFSD/compare/v5.14.1...v5.14.2
 [5.14.1]: https://github.com/andyko18/devFSD/compare/v5.14.0...v5.14.1
 [5.14.0]: https://github.com/andyko18/devFSD/compare/v5.13.2...v5.14.0
 [5.13.2]: https://github.com/andyko18/devFSD/compare/v5.13.1...v5.13.2

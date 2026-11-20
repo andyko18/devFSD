@@ -1,5 +1,5 @@
 // devFSD 계기판 — 입력창 바로 위 띠. 관제판·진행 패널이 채운 상태를 읽어 그리기만 한다(차단·수정 없음).
-//   1줄: 상태 · 명령 · 작업 · 내 차례 + 버튼(도움말 · 관제판 보기 · 계기판 숨기기)   2줄: 단계 점(작업 중에만)   3줄: 모델 · effort · 5h · 7d · 비용(참고 수치 — 흐리게)
+//   1줄: 상태 · 명령 · 작업 · 내 차례 + 버튼(? 도움말 · ↗ 관제판 — 기호만 색을 입힌 글자 · 계기판 숨기기는 앱의 닫기 단추)   2줄: 단계 점(작업 중에만)   3줄: 모델 · effort · 5h · 7d · 비용(참고 수치 — 흐리게)
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
@@ -194,10 +194,14 @@ export function registerGauge(on: Parameters<Register>[0]): void {
               </Text>
             )}
           </Text>
-          <Box flexDirection="row" gap={1}>
-            <Button key="help" label="도움말" dimColor onPress={() => void $.ui.open({ id: HELP_PANE, title: HELP_TITLE })} />
-            <Button key="console" label="관제판 보기" dimColor onPress={() => void $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })} />
-            <Button key="hide" label="계기판 숨기기" dimColor onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))} />
+          <Box flexDirection="row" gap={2}>
+            <Button key="help" plain onPress={() => void $.ui.open({ id: HELP_PANE, title: HELP_TITLE })}>
+              <Text color="suggestion">?</Text> 도움말
+            </Button>
+            <Button key="console" plain onPress={() => void $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })}>
+              <Text color="suggestion">↗</Text> 관제판
+            </Button>
+            <Button key="hide" label="계기판 숨기기" role="dismiss" onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))} />
           </Box>
         </Box>
         {stops.length > 0 && note.tone !== 'idle' && (

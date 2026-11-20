@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.13.1] — 2026-11-20
+
 ### Fixed
 
 - **긴 작업 중 컨텍스트가 압축되면 진행 중이던 skill 의 뒤쪽 규칙이 사라지던 문제를 줄였다**. 자동 압축 뒤 Claude Code 는 호출된 skill 본문을 앞 20,000 글자만 다시 붙인다(글자 수 기준 — 실측). `specifying-ko` 는 43%, `planning-ko` 는 36%(계획 리뷰어 호출·다음 단계 지시), `implementing-ko` 는 34%(구현자 상태 처리·다음 단계 지시)가 잘렸고, 모델은 빠진 규칙이 있는 줄 모른 채 진행했다 — 실측에서 2만 자 뒤의 규칙을 적용한 경우가 6회 중 0회였다. 본문이 긴 skill 6개의 맨 위에 "본문이 잘려 있으면 이 파일을 다시 읽는다" 안내를 넣었고(같은 실측에서 6회 중 5회 적용), 본문이 19,500자를 넘는 skill 이 새로 늘지 않게 테스트로 잠갔다. 상류 obra/superpowers v7.0.1 이 같은 원인의 사고를 보고한 것을 보고 확인했다.
@@ -4351,7 +4353,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.13.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.13.1...HEAD
+[5.13.1]: https://github.com/andyko18/devFSD/compare/v5.13.0...v5.13.1
 [5.13.0]: https://github.com/andyko18/devFSD/compare/v5.12.0...v5.13.0
 [5.12.0]: https://github.com/andyko18/devFSD/compare/v5.11.2...v5.12.0
 [5.11.2]: https://github.com/andyko18/devFSD/compare/v5.11.1...v5.11.2

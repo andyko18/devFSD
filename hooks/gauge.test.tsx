@@ -1,7 +1,9 @@
 import { expect, test } from 'claude-code/testing'
 
-import type { Board, StageMark } from '../types'
-import { helpLead, limitParts, shortFid, stopsOf, turnOf } from './gauge'
+import type { Board, CmdBoard, StageMark } from '../types'
+import { commandOf, dialModelOf, helpLead, limitParts, shortFid, stopsOf, turnOf } from './gauge'
+import { dialAlt, dialHue, dialNow, dialSvg, dialWidth } from './gauge-dial'
+import type { DialTick } from './gauge-dial'
 import { HELP_SECTIONS } from './gauge-help'
 
 const BAND = {
@@ -238,4 +240,136 @@ test('the help pane leads with what to do now and lists every section', async ($
     expect(await ui.find({ type: 'Text', text: sec.title })).toBeDefined()
   }
   await ui.unmount()
+})
+
+const cmd = (kind: CmdBoard['kind'], steps: CmdBoard['steps'] = []): CmdBoard => ({ kind, title: '', steps, frs: [], rows: [] })
+const LIMITS = [
+  { kind: 'five_hour', pct: 42, resetsAt: 1_000 + 159 * 60_000 },
+  { kind: 'seven_day', pct: 84, resetsAt: null },
+]
+
+test('the dial needle points at the live stage, the last when all are done, nowhere when idle', () => {
+  const tick = (state: DialTick['state']): DialTick => ({ label: 'x', state })
+  expect(dialNow([tick('done'), tick('now'), tick('todo')])).toBe(1)
+  expect(dialNow([tick('done'), tick('fail'), tick('todo')])).toBe(1)
+  expect(dialNow([tick('done'), tick('skip'), tick('done')])).toBe(2)
+  expect(dialNow([tick('todo'), tick('todo')])).toBe(-1)
+  expect(dialNow([])).toBe(-1)
+})
+
+test('the dial colour follows the stage group, and an alert or a failure is red', () => {
+  const ticks: DialTick[] = ['specify', 'approve', 'implement', 'review', 'verify', 'pr', 'merge'].map(key => ({ label: key, state: 'todo', key }))
+  const hues = ticks.map((_, i) => dialHue(ticks, i, false))
+  expect(hues[0]).toBe(hues[1]) // 정하는 단계
+  expect(hues[2]).toBe(hues[3]) // 만드는 단계
+  expect(hues[4]).toBe(hues[6]) // 확인하는 단계
+  expect(new Set([hues[0], hues[2], hues[4]]).size).toBe(3)
+  const red = dialHue(ticks, 2, true)
+  expect(hues.includes(red)).toBe(false)
+  expect(dialHue([{ label: 'x', state: 'fail', key: 'implement' }], 0, false)).toBe(red)
+  // 묶음을 모르는 단계(명령이 준 흐름)는 자리 비율로 셋에 나눈다
+  const plain: DialTick[] = Array.from({ length: 6 }, (_, i) => ({ label: `s${i}`, state: 'todo' }))
+  expect(plain.map((_, i) => dialHue(plain, i, false))).toEqual([hues[0], hues[0], hues[2], hues[2], hues[4], hues[4]])
+})
+
+test('the dial shows the running command and that command\'s own steps', () => {
+  const stops = stopsOf(FULL, false)
+  const live = { fid: '20261120-x', stages: FULL, activityAt: 900 }
+  const run = { tone: 'run', text: '기다리면 된다' } as const
+  // 명령이 자기 흐름을 주면 그것이 눈금이다
+  const init = dialModelOf(board({ ...live, cmd: cmd('init', [{ label: '수집', mark: 'done' }, { label: '문서', mark: 'cur' }, { label: '검토', mark: 'todo' }]) }), stops, run, LIMITS, 1_000)
+  expect(init.command).toBe('init-project')
+  expect(init.ticks.map(t => `${t.label}:${t.state}`)).toEqual(['수집:done', '문서:now', '검토:todo'])
+  // 흐름이 없으면 이 작업의 단계 점
+  const start = dialModelOf(board({ ...live, cmd: cmd('start') }), stops, run, LIMITS, 1_000)
+  expect(start.command).toBe('start')
+  expect(start.ticks.map(t => t.label)).toEqual(stops.map(s => s.label))
+  expect(start.ticks.find(t => t.key === 'implement')?.state).toBe('now')
+  expect(start.ticks.find(t => t.key === 'merge')?.state).toBe('todo')
+  expect(start.isAlert).toBe(false)
+  expect(start.limits).toEqual([
+    { name: 'Claude 5h', pct: 42, reset: '2h39m 뒤 초기화' },
+    { name: 'Claude 7d', pct: 84, reset: '' },
+  ])
+  for (const [kind, name] of [['maintain', 'maintain'], ['quick', 'quick-fix'], ['batch', 'start-all'], ['foundation', 'start-foundation']] as const) {
+    expect(commandOf(board({ cmd: cmd(kind) }))).toBe(name)
+  }
+  expect(commandOf(board({}))).toBe(undefined)
+  expect(dialModelOf(board(live), stops, { tone: 'me', text: '내 차례 — 답을 기다린다' }, [], 1_000).isAlert).toBe(true)
+  // 대기·완료는 눈금 없이 이름만
+  const idle = dialModelOf(board({ fid: '20261116-x' }), [], { tone: 'idle', text: '대기' }, LIMITS, 1_000)
+  expect([idle.command, idle.ticks.length]).toEqual(['대기', 0])
+  expect(dialModelOf(board(live), stops, { tone: 'idle', text: '완료 — PR 확인·병합은 직접' }, [], 1_000).command).toBe('완료')
+})
+
+test('a running init keeps its dial while it waits for answers, and never turns red', () => {
+  const steps = [{ label: '준비', mark: 'done' as const }, { label: '인터뷰', mark: 'cur' as const }, { label: '종결', mark: 'todo' as const }]
+  expect(turnOf(board({ cmd: cmd('init', steps) }), true, []).tone).toBe('run')
+  expect(turnOf(board({ cmd: cmd('init', steps), working: true }), false, []).tone).toBe('run')
+  // 질문을 기다리는 동안 — 계기는 남고 빨강은 아니다(중단된 초기화 흔적이 남은 저장소도 같다: 5.14.1 거짓 경보 재발 방지)
+  const hold = turnOf(board({ cmd: cmd('init', steps), activityAt: 900 }), false, [])
+  expect(hold).toEqual({ tone: 'hold', text: '인터뷰 중 — 질문이 있으면 답한다' })
+  const dial = dialModelOf(board({ cmd: cmd('init', steps) }), [], hold, [], 1_000)
+  expect([dial.command, dial.ticks.length, dial.isAlert]).toEqual(['init-project', 3, false])
+  expect(helpLead(hold)).toMatch(/추천대로/)
+  // 앞선 작업이 남아 있어도 초기화가 돌면 초기화를 따른다
+  expect(turnOf(board({ fid: '20261120-x', stages: FULL, activityAt: 900, cmd: cmd('init', steps) }), false, stopsOf(FULL, false)).tone).toBe('hold')
+  // 다 끝난 초기화는 조용하다
+  expect(turnOf(board({ cmd: cmd('init', [{ label: '종결', mark: 'done' }]) }), true, []).tone).toBe('idle')
+  expect(turnOf(board({ fid: '20261120-init-project', cmd: cmd('init', [{ label: '종결', mark: 'done' }]), activityAt: 900 }), false, []).tone).toBe('idle')
+})
+
+test('only commands with their own flow replace the task stages on the dial', () => {
+  const stops = stopsOf(FULL, false)
+  const run = { tone: 'run', text: '기다리면 된다' } as const
+  const odd = [{ label: '초안', mark: 'cur' as const }]
+  for (const kind of ['start', 'maintain', 'foundation'] as const) {
+    const m = dialModelOf(board({ fid: '20261120-x', stages: FULL, cmd: cmd(kind, odd) }), stops, run, [], 1_000)
+    expect(m.ticks.map(x => x.label)).toEqual(stops.map(x => x.label))
+  }
+  for (const kind of ['init', 'batch', 'quick'] as const) {
+    expect(dialModelOf(board({ fid: '20261120-x', cmd: cmd(kind, odd) }), stops, run, [], 1_000).ticks.map(x => x.label)).toEqual(['초안'])
+  }
+})
+
+test('the dial drawing is well formed, escapes its labels and sizes to its limits', () => {
+  const model = dialModelOf(board({ fid: '20261120-x', stages: FULL, activityAt: 900, cmd: cmd('start') }), stopsOf(FULL, false), { tone: 'run', text: '기다리면 된다' }, LIMITS, 1_000)
+  const svg = dialSvg(model)
+  expect(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true)
+  expect(svg.endsWith('</svg>')).toBe(true)
+  expect(/NaN|undefined|Infinity/.test(svg)).toBe(false)
+  expect(svg.includes('>start</text>')).toBe(true)
+  expect(svg.includes('Claude 5h') && svg.includes('Claude 7d') && svg.includes('2h39m 뒤 초기화')).toBe(true)
+  expect((svg.match(/<svg/g) ?? []).length).toBe(1)
+  expect((svg.match(/<text/g) ?? []).length).toBe((svg.match(/<\/text>/g) ?? []).length)
+  expect(svg.length < 131_072).toBe(true) // 그림 요소의 상한
+  // 이름표에 든 꺾쇠·앰퍼샌드는 글자로 나간다
+  const odd = dialSvg({ command: 'a<b>&"c', ticks: [{ label: '<x>&', state: 'now' }], isAlert: false, limits: [] })
+  expect(odd.includes('a&lt;b&gt;&amp;&quot;c') && odd.includes('&lt;x&gt;&amp;')).toBe(true)
+  expect(odd.includes('<x>')).toBe(false)
+  // 한도 수에 따라 가로가 줄어든다
+  expect(dialWidth(2) > dialWidth(1) && dialWidth(1) > dialWidth(0)).toBe(true)
+  expect(dialSvg({ ...model, limits: [] }).includes('Claude')).toBe(false)
+  // 단계가 많으면 이름표는 지금 단계와 양 끝만
+  const many: DialTick[] = Array.from({ length: 12 }, (_, i) => ({ label: `단계${i}`, state: i < 5 ? 'done' : i === 5 ? 'now' : 'todo' }))
+  const crowded = dialSvg({ command: 'start-all', ticks: many, isAlert: false, limits: [] })
+  expect(['단계0', '단계5', '단계11'].every(l => crowded.includes(`>${l}<`))).toBe(true)
+  expect(crowded.includes('>단계3<') || crowded.includes('>단계8<')).toBe(false)
+  expect(dialAlt(model)).toMatch(/start 단계는 \d+개 중 \d+번째 구현, Claude 5h 한도 42퍼센트, Claude 7d 한도 84퍼센트/)
+  expect(dialAlt({ command: '대기', ticks: [], isAlert: false, limits: [] })).toMatch(/진행 중인 단계 없음/)
+})
+
+test('a surface that draws pictures gets the round dial, the terminal gets text', async ($, on) => {
+  started(on, true)
+  await $.session.start({ cwd: '/repo', ...START })
+  const desk = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(await desk.find({ type: 'Svg' })).toBeDefined()
+  expect(await desk.find({ type: 'Button' })).toBeDefined()
+  expect(await desk.find({ text: /■|□/ })).toBeUndefined() // 글자 막대는 터미널 것
+  await desk.unmount()
+  const term = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await term.find({ type: 'Svg' })).toBeUndefined()
+  expect(await term.find({ type: 'Button' })).toBeDefined()
+  expect(await term.find({ text: /devFSD/ })).toBeDefined()
+  await term.unmount()
 })

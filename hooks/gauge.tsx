@@ -1,10 +1,13 @@
 // devFSD 계기판 — 입력창 바로 위 띠. 관제판·진행 패널이 채운 상태를 읽어 그리기만 한다(차단·수정 없음).
-//   1줄: 상태 · 명령 · 작업 · 내 차례 + 버튼(? 도움말 · ↗ 관제판 · × 계기판 숨기기 — 기호만 색을 입힌 글자)   2줄: 단계 점(작업 중에만)   3줄: 모델 · effort · 5h · 7d · 비용(참고 수치 — 흐리게)
+//   그림을 그리는 화면(데스크톱 앱 등): 왼쪽에 이름(모델) · 명령·작업·누구 차례 · 버튼, 오른쪽에 둥근 계기 셋(gauge-dial.ts — 명령의 단계 · Claude 5h · Claude 7d).
+//   터미널: 그림 요소가 없어 글자 세 줄로 그린다(상태+버튼 · 단계 점 · 모델·한도·비용).
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Board, GaugeView, Main, StageMark, Usage } from '../types'
+import type { Board, CmdBoard, CmdStep, GaugeView, Main, StageMark, Usage } from '../types'
 import { DEFAULT_MAIN, DEFAULT_USAGE, fmtResetIn, fmtUsd, limitLabel, prettyModel } from './core'
+import { DIAL_H, DIAL_SCALE, dialAlt, dialSvg, dialWidth } from './gauge-dial'
+import type { DialModel, DialTick, DialTickState } from './gauge-dial'
 import { HELP_SECTIONS } from './gauge-help'
 import { isGoverned } from './progress-pane'
 
@@ -33,7 +36,8 @@ const gaugeView = atom({ plugin: 'devfsd', key: 'gauge' } as const, DEFAULT_GAUG
 
 export type StopState = 'done' | 'now' | 'todo' | 'skip' | 'fail' | 'gate'
 export type Stop = { key: string; label: string; state: StopState }
-export type TurnTone = 'idle' | 'run' | 'me' | 'bad'
+// hold: 명령은 진행 중인데 지금은 멈춰 있다(질문을 기다릴 수 있다) — 계기는 그대로 두되 빨강은 켜지 않는다.
+export type TurnTone = 'idle' | 'run' | 'hold' | 'me' | 'bad'
 export type TurnNote = { tone: TurnTone; text: string }
 
 const STATE_OF: Record<StageMark['mark'], StopState> = {
@@ -100,8 +104,13 @@ export function shortFid(fid: string): string {
  * 단계가 없는 작업(직접 수정 기록)이나 이 세션이 건드리지 않은 지난 작업은 `대기` 다 — 새 세션마다 경보가 켜지면 무시하게 된다.
  */
 export function turnOf(b: Board, isRunning: boolean, stops: readonly Stop[]): TurnNote {
+  const isBusy = isRunning || b.working === true || b.running.length > 0
+  // 초기화(/init-project)는 작업(FID) 없이도 돈다. 진행 중인 단계가 있으면 멈춰 있어도(질문을 기다리는 동안) 계기를 남기되,
+  //   빨강은 켜지 않는다 — 중단된 초기화의 표시 파일이 남은 저장소에서 새 세션마다 경보가 뜨지 않게.
+  const flowCur = b.cmd && (!b.fid || b.cmd.kind === 'init') ? b.cmd.steps.find(st => st.mark === 'cur') : undefined
+  if (flowCur) return isBusy ? { tone: 'run', text: '기다리면 된다' } : { tone: 'hold', text: `${flowCur.label} 중 — 질문이 있으면 답한다` }
   if (!b.fid) return { tone: 'idle', text: '대기 — /start 또는 /maintain 으로 출발' }
-  if (isRunning || b.working === true || b.running.length > 0) return { tone: 'run', text: '기다리면 된다' }
+  if (isBusy) return { tone: 'run', text: '기다리면 된다' }
   const isLive = stops.length > 0 && b.activityAt !== undefined
   if (!isLive) return { tone: 'idle', text: b.verify === '완료' ? '완료 — PR 확인·병합은 직접' : '대기' }
   const failed = stops.find(s => s.state === 'fail')
@@ -130,9 +139,54 @@ export function limitParts(l: Usage['limits'][number], now: number): { label: st
   }
 }
 
+const CMD_NAMES: Record<CmdBoard['kind'], string> = {
+  init: 'init-project',
+  foundation: 'start-foundation',
+  batch: 'start-all',
+  start: 'start',
+  maintain: 'maintain',
+  quick: 'quick-fix',
+}
+const TICK_OF_STEP: Record<CmdStep['mark'], DialTickState> = { done: 'done', cur: 'now', todo: 'todo', skip: 'skip', fail: 'fail', warn: 'now' }
+const TICK_OF_STOP: Record<StopState, DialTickState> = { done: 'done', now: 'now', todo: 'todo', skip: 'skip', fail: 'fail', gate: 'todo' }
+
+/** 지금 도는 명령의 이름(`/` 없이) — 판정할 수 없으면 undefined. */
+export function commandOf(b: Board): string | undefined {
+  return b.cmd ? CMD_NAMES[b.cmd.kind] : undefined
+}
+
+// 자기 흐름(STEP 줄)을 주는 명령 — board-mode.sh 가 STEP 을 내는 셋뿐이다. 나머지(start·maintain·foundation)는 작업의 단계 점을 쓴다.
+const OWN_FLOW: readonly CmdBoard['kind'][] = ['init', 'batch', 'quick']
+
+/**
+ * 둥근 계기에 넘길 값 — 눈금은 **지금 도는 명령의 단계**다: 자기 흐름을 주는 명령(초기화·일괄·몇 줄 수정)은 그것을, 아니면 이 작업의 단계 점을 쓴다.
+ * 대기일 때는 눈금 없이 빈 호만 그린다.
+ */
+export function dialModelOf(b: Board, stops: readonly Stop[], note: TurnNote, limits: Usage['limits'], now: number): DialModel {
+  const steps = b.cmd && OWN_FLOW.includes(b.cmd.kind) ? b.cmd.steps : []
+  const isIdle = note.tone === 'idle'
+  const ticks: DialTick[] = isIdle
+    ? []
+    : steps.length > 0
+      ? steps.map(st => ({ label: st.label, state: TICK_OF_STEP[st.mark] }))
+      : stops.map(st => ({ label: st.label, state: TICK_OF_STOP[st.state], key: st.key }))
+
+  return {
+    command: isIdle ? (note.text.startsWith('완료') ? '완료' : '대기') : (commandOf(b) ?? 'devFSD'),
+    ticks,
+    isAlert: note.tone === 'me' || note.tone === 'bad',
+    limits: limits.slice(0, LIMITS_SHOWN).map(l => {
+      const reset = fmtResetIn(l.resetsAt, now)
+
+      return { name: `Claude ${limitLabel(l.kind)}`, pct: l.pct, reset: reset ? `${reset} 뒤 초기화` : '' }
+    }),
+  }
+}
+
 /** 도움말 맨 위 한 줄 — 지금 상태에 맞는 안내. */
 export function helpLead(note: TurnNote): string {
   if (note.tone === 'run') return '지금은 할 일이 없다. 끝나면 결과와 PR 을 보여 준다.'
+  if (note.tone === 'hold') return '대화창에 질문이 있으면 답한다. 모르겠으면 "추천대로" 라고 답한다.'
   if (note.tone === 'bad') return '문제가 생겼다. 대화창의 설명을 읽고, 모르겠으면 "어떻게 하면 돼?" 라고 묻는다.'
   if (note.tone === 'me') return note.text.includes('승인') ? '명세를 읽고 "승인" 이라고 답한다. 고칠 곳은 말로 고쳐 달라고 한다.' : '질문에 답한다. 모르겠으면 "추천대로" 라고 답한다.'
 
@@ -177,6 +231,64 @@ export function registerGauge(on: Parameters<Register>[0]): void {
     const work = [b.cmd?.title, b.fid && note.tone !== 'idle' ? shortFid(b.fid) : undefined].filter(Boolean).join(' · ')
     const recent = b.fid && note.tone === 'idle' ? ` · 최근 ${shortFid(b.fid)}` : ''
 
+    const buttons = (
+      <Box flexDirection="row" gap={e.surface === 'terminal' ? 2 : 0}>
+        <Button key="help" plain dimColor onPress={() => void $.ui.open({ id: HELP_PANE, title: HELP_TITLE })}>
+          <Text color={ACCENT}>?</Text> 도움말
+        </Button>
+        <Button key="console" plain dimColor onPress={() => void $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })}>
+          <Text color={ACCENT}>↗</Text> 관제판
+        </Button>
+        <Button key="hide" plain dimColor onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))}>
+          <Text color={ACCENT}>×</Text> 계기판 숨기기
+        </Button>
+      </Box>
+    )
+
+    if (e.surface !== 'terminal') {
+      const { Svg } = $.ui.resolve(e)
+      const dial = dialModelOf(b, stops, note, u.limits, at)
+      const cmd = commandOf(b)
+      const doing = note.tone === 'idle' ? '' : [cmd ? `/${cmd}` : undefined, b.fid ? shortFid(b.fid) : undefined].filter(Boolean).join(' · ')
+      const w = dialWidth(dial.limits.length)
+
+      return (
+        <Box flexDirection="row" justifyContent="space-between" alignItems="stretch" gap={3}>
+          <Box flexDirection="column" justifyContent="space-between">
+            <Box flexDirection="column" paddingLeft={1} gap="sm">
+              <Text>
+                <Text size="title" bold color={ACCENT}>
+                  devFSD
+                </Text>
+                <Text dimColor>
+                  {' '}
+                  ({model}
+                  {m.effort ? ` ${m.effort}` : ''})
+                </Text>
+              </Text>
+              <Text>
+                {doing}
+                {isAlert ? (
+                  <Text bold color="error">
+                    {doing ? ' · ' : ''}
+                    {note.text}
+                  </Text>
+                ) : (
+                  <Text dimColor>
+                    {doing ? ' · ' : ''}
+                    {note.text}
+                    {recent}
+                  </Text>
+                )}
+              </Text>
+            </Box>
+            {buttons}
+          </Box>
+          <Svg source={dialSvg(dial)} width={Math.round(w * DIAL_SCALE)} height={Math.round(DIAL_H * DIAL_SCALE)} alt={dialAlt(dial)} />
+        </Box>
+      )
+    }
+
     return (
       <Box flexDirection="column">
         <Box flexDirection="row" justifyContent="space-between" gap={2}>
@@ -199,17 +311,7 @@ export function registerGauge(on: Parameters<Register>[0]): void {
               </Text>
             )}
           </Text>
-          <Box flexDirection="row" gap={2}>
-            <Button key="help" plain onPress={() => void $.ui.open({ id: HELP_PANE, title: HELP_TITLE })}>
-              <Text color={ACCENT}>?</Text> 도움말
-            </Button>
-            <Button key="console" plain onPress={() => void $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })}>
-              <Text color={ACCENT}>↗</Text> 관제판
-            </Button>
-            <Button key="hide" plain onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))}>
-              <Text color={ACCENT}>×</Text> 계기판 숨기기
-            </Button>
-          </Box>
+          {buttons}
         </Box>
         {stops.length > 0 && note.tone !== 'idle' && (
           <Text>

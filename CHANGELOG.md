@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.15.3] — 2026-11-23
+
 ### Added
 
 - **`docs/devFSD 사용 설명서.html`** — 사용자용 한 장짜리 사용 설명서를 저장소에 넣었다(진행 확인 안내는 계기판·관제판 기준).
@@ -4407,7 +4409,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.2...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.3...HEAD
+[5.15.3]: https://github.com/andyko18/devFSD/compare/v5.15.2...v5.15.3
 [5.15.2]: https://github.com/andyko18/devFSD/compare/v5.15.1...v5.15.2
 [5.15.1]: https://github.com/andyko18/devFSD/compare/v5.15.0...v5.15.1
 [5.15.0]: https://github.com/andyko18/devFSD/compare/v5.14.2...v5.15.0

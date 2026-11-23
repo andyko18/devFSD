@@ -108,7 +108,7 @@ _demo_checks() { local f=$1 perf=$2 fm all m bb ba bs blk s k t line lb
   # D2 — 1단계 종류 판정 (AC-1)
   s=$(_sec "$f" '^## 1단계' '^## 2단계')
   _has "D2.a 1단계 — 기준 브랜치 대비 변경 파일 목록 (AC-1)" "$s" 'git diff "origin/$BASE"...HEAD --name-only' 'base-branch.sh && specops_default_branch) || BASE=main' '|| git diff "$BASE"...HEAD --name-only'
-  _has "D2.b 1단계 — 종류 5갈래 표와 신호 (AC-1)" "$s" '| 화면 |' '| iOS 앱 |' '| 진행 패널(mod) |' '| 명령·스크립트 출력 |' '| 내부 |' \
+  _has "D2.b 1단계 — 종류 5갈래 표와 신호 (AC-1)" "$s" '| 화면 |' '| iOS 앱 |' '| 관제판(mod) |' '| 명령·스크립트 출력 |' '| 내부 |' \
     '`screens/`' '`*.tsx`' '`*.swift`' '최상위 `scripts/*.sh`' '`commands/`' '`tests/`' '`scripts/_internal/`' '내부 라이브러리로 확인된 파일 **만**'
     _has "D2.c 1단계 — skills/ 문구 변경이 '내부' 가 아니라 명령·스크립트 출력 행으로 분류된다 (AC-3)" "$(printf '%s\n' "$s" | grep -F -- '| 명령·스크립트 출력 |')" '`skills/`'
   _has "D2.d 1단계 — '미분류' 행(소스 파일 예시)·3단계에서 확인 필수(fail-safe) (AC-3)" "$(printf '%s\n' "$s" | grep -F -- '| 미분류 |')" '`*.py`' '`*.go`' '`*.rs`' '`*.svelte`' '`*.scss`' 'API 서버 코드'
@@ -121,12 +121,12 @@ _demo_checks() { local f=$1 perf=$2 fm all m bb ba bs blk s k t line lb
     '**보여 줄 방법이 없을 때**' '**사용자가 직접 확인하는 방법**' '"확인함"이라 쓰지 않는다'
   _has "D3.b 2단계 — 내부 종류만 테스트 요약 허용 (AC-1)" "$(printf '%s\n' "$s" | grep -F -- '- **내부**')" '이 종류만 테스트 요약이 허용된다'
   _lacks "D3.c 2단계 — 화면·iOS·패널·명령 bullet 은 테스트 요약을 허용하지 않는다 (AC-1)" \
-    "$(printf '%s\n' "$s" | grep -E '^- \*\*(화면|iOS 앱|진행 패널\(mod\)|명령·스크립트)\*\*')" '허용' '요약'
+    "$(printf '%s\n' "$s" | grep -E '^- \*\*(화면|iOS 앱|관제판\(mod\)|명령·스크립트)\*\*')" '허용' '요약'
   # D4 — 3단계 확인 필요 판정 / fail-safe (AC-3)
   s=$(_sec "$f" '^## 3단계' '^##+ 합리화')
   line=$(printf '%s\n' "$s" | grep -F -- '화면·UI 소스' | head -1)
   _has "D4.a 확인 필수 조건 — 애매하면 필수(fail-safe)·가시 변경 6범주 (AC-3)" "$s" \
-    '**판단이 애매하면** 확인이 **필수**다(fail-safe)' '화면·UI 소스' 'iOS 앱' '진행 패널' '최상위 `scripts/*.sh` 의 출력' '`commands/`·`skills/` 의 사용자 문구' '훅 메시지'
+    '**판단이 애매하면** 확인이 **필수**다(fail-safe)' '화면·UI 소스' 'iOS 앱' '관제판' '최상위 `scripts/*.sh` 의 출력' '`commands/`·`skills/` 의 사용자 문구' '훅 메시지'
   _has "D4.b 3단계는 멈추지 않는다 — 확인은 PR 질문에서 함께 (20261109 사용자 결정)" "$s" '**멈추지 않는다**' 'PR 생성 질문에서 한 번에'
   _lacks "D4.c 확인 필수 열거에 테스트·문서·내부 라이브러리가 섞이지 않는다 (AC-3)" "$line" '테스트' '문서' '_internal' '내부'
   lb=$(printf '%s\n' "$s" | grep -F -- '다르다고 하면')
@@ -146,7 +146,7 @@ _demo_checks() { local f=$1 perf=$2 fm all m bb ba bs blk s k t line lb
   _ord "D6.a evidence.md ## /demo 양식 — 제목 + 필드 5개가 순서대로 (AC-4)" "$blk" f '## /demo — <ISO-8601>' '**종류**:' '**실행**:' '**보여 준 것**:' '**확인 필요**:' '**사용자 판정**:'
   _eq "D6.b 양식의 필드 줄이 정확히 5개 (AC-4)" "$(printf '%s\n' "$blk" | grep -cE '^\*\*[^*]+\*\*:')" 5
   _has "D6.c 필드 값 목록 — 종류 5갈래·확인 필요 yes|no·판정 3갈래 (AC-4)" "$blk" \
-    '**종류**: 화면 | iOS 앱 | 진행 패널 | 명령·스크립트 | 내부' '**확인 필요**: yes | no' 'PR 게이트에서 확인 | 아니다→수정 후 재확인 | 해당 없음(내부)'
+    '**종류**: 화면 | iOS 앱 | 관제판 | 명령·스크립트 | 내부' '**확인 필요**: yes | no' 'PR 게이트에서 확인 | 아니다→수정 후 재확인 | 해당 없음(내부)'
   _has "D6.d session-progress /demo 행 + PR 본문 ## 데모 요약 출처 (AC-4)" "$s" \
     'session-progress-append.sh <FID> /demo DONE|SKIP' '`## 데모` 절' 'evidence.md `## /demo`'
   # D7 — PR 본문 ## 데모 가 가리키는 필드가 양식에 실제로 있다 (AC-4)

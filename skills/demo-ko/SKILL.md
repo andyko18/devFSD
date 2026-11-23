@@ -50,7 +50,7 @@ git diff "origin/$BASE"...HEAD --name-only 2>/dev/null || git diff "$BASE"...HEA
 |---|---|
 | 화면 | `screens/`, `*.html`, `*.tsx`, `*.jsx`, `*.vue`, `*.css` |
 | iOS 앱 | `*.swift`, `*.xcodeproj`, `*.xcworkspace` |
-| 진행 패널(mod) | `hooks/progress-pane.*`, 패널 렌더 코드 |
+| 관제판(mod) | `hooks/progress-pane.*`, `hooks/gauge.*` |
 | 명령·스크립트 출력 | 최상위 `scripts/*.sh`, `commands/`, `skills/`, 훅 메시지 |
 | 내부 | `tests/`·`test-*`·`*.test.*` 같은 테스트, 문서(`*.md`·`docs/`), `scripts/_internal/`, 내부 라이브러리로 확인된 파일 **만** |
 | 미분류 | 위 어느 행에도 명시되지 않은 소스 파일(예: `*.py` `*.go` `*.rs` `*.svelte` `*.scss`, API 서버 코드) |
@@ -61,7 +61,7 @@ git diff "origin/$BASE"...HEAD --name-only 2>/dev/null || git diff "$BASE"...HEA
 
 - **화면**: 통합 테스트의 브라우저 점검 결과(`.specops/<FID>/ui/*.png` — 375·768·1280 폭)가 있으면 그 PNG 를 Read 로 열어 그대로 보여 주고 `UI-PROBE:` 판정 줄을 함께 적는다. 없으면 앱 안 브라우저(`mcp__Claude_Browser__*` — `preview_start`·`navigate`)로 열어 스크린샷을 찍어 보여 준다. 하네스가 목업도 같은 폭으로 찍었으면(`<이름>@<폭>.mock.png`) 구현 PNG 와 폭마다 나란히 보여 준다. 설계 화면 `screens/<name>.html` 이 있는데 `.mock.png` 가 없으면 앱 안 브라우저로 열어 나란히 놓고, `bash "${CLAUDE_PLUGIN_ROOT}"/scripts/_internal/check-mock-css.sh` 결과 1줄(목업 클래스가 앱 CSS 에 살아남은 비율 — `WARN` 이면 화면이 브라우저 기본 모양일 수 있다)을 함께 보여 준다.
 - **iOS 앱**: `mcp__Claude_Code_iOS_Simulator__control` 로 실행해 스크린샷.
-- **진행 패널(mod)**: 패널이 렌더한 결과를 보여 준다.
+- **관제판(mod)**: 관제판이 렌더한 결과를 보여 준다.
 - **명령·스크립트**: 대표 입력으로 **실제 실행한** 출력 몇 줄(정상 경로 1건 + 경계/오류 1건). 입력과 명령을 함께 적는다.
 - **내부**: 확인 방법 1~2줄(예: 관련 스위트 PASS 수치, 변경 전후 비교)을 적는다 — 이 종류만 테스트 요약이 허용된다.
 - **보여 줄 방법이 없을 때**(브라우저·시뮬레이터 부재, 외부 서비스 필요): 이유와 **사용자가 직접 확인하는 방법**(명령·URL)을 적는다. 숨기거나 "확인함"이라 쓰지 않는다.
@@ -71,7 +71,7 @@ git diff "origin/$BASE"...HEAD --name-only 2>/dev/null || git diff "$BASE"...HEA
 **멈추지 않는다** (20261109 — 사용자 결정). 도입 뒤 5건 실행에서 "아니다" 가 0건이었고 대기는 사람 시간을 썼다. 보여 주기는 그대로 하고, 확인은 PR 생성 질문에서 한 번에 받는다. PR 단계가 묻지 않는 경우(`pr-gate.sh decide` 가 `auto-draft` — 승인 묶음이 PR 생성을 실었다)에는 확인 필수 FID 의 PR 을 **초안**으로 만들고 끝 보고 맨 앞에서 확인을 청한다 — 다르다고 하면 아래와 같은 절차로 고쳐 같은 PR 에 올린다.
 
 다음 중 하나라도 해당하거나 **판단이 애매하면** 확인이 **필수**다(fail-safe):
-화면·UI 소스 · iOS 앱 · 진행 패널 · 최상위 `scripts/*.sh` 의 출력 · `commands/`·`skills/` 의 사용자 문구 · 훅 메시지 · **미분류 포함**.
+화면·UI 소스 · iOS 앱 · 관제판 · 최상위 `scripts/*.sh` 의 출력 · `commands/`·`skills/` 의 사용자 문구 · 훅 메시지 · **미분류 포함**.
 미분류는 사용자에게 보이는지 알 수 없으므로 확인 필수로 다룬다(fail-safe).
 
 확인 필수면 4단계 기록의 `확인 필요` 를 `yes` 로 두고, PR 게이트 요약 맨 앞에 "결과를 보고 PR 생성 여부를 정하세요 — 다르면 아니다라고 말해 주세요" 한 줄과 함께 2단계에서 보여 준 것(스크린샷·출력)을 다시 붙인다. 사용자가 PR 질문에서 다르다고 하면 `systematic-debugging-ko` 또는 implementer 로 고치고(영향 단계 verify 재실행) **2단계부터 다시** 보여 준다.
@@ -98,7 +98,7 @@ git diff "origin/$BASE"...HEAD --name-only 2>/dev/null || git diff "$BASE"...HEA
 ```markdown
 ## /demo — <ISO-8601>
 
-**종류**: 화면 | iOS 앱 | 진행 패널 | 명령·스크립트 | 내부 | 미분류 (복수 가능)
+**종류**: 화면 | iOS 앱 | 관제판 | 명령·스크립트 | 내부 | 미분류 (복수 가능)
 **실행**: <명령 또는 URL>
 **보여 준 것**: <스크린샷 설명 / 출력 요약>
 **확인 필요**: yes | no (<이유>)

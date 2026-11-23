@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.15.6] — 2026-11-23
+
 ### Fixed
 
 - **macOS 에서 관제판이 깜빡이던 원인을 고쳤다**(재현됨). `board-mode.sh` 가 진행 기록의 분 단위 시각을 `date -j -f '%Y-%m-%d %H:%M'` 으로 읽었는데, macOS 는 형식에 초가 없으면 **지금의 초**로 채워 같은 입력이 호출마다 다른 값이 됐다. 초기화 표시와 같은 분이면 "초기화가 돈다"는 판정이 뒤집혔다. 이제 초를 `:00` 으로 못 박는다.
@@ -4433,7 +4435,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.5...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.6...HEAD
+[5.15.6]: https://github.com/andyko18/devFSD/compare/v5.15.5...v5.15.6
 [5.15.5]: https://github.com/andyko18/devFSD/compare/v5.15.4...v5.15.5
 [5.15.4]: https://github.com/andyko18/devFSD/compare/v5.15.3...v5.15.4
 [5.15.3]: https://github.com/andyko18/devFSD/compare/v5.15.2...v5.15.3

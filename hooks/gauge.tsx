@@ -34,7 +34,7 @@ const DEFAULT_GAUGE: GaugeView = { isGoverned: false, isHidden: false }
 // Change the tag when the value's fields change: it declines what an earlier version stored.
 const gaugeView = atom({ plugin: 'devfsd', key: 'gauge' } as const, DEFAULT_GAUGE, { shape: 'gauge-1' })
 
-export type StopState = 'done' | 'now' | 'todo' | 'skip' | 'fail' | 'gate'
+export type StopState = 'done' | 'now' | 'todo' | 'skip' | 'fail'
 export type Stop = { key: string; label: string; state: StopState }
 // hold: 명령은 진행 중인데 지금은 멈춰 있다(질문을 기다릴 수 있다) — 계기는 그대로 두되 빨강은 켜지 않는다.
 export type TurnTone = 'idle' | 'run' | 'hold' | 'me' | 'bad'
@@ -44,7 +44,8 @@ const STATE_OF: Record<StageMark['mark'], StopState> = {
   '✓': 'done',
   '–': 'skip',
   '✗': 'fail',
-  '!': 'fail',
+  // `!` 는 검증 STALE·PARTIAL 이다 — 실패가 아니라 코드가 바뀌어 다시 돌려야 한다는 뜻(관제판은 호박색). 할 일이 남은 단계로 읽는다.
+  '!': 'now',
   '●': 'now',
   '○': 'todo',
 }
@@ -58,9 +59,14 @@ function mergedState(states: readonly StopState[]): StopState {
   return 'skip'
 }
 
-/** 승인 점의 상태 — 뒤 단계가 시작됐으면 지남, 앞 단계가 끝났으면 지금, 아니면 남음. */
-function approvalState(before: Stop, after: readonly Stop[]): StopState {
+/**
+ * 승인 점의 상태 — 뒤 단계가 시작됐으면 지남, 앞 단계가 끝났으면 지금, 아니면 남음.
+ * 기본 경로(`/basic`)는 명세 단계가 승인까지 품는다 — `/basic 시작`(●)은 spec 을 쓰고 승인을 기다리는 동안이고
+ * `/approve 완료`(✓)가 곧 승인이다. 그래서 명세가 끝났으면 승인도 지났다(구현 기록은 구현이 끝나야 남아, 그 사이를 승인 대기로 읽었다).
+ */
+function approvalState(before: Stop, after: readonly Stop[], isBasic: boolean): StopState {
   if (after.some(s => s.state === 'done' || s.state === 'now' || s.state === 'fail')) return 'done'
+  if (isBasic) return before.state === 'done' ? 'done' : before.state === 'now' ? 'now' : 'todo'
 
   return before.state === 'done' ? 'now' : 'todo'
 }
@@ -81,13 +87,14 @@ export function stopsOf(stages: readonly StageMark[] | undefined): Stop[] {
   }
   const merged = plain.map(s => (s.key === 'gate' ? { ...s, state: mergedState(gateStates) } : s))
   const at = merged.reduce((found, s, i) => (APPROVAL_AFTER.includes(s.key) ? i : found), -1)
+  const isBasic = stages.some(s => s.key === 'review')   // 리뷰 단계는 기본 경로에만 있다(progress-pane BASIC_STAGES)
   const before = merged[at]
   const withApproval =
     before === undefined
       ? merged
       : [
           ...merged.slice(0, at + 1),
-          { key: 'approve', label: '승인', state: approvalState(before, merged.slice(at + 1)) },
+          { key: 'approve', label: '승인', state: approvalState(before, merged.slice(at + 1), isBasic) },
           ...merged.slice(at + 1),
         ]
 
@@ -130,6 +137,7 @@ export function turnOf(b: Board, isRunning: boolean, stops: readonly Stop[]): Tu
   const failed = stops.find(s => s.state === 'fail')
   if (failed) return { tone: 'bad', text: `${failed.label} 실패` }
   if (b.verify !== undefined && /FAIL/.test(b.verify)) return { tone: 'bad', text: '검증 실패' }
+  if (b.verify !== undefined && /STALE|PARTIAL/.test(b.verify)) return { tone: 'hold', text: '재검증 필요' }
   if (b.verify === '완료') return { tone: 'idle', text: '완료' }
   const isApproval = stops.some(s => s.key === 'approve' && s.state === 'now')
 
@@ -162,7 +170,7 @@ const CMD_NAMES: Record<CmdBoard['kind'], string> = {
   quick: 'quick-fix',
 }
 const TICK_OF_STEP: Record<CmdStep['mark'], DialTickState> = { done: 'done', cur: 'now', todo: 'todo', skip: 'skip', fail: 'fail', warn: 'now' }
-const TICK_OF_STOP: Record<StopState, DialTickState> = { done: 'done', now: 'now', todo: 'todo', skip: 'skip', fail: 'fail', gate: 'todo' }
+const TICK_OF_STOP: Record<StopState, DialTickState> = { done: 'done', now: 'now', todo: 'todo', skip: 'skip', fail: 'fail' }
 
 /** 지금 도는 명령의 이름(`/` 없이) — 판정할 수 없으면 undefined. */
 export function commandOf(b: Board): string | undefined {
@@ -236,7 +244,7 @@ export function helpLead(note: TurnNote): string {
   return note.text.startsWith('완료') ? 'PR 을 읽고 직접 병합한다. 병합은 자동으로 하지 않는다.' : '만들 것을 /start 뒤에 한 줄로 적으면 출발한다.'
 }
 
-const DOT: Record<StopState, string> = { done: '●', now: '◉', todo: '○', skip: '–', fail: '✗', gate: '○' }
+const DOT: Record<StopState, string> = { done: '●', now: '◉', todo: '○', skip: '–', fail: '✗' }
 
 /** 세션 시작 때 한 번(관제판의 session.start 가 부른다 — 그 이벤트는 한 곳에서만 등록한다) — 관할 저장소인지 적어 두고, 숨김은 세션마다 풀어 준다(바로 보이게). */
 export async function gaugeStart($: EngineInterface, cwd: string): Promise<void> {
@@ -355,7 +363,7 @@ export function registerGauge(on: Parameters<Register>[0]): void {
                 <Text
                   bold={s.state === 'now'}
                   color={s.state === 'fail' ? 'error' : s.state === 'now' ? (isAlert ? 'error' : ACCENT) : undefined}
-                  dimColor={s.state === 'todo' || s.state === 'skip' || s.state === 'gate'}
+                  dimColor={s.state === 'todo' || s.state === 'skip'}
                 >
                   {DOT[s.state]} {s.label}
                 </Text>

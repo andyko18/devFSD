@@ -104,6 +104,30 @@ test('full-lane stages fold the gates into one stop and add approval, ending at 
   expect(stops.some(s => s.key === 'merge')).toBe(false)
 })
 
+test('a stale or partial verify reads as re-verify in amber, not as a red failure like the console', () => {
+  const stale = [stage('implement', '구현', '✓'), stage('verify', '검증', '!'), stage('pr', 'PR', '○')]
+  const stops = stopsOf(stale)
+  expect(stops.find(s => s.key === 'verify')?.state).toBe('now')
+  expect(stops.some(s => s.state === 'fail')).toBe(false)
+  for (const verify of ['검증 STALE', '검증 PARTIAL']) {
+    const note = turnOf(board({ fid: '20261123-x', stages: stale, verify, activityAt: 900 }), false, stops)
+    expect(note).toEqual({ tone: 'hold', text: '재검증 필요' })
+    expect(noteTint(note)).toBe('warning')
+  }
+  const failed = [stage('implement', '구현', '✓'), stage('verify', '검증', '✗'), stage('pr', 'PR', '○')]
+  expect(turnOf(board({ fid: '20261123-x', stages: failed, verify: '검증 FAIL', activityAt: 900 }), false, stopsOf(failed)).tone).toBe('bad')
+})
+
+test('on the basic lane the spec stage holds the approval — approved means approval passed', () => {
+  const lane = (spec: StageMark['mark']) => [stage('specify', '명세', spec), stage('implement', '구현', '○'), stage('review', '리뷰', '○'), stage('verify', '검증', '○'), stage('pr', 'PR', '○')]
+  const approved = stopsOf(lane('✓'))
+  expect(approved.find(s => s.key === 'approve')?.state).toBe('done')
+  expect(turnOf(board({ fid: '20261123-x', stages: lane('✓'), activityAt: 900 }), false, approved).text).not.toBe('승인 대기')
+  const waiting = stopsOf(lane('●'))
+  expect(waiting.find(s => s.key === 'approve')?.state).toBe('now')
+  expect(turnOf(board({ fid: '20261123-x', stages: lane('●'), activityAt: 900 }), false, waiting).text).toBe('승인 대기')
+})
+
 test('approval is the current stop once the stage before it is done and nothing after has begun', () => {
   const waiting = [stage('specify', '명세', '✓'), stage('clarify', '명확화', '✓'), stage('plan', '설계', '○')]
   expect(stopsOf(waiting).find(s => s.key === 'approve')?.state).toBe('now')
@@ -277,11 +301,11 @@ test('the dial needle points at the live stage, the last when all are done, nowh
 })
 
 test('the dial colour follows the stage group, and an alert or a failure is red', () => {
-  const ticks: DialTick[] = ['specify', 'approve', 'implement', 'review', 'verify', 'pr', 'merge'].map(key => ({ label: key, state: 'todo', key }))
+  const ticks: DialTick[] = ['specify', 'approve', 'implement', 'review', 'verify', 'pr'].map(key => ({ label: key, state: 'todo', key }))
   const hues = ticks.map((_, i) => dialHue(ticks, i, false))
   expect(hues[0]).toBe(hues[1]) // 정하는 단계
   expect(hues[2]).toBe(hues[3]) // 만드는 단계
-  expect(hues[4]).toBe(hues[6]) // 확인하는 단계
+  expect(hues[4]).toBe(hues[5]) // 확인하는 단계
   expect(new Set([hues[0], hues[2], hues[4]]).size).toBe(3)
   const red = dialHue(ticks, 2, true)
   expect(hues.includes(red)).toBe(false)

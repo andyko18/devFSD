@@ -1,10 +1,11 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { Board, CmdBoard, StageMark } from '../types'
-import { commandOf, dialModelOf, helpLead, limitParts, shortFid, stopsOf, turnOf } from './gauge'
+import { alignCurrent, commandOf, dialModelOf, helpLead, limitParts, noteTint, shortFid, stopsOf, turnOf } from './gauge'
 import { dialAlt, dialHue, dialNow, dialSvg, dialWidth } from './gauge-dial'
 import type { DialTick } from './gauge-dial'
 import { HELP_SECTIONS } from './gauge-help'
+import { currentStageKey, stagesOf, withVerifyMark } from './progress-pane'
 
 const BAND = {
   plugin: 'devfsd',
@@ -52,10 +53,17 @@ const FULL: StageMark[] = [
   stage('pr', 'PR', '○'),
 ]
 
+// 버튼 처리는 창 목록을 확인한 뒤 열고 닫는 비동기라 누름이 돌아온 뒤에야 끝난다 — 단언 전에 비운다.
+const flush = async () => {
+  for (let i = 0; i < 20; i++) await Promise.resolve()
+}
+
 const board = (over: Partial<Board>): Board => ({ running: [], recent: [], ...over })
 
 const started = (on: Parameters<Parameters<typeof test>[1]>[1], governed: boolean) => {
   const opens: string[] = []
+  const closes: string[] = []
+  const up = new Set<string>()
   on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('clock.every', () => ({ value: { cancel: () => {} } }))
   on('clock.now', () => ({ value: 1_000 }))
@@ -65,9 +73,17 @@ const started = (on: Parameters<Parameters<typeof test>[1]>[1], governed: boolea
   on('fs.exists', (_, e) => ({ value: governed && e.path === '/repo/.specops' }))
   on('ui.open', (_, e) => {
     opens.push(e.id)
+    up.add(e.id)
 
     return { value: { isPlaced: true } }
   })
+  on('ui.close', (_, e) => {
+    closes.push(e.id)
+    up.delete(e.id)
+
+    return { value: undefined }
+  })
+  on('ui.panes', () => ({ value: [...up].map(id => ({ id, title: id, isShown: true, isFocused: false, isPlaced: true })) }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   // 계기판이 그리지 않고 넘긴 띠는 엔진이 그린다 — 이 훅이 엔진 자리다.
   on('ui.render', ($, e) => {
@@ -76,7 +92,7 @@ const started = (on: Parameters<Parameters<typeof test>[1]>[1], governed: boolea
     return <Text>engine</Text>
   })
 
-  return { opens }
+  return { opens, closes }
 }
 
 test('full-lane stages fold the gates into one stop and add approval and merge', () => {
@@ -117,11 +133,11 @@ test('the turn note tells whose turn it is', () => {
   const stops = stopsOf(FULL, false)
   const live = { fid: '20261120-x', stages: FULL, activityAt: 900 }
   expect(turnOf(board({}), false, []).tone).toBe('idle')
-  expect(turnOf(board(live), true, stops)).toEqual({ tone: 'run', text: '기다리면 된다' })
+  expect(turnOf(board(live), true, stops)).toEqual({ tone: 'run', text: '진행 중' })
   expect(turnOf(board({ ...live, working: true }), false, stops).tone).toBe('run')
-  expect(turnOf(board(live), false, stops)).toEqual({ tone: 'me', text: '내 차례 — 답을 기다린다' })
+  expect(turnOf(board(live), false, stops)).toEqual({ tone: 'me', text: '답변 대기' })
   const waiting = stopsOf([stage('specify', '명세', '✓'), stage('plan', '설계', '○')], false)
-  expect(turnOf(board(live), false, waiting).text).toBe('내 차례 — 설계를 읽고 승인')
+  expect(turnOf(board(live), false, waiting).text).toBe('승인 대기')
   expect(turnOf(board({ ...live, verify: '검증 FAIL' }), false, stops)).toEqual({ tone: 'bad', text: '검증 실패' })
   const broken = stopsOf([stage('implement', '구현', '✗')], false)
   expect(turnOf(board(live), false, broken)).toEqual({ tone: 'bad', text: '구현 실패' })
@@ -156,11 +172,11 @@ test('a limit bar uses two glyphs only and colours from 80 percent', () => {
 })
 
 test('the help lead follows the state and every section has lines', () => {
-  expect(helpLead({ tone: 'run', text: '기다리면 된다' })).toMatch(/할 일이 없다/)
-  expect(helpLead({ tone: 'me', text: '내 차례 — 설계를 읽고 승인' })).toMatch(/승인/)
-  expect(helpLead({ tone: 'me', text: '내 차례 — 답을 기다린다' })).toMatch(/추천대로/)
+  expect(helpLead({ tone: 'run', text: '진행 중' })).toMatch(/할 일이 없다/)
+  expect(helpLead({ tone: 'me', text: '승인 대기' })).toMatch(/승인/)
+  expect(helpLead({ tone: 'me', text: '답변 대기' })).toMatch(/추천대로/)
   expect(helpLead({ tone: 'bad', text: '검증 실패' })).toMatch(/문제/)
-  expect(helpLead({ tone: 'idle', text: '완료 — PR 확인·병합은 직접' })).toMatch(/병합/)
+  expect(helpLead({ tone: 'idle', text: '완료' })).toMatch(/병합/)
   expect(helpLead({ tone: 'idle', text: '대기' })).toMatch(/\/start/)
   expect(HELP_SECTIONS.every(s => s.title.length > 0 && s.lines.length > 0)).toBe(true)
   const all = HELP_SECTIONS.flatMap(s => [s.title, ...s.lines]).join('\n')
@@ -195,14 +211,18 @@ test('another repo shows no gauge', async ($, on) => {
   await ui.unmount()
 })
 
-test('the buttons open the help pane and the console and hide the gauge', async ($, on) => {
-  const { opens } = started(on, true)
-  await $.session.start({ cwd: '/repo', ...START })
+test('the buttons toggle the help pane and the console, and hide the gauge', async ($, on) => {
+  const { opens, closes } = started(on, true)
+  await $.session.start({ cwd: '/repo', ...START }) // 관제판은 세션 시작 때 자동으로 열린다
   opens.length = 0
+  closes.length = 0
   const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
   await ui.press({ key: 'help' })
+  await flush()
+  expect([opens, closes]).toEqual([['devfsd-help'], []]) // 도움말은 없었으니 연다
   await ui.press({ key: 'console' })
-  expect(opens).toEqual(['devfsd-help', 'devfsd-console'])
+  await flush()
+  expect([opens, closes]).toEqual([['devfsd-help'], ['devfsd-console']]) // 관제판은 떠 있었으니 닫는다
   await ui.press({ key: 'hide' })
   await ui.unmount()
   const hidden = await $.ui.mount({ ...BAND, surface: 'desktop' })
@@ -275,7 +295,7 @@ test('the dial colour follows the stage group, and an alert or a failure is red'
 test('the dial shows the running command and that command\'s own steps', () => {
   const stops = stopsOf(FULL, false)
   const live = { fid: '20261120-x', stages: FULL, activityAt: 900 }
-  const run = { tone: 'run', text: '기다리면 된다' } as const
+  const run = { tone: 'run', text: '진행 중' } as const
   // 명령이 자기 흐름을 주면 그것이 눈금이다
   const init = dialModelOf(board({ ...live, cmd: cmd('init', [{ label: '수집', mark: 'done' }, { label: '문서', mark: 'cur' }, { label: '검토', mark: 'todo' }]) }), stops, run, LIMITS, 1_000)
   expect(init.command).toBe('init-project')
@@ -295,11 +315,11 @@ test('the dial shows the running command and that command\'s own steps', () => {
     expect(commandOf(board({ cmd: cmd(kind) }))).toBe(name)
   }
   expect(commandOf(board({}))).toBe(undefined)
-  expect(dialModelOf(board(live), stops, { tone: 'me', text: '내 차례 — 답을 기다린다' }, [], 1_000).isAlert).toBe(true)
+  expect(dialModelOf(board(live), stops, { tone: 'me', text: '답변 대기' }, [], 1_000).isAlert).toBe(true)
   // 대기·완료는 눈금 없이 이름만
   const idle = dialModelOf(board({ fid: '20261116-x' }), [], { tone: 'idle', text: '대기' }, LIMITS, 1_000)
   expect([idle.command, idle.ticks.length]).toEqual(['대기', 0])
-  expect(dialModelOf(board(live), stops, { tone: 'idle', text: '완료 — PR 확인·병합은 직접' }, [], 1_000).command).toBe('완료')
+  expect(dialModelOf(board(live), stops, { tone: 'idle', text: '완료' }, [], 1_000).command).toBe('완료')
 })
 
 test('a running init keeps its dial while it waits for answers, and never turns red', () => {
@@ -308,7 +328,7 @@ test('a running init keeps its dial while it waits for answers, and never turns 
   expect(turnOf(board({ cmd: cmd('init', steps), working: true }), false, []).tone).toBe('run')
   // 질문을 기다리는 동안 — 계기는 남고 빨강은 아니다(중단된 초기화 흔적이 남은 저장소도 같다: 5.14.1 거짓 경보 재발 방지)
   const hold = turnOf(board({ cmd: cmd('init', steps), activityAt: 900 }), false, [])
-  expect(hold).toEqual({ tone: 'hold', text: '인터뷰 중 — 질문이 있으면 답한다' })
+  expect(hold).toEqual({ tone: 'hold', text: '일시 멈춤' })
   const dial = dialModelOf(board({ cmd: cmd('init', steps) }), [], hold, [], 1_000)
   expect([dial.command, dial.ticks.length, dial.isAlert]).toEqual(['init-project', 3, false])
   expect(helpLead(hold)).toMatch(/추천대로/)
@@ -321,7 +341,7 @@ test('a running init keeps its dial while it waits for answers, and never turns 
 
 test('only commands with their own flow replace the task stages on the dial', () => {
   const stops = stopsOf(FULL, false)
-  const run = { tone: 'run', text: '기다리면 된다' } as const
+  const run = { tone: 'run', text: '진행 중' } as const
   const odd = [{ label: '초안', mark: 'cur' as const }]
   for (const kind of ['start', 'maintain', 'foundation'] as const) {
     const m = dialModelOf(board({ fid: '20261120-x', stages: FULL, cmd: cmd(kind, odd) }), stops, run, [], 1_000)
@@ -333,7 +353,7 @@ test('only commands with their own flow replace the task stages on the dial', ()
 })
 
 test('the dial drawing is well formed, escapes its labels and sizes to its limits', () => {
-  const model = dialModelOf(board({ fid: '20261120-x', stages: FULL, activityAt: 900, cmd: cmd('start') }), stopsOf(FULL, false), { tone: 'run', text: '기다리면 된다' }, LIMITS, 1_000)
+  const model = dialModelOf(board({ fid: '20261120-x', stages: FULL, activityAt: 900, cmd: cmd('start') }), stopsOf(FULL, false), { tone: 'run', text: '진행 중' }, LIMITS, 1_000)
   const svg = dialSvg(model)
   expect(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true)
   expect(svg.endsWith('</svg>')).toBe(true)
@@ -372,4 +392,95 @@ test('a surface that draws pictures gets the round dial, the terminal gets text'
   expect(await term.find({ type: 'Button' })).toBeDefined()
   expect(await term.find({ text: /devFSD/ })).toBeDefined()
   await term.unmount()
+})
+
+// ---- 관제판과 같은 기준: 바늘은 관제판이 ▶ 로 그리는 지금(isCurrent) 단계를 가리킨다 ----
+// 관제판이 읽는 단계는 기록(session-progress)에서 stagesOf → currentStageKey → withVerifyMark 로 만든다. 앞 단계가 끝난 직후의 다음 단계는
+//   기록이 없어 표식이 ○ 인데 isCurrent 만 켜진다 — 손으로 만든 단계 자료에는 이 모양이 없어서 바늘이 처음 자리에 머무는 결함이 시험을 빠져나갔다.
+const FID = '20261123-auth-state'
+const realStages = (lines: readonly string[]): StageMark[] => {
+  const progress = [`## ${FID} · 시험`, ...lines].join('\n')
+
+  return withVerifyMark(stagesOf(progress, FID), undefined, currentStageKey(progress, FID))
+}
+const needleAt = (b: Board): { label: string; ticks: readonly DialTick[] } => {
+  const stops = stopsOf(b.stages, false)
+  const ticks = dialModelOf(b, stops, { tone: 'run', text: '진행 중' }, [], 1_000).ticks
+
+  return { label: ticks[dialNow(ticks)]?.label ?? '(없음)', ticks }
+}
+
+test('the needle points at the stage the console marks as current, even before that stage has a record', () => {
+  const stages = realStages(['- 2026-11-23 08:57 /specify 완료 (명세)'])
+  expect(stages.find(s => s.isCurrent)?.label).toBe('명확화')
+  expect(stages.find(s => s.isCurrent)?.mark).toBe('○') // 기록이 없다 — 표식만으로는 지금을 알 수 없다
+  expect(needleAt(board({ fid: FID, stages, activityAt: 900 })).label).toBe('명확화')
+})
+
+test('the needle follows the console while a stage is recorded as running, and when the next one has not begun', () => {
+  const running = realStages(['- 2026-11-23 09:10 /clarify 진행 (질문)', '- 2026-11-23 08:57 /specify 완료 (명세)'])
+  expect(needleAt(board({ fid: FID, stages: running, activityAt: 900 })).label).toBe('명확화')
+  const gate = realStages([
+    '- 2026-11-23 12:00 /verify 완료 (증거)',
+    '- 2026-11-23 11:00 /implement 완료 (구현)',
+    '- 2026-11-23 10:00 /tasks 완료 (분해)',
+    '- 2026-11-23 09:40 /plan 완료 (설계)',
+    '- 2026-11-23 09:20 /clarify 완료 (명확화)',
+    '- 2026-11-23 08:57 /specify 완료 (명세)',
+  ])
+  expect(gate.find(s => s.isCurrent)?.key).toBe('security')
+  expect(needleAt(board({ fid: FID, stages: gate, activityAt: 900 })).label).toBe('게이트') // 보안·통합·성능·데모는 한 점
+})
+
+test('while waiting for approval the needle stays on the console stage, and the note still asks for the approval', () => {
+  const stages = realStages(['- 2026-11-23 09:20 /clarify 완료 (명확화)', '- 2026-11-23 08:57 /specify 완료 (명세)'])
+  expect(stages.find(s => s.isCurrent)?.label).toBe('설계')
+  const b = board({ fid: FID, stages, activityAt: 900 })
+  expect(needleAt(b).label).toBe('설계') // 관제판의 ▶ 와 같다
+  expect(needleAt(b).ticks.filter(t => t.state === 'now')).toHaveLength(1)
+  expect(turnOf(b, false, stopsOf(stages, false)).text).toBe('승인 대기') // 문구는 그대로
+})
+
+test('aligning to the console leaves a failed current stage red and ignores a current stage the dial does not have', () => {
+  const tick = (key: string, state: DialTick['state']): DialTick => ({ key, label: key, state })
+  const failed = alignCurrent([tick('a', 'done'), tick('b', 'fail')], [{ key: 'b', label: 'b', mark: '✗', isCurrent: true }])
+  expect(failed.map(t => t.state)).toEqual(['done', 'fail'])
+  const same = [tick('a', 'done'), tick('b', 'now')]
+  expect(alignCurrent(same, [{ key: 'zzz', label: 'z', mark: '○', isCurrent: true }])).toEqual(same)
+  expect(alignCurrent(same, undefined)).toEqual(same)
+  expect(alignCurrent(same, [{ key: 'a', label: 'a', mark: '✓' }])).toEqual(same) // 지금 표시가 없으면 그대로
+})
+
+test('each state has a short name and its own colour — green running, red for the user\'s turn or a failure, amber paused, blue done, dim waiting', () => {
+  expect(noteTint({ tone: 'run', text: '진행 중' })).toBe('success')
+  expect(noteTint({ tone: 'me', text: '승인 대기' })).toBe('error')
+  expect(noteTint({ tone: 'me', text: '답변 대기' })).toBe('error')
+  expect(noteTint({ tone: 'bad', text: '구현 실패' })).toBe('error')
+  expect(noteTint({ tone: 'hold', text: '일시 멈춤' })).toBe('warning')
+  expect(noteTint({ tone: 'idle', text: '완료' })).toBe('suggestion')
+  expect(noteTint({ tone: 'idle', text: '대기' })).toBeUndefined()
+  const live = { fid: '20261120-x', stages: FULL, activityAt: 900 }
+  expect(turnOf(board(live), true, stopsOf(FULL, false)).text).toBe('진행 중')
+  expect(turnOf(board({ ...live, verify: '검증 FAIL' }), false, stopsOf(FULL, false)).text).toBe('검증 실패')
+})
+
+test('each button opens its pane when it is not up and closes it when it is — the two panes are counted apart', async ($, on) => {
+  const { opens, closes } = started(on, true)
+  await $.session.start({ cwd: '/repo', ...START })
+  opens.length = 0
+  closes.length = 0
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  const press = async (key: string) => {
+    await ui.press({ key })
+    await flush()
+  }
+  await press('help')
+  await press('help')
+  await press('help')
+  expect([opens, closes]).toEqual([['devfsd-help', 'devfsd-help'], ['devfsd-help']]) // 열고 · 닫고 · 다시 연다
+  await press('console') // 자동으로 열려 있던 관제판
+  await press('console')
+  expect(closes).toEqual(['devfsd-help', 'devfsd-console'])
+  expect(opens).toEqual(['devfsd-help', 'devfsd-help', 'devfsd-console']) // 도움말 상태와 무관하다
+  await ui.unmount()
 })

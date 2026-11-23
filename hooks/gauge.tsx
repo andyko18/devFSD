@@ -91,7 +91,14 @@ export function stopsOf(stages: readonly StageMark[] | undefined, isDone: boolea
           ...merged.slice(at + 1),
         ]
 
-  return [...withApproval, { key: 'merge', label: '머지', state: isDone ? 'now' : 'gate' }]
+  // 앞 단계가 끝난 직후의 "다음 단계"는 기록이 아직 없어 표식이 ○ 이고 지금(isCurrent) 표시만 켜져 있다 — 관제판은 ▶ 로 그리는 그 단계를
+  //   계기판도 지금으로 읽는다. 단 이미 진행·실패인 점(승인 대기 포함)이 있으면 그것이 지금이다 — 점 둘이 지금이 되지 않게.
+  const currentKey = stages.find(s => s.isCurrent)?.key
+  const current = currentKey !== undefined && GATE_KEYS.includes(currentKey) ? 'gate' : currentKey
+  const isInFlight = withApproval.some(s => s.state === 'now' || s.state === 'fail')
+  const tracked = isInFlight ? withApproval : withApproval.map(s => (s.key === current && s.state === 'todo' ? { ...s, state: 'now' as const } : s))
+
+  return [...tracked, { key: 'merge', label: '머지', state: isDone ? 'now' : 'gate' }]
 }
 
 /** `20261116-plan-reflect` → `plan-reflect` — 날짜 접두는 사람에게 소음이다. */
@@ -103,23 +110,32 @@ export function shortFid(fid: string): string {
  * 상태 줄 알림 — 지금 누구 차례인가. 빨강(me·bad)은 이 세션에서 실제로 움직인 lifecycle 작업에만 낸다:
  * 단계가 없는 작업(직접 수정 기록)이나 이 세션이 건드리지 않은 지난 작업은 `대기` 다 — 새 세션마다 경보가 켜지면 무시하게 된다.
  */
+/** 상태 이름의 색 — 진행 중 초록 · 내 차례와 실패 빨강 · 일시 멈춤 호박 · 완료 파랑 · 대기는 색 없이 흐리게. */
+export function noteTint(note: TurnNote): string | undefined {
+  if (note.tone === 'run') return 'success'
+  if (note.tone === 'me' || note.tone === 'bad') return 'error'
+  if (note.tone === 'hold') return 'warning'
+
+  return note.text.startsWith('완료') ? ACCENT : undefined
+}
+
 export function turnOf(b: Board, isRunning: boolean, stops: readonly Stop[]): TurnNote {
   const isBusy = isRunning || b.working === true || b.running.length > 0
   // 초기화(/init-project)는 작업(FID) 없이도 돈다. 진행 중인 단계가 있으면 멈춰 있어도(질문을 기다리는 동안) 계기를 남기되,
   //   빨강은 켜지 않는다 — 중단된 초기화의 표시 파일이 남은 저장소에서 새 세션마다 경보가 뜨지 않게.
   const flowCur = b.cmd && (!b.fid || b.cmd.kind === 'init') ? b.cmd.steps.find(st => st.mark === 'cur') : undefined
-  if (flowCur) return isBusy ? { tone: 'run', text: '기다리면 된다' } : { tone: 'hold', text: `${flowCur.label} 중 — 질문이 있으면 답한다` }
-  if (!b.fid) return { tone: 'idle', text: '대기 — /start 또는 /maintain 으로 출발' }
-  if (isBusy) return { tone: 'run', text: '기다리면 된다' }
+  if (flowCur) return isBusy ? { tone: 'run', text: '진행 중' } : { tone: 'hold', text: '일시 멈춤' }
+  if (!b.fid) return { tone: 'idle', text: '대기' }
+  if (isBusy) return { tone: 'run', text: '진행 중' }
   const isLive = stops.length > 0 && b.activityAt !== undefined
-  if (!isLive) return { tone: 'idle', text: b.verify === '완료' ? '완료 — PR 확인·병합은 직접' : '대기' }
+  if (!isLive) return { tone: 'idle', text: b.verify === '완료' ? '완료' : '대기' }
   const failed = stops.find(s => s.state === 'fail')
   if (failed) return { tone: 'bad', text: `${failed.label} 실패` }
   if (b.verify !== undefined && /FAIL/.test(b.verify)) return { tone: 'bad', text: '검증 실패' }
-  if (b.verify === '완료') return { tone: 'idle', text: '완료 — PR 확인·병합은 직접' }
+  if (b.verify === '완료') return { tone: 'idle', text: '완료' }
   const isApproval = stops.some(s => s.key === 'approve' && s.state === 'now')
 
-  return { tone: 'me', text: isApproval ? '내 차례 — 설계를 읽고 승인' : '내 차례 — 답을 기다린다' }
+  return { tone: 'me', text: isApproval ? '승인 대기' : '답변 대기' }
 }
 
 /**
@@ -162,6 +178,19 @@ const OWN_FLOW: readonly CmdBoard['kind'][] = ['init', 'batch', 'quick']
  * 둥근 계기에 넘길 값 — 눈금은 **지금 도는 명령의 단계**다: 자기 흐름을 주는 명령(초기화·일괄·몇 줄 수정)은 그것을, 아니면 이 작업의 단계 점을 쓴다.
  * 대기일 때는 눈금 없이 빈 호만 그린다.
  */
+/**
+ * 바늘은 관제판과 같은 단계를 가리킨다 — 관제판이 ▶ 로 그리는 지금(isCurrent) 단계. 승인 대기 점이 먼저 지금이어도
+ * (설계를 읽고 승인하는 동안) 관제판은 ▶설계 이므로 계기판도 그쪽이다. 지금 단계가 눈금에 없으면 그대로 둔다.
+ */
+export function alignCurrent(ticks: readonly DialTick[], stages: readonly StageMark[] | undefined): DialTick[] {
+  const key = stages?.find(s => s.isCurrent)?.key
+  const target = key !== undefined && GATE_KEYS.includes(key) ? 'gate' : key
+  const at = target === undefined ? -1 : ticks.findIndex(t => t.key === target)
+  if (at < 0) return [...ticks]
+
+  return ticks.map((t, i) => (i === at ? { ...t, state: t.state === 'fail' ? 'fail' : 'now' } : t.state === 'now' ? { ...t, state: 'done' } : t))
+}
+
 export function dialModelOf(b: Board, stops: readonly Stop[], note: TurnNote, limits: Usage['limits'], now: number): DialModel {
   const steps = b.cmd && OWN_FLOW.includes(b.cmd.kind) ? b.cmd.steps : []
   const isIdle = note.tone === 'idle'
@@ -169,7 +198,10 @@ export function dialModelOf(b: Board, stops: readonly Stop[], note: TurnNote, li
     ? []
     : steps.length > 0
       ? steps.map(st => ({ label: st.label, state: TICK_OF_STEP[st.mark] }))
-      : stops.map(st => ({ label: st.label, state: TICK_OF_STOP[st.state], key: st.key }))
+      : alignCurrent(
+          stops.map(st => ({ label: st.label, state: TICK_OF_STOP[st.state], key: st.key })),
+          b.stages,
+        )
 
   return {
     command: isIdle ? (note.text.startsWith('완료') ? '완료' : '대기') : (commandOf(b) ?? 'devFSD'),
@@ -180,6 +212,19 @@ export function dialModelOf(b: Board, stops: readonly Stop[], note: TurnNote, li
 
       return { name: `Claude ${limitLabel(l.kind)}`, pct: l.pct, reset: reset ? `${reset} 뒤 초기화` : '' }
     }),
+  }
+}
+
+type PaneArgs = { id: string; title: string; columns?: number; rows?: number }
+
+/** 버튼 하나로 여닫는다 — 창이 떠 있으면 닫고, 없으면 연다(도움말·관제판 공통). 창이 안 열리는 환경이어도 계기판은 그대로 둔다. */
+export async function togglePane($: EngineInterface, args: PaneArgs): Promise<void> {
+  try {
+    const isUp = (await $.ui.panes()).some(p => p.id === args.id)
+    if (isUp) await $.ui.close({ id: args.id })
+    else await $.ui.open(args)
+  } catch {
+    // 보이는 일이라 실패해도 알릴 곳이 없다 — 다시 누르면 된다.
   }
 }
 
@@ -226,17 +271,18 @@ export function registerGauge(on: Parameters<Register>[0]): void {
     const note = turnOf(b, m.isRunning, stops)
     const isAlert = note.tone === 'me' || note.tone === 'bad'
     const model = prettyModel(m.model || m.startModel || '')
-    const lead = isAlert ? 'error' : note.tone === 'run' ? 'success' : 'inactive'
+    const tint = noteTint(note)
+    const lead = tint ?? 'inactive'
 
     const work = [b.cmd?.title, b.fid && note.tone !== 'idle' ? shortFid(b.fid) : undefined].filter(Boolean).join(' · ')
     const recent = b.fid && note.tone === 'idle' ? ` · 최근 ${shortFid(b.fid)}` : ''
 
     const buttons = (
       <Box flexDirection="row" gap={e.surface === 'terminal' ? 2 : 0}>
-        <Button key="help" plain dimColor onPress={() => void $.ui.open({ id: HELP_PANE, title: HELP_TITLE })}>
+        <Button key="help" plain dimColor onPress={() => togglePane($, { id: HELP_PANE, title: HELP_TITLE })}>
           <Text color={ACCENT}>?</Text> 도움말
         </Button>
-        <Button key="console" plain dimColor onPress={() => void $.ui.open({ id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })}>
+        <Button key="console" plain dimColor onPress={() => togglePane($, { id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })}>
           <Text color={ACCENT}>↗</Text> 관제판
         </Button>
         <Button key="hide" plain dimColor onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))}>
@@ -249,7 +295,7 @@ export function registerGauge(on: Parameters<Register>[0]): void {
       const { Svg } = $.ui.resolve(e)
       const dial = dialModelOf(b, stops, note, u.limits, at)
       const cmd = commandOf(b)
-      const doing = note.tone === 'idle' ? '' : [cmd ? `/${cmd}` : undefined, b.fid ? shortFid(b.fid) : undefined].filter(Boolean).join(' · ')
+      const doing = note.tone === 'idle' ? '' : [cmd ? `/${cmd}` : undefined, b.cmd?.title || undefined, b.fid ? shortFid(b.fid) : undefined].filter(Boolean).join(' · ')
       const w = dialWidth(dial.limits.length)
 
       return (
@@ -266,21 +312,19 @@ export function registerGauge(on: Parameters<Register>[0]): void {
                   {m.effort ? ` ${m.effort}` : ''})
                 </Text>
               </Text>
-              <Text>
-                {doing}
-                {isAlert ? (
-                  <Text bold color="error">
-                    {doing ? ' · ' : ''}
-                    {note.text}
+              <Box flexDirection="column">
+                <Text>
+                  <Text bold={tint !== undefined} dimColor={tint === undefined} color={tint}>
+                    ● {note.text}
                   </Text>
-                ) : (
-                  <Text dimColor>
-                    {doing ? ' · ' : ''}
-                    {note.text}
-                    {recent}
+                  <Text dimColor>{recent}</Text>
+                </Text>
+                {doing ? (
+                  <Text dimColor wrap="truncate-end">
+                    {doing}
                   </Text>
-                )}
-              </Text>
+                ) : ''}
+              </Box>
             </Box>
             {buttons}
           </Box>
@@ -297,19 +341,11 @@ export function registerGauge(on: Parameters<Register>[0]): void {
             <Text bold color={ACCENT}>
               devFSD
             </Text>
-            {work ? ` ${work}` : ''}
-            {isAlert ? (
-              <Text bold color="error">
-                {' '}
-                · {note.text}
-              </Text>
-            ) : (
-              <Text dimColor>
-                {' '}
-                · {note.text}
-                {recent}
-              </Text>
-            )}
+            {work ? <Text dimColor> {work} ·</Text> : ''}{' '}
+            <Text bold={tint !== undefined} dimColor={tint === undefined} color={tint}>
+              {note.text}
+            </Text>
+            <Text dimColor>{recent}</Text>
           </Text>
           {buttons}
         </Box>

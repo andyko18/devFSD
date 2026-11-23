@@ -13,8 +13,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install pyyaml
         run: python3 -m pip install --user 'pyyaml==6.0.2'
-      # 진행 패널·관제판 TS 훅 테스트(244건)는 `claude plugin test` 로만 돈다 — CLI 가 없으면 SKIP 인데 PASS 로 집계됐다(11회차).
-      #   plugin test 는 로그인·API 키 없이 돈다(실측: 빈 HOME · 키 없음에서 244/244). PP_REQUIRE_ENGINE=1 이면 CLI 부재는 실패다.
+      # 관제판·계기판 TS 훅 테스트는 `claude plugin test` 로만 돈다 — CLI 가 없으면 SKIP 인데 PASS 로 집계됐다(11회차).
+      #   plugin test 는 로그인·API 키 없이 돈다(실측: 빈 HOME · 키 없음에서 전건 통과). PP_REQUIRE_ENGINE=1 이면 CLI 부재는 실패다.
       - name: Install Claude Code CLI (plugin test engine)
         run: npm install -g @anthropic-ai/claude-code@2.1.317
       - name: Run full test suite

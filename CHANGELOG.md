@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.15.1] — 2026-11-23
+
 ### Changed
 
 - **계기판의 상태 문구를 짧은 이름으로 바꾸고 색을 입혔다**. 종전의 긴 문장(`기다리면 된다` · `내 차례 — 설계를 읽고 승인` · `내 차례 — 답을 기다린다` · `완료 — PR 확인·병합은 직접` · `대기 — /start 또는 /maintain 으로 출발`)을 `진행 중`(초록) · `승인 대기`·`답변 대기`·`<단계> 실패`(굵은 빨강) · `일시 멈춤`(호박) · `완료`(파랑) · `대기`(회색)로 줄였다. 상태는 한 줄 위에, 명령은 아래 한 줄에 `/start · 신규 기능 · <작업 이름>` 으로 쓰고(관제판과 같은 종류 이름) 길면 끝을 `…` 로 줄인다. 색이 상태를 말하므로 한눈에 읽히고, 해야 할 일(PR 병합·시작 방법)은 `? 도움말` 이 맡는다.
@@ -4404,7 +4406,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.0...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.1...HEAD
+[5.15.1]: https://github.com/andyko18/devFSD/compare/v5.15.0...v5.15.1
 [5.15.0]: https://github.com/andyko18/devFSD/compare/v5.14.2...v5.15.0
 [5.14.2]: https://github.com/andyko18/devFSD/compare/v5.14.1...v5.14.2
 [5.14.1]: https://github.com/andyko18/devFSD/compare/v5.14.0...v5.14.1

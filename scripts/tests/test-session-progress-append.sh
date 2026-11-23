@@ -8,6 +8,21 @@ source "$PLUGIN/scripts/tests/harness.sh"
 command -v finish >/dev/null 2>&1 || { echo "FATAL: harness 미로드" >&2; exit 1; }
 SCRIPT="$PLUGIN/scripts/session-progress-append.sh"
 
+# 시각을 고정한 가짜 date — 멱등 검사는 줄 전체(분 단위 시각 포함)를 비교하므로, 두 번의 append 가 분 경계를 넘으면
+#   다른 줄이 되어 "중복 추가 안 함" 단언이 흔들린다(20261123: 맥 CI·로컬 전체 스위트에서 T6.d 가 가끔 실패 — 부하가 두 호출 사이를 늘린다).
+#   `date +"%Y-%m-%d %H:%M"` 만 고정하고 나머지 호출은 진짜 date 로 넘긴다. $1 = 폴더, $2 = 고정할 시각.
+_frozen_date() {
+  mkdir -p "$1"
+  cat > "$1/date" <<FD
+#!/usr/bin/env bash
+case "\$*" in *%Y-%m-%d*%H:%M*) echo "$2" ;; *) exec $(command -v date) "\$@" ;; esac
+FD
+  chmod +x "$1/date"
+}
+FROZEN_ROOT=$(mktemp -d); _frozen_date "$FROZEN_ROOT/at-10-00" "2026-06-15 10:00"; _frozen_date "$FROZEN_ROOT/at-10-01" "2026-06-15 10:01"
+FROZEN_DATE="$FROZEN_ROOT/at-10-00"
+trap 'rm -rf "$FROZEN_ROOT"' EXIT
+
 
 # ── fixture helpers ─────────────────────────────────────────────────────
 
@@ -98,8 +113,8 @@ T3_b() {
   tmp=$(mktemp -d)
   mkdir -p "$tmp/.specops"
   make_progress "$tmp/.specops/session-progress.md"
-  (cd "$tmp" && bash "$PLUGIN/scripts/session-progress-append.sh" "$EXISTING_FID" "/clarify" "완료" "memo") >/dev/null 2>&1
-  (cd "$tmp" && bash "$PLUGIN/scripts/session-progress-append.sh" "$EXISTING_FID" "/clarify" "완료" "memo") >/dev/null 2>&1
+  (cd "$tmp" && PATH="$FROZEN_DATE:$PATH" bash "$PLUGIN/scripts/session-progress-append.sh" "$EXISTING_FID" "/clarify" "완료" "memo") >/dev/null 2>&1
+  (cd "$tmp" && PATH="$FROZEN_DATE:$PATH" bash "$PLUGIN/scripts/session-progress-append.sh" "$EXISTING_FID" "/clarify" "완료" "memo") >/dev/null 2>&1
   # 동일 내용 줄이 2개 이상이면 중복
   count=$(grep -Fc "/clarify 완료 (memo)" "$tmp/.specops/session-progress.md" 2>/dev/null)
   rm -rf "$tmp"
@@ -169,8 +184,8 @@ T4_d && ok "T4.d 대조 — 자동 생성(Stop 훅)은 standard 에서 꺼진 �
 T5_a() {
   local tmp; tmp=$(mktemp -d)
   ( cd "$tmp" && mkdir -p .specops && bash "$PLUGIN/hooks/ensure-session-progress.sh" >/dev/null 2>&1
-    bash "$SCRIPT" 20260615-i /specify 완료 "m" "F" >/dev/null 2>&1
-    bash "$SCRIPT" 20260615-i /specify 완료 "m" >/dev/null 2>&1 )
+    PATH="$FROZEN_DATE:$PATH" bash "$SCRIPT" 20260615-i /specify 완료 "m" "F" >/dev/null 2>&1
+    PATH="$FROZEN_DATE:$PATH" bash "$SCRIPT" 20260615-i /specify 완료 "m" >/dev/null 2>&1 )
   local cnt; cnt=$(grep -c "specify 완료 (m)" "$tmp/.specops/session-progress.md" 2>/dev/null || echo 99)
   rm -rf "$tmp"
   [ "$cnt" = "1" ]
@@ -244,13 +259,26 @@ T6_c && ok "T6.c memo \\\\ 리터럴 보존 (AC-6)" || fail "T6.c memo \\\\ 리�
 T6_d() {
   local tmp; tmp=$(mktemp -d)
   ( cd "$tmp" && mkdir -p .specops && bash "$PLUGIN/hooks/ensure-session-progress.sh" >/dev/null 2>&1
-    bash "$SCRIPT" 20260615-ed /specify 완료 'a\nb' "F" >/dev/null 2>&1
-    bash "$SCRIPT" 20260615-ed /specify 완료 'a\nb' >/dev/null 2>&1 )
+    PATH="$FROZEN_DATE:$PATH" bash "$SCRIPT" 20260615-ed /specify 완료 'a\nb' "F" >/dev/null 2>&1
+    PATH="$FROZEN_DATE:$PATH" bash "$SCRIPT" 20260615-ed /specify 완료 'a\nb' >/dev/null 2>&1 )
   local cnt; cnt=$(grep -cF 'a\nb' "$tmp/.specops/session-progress.md" 2>/dev/null || echo 99)
   rm -rf "$tmp"
   [ "$cnt" = "1" ]
 }
 T6_d && ok "T6.d escape 동일 라인 멱등 1회 (AC-3)" || fail "T6.d escape 동일 라인 멱등 1회 (AC-3)"
+
+# T6.e 멱등의 단위는 "시각까지 같은 줄"이다 — 분이 다르면 같은 내용도 새 기록이다(의도된 계약).
+#   위 멱등 테스트들이 시각을 고정하는 까닭이다: 분 경계를 넘긴 두 호출은 이 계약에 따라 두 줄이 된다.
+T6_e() {
+  local tmp; tmp=$(mktemp -d)
+  ( cd "$tmp" && mkdir -p .specops && bash "$PLUGIN/hooks/ensure-session-progress.sh" >/dev/null 2>&1
+    PATH="$FROZEN_ROOT/at-10-00:$PATH" bash "$SCRIPT" 20260615-ee /specify 완료 "m" "F" >/dev/null 2>&1
+    PATH="$FROZEN_ROOT/at-10-01:$PATH" bash "$SCRIPT" 20260615-ee /specify 완료 "m" >/dev/null 2>&1 )
+  local cnt; cnt=$(grep -c "specify 완료 (m)" "$tmp/.specops/session-progress.md" 2>/dev/null || echo 99)
+  rm -rf "$tmp"
+  [ "$cnt" = "2" ]
+}
+T6_e && ok "T6.e 분이 다르면 같은 내용도 새 줄(멱등 단위 = 시각까지 같은 줄)" || fail "T6.e 분이 다르면 같은 내용도 새 줄"
 
 # ── M1~M8: active-fid 마커 생산자 (FID 20260809-active-fid-marker-producer) ──
 #   결함: detect_fid() 가 마커를 1순위로 읽는데 갱신하는 층이 0곳이라 값이 고착됐다.

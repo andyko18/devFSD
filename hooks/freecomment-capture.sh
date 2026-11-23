@@ -84,7 +84,7 @@ fi
 [ ! -L "$cwd/.specops" ] || safe_exit
 [ ! -L "$cwd/.specops/pending-capture.jsonl" ] || safe_exit
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
-files_json=$(printf '%s\n' "${real_files[@]}" | jq -R . | jq -cs .)   # quote 배열 — glob/공백 안전
+files_json=$(printf '%s\n' "${real_files[@]}" | awk '!seen[$0]++' | jq -R . | jq -cs .)   # quote 배열 — glob/공백 안전 · 같은 파일을 여러 번 고쳐도 한 번만(20261123)
 fid=$(cd "$cwd" && detect_fid 2>/dev/null || echo "")
 # 직전 pending 줄과 파일 목록·프롬프트가 같으면 다시 쌓지 않는다(Stop 은 같은 작업에서 여러 번 온다).
 _fc_last=$(tail -n 1 "$cwd/.specops/pending-capture.jsonl" 2>/dev/null || true)

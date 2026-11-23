@@ -449,6 +449,23 @@ if [ "$n12" = "1" ]; then
 else
   FAIL=$((FAIL+1)); echo "FAIL T12.b (줄 수=$n12)"
 fi
+# T12.d 같은 파일을 여러 번 고쳐도 files 에는 한 번만 (20261123 — 실기록 8건이 전부 ["a","a"] 꼴이었다)
+w12d="$TMP/w12d"; mkdir -p "$w12d/.specops"
+(cd "$w12d" && git init -q && git -c user.email=test@specops.test -c user.name=test commit --allow-empty -m init -q)
+echo x > "$w12d/f.py"; echo y > "$w12d/h.py"; (cd "$w12d" && git add f.py h.py)
+tr12d="$TMP/tr12d.jsonl"
+printf '%s\n' \
+  '{"type":"user","message":{"content":[{"type":"text","text":"f 를 두 번 h 를 한 번 고쳐줘"}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"d1","name":"Edit","input":{"file_path":"f.py"}}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"d2","name":"Edit","input":{"file_path":"h.py"}}]}}' \
+  '{"type":"assistant","message":{"content":[{"type":"tool_use","id":"d3","name":"Edit","input":{"file_path":"f.py"}}]}}' > "$tr12d"
+echo "{\"transcript_path\":\"$tr12d\",\"cwd\":\"$w12d\"}" | bash "$HOOK" >/dev/null 2>&1
+fd12=$(jq -c '.files' "$w12d/.specops/pending-capture.jsonl" 2>/dev/null | head -1)
+if [ "$fd12" = '["f.py","h.py"]' ]; then
+  PASS=$((PASS+1)); echo "PASS T12.d ★ 같은 파일을 여러 번 고쳐도 files 는 한 번씩(처음 나온 순서)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL T12.d (files=$fd12)"
+fi
 echo y > "$w12/g.py"; (cd "$w12" && git add g.py)
 printf '%s\n' \
   '{"type":"user","message":{"content":[{"type":"text","text":"g 도 고쳐줘"}]}}' \

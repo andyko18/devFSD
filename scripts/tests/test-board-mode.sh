@@ -39,6 +39,20 @@ _led <<EOF
 - $(date -r $((NOW + 120)) '+%Y-%m-%d %H:%M' 2>/dev/null || date -d "@$((NOW + 120))" '+%Y-%m-%d %H:%M') /implement 진행 (x)
 EOF
 has "$(_bm 20200101-old | head -1)" "MODE${TAB}start${TAB}신규 기능" && ok "B1.i 표시보다 뒤에 기록된 작업은 그 작업으로 보인다" || no "B1.i" "$(_bm 20200101-old)"
+# B1.k ★ 기록 시각(분 단위)을 읽을 때 초를 :00 으로 못 박는다 — macOS date -j 는 초가 형식에 없으면 지금의 초로 채워 같은 입력이 호출마다 달랐다(20261123).
+#   가짜 date 로 -j 호출의 인자를 받아 본다(어느 OS 에서든 -j 가 먼저 불린다).
+mkdir -p "$T/fakedate"; : > "$T/fakedate/log"
+cat > "$T/fakedate/date" <<FD
+#!/usr/bin/env bash
+case "\$1" in -j) echo "\$*" >> "$T/fakedate/log"; echo 1 ;; *) exec $(command -v date) "\$@" ;; esac
+FD
+chmod +x "$T/fakedate/date"
+_led <<EOF
+## 20200101-old · x
+- 2020-01-01 10:00 /implement 진행 (x)
+EOF
+( cd "$P" && PATH="$T/fakedate:$PATH" bash "$BM" 20200101-old >/dev/null 2>&1 )
+has "$(cat "$T/fakedate/log")" "-j -f %Y-%m-%d %H:%M:%S 2020-01-01 10:00:00 +%s" && ok "B1.k ★ 기록 시각은 초까지(:00) 읽는다 — 호출마다 값이 흔들리지 않는다" || no "B1.k" "$(cat "$T/fakedate/log")"
 printf '%s\tphase0\n' $((NOW - 30000)) > "$S/.init-timing"
 [ -z "$(_bm)" ] && ok "B1.j 6시간 넘게 멈춘 표시 파일은 '돌고 있다'로 보지 않는다(중단돼 남은 것)" || no "B1.j" "$(_bm)"
 rm -rf "$S/20200101-old"; rm -f "$S/session-progress.md"

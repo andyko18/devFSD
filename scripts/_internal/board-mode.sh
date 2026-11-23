@@ -44,7 +44,9 @@ _init_live() {
   [ $((now - last)) -le "$INIT_STALE_SEC" ] || return 1
   rec="${1:-}"
   [ -n "$rec" ] || return 0
-  rec=$(date -j -f '%Y-%m-%d %H:%M' "$rec" +%s 2>/dev/null || date -d "$rec" +%s 2>/dev/null) || return 0
+  # 기록 시각은 분 단위다. 초를 `:00` 으로 못 박아 읽는다 — macOS 의 `date -j -f` 는 형식에 초가 없으면 **지금의 초**로 채워,
+  #   같은 입력이 호출마다 다른 값이 되고 표시와 같은 분이면 판정이 뒤집혀 관제판이 깜빡였다(20261123 재현).
+  rec=$(date -j -f '%Y-%m-%d %H:%M:%S' "$rec:00" +%s 2>/dev/null || date -d "$rec:00" +%s 2>/dev/null) || return 0
   [ "$last" -gt "$rec" ]
 }
 

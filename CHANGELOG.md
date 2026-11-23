@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.15.5] — 2026-11-23
+
 ### Fixed
 
 - **계기판이 검증 STALE·PARTIAL 을 빨강 "검증 실패"로 보이던 것을 호박색 "재검증 필요"로 고쳤다** — 코드가 바뀌어 다시 돌리면 되는 상태인데 실패로 읽혔고, 관제판(호박색 `검증 STALE`)과도 달랐다.
@@ -4424,7 +4426,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.4...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.5...HEAD
+[5.15.5]: https://github.com/andyko18/devFSD/compare/v5.15.4...v5.15.5
 [5.15.4]: https://github.com/andyko18/devFSD/compare/v5.15.3...v5.15.4
 [5.15.3]: https://github.com/andyko18/devFSD/compare/v5.15.2...v5.15.3
 [5.15.2]: https://github.com/andyko18/devFSD/compare/v5.15.1...v5.15.2

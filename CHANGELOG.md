@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.15.4] — 2026-11-23
+
 ### Fixed
 
 - **계기판의 단계 끝을 관제판과 같이 PR 로 맞췄다**. 계기판만 끝에 `머지` 점을 더 그려 둘이 어긋났다 — 머지는 사람이 하는 일이라 devFSD 가 추적하지 않으므로(관제판은 PR 에서 끝난다) 점을 뺐다. 다 끝나면 바늘은 PR 에 선다.
@@ -4413,7 +4415,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.3...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.4...HEAD
+[5.15.4]: https://github.com/andyko18/devFSD/compare/v5.15.3...v5.15.4
 [5.15.3]: https://github.com/andyko18/devFSD/compare/v5.15.2...v5.15.3
 [5.15.2]: https://github.com/andyko18/devFSD/compare/v5.15.1...v5.15.2
 [5.15.1]: https://github.com/andyko18/devFSD/compare/v5.15.0...v5.15.1

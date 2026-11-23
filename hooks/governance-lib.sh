@@ -70,7 +70,8 @@ _FC_JQ_DEF='
 '
 
 : "${_SPECOPS_SCOPE_FILES:=}"
-: "${_GOV_PRELUDE_HELD:=}"   # is_docs_only_change 가 세운다 — 문서뿐인 목록인데 커밋 앞 변조로 면제를 거뒀다; _VS_VERDICT_CACHE=""; _VS_VERDICT_CACHE_FID=""   # 커밋 범위(계측) + verdict 캐시 **무조건** 초기화 — env 선주입 무음 우회 차단
+: "${_GOV_PRELUDE_HELD:=}"   # is_docs_only_change 가 세운다 — 문서뿐인 목록인데 커밋 앞 변조로 면제를 거뒀다
+_VS_VERDICT_CACHE=""; _VS_VERDICT_CACHE_FID=""   # verdict 캐시 **무조건** 초기화 — env 선주입 무음 우회 차단(20261123: 한 줄 주석 안으로 들어가 꺼졌던 것을 되살림)
 
 # 커밋 메시지에서 태스크 ID 추론 — `T12` 또는 `Task: T12`. 없으면 빈 문자열.
 _infer_commit_task() {
@@ -706,6 +707,18 @@ is_docs_only_change() {
     _files_all_docs "$files"
     return $?
   fi
+  # 커밋과 PR 생성을 한 명령에 묶으면(`git commit -am docs && gh pr create`) PR 에는 이미 커밋된 base...HEAD 도 실린다 (20261123).
+  #   종전엔 아래 작업트리 목록만 봐서, 문서 커밋 하나를 앞에 붙이면 브랜치의 미검증 코드 커밋이 PR 로 나갔다(재현).
+  #   이미 커밋된 범위가 문서뿐일 때만 아래 판정으로 간다. 기준 브랜치를 모르면 비면제(fail-safe).
+  if [ -n "${1:-}" ] && grep -Eq "$_PR_CREATE_RE" <<< "$1"; then
+    local pr_base pr_files
+    pr_base=$(_detect_base_branch) || return 1
+    pr_files=$(git -c core.quotePath=false diff "$pr_base"...HEAD --name-only --no-renames 2>/dev/null) || return 1
+    if [ -n "$pr_files" ] && ! _files_all_docs "$pr_files"; then
+      _SPECOPS_SCOPE_FILES="$pr_files"
+      return 1
+    fi
+  fi
   if _commit_scope_is_staged "${1:-}"; then
     # 안전 형태 → staged 가 곧 커밋 범위다. 빈 staged 는 fail-safe(비면제) 로 떨어진다.
     files=$(git -c core.quotePath=false diff --cached --name-only --no-renames 2>/dev/null)
@@ -1018,9 +1031,10 @@ _strip_heredoc_bodies() {
       #   붙여 쓴 `sh<<EOF` · 인용한 `"bash"` · 묶은 `(bash)`·`{ bash; }` · `. /dev/stdin` · 변수에 든 명령 `$SHELL`·`$S` ·
       #   줄 연속 뒤의 `<<EOF` · `cat <<EOF | /bin/sh`). 하나라도 맞으면 본문을 지우지 않는다(차단 우세).
       #   SHRE: 셸·실행 낱말 — 앞뒤가 낱말 글자(영숫자·`_`·`.`·`-`)가 아니면 된다. `s.sh`·`bash-guide.md`·`push` 는 낱말이 아니다.
+      #     뒤에 `/` 가 오면 경로 마디다(`docs/bash/guide.md`) — 실행자가 아니다(20261123). `/bin/bash` 처럼 앞의 `/` 는 그대로 실행자다.
       #   DOTRE: 명령 자리의 `.`(source). VARRE: 명령 자리의 `$…`(무엇이 실행될지 알 수 없다 — `do`·`then` 뒤 포함).
       #   TRAILRE: `|`·`&&` 로 끝나는 줄 — 본문을 받는 명령이 종료자 뒤에 온다(`cat <<EOF |` ⏎ … ⏎ `sh`).
-      SHRE="(^|[^A-Za-z0-9_.-])(bash|sh|zsh|ksh|dash|ash|csh|tcsh|fish|eval|exec|source|xargs)([^A-Za-z0-9_.-]|$)"
+      SHRE="(^|[^A-Za-z0-9_.-])(bash|sh|zsh|ksh|dash|ash|csh|tcsh|fish|eval|exec|source|xargs)([^A-Za-z0-9_./-]|$)"
       DOTRE="(^|[;&|({" BQ "])[ \t]*[.][ \t]"
       VARRE="(^|[;&|({" BQ "]|(^|[ \t;&|({" BQ "])(do|then|else|time)[ \t])[ \t]*[" DQ SQ "]?[$]"
       TRAILRE="([|]|&&)[ \t]*$"
@@ -1091,9 +1105,16 @@ _strip_heredoc_bodies() {
       if (inb) {                      # heredoc 본문 안
         t=$0
         if (dash) sub(/^\t+/,"",t)    # <<- 는 종료자의 선행 탭 허용
-        if (t==delim) { inb=0; out[++no]=$0; next }   # 종료자 줄은 유지
-        if (keep) out[++no]=$0        # 실행자 본문 = 실제 실행 → 유지
-        next                          # 데이터 본문 → 제거
+        if (t==delim) {               # 종료자 줄은 유지
+          if (subst) for (k=1; k<=nb; k++) out[++no]=body[k]   # 명령 치환이 든 본문 → 통째로 되살린다(아래)
+          inb=0; nb=0; out[++no]=$0; next
+        }
+        if (keep) { out[++no]=$0; next }   # 실행자 본문 = 실제 실행 → 유지
+        # 따옴표 없는 구분자의 본문은 $(…)·백틱이 실행된다 (20261123) — 치환은 여러 줄에 걸칠 수 있으므로(`$(true` ⏎ `git commit …` ⏎ `)`)
+        #   하나라도 보이면 본문 전체를 남긴다(차단 우세). 인용 구분자(<<\047EOF\047)의 본문은 데이터라 그대로 지운다.
+        body[++nb]=$0
+        if (!quoted && (index($0, "$(") || index($0, BQ))) subst=1
+        next                          # 데이터 본문 → 제거(종료자에서 subst 면 되살림)
       }
       out[++no]=$0                    # 시작 줄은 항상 유지 (같은 줄의 `; git commit` 을 잡기 위해)
       ctx=(cont=="" ? $0 : cont " " $0)   # 줄 연속(끝의 역슬래시)으로 이어진 앞 줄까지 — `bash \` ⏎ `<<EOF`
@@ -1110,15 +1131,18 @@ _strip_heredoc_bodies() {
       if (dq1==SQ || dq1==DQ) {           # <<EOF 의 인용형: <<\047EOF\047 · <<"EOF"
         r2=substr(rest,2); p=index(r2,dq1)
         if (p<2) { bail=1; next }
-        delim=substr(r2,1,p-1)
+        delim=substr(r2,1,p-1); after=substr(r2,p+1,1); quoted=1
       } else if (match(rest,/^[A-Za-z_][A-Za-z0-9_]*/)) {
-        delim=substr(rest,RSTART,RLENGTH)
+        delim=substr(rest,RSTART,RLENGTH); after=substr(rest,RSTART+RLENGTH,1); quoted=0
       } else { bail=1; next }         # delimiter 파싱 불가 → 판정 포기(원본)
+      # 구분자 낱말이 여기서 끝나야 한다 (20261123) — bash 는 `E"O"F`·`EOF"x"` 를 따옴표를 뗀 한 낱말로 읽는데
+      #   위 파싱은 앞 조각만 잡아(`E`) 엉뚱한 줄을 종료자로 보고 그 뒤의 진짜 커밋을 본문으로 지웠다(재현). 모르면 판정 포기.
+      if (after!="" && index(" \t;&|<>()", after)==0) { bail=1; next }
       # 실행자 판정 — 시작 줄(과 줄 연속으로 이어진 앞 줄)을 BEGIN 의 네 판정으로 본다.
       #   남는 표면: 본문을 파일로 쓴 뒤 그 파일을 실행하는 꼴(`cat > s.sh <<EOF` … `bash s.sh`)과 python 등 다른 언어 본문의
       #   subprocess 는 여기서 보지 않는다(F-3 wrapper-class — 파일·다른 언어를 거친 실행).
       keep=(ctx ~ SHRE || ctx ~ DOTRE || ctx ~ VARRE || $0 ~ TRAILRE) ? 1 : 0
-      inb=1
+      inb=1; nb=0; subst=0
     }
     END {
       if (bail || inb) { for(i=1;i<=NR;i++) print orig[i] }   # 미종료·판정 포기 → 원본 (fail-safe)

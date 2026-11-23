@@ -1443,6 +1443,9 @@ _nocheck "T-cause.j-4d receipt 를 '유일한' 경로라 단정 안 함" '유일
 _msg_env=$(printf '%s' "$_in_iab" | _VS_VERDICT_CACHE=PASS _VS_VERDICT_CACHE_FID=20260910-p \
   CLAUDE_PROJECT_DIR="$_IAB" bash "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.permissionDecisionReason // ""')
 check "T-cause.j-4e 캐시 env 선주입으로 열리지 않는다" 'verify 면제 조건' "$_msg_env"
+# j-4e 는 다른 조건이 deny 를 지켜 초기화가 꺼져도 통과했다(20261123 — 초기화 줄이 주석 안으로 들어간 퇴행을 못 잡음). 초기화 자체를 본다.
+_cache_after=$(_VS_VERDICT_CACHE=PASS _VS_VERDICT_CACHE_FID=20260910-p bash -c '. "$1" >/dev/null 2>&1; printf "cache=%s/%s:end" "${_VS_VERDICT_CACHE-unset}" "${_VS_VERDICT_CACHE_FID-unset}"' _ "$PLUGIN/hooks/governance-lib.sh")
+check "T-cause.j-4f lib 을 source 하면 verdict 캐시 env 가 비워진다" 'cache=/:end' "$_cache_after"
 rm -rf "$_IAB"
 
 # ── T-bypass-cat: BYPASS 사유 분류 기록 (면제 남용 축소 1 — 판정 불변) ──
@@ -1726,6 +1729,21 @@ out=$(mkstdin "git commit -m x && gh pr create --fill" "$FIX/pretool-no-verify.j
 check "T-form.w ★ commit && pr create (PR 범위는 문서뿐 · staged 에 코드) → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "git stage b.sh && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
 check "T-form.w2 git stage 를 함께 하는 compound 도 종전 경로 → deny" '"permissionDecision":"deny"' "$out"
+rm -rf "$_pg"
+# 반대 꼴 (20261123 · 재현): 브랜치에 커밋된 코드가 있고 작업트리는 문서뿐 — 문서 커밋을 앞에 붙여도 PR 범위의 코드는 그대로 실린다.
+_pg=$(mktemp -d); _prs_mk "$_pg" a.sh
+out=$(mkstdin "git commit -am docs && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
+check "T-form.w3 ★ 문서 커밋 && pr create (커밋된 코드가 PR 범위에) → deny" '"permissionDecision":"deny"' "$out"
+out=$(mkstdin "git commit -am docs && gh pr new --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
+check "T-form.w4 gh pr new 별칭도 같다" '"permissionDecision":"deny"' "$out"
+# 커밋 메시지 속 'gh pr create' 글자는 PR 생성이 아니다 — 브랜치에 코드 커밋이 있어도 문서 커밋은 면제된다
+( cd "$_pg" && echo more >> README.md ) >/dev/null 2>&1
+out=$(mkstdin 'git add README.md && git commit -m "docs: gh pr create 안내"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
+check "T-form.w6 대조 — 메시지 속 PR 글자로는 PR 범위 판정을 타지 않는다" '"continue":true' "$out"
+rm -rf "$_pg"
+_pg=$(mktemp -d); _prs_mk "$_pg" notes.md
+out=$(mkstdin "git commit -am docs && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
+check "T-form.w5 대조 — PR 범위도 작업트리도 문서뿐이면 면제" '"continue":true' "$out"
 rm -rf "$_pg"
 # `git stage` 는 `git add` 와 같다 — untracked 신규 코드가 커밋에 실린다
 _ug=$(mktemp -d); _unt_mk "$_ug" new.sh
@@ -2233,8 +2251,14 @@ allow|cat > f.md <<'EOF'<NL>(git commit 으로 기록)<NL>EOF<NL>ls
 allow|echo "<<" ; cat > f.md <<EOF<NL>git commit -am x<NL>EOF
 allow|cat > install.sh <<EOF<NL>git commit -am x<NL>EOF
 allow|python3 - <<'PY'<NL>git commit -am x<NL>PY
+deny|cat <<EOF<NL>$(git commit -am x)<NL>EOF
+deny|cat <<EOF<NL>`git commit -am x`<NL>EOF
+deny|cat <<EOF<NL>$(true<NL>git commit -am x<NL>)<NL>EOF
+deny|cat <<E"O"F<NL>x<NL>EOF<NL>git commit -am x<NL>E
+allow|cat > f.md <<'EOF'<NL>$(git commit -am x)<NL>EOF
+allow|cat > docs/bash/guide.md <<EOF<NL>git commit -am x<NL>EOF
 HQ
-if [ -z "$_hq_bad" ] && [ "$_hq_n" = 17 ]; then pass=$((pass+1)); echo "PASS T-hdq.a ★ 숨긴 커밋 12꼴 deny(인용·주석 속 << 7 · 실행자 회피 5) · 데이터 heredoc 본문의 커밋 예시 5꼴은 트리거가 아니다"
+if [ -z "$_hq_bad" ] && [ "$_hq_n" = 23 ]; then pass=$((pass+1)); echo "PASS T-hdq.a ★ 숨긴 커밋 16꼴 deny(인용·주석 속 << 7 · 실행자 회피 5 · 따옴표 없는 본문의 명령 치환 3 · 구분자 오독 1) · 데이터 heredoc 본문의 커밋 예시 7꼴은 트리거가 아니다"
 else fail=$((fail+1)); echo "FAIL T-hdq.a n=$_hq_n$_hq_bad"; fi
 rm -rf "$_hq"
 

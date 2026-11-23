@@ -383,5 +383,16 @@ else
   FAIL=$((FAIL+1)); echo "FAIL: T14.b 본문이 ${_long_limit}자를 넘었다 — 뒤쪽을 보조 파일로 나누거나, 안내 블록을 넣고 이 테스트의 _long_allow 에 사유와 함께 올린다:$_long_new"
 fi
 
+# T15: 추적 파일에 개인 절대 경로가 없다 (20261123 — 공개 저장소에 작업자 홈 경로 4곳이 들어가 있었다).
+#   예시용 이름(me·mac·x·dev·someone·secret)만 허용한다. 진짜 사용자 이름이 보이면 `/home/dev/project/` 같은 중립 경로로 바꾼다.
+_pp_bad=$(cd "$PLUGIN" && git grep -noE '/Users/[A-Za-z0-9._-]+' -- . ':!CHANGELOG.md' 2>/dev/null | grep -vE '/Users/(me|mac|x|dev|someone|secret)$' | cut -d: -f1,3 | sort -u | head -5)
+if [ -z "$_pp_bad" ] && git -C "$PLUGIN" rev-parse --git-dir >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS: T15.a 추적 파일에 작업자 개인 홈 경로가 없다"
+elif ! git -C "$PLUGIN" rev-parse --git-dir >/dev/null 2>&1; then
+  PASS=$((PASS+1)); echo "PASS: T15.a (git 저장소가 아니라 건너뜀)"
+else
+  FAIL=$((FAIL+1)); echo "FAIL: T15.a 개인 홈 경로:"; printf '%s\n' "$_pp_bad" | sed 's/^/  /'
+fi
+
 echo "PASS=$PASS FAIL=$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -26,7 +26,7 @@
 **재현** (1줄):
 ```bash
 bash scripts/_internal/extract-test-commands.sh \
-  /Users/andyko/Project/0.Claude/Argus/.specops/20260826-argus-chart/tasks.md
+  /home/dev/project/Argus/.specops/20260826-argus-chart/tasks.md
 # → WARN: ... YAML missing test_command — falling back to Step 4 line grep
 # → extract-test-commands: 명령 0건
 # 그런데 그 파일 44·48행에 test_command 가 실재한다.

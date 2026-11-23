@@ -255,12 +255,12 @@ cmd_context() {
 # 사용자가 쓴 본문에서 공개하면 안 될 것처럼 보이는 글자를 찾는다 — 막지 않고 알린다(오탐이 잦은 추정으로 막으면 우회만 는다)
 _scan_body() {
   local b="$1"
-  printf '%s' "$b" | grep -Eq '(/Users/|/home/|/var/|/opt/|~/|[A-Za-z]:\\|\\\\[A-Za-z0-9])' && echo "WARN: 본문에 파일 경로처럼 보이는 글자가 있다"
+  printf '%s' "$b" | grep -Eq '(/Users/|/home/|/var/|/opt/|/root/|/tmp/|/private/|/Volumes/|/mnt/|~/|[A-Za-z]:\\|\\\\[A-Za-z0-9]|(^|[^A-Za-z0-9])[A-Za-z]:/[^/])' && echo "WARN: 본문에 파일 경로처럼 보이는 글자가 있다"
   printf '%s' "$b" | grep -Eq '[A-Za-z][A-Za-z0-9+.-]*://' && echo "WARN: 본문에 주소(URL·접속 문자열)가 있다"
   printf '%s' "$b" | grep -Eq '(^|[^0-9])[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}([^0-9]|$)' && echo "WARN: 본문에 IP 주소처럼 보이는 글자가 있다"
-  printf '%s' "$b" | grep -Eq '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' && echo "WARN: 본문에 메일 주소처럼 보이는 글자가 있다"
+  printf '%s' "$b" | grep -Eq '[^[:space:]@]+@[^[:space:]@]+[.][^[:space:]@.]{2,}' && echo "WARN: 본문에 메일 주소처럼 보이는 글자가 있다"
   printf '%s' "$b" | grep -Eq '(^|[^0-9])[0-9]{8}-[a-z0-9]+(-[a-z0-9]+)+' && echo "WARN: 본문에 작업 이름(FID)처럼 보이는 글자가 있다 — 하는 일이 드러난다"
-  printf '%s' "$b" | grep -Eqi '(gh[pousr]_[A-Za-z0-9]{20,}|(^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}|AKIA[A-Z0-9]{12,}|xox[abprs]-[A-Za-z0-9-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.|bearer[[:space:]]+[A-Za-z0-9._-]{12,}|(token|secret|password|passwd|api[_-]?key)[[:space:]]*[:=][[:space:]]*[^[:space:]]{6,})' && echo "WARN: 본문에 비밀 값처럼 보이는 글자가 있다 — 지우고 올린다"
+  printf '%s' "$b" | grep -Eqi '(gh[pousr]_[A-Za-z0-9]{20,}|(^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}|AKIA[A-Z0-9]{12,}|xox[abprs]-[A-Za-z0-9-]{10,}|eyJ[A-Za-z0-9_-]{10,}\.|bearer[[:space:]]+[A-Za-z0-9._-]{12,}|github_pat_[A-Za-z0-9_]{20,}|sk_(live|test)_[A-Za-z0-9]{10,}|AIza[A-Za-z0-9_-]{20,}|glpat-[A-Za-z0-9_-]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|basic[[:space:]]+[A-Za-z0-9+/=]{12,}|(token|secret|password|passwd|api[_-]?key|(secret|access|private)[_-]?key)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"']?[^[:space:]"'"'"']{6,})' && echo "WARN: 본문에 비밀 값처럼 보이는 글자가 있다 — 지우고 올린다"
   return 0
 }
 
@@ -333,7 +333,8 @@ cmd_submit() {
   trap "rm -f '$body_f'" EXIT
   sed '1d' "$f" | sed '1{/^$/d;}' > "$body_f"
   # 올리기 직전에 한 번 더 본다 — 초안을 만든 뒤 손으로 고쳤을 수 있다
-  _scan_body "$(sed -n '/^## 겪은 일$/,/^## 상태$/p' "$f")"
+  #   제목 줄과 본문 전체를 본다 — 본문 안에 `## 상태` 줄이 있어도 거기서 끊기지 않게(20261123)
+  _scan_body "$title"$'\n'"$(cat "$body_f")"
   url="https://$host/$path/issues/new?template=feedback.md"
   if command -v gh >/dev/null 2>&1 && gh auth status --hostname "$host" >/dev/null 2>&1; then
     # 라벨이 그 저장소에 없으면 gh 가 실패한다 — 라벨 없이 한 번 더 한다

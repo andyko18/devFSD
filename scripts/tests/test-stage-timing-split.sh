@@ -351,7 +351,7 @@ mktr "$SB/cfg6/projects/$ENC/sub/subagents/x.jsonl" <<'EOF'
 EOF
 OUT=$(TZ=UTC TMPDIR="$SB/tmp" CLAUDE_CONFIG_DIR="$SB/cfg6" SPECOPS_ROOT="$ROOT6/.specops" "$BASH_BIN" "$ST" --split 2>"$SB/err"); RC=$?
 ck "T6.d CLAUDE_CONFIG_DIR + 원장 루트 실경로(비영숫자→-)로 디렉토리를 찾고 직속 jsonl 만 읽는다(하위 subagents 제외) · stderr 비어 있음" "$RC|$(row '/plan 완료')|$(wc -c < "$SB/err" | tr -d ' ')" "0|15 5 3 4 3|0"
-ck "T6.e 인코딩 규칙 — 실제 관측 이름(슬래시·점이 -, 선두 - 유지)" "$(printf '%s' '/Users/andyko/Project/0.Claude/specops-ko' | sed 's/[^A-Za-z0-9]/-/g')" "-Users-andyko-Project-0-Claude-specops-ko"
+ck "T6.e 인코딩 규칙 — 실제 관측 이름(슬래시·점이 -, 선두 - 유지)" "$(printf '%s' '/home/dev/project/specops-ko' | sed 's/[^A-Za-z0-9]/-/g')" "-home-dev-project-specops-ko"
 runs l3a --split --transcript-dir "$SB/td1" --since 20261001 --min-n 1 --gap-cap-min 720
 ck "T6.f --since·--min-n·--gap-cap-min 은 --split 과 함께 동작한다" "$RC|$(row '/plan 완료')" "0|15 5 3 4 3"
 

@@ -207,7 +207,7 @@ BYPASS 표본 30건 중 다수가 사유란에 **"코드 변경 0"**이라 적�
 | `git add -A && git commit` · `git commit -am` | 보수 (의도된 차단 — 정당) |
 
 **아래 세 형태가 BYPASS 로그에 실제로 나오는 커밋 형태의 대다수다.** Argus·gobiseo·auto-company 로그를
-그대로 인용하면 `cd /Users/andyko/Project/0.Claude/Argus` ⏎ `git commit -q -F - <<'EOF'`,
+그대로 인용하면 `cd /home/dev/project/Argus` ⏎ `git commit -q -F - <<'EOF'`,
 `git add .specops/memory/decisions.md && … git commit`, `MSG=/private/tmp/…` ⏎ `cat > "$MSG"` ⏎
 `git commit -q -F "$MSG"` — **셋 다 보수 판정으로 떨어진다.**
 

@@ -216,6 +216,35 @@ n=$(printf '%s\n' "$out" | grep -c '^WARN:')
 [ "$n" = 4 ] && ok "F5.s 작업 이름(FID)·IP·접속 문자열·Bearer 값을 경고한다" || no "F5.s" "n=$n $out"
 out=$(_fb draft "risk-assessment-for-customer-tokens 문서를 고쳤다")
 ! has "$out" "WARN:" && ok "F5.t 하이픈으로 이은 긴 낱말은 비밀 값이 아니다(sk- 오탐 없음)" || no "F5.t" "$out"
+# F5.v ★ 20261123 검토에서 재현된 누락 — 본문의 비밀 값·경로·메일 꼴마다 경고가 난다(꼴 하나에 본문 하나)
+_leak_n=0; _leak_miss=""
+while IFS= read -r _leak; do
+  [ -n "$_leak" ] || continue
+  _leak=${_leak//\~/}   # 비밀처럼 보이는 글자를 파일에 그대로 두지 않는다(저장소 보안 스캔이 잡는다) — ~ 를 지워 되돌린다
+  _leak_n=$((_leak_n + 1))
+  out=$(printf '%s\n' "$_leak" | (cd "$P" && bash "$FB" draft --stdin 2>&1))
+  has "$out" "WARN:" || _leak_miss="$_leak_miss [$_leak]"
+done <<'LEAKS'
+{"pass~word":"hunter2hunter2"}
+{"to~ken": "abcdefghijklmnop1234"}
+SECRET~_KEY=abcdefghijk
+aws_sec~ret_access_key=abcdefghijklmnop
+github_~pat_11ABCDEFG0123456789abcdef
+sk_li~ve_abcdefghijklmnop
+AIz~aSyA1234567890abcdefghijk
+glp~at-abcdefghijklmnopqrstu
+-----BEGIN RSA PRIV~ATE KEY-----
+Authorization: Ba~sic dXNlcjpwYXNzd29yZA==
+D:/work/acme/src
+/Volumes/Work/acme
+/mnt/c/work
+/root/app
+/tmp/acme/x.log
+홍길동@회사.com
+LEAKS
+[ "$_leak_n" = 16 ] && [ -z "$_leak_miss" ] && ok "F5.v ★ 따옴표 낀 JSON 키·_KEY 이름·토큰 접두(github_pat·sk_live·AIza·glpat)·PEM·Basic·드라이브 경로·/Volumes·/mnt·/root·/tmp·비ASCII 메일을 경고한다(16꼴)" || no "F5.v" "n=$_leak_n 놓침:$_leak_miss"
+out=$(printf '%s\n' "https://example.com/a 와 @scope/pkg 와 5.15.5 버전" | (cd "$P" && bash "$FB" draft --stdin 2>&1))
+[ "$(printf '%s\n' "$out" | grep -c '^WARN:')" = 1 ] && has "$out" "주소" && ok "F5.w 대조 — 주소·@scope·버전 숫자는 주소 경고 1건뿐(드라이브·메일 오탐 없음)" || no "F5.w" "$out"
 out=$(cd "$P" && FEEDBACK_REPO='--web x' bash "$FB" draft "x" 2>&1); rc=$?
 [ "$rc" = 2 ] && has "$out" "owner/name" && ok "F5.u 저장소 이름이 꼴이 아니면 rc 2" || no "F5.u" "rc=$rc $out"
 
@@ -260,6 +289,11 @@ d=$(_fb draft "깨끗한 본문" | sed -n 's/^DRAFT: //p')
 printf '\n/Users/me/secret/path 에서 났다\n' > "$T/ins"; sed -i.bak "/^## 겪은 일$/r $T/ins" "$d"
 out=$(cd "$P" && PATH="$BIN:$PATH" bash "$FB" submit "$d" 2>&1)
 has "$out" "WARN: 본문에 파일 경로" && ok "F6.n 올리기 직전에 본문을 한 번 더 본다(초안을 손으로 고친 경우)" || no "F6.n" "$out"
+# F6.o submit 은 본문 안의 '## 상태' 줄 뒤도 다시 본다 (20261123 — 종전엔 `## 겪은 일`~`## 상태` 범위만 봤다). gh 는 가짜($BIN)다.
+d=$(_fb draft "깨끗한 본문" | sed -n 's/^DRAFT: //p')
+printf '/Users/me/secret/path 는 상태 절 뒤에 있다\n' >> "$d"
+out=$(cd "$P" && PATH="$BIN:$PATH" bash "$FB" submit "$d" 2>&1)
+has "$out" "WARN: 본문에 파일 경로" && ok "F6.o ★ submit 은 '## 상태' 이후도 다시 본다" || no "F6.o" "$out"
 out=$(_fb submit "$T/none.md"); rc=$?
 [ "$rc" = 2 ] && ok "F6.i 초안 파일이 없으면 rc 2" || no "F6.i" "rc=$rc $out"
 out=$(_fb nope); rc=$?

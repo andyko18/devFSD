@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **`/feedback` 의 본문 경고가 놓치던 꼴을 더했다**(재현됨 — 공개 저장소로 올라가는 글이다). 따옴표 낀 JSON 키(`{"password":"…"}`)·`SECRET_KEY=`·`aws_secret_access_key=`·`github_pat_`·`sk_live_`·`AIza…`·`glpat-…`·PEM 개인 키 머리·`Authorization: Basic …`, `D:/…` 드라이브 경로·`/Volumes`·`/mnt`·`/root`·`/tmp`·`/private`, 한글 메일 주소. `submit` 이 올리기 직전에 다시 볼 때 본문 안의 `## 상태` 줄에서 끊기던 것도 제목과 본문 전체를 보게 했다. 경고만 하고 막지는 않는다(오탐이 잦은 추정으로 막으면 우회만 는다).
+- **추적 파일에 들어 있던 작업자 개인 홈 경로를 중립 경로로 바꿨다**(문서 2 · 평가 데이터 · 테스트 1). 공개 저장소에 `/Users/<이름>/…` 이 그대로 있었다. 다시 들어오지 않게 `test-skill-conventions.sh` T15 가 예시용 이름 말고는 막는다.
+
 ## [5.15.5] — 2026-11-23
 
 ### Fixed

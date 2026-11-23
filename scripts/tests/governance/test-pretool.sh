@@ -1736,6 +1736,10 @@ out=$(mkstdin "git commit -am docs && gh pr create --fill" "$FIX/pretool-no-veri
 check "T-form.w3 ★ 문서 커밋 && pr create (커밋된 코드가 PR 범위에) → deny" '"permissionDecision":"deny"' "$out"
 out=$(mkstdin "git commit -am docs && gh pr new --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
 check "T-form.w4 gh pr new 별칭도 같다" '"permissionDecision":"deny"' "$out"
+# 커밋 메시지 속 'gh pr create' 글자는 PR 생성이 아니다 — 브랜치에 코드 커밋이 있어도 문서 커밋은 면제된다
+( cd "$_pg" && echo more >> README.md ) >/dev/null 2>&1
+out=$(mkstdin 'git add README.md && git commit -m "docs: gh pr create 안내"' "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)
+check "T-form.w6 대조 — 메시지 속 PR 글자로는 PR 범위 판정을 타지 않는다" '"continue":true' "$out"
 rm -rf "$_pg"
 _pg=$(mktemp -d); _prs_mk "$_pg" notes.md
 out=$(mkstdin "git commit -am docs && gh pr create --fill" "$FIX/pretool-no-verify.jsonl" | CLAUDE_PROJECT_DIR="$_pg" bash "$HOOK" 2>/dev/null)

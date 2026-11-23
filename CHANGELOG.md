@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.15.2] — 2026-11-23
+
 ### Changed
 
 - **demo-ko 의 낡은 "진행 패널" 표기를 "관제판" 으로 고쳤다**(화면 종류 표·확인 문구와 그 잠금 테스트). CI 주석의 낡은 테스트 건수도 뺐다.
@@ -4401,7 +4403,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.1...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.2...HEAD
+[5.15.2]: https://github.com/andyko18/devFSD/compare/v5.15.1...v5.15.2
 [5.15.1]: https://github.com/andyko18/devFSD/compare/v5.15.0...v5.15.1
 [5.15.0]: https://github.com/andyko18/devFSD/compare/v5.14.2...v5.15.0
 [5.14.2]: https://github.com/andyko18/devFSD/compare/v5.14.1...v5.14.2

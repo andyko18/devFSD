@@ -77,12 +77,12 @@ else
 fi
 rm -rf "$sb"
 
-# T4 commands/start.md 에 superpowers 런타임 참조 삽입 — FAIL
+# T4 commands/start.md 에 다른 플러그인 skill 의 런타임 호출 삽입 — FAIL
 sb=$(mktemp -d); make_sandbox "$sb"
-printf -- '---\nname: bad\n---\nsuperpowers: call-this-at-runtime\n' > "$sb/commands/start.md"
+printf -- '---\nname: bad\n---\nSkill: otherplugin:call-this-at-runtime\n' > "$sb/commands/start.md"
 err=$(bash "$sb/scripts/_internal/validate-structure.sh" 2>&1); rc=$?
-if [ $rc -eq 1 ] && echo "$err" | grep -q 'no_superpowers: FAIL'; then
-  PASS=$((PASS+1)); echo "PASS T4 superpowers runtime ref FAIL"
+if [ $rc -eq 1 ] && echo "$err" | grep -q 'no_foreign_skill_ref: FAIL'; then
+  PASS=$((PASS+1)); echo "PASS T4 foreign skill runtime ref FAIL"
 else
   FAIL=$((FAIL+1)); echo "FAIL T4 (rc=$rc, out=$(echo "$err" | head -10))"
 fi

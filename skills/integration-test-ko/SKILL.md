@@ -2,7 +2,7 @@
 name: integration-test-ko
 description: lifecycle chain에서 통합 표면(API 엔드포인트·DB·다중 모듈 경계) 검출 시 통합 테스트를 작성·실행·증거화. 표면 부재 시 graceful skip
 layer: 2
-reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
+reference_upstream: specops-ko 독자 추가
 specops_version: 4.0.9
 used_by: security-review-ko (단일 모드 chain 진입), /start-all (batch 모드 직접 호출), performance-test-ko (chain 출구)
 user-invocable: false
@@ -236,7 +236,6 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/session-progress-append.sh <FID> /integrati
 
 ## 참조
 
-- 번안 원본 패턴: Jeffallan/claude-skills `skills/test-master/references/integration-testing.md` (HEAD SHA e8be415)
 - 선행 skill: `skills/receiving-code-review-ko/SKILL.md`
 - 증거 원칙: `skills/verifying-evidence-ko/SKILL.md`
 - 실패 우회: `skills/systematic-debugging-ko/SKILL.md`

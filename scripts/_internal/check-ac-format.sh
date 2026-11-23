@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-ac-format.sh — AC 필드 게이트 (20260807, OpenSpec 대비 갭분석 G1)
+# check-ac-format.sh — AC 필드 게이트 (20260807)
 # Usage: check-ac-format.sh <FID>
 # Exit: 0 = PASS(WARN 포함) · 1 = FAIL · 2 = acceptance-criteria.md 부재
 #

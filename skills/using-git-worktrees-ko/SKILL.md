@@ -2,7 +2,7 @@
 name: using-git-worktrees-ko
 description: 현재 워크스페이스에서 격리가 필요한 기능 작업을 시작하거나 구현 플랜 실행 전에 사용 — git worktree로 격리 워크스페이스를 생성하고 안전 검증
 layer: 2
-reference_upstream: obra/superpowers@v5.1.0 skills/using-git-worktrees/SKILL.md
+reference_upstream: specops-ko 독자 추가
 specops_version: 1.0.0
 used_by: specifying-ko (Phase 4 — 설계 승인 후 구현 직전), implementing-ko (모든 태스크 실행 전), planning-ko (참조)
 integrates_with: devfsd:finishing-a-development-branch-ko

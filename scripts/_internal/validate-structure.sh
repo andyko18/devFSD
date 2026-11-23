@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # specops-ko v0.0 PoC · 플러그인 구조 무결성 정적 검증 (Gate)
-# 체크: 디렉토리·파일수·frontmatter·superpowers 런타임 참조·매니페스트 일관성
+# 체크: 디렉토리·파일수·frontmatter·다른 플러그인 skill 호출·매니페스트 일관성
 # 사용: scripts/validate-structure.sh [--json]
 # baseline: 실측 카운트의 단일 출처는 scripts/_internal/.structure-baseline (jsonl) — 본 주석에 수치 비기재(드리프트 방지).
 #           카테고리: skills/<name>/SKILL.md · commands · agents · templates (conductor 없이 chain)
@@ -184,11 +184,11 @@ else
   emit frontmatter SKIP "python3+pyyaml 미설치 — 한계 고백"
 fi
 
-# 4) commands/ 에 superpowers 런타임 참조 0건 (v0.0: agents/ 없음)
-# 허용: #/<!-- 주석, YAML 리스트(- superpowers), reference_upstream:, superpowers:/... 경로
-sp=$(grep -rE '^[^#<-]*superpowers:' commands/ 2>/dev/null \
-     | grep -vE '^[^:]*:[[:space:]]*(#|reference_upstream)' || true)
-if [ -z "$sp" ]; then emit no_superpowers OK; else emit no_superpowers FAIL "$(echo "$sp" | head -3 | tr '\n' ';')"; fi
+# 4) commands/ 에 다른 플러그인 skill 의 런타임 호출 0건 (이 플러그인은 자기 skill 만 부른다)
+# 허용: #/<!-- 주석·YAML 리스트 줄, `Skill: devfsd:<이름>` 호출
+sp=$(grep -rE '^[^#<-]*Skill:[[:space:]]*[a-z0-9-]+:' commands/ 2>/dev/null \
+     | grep -vE 'Skill:[[:space:]]*devfsd:' || true)
+if [ -z "$sp" ]; then emit no_foreign_skill_ref OK; else emit no_foreign_skill_ref FAIL "$(echo "$sp" | head -3 | tr '\n' ';')"; fi
 
 # 5) 매니페스트 version 일관성
 if command -v python3 >/dev/null 2>&1; then
@@ -202,15 +202,6 @@ if command -v python3 >/dev/null 2>&1; then
 else
   emit manifest SKIP "python3 미설치"
 fi
-
-# 6) reference_upstream 포맷 정보성
-# 유효 포맷: (a) owner/repo@version path  (b) specops-ko 독자 추가 (upstream 미존재 명시)
-total=$(grep -rh '^reference_upstream:' commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
-struct_std=$(grep -rhE '^reference_upstream:[[:space:]]+[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+@[a-zA-Z0-9._-]+[[:space:]]+[^[:space:]]+' \
-         commands/ skills/ docs/ 2>/dev/null | wc -l | tr -d ' ')
-struct_local=$(grep -rh '^reference_upstream:' commands/ skills/ docs/ 2>/dev/null | grep -c '독자 추가' || true)
-struct=$((struct_std + struct_local))
-emit ref_upstream_fmt INFO "struct=${struct}/${total}"
 
 # 7) skill_conventions — SKILL.md frontmatter + 섹션 규약 검증
 if [ ! -f "scripts/tests/test-skill-conventions.sh" ]; then

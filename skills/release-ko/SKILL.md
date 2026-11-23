@@ -2,7 +2,7 @@
 name: release-ko
 description: bash scripts/release.sh <semver> 1회로 CHANGELOG·README·footer·manifest 동기화, git 태그, 원격 push·GitHub Release 발행까지 완료되는 릴리즈 자동화
 layer: 2
-reference_upstream: specops-ko 독자 추가 (alirezarezvani/claude-skills release-manager + OMC skills/release/ 패턴 bash 번안)
+reference_upstream: specops-ko 독자 추가
 specops_version: 3.1.33
 used_by: /release
 user-invocable: false

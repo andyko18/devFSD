@@ -51,9 +51,8 @@ scripts/_internal/validate-structure.sh --json   # CI 통합용 JSON
 | `file_counts` | `.structure-baseline` glob 카운트 불일치 (현재 commands=25·skills=31·templates=36·agents=16 — 정본은 `.structure-baseline`) |
 | `meta_injection` | `session-start.sh` 메타 skill 주입 누락 |
 | `frontmatter` | YAML 파싱 실패 (pyyaml 부재 시 SKIP — 한계 고백) |
-| `no_superpowers` | `commands/`·`agents/` 에 superpowers 런타임 참조 발견 |
+| `no_foreign_skill_ref` | `commands/` 에 다른 플러그인 skill 의 런타임 호출(`Skill: <다른 네임스페이스>:`) 발견 |
 | `manifest` | `plugin.json` ≠ `marketplace.json` 버전 |
-| `ref_upstream_fmt` | 구조화 비율 정보성 보고 (FAIL 아님) |
 | `skill_conventions` | SKILL.md 필수 필드·섹션 누락 |
 | `version_sync` | 버전 문자열 불일치 |
 | `readme_counts` | README 자산 카운트 불일치 |
@@ -69,40 +68,11 @@ scripts/_internal/validate-structure.sh --json   # CI 통합용 JSON
 ✅ directories: OK
 ✅ file_counts: OK
 ⚠️  frontmatter: SKIP — python3+pyyaml 미설치 — 한계 고백
-✅ no_superpowers: OK
+✅ no_foreign_skill_ref: OK
 ✅ manifest: OK (both=0.1.0)
-ℹ️  ref_upstream_fmt: struct=8/23
 ```
 
 exit code: `0` 전체 통과, `1` 하나 이상 FAIL.
-
-## v0.2 — 세션 5.5 🆕
-
-### `diff-upstream.sh`
-
-상류 OSS 원본과 내재화본 간 drift 감지 프로토타입. 엄격 정규식
-(`<owner>/<repo>@<tag> <path.ext>` + 라인 끝 앵커)으로 struct 분류
-후 `##`·`###` 섹션 헤더 집합만 비교(한국어 재창작이라 본문 diff
-무의미). 차이 결과를 `docs/upstream-drift-log.md`에 run 블록으로
-prepend.
-
-```bash
-scripts/_internal/diff-upstream.sh               # 캐시 우선, miss 시 fetch
-scripts/_internal/diff-upstream.sh --cached      # 네트워크 금지, 캐시만
-scripts/_internal/diff-upstream.sh --no-fetch    # 캐시 miss 시 skip (offline 테스트)
-scripts/_internal/diff-upstream.sh --file skills/tdd-ko/SKILL.md   # 단일 파일
-```
-
-**분류**:
-- `struct` (auto): 엄격 매칭 (현재 — `skills/*/SKILL.md` 플랫 경로)
-- `manual`: 다중·서술형·확장자 없음 (현재 17건) — v0.3 primary/secondary 필드 split 예정
-
-**캐시**: `.specops-cache/upstream/${owner}__${repo}__${tag}__<path>` (gitignored)
-
-**카운트 차이 (정상)**:
-- `validate-structure.sh`의 `ref_upstream_fmt: struct=8/23` — 덜 엄격 (확장자 없어도 매칭)
-- `diff-upstream.sh` 의 `struct=4` — 엄격 매칭
-- 상세 배경: `docs/OSS-ATTRIBUTION.md §3.5`
 
 ## v0.2 — 세션 6 🆕
 
@@ -133,7 +103,6 @@ bash scripts/tests/test-count-artifacts.sh              # 7건 (v0.1)
 bash scripts/tests/test-validate-task-dependencies.sh   # 7건 (v0.2 세션 4)
 bash scripts/tests/test-validate-structure.sh           # 7건 (v0.2 세션 5) — T1~T13
 bash scripts/tests/test-validate-structure-chain.sh     # T14~T-cc4 (chain·agent_tools·hardgate) — 20261008 분할
-bash scripts/tests/test-diff-upstream.sh                # 8건 (v0.2 세션 5.5)
 bash scripts/tests/test-is-hook-enabled.sh              # 7건 (v0.2 세션 6)
 ```
 
@@ -142,7 +111,7 @@ bash scripts/tests/test-is-hook-enabled.sh              # 7건 (v0.2 세션 6)
 ```bash
 [ $(ls commands/*.md | wc -l | tr -d ' ') -eq 24 ] && echo commands:OK
 [ $(ls agents/*.md | wc -l | tr -d ' ') -eq 8 ] && echo agents:OK
-! grep -rE "^[^#<-]*superpowers:" commands/ agents/
+! grep -rE "^[^#<-]*Skill:[[:space:]]*[a-z0-9-]+:" commands/ | grep -vE "Skill:[[:space:]]*devfsd:"
 # ↑ validate-structure.sh 가 이 모두를 자동화 — 직접 실행 불필요
 ```
 
@@ -185,7 +154,6 @@ bash scripts/tests/llm-eval/test-llm-eval.sh        # runner 단위 테스트 (s
 
 ## 참조
 
-- `docs/OSS-ATTRIBUTION.md` — drift 관리 프로토콜
 - `docs/ARCHITECTURE.md` §7
 - `hooks/README.md` — v0.2 evaluator 메타 훅 + post-implement·pre-commit
 

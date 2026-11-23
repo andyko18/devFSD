@@ -1,8 +1,8 @@
 ---
 name: brainstorming-ko
-description: 구현 전 아이디어 탐색·수요 검증 — Startup(YC 6 forcing questions) + Builder(창의 탐색) 모드 선택. pre-design 산출물 승인 게이트 (chain 비강제 — 명시 선택 진입). gstack office-hours 한국어 재창작.
+description: 구현 전 아이디어 탐색·수요 검증 — Startup(YC 6 forcing questions) + Builder(창의 탐색) 모드 선택. pre-design 산출물 승인 게이트 (chain 비강제 — 명시 선택 진입).
 layer: 2
-reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
+reference_upstream: specops-ko 독자 추가
 specops_version: 1.72.0
 used_by: /brainstorming, 선택적 pre-init-project 진입
 user-invocable: false
@@ -364,4 +364,4 @@ OUTPUT=".specops/memory/brainstorming-${DATE}-${TIME}-${SLUG}.md"
 
 ---
 
-*specops-ko v1.72.0 · 2026-07-09 · garrytan/gstack office-hours/SKILL.md 한국어 재창작*
+*specops-ko v1.72.0 · 2026-07-09*

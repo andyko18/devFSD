@@ -133,7 +133,7 @@ devFSD 가 서브에이전트·산출물·세션을 다루는 다섯 원칙의 �
 │   ├── data-model.md              # /plan 생성 (선택)
 │   ├── contracts/                 # /plan 생성 (선택)
 │   ├── tasks.md                   # /tasks 생성, /implement 상태 마킹
-│   ├── handoffs/                  # Stage handoff 문서 (OMC 패턴 차용)
+│   ├── handoffs/                  # Stage handoff 문서
 │   │   ├── specifying.md          # specifying-ko 완료 시 생성
 │   │   ├── planning.md            # planning-ko 완료 시 생성
 │   │   ├── decomposing.md         # decomposing-ko 완료 시 생성
@@ -147,7 +147,7 @@ devFSD 가 서브에이전트·산출물·세션을 다루는 다섯 원칙의 �
 └── session-progress.md            # 전역, 모든 커맨드 append
 ```
 
-### Stage Handoff 문서 규약 (OMC 차용)
+### Stage Handoff 문서 규약
 
 각 engine skill은 `## 다음 skill` 진입 **직전** `.specops/<FID>/handoffs/<stage>.md`를 기록한다. context reset/compact 이후에도 다음 skill이 결정 맥락을 복원할 수 있게 한다.
 

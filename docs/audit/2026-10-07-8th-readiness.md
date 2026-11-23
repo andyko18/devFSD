@@ -16,7 +16,7 @@
 
 - 강제력: FID 스코프 기계 강제(산문 → `emit-context` 게이트) · 예외 라벨 사용 `FID-SIZE-EXEMPT` 기록 · cwd `yaml.py` 판정기 우회 차단(9곳) — **외부 보유율에는 미반영**
 - 경제성: `validate-structure` 12s → 4s, `test-validate-structure` 151s → 69s(같은 부하) · 링크 worktree pre-push 의 `GIT_DIR` 누수 차단
-- 품질(리뷰): `code-reviewer-ko` 과잉 설계 관점 + `shortcut:` 부채 장부(ponytail 번안) — **프롬프트라 준수는 미측정**(수동 llm-eval `implementing-ko` 데이터 추가, 미실행)
+- 품질(리뷰): `code-reviewer-ko` 과잉 설계 관점 + `shortcut:` 부채 장부 — **프롬프트라 준수는 미측정**(수동 llm-eval `implementing-ko` 데이터 추가, 미실행)
 
 ## 8회차 평가자가 측정할 것 (관찰 기준)
 
@@ -29,4 +29,4 @@
 ## 한계
 
 - 이 문서는 이행 **상태**의 기록이다. 점수 변동을 주장하지 않는다.
-- ponytail 번안분(리뷰 관점·사다리)의 효과 측정은 대조군이 있는 벤치마크가 필요하다 — 이 repo 의 llm-eval 러너에는 스킬 없는 대조군 arm 이 없다(후속 후보).
+- 과잉 설계 리뷰 관점·사다리의 효과 측정은 대조군이 있는 벤치마크가 필요하다 — 이 repo 의 llm-eval 러너에는 스킬 없는 대조군 arm 이 없다(후속 후보).

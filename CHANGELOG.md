@@ -61,10 +61,10 @@
 
 ### Fixed
 
-- **긴 작업 중 컨텍스트가 압축되면 진행 중이던 skill 의 뒤쪽 규칙이 사라지던 문제를 줄였다**. 자동 압축 뒤 Claude Code 는 호출된 skill 본문을 앞 20,000 글자만 다시 붙인다(글자 수 기준 — 실측). `specifying-ko` 는 43%, `planning-ko` 는 36%(계획 리뷰어 호출·다음 단계 지시), `implementing-ko` 는 34%(구현자 상태 처리·다음 단계 지시)가 잘렸고, 모델은 빠진 규칙이 있는 줄 모른 채 진행했다 — 실측에서 2만 자 뒤의 규칙을 적용한 경우가 6회 중 0회였다. 본문이 긴 skill 6개의 맨 위에 "본문이 잘려 있으면 이 파일을 다시 읽는다" 안내를 넣었고(같은 실측에서 6회 중 5회 적용), 본문이 19,500자를 넘는 skill 이 새로 늘지 않게 테스트로 잠갔다. 상류 obra/superpowers v7.0.1 이 같은 원인의 사고를 보고한 것을 보고 확인했다.
+- **긴 작업 중 컨텍스트가 압축되면 진행 중이던 skill 의 뒤쪽 규칙이 사라지던 문제를 줄였다**. 자동 압축 뒤 Claude Code 는 호출된 skill 본문을 앞 20,000 글자만 다시 붙인다(글자 수 기준 — 실측). `specifying-ko` 는 43%, `planning-ko` 는 36%(계획 리뷰어 호출·다음 단계 지시), `implementing-ko` 는 34%(구현자 상태 처리·다음 단계 지시)가 잘렸고, 모델은 빠진 규칙이 있는 줄 모른 채 진행했다 — 실측에서 2만 자 뒤의 규칙을 적용한 경우가 6회 중 0회였다. 본문이 긴 skill 6개의 맨 위에 "본문이 잘려 있으면 이 파일을 다시 읽는다" 안내를 넣었고(같은 실측에서 6회 중 5회 적용), 본문이 19,500자를 넘는 skill 이 새로 늘지 않게 테스트로 잠갔다.
 - **세션을 이어받은 뒤 압축되면 skill 본문이 통째로 빠지던 경우를 대비했다**. `--resume` 로 새 프로세스가 이어받은 세션에서는 압축 뒤 skill 본문이 다시 붙지 않는다(실측 3회 중 3회 — 요약문만 남는다). 본문 안의 안내도 함께 사라지므로, 압축 직후에 도는 세션 시작 훅이 "진행 중인 skill 의 SKILL.md 를 다시 읽어라" 를 skills 폴더 절대경로와 함께 싣는다. 평소 세션 시작에는 싣지 않는다. 실측에서 빠진 규칙을 적용한 경우가 3회 중 0회에서 6회 중 5회로 늘었다(파일을 다시 읽은 것은 6회 모두).
 - **skill 을 인자와 함께 부르면 본문의 `$1` 이 그 인자로 바뀌던 문제를 고쳤다**. Claude Code 는 skill 본문의 `$0`·`$1`… 을 호출 인자로 치환한다 — `/gbrain --fid <FID>` 처럼 부르면 본문 예시의 `awk '{print $1}'` 이 `awk '{print <FID>}'` 가 되어 모델에 전달됐다. 백슬래시로 막은 `\$0` 도 인자가 없을 때조차 백슬래시가 벗겨졌다(실측). skill 7개의 해당 줄을 치환을 타지 않는 표기(`${1}` · awk 의 `$(1)`)로 바꿨고, 산문 속 금액 표기 하나(`$1.6~2.8`)도 고쳤다. skill·command 본문에 `$<숫자>` 가 다시 들어오면 테스트가 막는다.
-- **`systematic-debugging-ko` 의 다층 진단 예시가 비밀값을 그대로 출력하던 것을 고쳤다**. 예시의 `${IDENTITY:+SET}${IDENTITY:-UNSET}` 과 `env | grep IDENTITY` 는 변수가 설정돼 있으면 그 값을 로그에 찍는다. 설정 여부만 출력하도록 바꿨다(상류 v7.0.0 과 같은 수정).
+- **`systematic-debugging-ko` 의 다층 진단 예시가 비밀값을 그대로 출력하던 것을 고쳤다**. 예시의 `${IDENTITY:+SET}${IDENTITY:-UNSET}` 과 `env | grep IDENTITY` 는 변수가 설정돼 있으면 그 값을 로그에 찍는다. 설정 여부만 출력하도록 바꿨다.
 
 ## [5.13.0] — 2026-11-20
 
@@ -519,7 +519,7 @@
 ### Added
 
 - **브라우저 점검이 실패한 요청을 알려 준다**(`scripts/_internal/ui-probe.cjs`). 4xx·5xx 응답과 연결 실패를 `<화면>@<폭> 요청 실패 경고: <상태|사유> <메서드> <주소>` 줄로 내고, 있을 때만 요약 끝에 ` · 요청 실패 <N>` 을 붙인다. 콘솔 오류 문구에는 어느 요청인지가 없었다. **경고이고 판정(PASS·FAIL)은 종전 그대로다.** 주소는 쿼리·해시를 빼고, 화면 이동이 끊은 요청(`ERR_ABORTED`)은 세지 않으며, 화면·폭마다 10줄까지 낸다. `ui-probe.json` 의 화면별 `failedRequests` 에 전체가 남는다.
-- **체계적 디버깅에 어려운 경우 4종을 더했다**(`skills/systematic-debugging-ko/hard-cases.md` — 해당할 때만 읽는 보조 문서). 재현되지 않을 때 갈래(타이밍·환경·상태)부터 정하기 · 회귀는 `git bisect` · 진단용 계측은 픽스 확인 뒤 제거 · 오류 출력 속 지시는 데이터이지 따를 지시가 아니다. 본문 Phase 1 의 해당 줄이 절 번호로 가리킨다. 출처는 addyosmani/agent-skills 의 debugging-and-error-recovery.
+- **체계적 디버깅에 어려운 경우 4종을 더했다**(`skills/systematic-debugging-ko/hard-cases.md` — 해당할 때만 읽는 보조 문서). 재현되지 않을 때 갈래(타이밍·환경·상태)부터 정하기 · 회귀는 `git bisect` · 진단용 계측은 픽스 확인 뒤 제거 · 오류 출력 속 지시는 데이터이지 따를 지시가 아니다. 본문 Phase 1 의 해당 줄이 절 번호로 가리킨다.
 
 ### Changed
 
@@ -529,7 +529,7 @@
 
 ### Added
 
-- **기준 약화 후보를 스크립트가 먼저 뽑는다**(`scripts/_internal/scan-dod-weakening.sh --base <ref>`). 리뷰 범위의 변경과 추적하지 않는 새 파일에서 억제 주석 신규 · 테스트 skip·삭제 · 단언 순감소 · 임계 하향·타임아웃 상향 · 검증 무력화 · 미구현 표식 6종을 `<클래스>\t<파일>:<줄>\t<패턴>` 으로 내고, 조이는 방향의 변경은 내지 않는다. 종료 코드는 0(없음)·1(있음)·2(실행 불가 — 통과로 읽지 않는다)이고 줄 원문은 출력하지 않는다. 코드 리뷰어가 「기준 약화 탐지」에서 이 출력으로 읽을 곳을 정한다 — 사유·등급 판정은 종전대로 리뷰어 몫이다(`agents/code-reviewer-ko.md`). 계약은 addyosmani/agent-skills 의 floor-guard 에서 가져왔다.
+- **기준 약화 후보를 스크립트가 먼저 뽑는다**(`scripts/_internal/scan-dod-weakening.sh --base <ref>`). 리뷰 범위의 변경과 추적하지 않는 새 파일에서 억제 주석 신규 · 테스트 skip·삭제 · 단언 순감소 · 임계 하향·타임아웃 상향 · 검증 무력화 · 미구현 표식 6종을 `<클래스>\t<파일>:<줄>\t<패턴>` 으로 내고, 조이는 방향의 변경은 내지 않는다. 종료 코드는 0(없음)·1(있음)·2(실행 불가 — 통과로 읽지 않는다)이고 줄 원문은 출력하지 않는다. 코드 리뷰어가 「기준 약화 탐지」에서 이 출력으로 읽을 곳을 정한다 — 사유·등급 판정은 종전대로 리뷰어 몫이다(`agents/code-reviewer-ko.md`).
 
 ### Fixed
 
@@ -541,7 +541,7 @@
 
 - **구현자와 `/basic` 이 통과한 같은 테스트 명령을 다시 돌리지 않는다.** 통과를 확인한 뒤 파일을 바꾸지 않았으면 앞선 출력을 쓴다(`agents/implementer-ko.md` 「범위 위생」 · `commands/basic.md` 5번). 훅의 통과 기록 재사용은 이미 있었고, 구현 중 반복 실행을 막는 문장이 없었다.
 - **코드 리뷰어가 지적을 올리기 전에 호출자·가드·테스트로 배제되는지 확인하고, 원래 있던 결함에 `[기존]` 라벨을 붙인다**(`agents/code-reviewer-ko.md` 「증거 규칙」). 라벨은 등급을 바꾸지 않는다.
-- **전문가 에이전트에 상류(addyosmani/agent-skills `aeac41d`→`301b02b`)에서 고쳐진 규칙 4건을 옮겼다.** 소유 확인 전에 존재 확인(404)(`security-designer-ko`) · 크래시·롤백 테스트는 실제 경계를 태운다(`test-designer-ko`) · 로딩 영역은 `role=status` 와 이름 · 대비 기준의 큰 글자는 18pt(24px)(`ui-designer-ko`). `ui-designer-ko`·`req-designer-ko` 의 상류 표기 `@HEAD` 는 대조한 커밋으로 고정했다.
+- **전문가 에이전트의 규칙 4건을 고쳤다.** 소유 확인 전에 존재 확인(404)(`security-designer-ko`) · 크래시·롤백 테스트는 실제 경계를 태운다(`test-designer-ko`) · 로딩 영역은 `role=status` 와 이름 · 대비 기준의 큰 글자는 18pt(24px)(`ui-designer-ko`).
 
 ## [4.0.6] — 2026-11-13
 
@@ -724,7 +724,7 @@
 
 ### Added
 
-- **plan 단계에 "처음 읽는 독자" 이해 검사가 붙는다 (경고 전용).** 새 리뷰어 `comprehension-reviewer-ko` 가 plan-reviewer 1회차와 같은 메시지에서 spec·AC·plan 문서만 읽고(코드·memory·intent 는 열지 않는다) "이 문서가 제안하는 것"과 "문서가 말하는 기존 시스템 동작"을 자기 말로 먼저 적은 뒤, 못 적는 절은 `[이해 불가]`, 두 가지로 읽히는 곳은 `[오독 위험]` 으로 Minor 경고를 낸다. plan 판정(`PLAN-REVIEW-RESULT`)·cap·라운드 집계는 바뀌지 않는다. google/elephant-goldfish-model(Apache-2.0)의 Comprehension 리뷰어를 차용했다. 효과는 아직 측정하지 않았다 — 결함을 심은 문서로 한 전후 평가(별도 승인)가 끝나기 전까지 경고 전용이다. 에이전트 15→16건, 스위트 215→216.
+- **plan 단계에 "처음 읽는 독자" 이해 검사가 붙는다 (경고 전용).** 새 리뷰어 `comprehension-reviewer-ko` 가 plan-reviewer 1회차와 같은 메시지에서 spec·AC·plan 문서만 읽고(코드·memory·intent 는 열지 않는다) "이 문서가 제안하는 것"과 "문서가 말하는 기존 시스템 동작"을 자기 말로 먼저 적은 뒤, 못 적는 절은 `[이해 불가]`, 두 가지로 읽히는 곳은 `[오독 위험]` 으로 Minor 경고를 낸다. plan 판정(`PLAN-REVIEW-RESULT`)·cap·라운드 집계는 바뀌지 않는다. 효과는 아직 측정하지 않았다 — 결함을 심은 문서로 한 전후 평가(별도 승인)가 끝나기 전까지 경고 전용이다. 에이전트 15→16건, 스위트 215→216.
 
 ## [3.1.27] — 2026-11-10
 
@@ -1008,20 +1008,20 @@
 
 ### Added
 
-- planning 에 구조 설계 전문가 패스를 더했다(`agents/arch-designer-ko.md` · opus · high). 새 폴더·모듈·계층·의존 방향·도메인 개념을 만드는 FID 에서 DB 전문가 패스 뒤·API 전문가 패스 앞(순서 DB → 구조 → API → 보안 → 테스트)에 dispatch 되어 모듈 경계·인터페이스·이음새·의존 방향·도메인 모델과 프로세스 전역 설정(핵심 규칙 1 · 공통 원칙 10)을 보고 지적과 고친 문안을 `experts/arch.md` 에 쓴다. Critical·Important 는 결함을 만드는 plan 원문을 `찾은 곳:` 으로 인용하고 `영향:` 을 적을 때만 내고, plan 이 정한 구조 결정에 대한 이견은 질문으로만 낸다(많아야 5건). plan 이 직접 적은 명령·호출이 그 도구의 문서화된 기본 동작 때문에 결함이 되면 실행하지 않아도 확인한 사실로 본다. 패턴 지식 파일 5개(`skills/planning-ko/arch-expert/patterns/` — 계층형·분산·런타임·React·Next.js)는 조건이 맞을 때만 읽는다. `§batch` 는 미적용. 출처는 mattpocock/skills · wshobson/agents · davila7/claude-code-templates(모두 MIT)이며 한국어로 재작성했다. 효과는 Argus 실제 계획 2건 × 3회로 쟀다 — plan-reviewer 0/6 → arch-designer 5/6, 결함 없는 대조군(e-18)에서 헛지적 0/3(인용형 채점). 「문서화된 기본 동작」 예외는 이전 측정의 실패를 보고 만든 규칙이라 그 사례에 유리할 수 있다 — 새 사례 확인은 후속. 측정 케이스는 `specifying-ko/evals.json` e-14~e-18 · e-29~e-32. 원 초안 #219 를 대신한다.
+- planning 에 구조 설계 전문가 패스를 더했다(`agents/arch-designer-ko.md` · opus · high). 새 폴더·모듈·계층·의존 방향·도메인 개념을 만드는 FID 에서 DB 전문가 패스 뒤·API 전문가 패스 앞(순서 DB → 구조 → API → 보안 → 테스트)에 dispatch 되어 모듈 경계·인터페이스·이음새·의존 방향·도메인 모델과 프로세스 전역 설정(핵심 규칙 1 · 공통 원칙 10)을 보고 지적과 고친 문안을 `experts/arch.md` 에 쓴다. Critical·Important 는 결함을 만드는 plan 원문을 `찾은 곳:` 으로 인용하고 `영향:` 을 적을 때만 내고, plan 이 정한 구조 결정에 대한 이견은 질문으로만 낸다(많아야 5건). plan 이 직접 적은 명령·호출이 그 도구의 문서화된 기본 동작 때문에 결함이 되면 실행하지 않아도 확인한 사실로 본다. 패턴 지식 파일 5개(`skills/planning-ko/arch-expert/patterns/` — 계층형·분산·런타임·React·Next.js)는 조건이 맞을 때만 읽는다. `§batch` 는 미적용. 효과는 Argus 실제 계획 2건 × 3회로 쟀다 — plan-reviewer 0/6 → arch-designer 5/6, 결함 없는 대조군(e-18)에서 헛지적 0/3(인용형 채점). 「문서화된 기본 동작」 예외는 이전 측정의 실패를 보고 만든 규칙이라 그 사례에 유리할 수 있다 — 새 사례 확인은 후속. 측정 케이스는 `specifying-ko/evals.json` e-14~e-18 · e-29~e-32. 원 초안 #219 를 대신한다.
 
 ## [2.30.0] — 2026-10-23
 
 ### Added
 
-- specifying 에 요구사항 이해 전문가 패스를 더했다(`agents/req-designer-ko.md` · opus · high · 체크리스트 Step 6.5). 입력 데이터를 저장·계산·판정하거나 외부 소스·배치를 다루는 spec 을 쓴 직후 spec·AC 에 데이터 규칙(필드 상태마다 뜻·결측이 섞인 계산·유효 범위·빈 결과의 원인·실패 단위·셈의 축·보장의 주체·기록 위치 등 핵심 규칙 12개)이 적혀 있는지 보고 지적과 고친 문안을 `experts/req.md` 에 쓴다 — 확인 필요 질문은 spec §8 을 거쳐 clarifying 이 묻는다. Important 는 그 경우를 정한 spec 문장이 없음을 `찾은 곳:`(인용)·`빈칸:` 두 줄로 보일 때만 내고, 정한 결정에 대한 이견은 질문으로만 낸다(많아야 5건). `§batch`·`§lite`·trivial·promote·foundation 은 부르지 않는다. 출처 3곳(mattpocock/skills · addyosmani/agent-skills · davila7/claude-code-templates)은 MIT 이며 한국어로 재작성했고, 핵심 규칙은 Argus 구현 단계 결함 사례에서 만들었다. 효과는 Argus 실제 spec 2건 × 3회로 쟀다 — plan-reviewer 0/6 → req-designer 6/6, 결함 없는 대조군(e-50)에서 헛지적 0/3(인용형 채점). 측정 케이스는 `specifying-ko/evals.json` e-46~e-50.
-- specifying 에 화면·UX 전문가 패스를 더했다(`agents/ui-designer-ko.md` · opus · high · 체크리스트 Step 6.6, `/start-all` 은 Phase 2.5 A2 에서 batch 당 1회). 기능 화면 `screens/<name>.md` 를 만들거나 고친 FID 에서 spec·AC 와 함께 화면 spec 을 보고, 로딩·오류·0건 구분·일부 실패·공통 컴포넌트 계약·색 단독 전달·알림 수준·같은 목적 입력의 동작 통일·근거 없는 라벨·앞서 가는 화면 값(핵심 규칙 8개)이 적혀 있는지 지적과 고친 문안을 `experts/ui.md` 에 쓴다. Important 는 그 상태를 정한 화면 spec 문장이 없음을 `찾은 곳:`(인용)·`빈칸:` 두 줄로 보일 때만 내고, 정한 문구·라벨·role 값에 대한 이견은 질문으로만 낸다(많아야 5건 · Critical 없음). `§batch`·`§lite`·trivial·foundation 셸은 부르지 않는다. 설계는 Step 5.5 끝이었지만 spec·AC 가 생긴 뒤라야 측정과 같은 입력이 되므로 Step 6.6 에 두었다. 출처는 addyosmani/agent-skills · davila7/claude-code-templates(MIT) · pbakaus/impeccable(Apache-2.0)이며 한국어로 재작성했다. 효과는 Argus 실제 화면 2건 × 3회로 쟀다 — design-reviewer 5/6 → ui-designer 6/6, 결함 없는 대조군(e-62)에서 헛지적 0/3(인용형 채점). 측정 케이스는 `specifying-ko/evals.json` e-60~e-64. 함께 Step 6.5 잠금의 절 끝을 다음 번호 항목으로 고쳤다(뒤 항목 문구로 통과하던 구멍).
+- specifying 에 요구사항 이해 전문가 패스를 더했다(`agents/req-designer-ko.md` · opus · high · 체크리스트 Step 6.5). 입력 데이터를 저장·계산·판정하거나 외부 소스·배치를 다루는 spec 을 쓴 직후 spec·AC 에 데이터 규칙(필드 상태마다 뜻·결측이 섞인 계산·유효 범위·빈 결과의 원인·실패 단위·셈의 축·보장의 주체·기록 위치 등 핵심 규칙 12개)이 적혀 있는지 보고 지적과 고친 문안을 `experts/req.md` 에 쓴다 — 확인 필요 질문은 spec §8 을 거쳐 clarifying 이 묻는다. Important 는 그 경우를 정한 spec 문장이 없음을 `찾은 곳:`(인용)·`빈칸:` 두 줄로 보일 때만 내고, 정한 결정에 대한 이견은 질문으로만 낸다(많아야 5건). `§batch`·`§lite`·trivial·promote·foundation 은 부르지 않는다. 핵심 규칙은 Argus 구현 단계 결함 사례에서 만들었다. 효과는 Argus 실제 spec 2건 × 3회로 쟀다 — plan-reviewer 0/6 → req-designer 6/6, 결함 없는 대조군(e-50)에서 헛지적 0/3(인용형 채점). 측정 케이스는 `specifying-ko/evals.json` e-46~e-50.
+- specifying 에 화면·UX 전문가 패스를 더했다(`agents/ui-designer-ko.md` · opus · high · 체크리스트 Step 6.6, `/start-all` 은 Phase 2.5 A2 에서 batch 당 1회). 기능 화면 `screens/<name>.md` 를 만들거나 고친 FID 에서 spec·AC 와 함께 화면 spec 을 보고, 로딩·오류·0건 구분·일부 실패·공통 컴포넌트 계약·색 단독 전달·알림 수준·같은 목적 입력의 동작 통일·근거 없는 라벨·앞서 가는 화면 값(핵심 규칙 8개)이 적혀 있는지 지적과 고친 문안을 `experts/ui.md` 에 쓴다. Important 는 그 상태를 정한 화면 spec 문장이 없음을 `찾은 곳:`(인용)·`빈칸:` 두 줄로 보일 때만 내고, 정한 문구·라벨·role 값에 대한 이견은 질문으로만 낸다(많아야 5건 · Critical 없음). `§batch`·`§lite`·trivial·foundation 셸은 부르지 않는다. 설계는 Step 5.5 끝이었지만 spec·AC 가 생긴 뒤라야 측정과 같은 입력이 되므로 Step 6.6 에 두었다. 효과는 Argus 실제 화면 2건 × 3회로 쟀다 — design-reviewer 5/6 → ui-designer 6/6, 결함 없는 대조군(e-62)에서 헛지적 0/3(인용형 채점). 측정 케이스는 `specifying-ko/evals.json` e-60~e-64. 함께 Step 6.5 잠금의 절 끝을 다음 번호 항목으로 고쳤다(뒤 항목 문구로 통과하던 구멍).
 
 ## [2.29.0] — 2026-10-23
 
 ### Added
 
-- planning 에 API 계약 전문가 패스를 더했다(`agents/api-designer-ko.md` · opus · high). API 엔드포인트를 바꾸는 FID 에서 plan-reviewer 전에 dispatch 되어 spec·plan·api-spec 의 API 계약만 집중 검토하고 지적과 고친 문안을 `experts/api.md` 에 쓴다(plan.md 는 직접 고치지 않는다). 공통 원칙 13개는 추가형 변경만·폐기 표기와 유예·관찰 가능한 동작은 계약·메서드 의미·응답 형태 하나·벌크 부분 실패·오류 형식 하나·기계가 읽는 오류 코드·필드 단위 검증 오류·커서에 정렬 컬럼 전부·페이지 메타데이터·멱등 키는 의도에서·멱등 키 재사용과 보존이다. 이와 별개로 출처끼리 답이 다른 규약 7곳은 한쪽을 강요하지 않고 api-spec 에 정한 규약과 어긋날 때만 지적하며, 정하지 않았으면 `확인 필요` 로 묻는다. GraphQL 은 조건이 맞을 때만 읽는 지식 파일(`skills/planning-ko/api-expert/patterns/graphql.md`)로 분리했다. 판정기 `check-api-contract.sh` 가 잡는 빈칸·형식 위반은 다시 지적하지 않고 판단이 필요한 것만 본다 — 쿼리 쪽 페이지네이션(LIMIT·인덱스)·멱등 키 선점의 원자성은 DB 전문가, 인증·인가는 보안, 타임아웃·재시도 정책(횟수·백오프)은 구조 분야 몫이다 — 단 오류 응답의 입력값 반사는 보안으로 넘기지 않고 원칙 9(필드 단위 검증 오류)로 본다. 출처 4곳(wshobson/agents · addyosmani/agent-skills · davila7/claude-code-templates · supabase/agent-skills)은 모두 MIT 이며 한국어로 재작성했다. 패스 순서는 DB → API → 보안 → 테스트다. 효과는 Argus 실제 계획서 2건 × 3회로 쟀다 — plan-reviewer 0/6 → api-designer 4/6, 결함 없는 단순 대조군(e-23 · 상품 조회 `discontinuedAt` 추가)에서 헛지적 0/3. 측정 케이스는 `specifying-ko/evals.json` e-19~e-23 · e-33~e-36 이고 출처는 `current-state.md` §4 와 측정 기록이다.
+- planning 에 API 계약 전문가 패스를 더했다(`agents/api-designer-ko.md` · opus · high). API 엔드포인트를 바꾸는 FID 에서 plan-reviewer 전에 dispatch 되어 spec·plan·api-spec 의 API 계약만 집중 검토하고 지적과 고친 문안을 `experts/api.md` 에 쓴다(plan.md 는 직접 고치지 않는다). 공통 원칙 13개는 추가형 변경만·폐기 표기와 유예·관찰 가능한 동작은 계약·메서드 의미·응답 형태 하나·벌크 부분 실패·오류 형식 하나·기계가 읽는 오류 코드·필드 단위 검증 오류·커서에 정렬 컬럼 전부·페이지 메타데이터·멱등 키는 의도에서·멱등 키 재사용과 보존이다. 이와 별개로 출처끼리 답이 다른 규약 7곳은 한쪽을 강요하지 않고 api-spec 에 정한 규약과 어긋날 때만 지적하며, 정하지 않았으면 `확인 필요` 로 묻는다. GraphQL 은 조건이 맞을 때만 읽는 지식 파일(`skills/planning-ko/api-expert/patterns/graphql.md`)로 분리했다. 판정기 `check-api-contract.sh` 가 잡는 빈칸·형식 위반은 다시 지적하지 않고 판단이 필요한 것만 본다 — 쿼리 쪽 페이지네이션(LIMIT·인덱스)·멱등 키 선점의 원자성은 DB 전문가, 인증·인가는 보안, 타임아웃·재시도 정책(횟수·백오프)은 구조 분야 몫이다 — 단 오류 응답의 입력값 반사는 보안으로 넘기지 않고 원칙 9(필드 단위 검증 오류)로 본다. 패스 순서는 DB → API → 보안 → 테스트다. 효과는 Argus 실제 계획서 2건 × 3회로 쟀다 — plan-reviewer 0/6 → api-designer 4/6, 결함 없는 단순 대조군(e-23 · 상품 조회 `discontinuedAt` 추가)에서 헛지적 0/3. 측정 케이스는 `specifying-ko/evals.json` e-19~e-23 · e-33~e-36 이고 출처는 `current-state.md` §4 와 측정 기록이다.
 
 ### Fixed
 
@@ -1033,11 +1033,11 @@
 ### Added
 
 - **테스트 설계 전문가 패스** (전문가 로드맵 테스트 분야): 새 `agents/test-designer-ko.md`(opus·high·Generator, `experts/test.md` 하나만 씀)를 planning-ko 가 보안 전문가 패스 뒤·plan-reviewer 전에 부른다 — plan 이 테스트 파일을 만들거나 고치면 발동한다. 수용 기준마다 "이 테스트가 떨어뜨리는 잘못된 구현"·값까지 묶은 단언·규칙을 태우는 픽스처·가드 테스트 3요건(위반 사례 FAIL · 대상 0개면 실패 · 우회 변형)을 설계표로 낸다. 근거: Argus 재작업 지적 중 테스트 148건(구현 단계 79건이 계획 리뷰 통과). 효과 측정 케이스 e-41~e-45. 20261022 로컬 3회 실측(에이전트 규칙의 근거가 아닌 Argus 실제 계획 2건 · Critical·Important 적발): plan-reviewer 0/6 → test-designer 6/6 · 대조군 e-45 헛지적 0/3 · $12.80 (#228).
-- **보안 설계 전문가 패스** (전문가 로드맵 4번 분야 FID-S2): 새 `agents/security-designer-ko.md`(opus·high·Generator, `experts/security.md` 하나만 씀)를 planning-ko 가 DB 전문가 패스 뒤·plan-reviewer 전에 부른다 — plan 이 인증·인가·세션·외부 입력 경계(업로드·웹훅·외부 URL·LLM)·개인정보 필드를 만들거나 바꾸거나 판정기(`check-security-design.sh`)가 `[승인 대상]` 을 낼 때. 판정기를 먼저 돌려 그 위반은 다시 지적하지 않고, 이번 FID 가 여는 신뢰 경계·자산을 먼저 적은 뒤 그 경계에만 STRIDE 6범주를 묻는다. 공통 원칙 16개(남용 AC · 인증 · 토큰 보관·수명·폐기 · 인증 엔드포인트 시도 한도 · 재설정 · 기능·객체 수준 인가 · mass assignment · 경계 검증 · 파생 경로 파괴 작업 · 응답 민감 필드 · 개인정보 분류 · 보존·삭제 · CSRF · 보안 이벤트 기록)와 조건부로 읽는 2층 패턴 4개(`skills/planning-ko/security-expert/patterns/` — SSRF·업로드·웹훅 / LLM / 브라우저 세션 / OAuth). 쿼리 쪽 권한은 DB, 타임아웃은 구조, 오류 형식·입력값 반사·일반 rate limit 은 API 전문가 몫이다. `§batch` 미적용 · 막는 게이트 없음. 출처: addyosmani/agent-skills · wshobson/agents · davila7/claude-code-templates (모두 MIT, 한국어 재작성). 합성 평가 케이스 e-24~e-28 — 효과는 합성 평가로만 봤고 Argus 실제 계획서 측정은 후속이다.
+- **보안 설계 전문가 패스** (전문가 로드맵 4번 분야 FID-S2): 새 `agents/security-designer-ko.md`(opus·high·Generator, `experts/security.md` 하나만 씀)를 planning-ko 가 DB 전문가 패스 뒤·plan-reviewer 전에 부른다 — plan 이 인증·인가·세션·외부 입력 경계(업로드·웹훅·외부 URL·LLM)·개인정보 필드를 만들거나 바꾸거나 판정기(`check-security-design.sh`)가 `[승인 대상]` 을 낼 때. 판정기를 먼저 돌려 그 위반은 다시 지적하지 않고, 이번 FID 가 여는 신뢰 경계·자산을 먼저 적은 뒤 그 경계에만 STRIDE 6범주를 묻는다. 공통 원칙 16개(남용 AC · 인증 · 토큰 보관·수명·폐기 · 인증 엔드포인트 시도 한도 · 재설정 · 기능·객체 수준 인가 · mass assignment · 경계 검증 · 파생 경로 파괴 작업 · 응답 민감 필드 · 개인정보 분류 · 보존·삭제 · CSRF · 보안 이벤트 기록)와 조건부로 읽는 2층 패턴 4개(`skills/planning-ko/security-expert/patterns/` — SSRF·업로드·웹훅 / LLM / 브라우저 세션 / OAuth). 쿼리 쪽 권한은 DB, 타임아웃은 구조, 오류 형식·입력값 반사·일반 rate limit 은 API 전문가 몫이다. `§batch` 미적용 · 막는 게이트 없음. 합성 평가 케이스 e-24~e-28 — 효과는 합성 평가로만 봤고 Argus 실제 계획서 측정은 후속이다.
 - **보안 설계 칸 + 판정기** (전문가 로드맵 4번 분야 FID-S1 · 경고 전용): `templates/api-spec.md` §5 에 인증 방식·권한 모델·CORS·CSRF 칸과 「위험 기능 결정」(업로드·웹훅 수신·외부 URL 가져오기·LLM 호출), `templates/data-model.md` §8 에 개인정보 분류·보존·삭제 칸. 새 `scripts/_internal/check-security-design.sh` 가 Auth 빈칸·URL 민감정보·응답 민감 필드·CORS `*`+credentials·미정 칸·위험 기능 결정 누락을 경고한다 — 위험 기능 신호는 파일·엔드포인트 경로에서만 찾는다. specifying Step 5.6 직후와 검증 러너(evidence.md `### security-design`)에서 보이며 VERIFY 결과는 바꾸지 않는다. 칸이 없는 옛 문서는 건너뛴다.
 - skill 행동 eval: 보안 설계 전문가 효과 측정 케이스 e-37~e-40(`specifying-ko/evals.json`) — Argus 실제 계획 2건(20260729-backend-common-core · 20261012-pipeline-ops-runtime, 계획 리뷰를 통과하고 구현 리뷰에서 발견된 보안 결함 · 지적 전 원본)을 plan-reviewer-ko 와 security-designer-ko 에 같은 본문으로 준다. 20261022 로컬 3회 실측(Critical·Important 적발): plan-reviewer 0/6 → security-designer 6/6 · 대조군 e-28 헛지적 0/3 · 약 $10.9. 주입 측정이라 에이전트 본문만 쟀다(planning·specifying 지시 변경은 CI 몫).
 
-- API 계약 빈칸·형식 경고(`scripts/_internal/check-api-contract.sh` · **경고 전용**): IF 설계서 `api-spec.md` 의 엔드포인트 표에서 리소스 마디가 동사인 경로(`/createUser` · `/users/:id/getOrders` — `/api` 접두·버전 마디는 리소스로 세지 않는다)·리소스 중첩 3단계 이상·snake/camel 혼용·빈 상태코드·POST 의 성공 코드 누락(201 · 202 비동기 · 200 생성이 아닌 동작 허용)·DELETE 의 성공 코드 누락(204·202·200)을, 계약 칸에서 오류 형식·오류 코드 카탈로그·목록 정책(최대 페이지 크기)·멱등 정책·rate limit·버전 전략의 빈칸과 자리표시자를 짚는다. specifying Step 5.6 이 api-spec 을 고친 직후 한 번 보여 주고, 검증 러너가 evidence.md `### api-contract` 에 남긴다(VERIFY 결과는 바뀌지 않는다). git 추적 중인 api-spec 은 기본 브랜치와의 분기점 이후 바뀐 행만 본다(경로·상태코드 — 명명·페이지·멱등·미정은 문서 전체). 멱등 정책은 쓰기 엔드포인트마다 경로로든 전체 적용 문장(모든·나머지)으로든 언급돼야 한다. 닫히지 않은 코드 펜스는 판정 불가. 설계안의 "복수형이 아닌 컬렉션" 규칙은 넣지 않았다 — `/me`·`/health`·`/search` 같은 정상 경로를 오탐해 차단 승격 조건(실사용 오탐 0)을 해치므로, 판단은 API 전문가(FID-2) 몫으로 둔다(사용자 승인). 템플릿 `api-spec.md` 에 Status 열·오류 형식·오류 코드 카탈로그·목록 정책·멱등 정책·버전 전략 칸을 두었고, 칸이 없는 옛 문서는 그 규칙을 건너뛴다. 근거: 지금까지 단일 FID 의 API 설계를 보는 단계가 없었다(`design-reviewer-ko` 는 batch 전용). 출처: wshobson/agents api-design-principles · addyosmani/agent-skills api-and-interface-design (모두 MIT, 한국어 재작성). 전문가 로드맵 3번 분야(API 계약) FID-1.
+- API 계약 빈칸·형식 경고(`scripts/_internal/check-api-contract.sh` · **경고 전용**): IF 설계서 `api-spec.md` 의 엔드포인트 표에서 리소스 마디가 동사인 경로(`/createUser` · `/users/:id/getOrders` — `/api` 접두·버전 마디는 리소스로 세지 않는다)·리소스 중첩 3단계 이상·snake/camel 혼용·빈 상태코드·POST 의 성공 코드 누락(201 · 202 비동기 · 200 생성이 아닌 동작 허용)·DELETE 의 성공 코드 누락(204·202·200)을, 계약 칸에서 오류 형식·오류 코드 카탈로그·목록 정책(최대 페이지 크기)·멱등 정책·rate limit·버전 전략의 빈칸과 자리표시자를 짚는다. specifying Step 5.6 이 api-spec 을 고친 직후 한 번 보여 주고, 검증 러너가 evidence.md `### api-contract` 에 남긴다(VERIFY 결과는 바뀌지 않는다). git 추적 중인 api-spec 은 기본 브랜치와의 분기점 이후 바뀐 행만 본다(경로·상태코드 — 명명·페이지·멱등·미정은 문서 전체). 멱등 정책은 쓰기 엔드포인트마다 경로로든 전체 적용 문장(모든·나머지)으로든 언급돼야 한다. 닫히지 않은 코드 펜스는 판정 불가. 설계안의 "복수형이 아닌 컬렉션" 규칙은 넣지 않았다 — `/me`·`/health`·`/search` 같은 정상 경로를 오탐해 차단 승격 조건(실사용 오탐 0)을 해치므로, 판단은 API 전문가(FID-2) 몫으로 둔다(사용자 승인). 템플릿 `api-spec.md` 에 Status 열·오류 형식·오류 코드 카탈로그·목록 정책·멱등 정책·버전 전략 칸을 두었고, 칸이 없는 옛 문서는 그 규칙을 건너뛴다. 근거: 지금까지 단일 FID 의 API 설계를 보는 단계가 없었다(`design-reviewer-ko` 는 batch 전용). 전문가 로드맵 3번 분야(API 계약) FID-1.
 
 ### Fixed
 
@@ -1057,7 +1057,7 @@
 
 ### Added
 
-- clarify: 범주표 "용어" 행이 한 말이 둘을 가리킬 때 정할 이름 하나를 추천하고 쓰지 않을 말을 함께 정한다(clarifications.md 에 `**용어**` 줄) · "예외·경계" 행이 동작 경계에 더해 개념의 경계를 시나리오 하나로 시험한다 · 대화 규칙에 "설명은 코드와 대조" — 기존 동작 설명은 묻기 전에 코드에서 확인하고 다르면 나란히 묻는다. 어긋남이 핵심 동작이면 BLOCKING(경량→풀) · §auto 는 ASSUMED 에 코드 동작과 설명을 둘 다 남긴다. 근거: 명확화가 용어는 "정의됐는가"까지만, 경계는 동작만 보고 있었고 기존 동작 설명을 코드로 확인하는 단계가 없었다. 출처: mattpocock/skills domain-modeling (MIT, 한국어 재작성). 전문가 로드맵 2번 분야(구조·도메인) FID-C.
+- clarify: 범주표 "용어" 행이 한 말이 둘을 가리킬 때 정할 이름 하나를 추천하고 쓰지 않을 말을 함께 정한다(clarifications.md 에 `**용어**` 줄) · "예외·경계" 행이 동작 경계에 더해 개념의 경계를 시나리오 하나로 시험한다 · 대화 규칙에 "설명은 코드와 대조" — 기존 동작 설명은 묻기 전에 코드에서 확인하고 다르면 나란히 묻는다. 어긋남이 핵심 동작이면 BLOCKING(경량→풀) · §auto 는 ASSUMED 에 코드 동작과 설명을 둘 다 남긴다. 근거: 명확화가 용어는 "정의됐는가"까지만, 경계는 동작만 보고 있었고 기존 동작 설명을 코드로 확인하는 단계가 없었다. 전문가 로드맵 2번 분야(구조·도메인) FID-C.
 - verify: plan 「경계 약속」의 허용 의존을 화살표로 적으면(`` `src/domain/` → 없음 · `src/app/` → `src/domain/` ``) 이 FID 가 바꾼 파일의 실제 import 와 대조하고, import 순환을 찾아 evidence.md `### import-direction` 에 남긴다(Python·JS/TS · **경고 전용** — 검증 결과는 바뀌지 않는다). 자유 문장으로 쓴 기존 plan 은 방향 검사를 건너뛴다. 근거: 지금까지 import 방향은 아무 단계도 보지 않았다(경계 대조는 "import 방향은 보지 않는다"). 전문가 로드맵 2번 분야(구조·도메인) 첫 FID.
 - planning: DB 를 건드리는 계획은 plan-reviewer 전에 DB 설계 전문가(db-designer-ko · opus)가 집중 검토하고 메인이 반영한다 · 엔진별 지식(PostgreSQL·MySQL·Oracle·SQL Server·MongoDB·Redis)은 data-model §1 유형으로 고른다. 근거: Argus 실제 계획서 2개에서 plan-reviewer 가 DB 결함 0/2 적발.
 
@@ -1173,7 +1173,6 @@
 
 - **README 대문을 재구성했다.** 히어로 배너(`docs/assets/hero.svg`) · 동적 배지 · "왜 쓰나" 표 · 보장하는 것/보장하지 않는 것 · Mermaid 도식 3개를 앞에 두고, `## 알아둘 것` 의 상세 9절은 `docs/adoption-notes.md` 로 원문 그대로 옮겼다(README 에는 요약 4줄). 모델·effort 실측 단락은 README 안에서 접었다. Lifecycle ASCII 도식은 Mermaid 로 바꾸면서 괄호 부가 설명을 일부 줄였다. 사실과 수치는 줄거나 바뀌지 않았다.
 - **README 히어로 배너를 단계별 색 구분 시안으로 바꿨다.** 상단 색 띠와 단계 묶음별 칩 색 막대를 더하고, HARD GATE 칩의 테두리를 2px 에서 3px 로 굵히고 glow 를 더했다. 배너의 글자(제품명·태그라인·단계 이름·범례)는 그대로다. 색 묶음은 장식이다 — 새 설명 문구나 수치는 없다.
-- **README 에서 `### 상류 프로젝트` 소절을 삭제했다.** 상류 프로젝트 표와 "원본 코드를 복사(vendoring)하지 않았다" 인용문이 README 에서 빠지고, 남은 절의 헤딩을 `## 라이선스` 로 바꿨다. 상류 출처 기록은 각 파일의 `reference_upstream` frontmatter 와 `docs/upstream-drift-log.md` 에 남는다. 단 ponytail 번안분은 이 두 곳에 없고 `agents/code-reviewer-ko.md`·`scripts/_internal/scan-shortcuts.sh` 본문과 이 문서의 과거 항목에 남는다. 코드·동작 변경은 없다.
 
 ### Fixed
 
@@ -1498,7 +1497,7 @@
 - `implementing-ko` `### 리뷰어 실행 예산` 에 **느린 대상 스위트 규칙**(`lite`·`standard` 한정, `strict` 불변): dispatch 프롬프트에 실행 상한을 숫자로 적고, 동시 실행으로 생긴 실패는 단독 재실행으로 구분하며, 부모는 계약 밖 점검을 프롬프트에 추가하지 않고, 구현자는 `RED 1회·GREEN 1회·되돌려-관찰 1회` 상한. 실측(이 변경 자체가 첫 적용): 구현자 616s→85s · Phase B 1231s→44s · Phase C 1735s→약 7분
 - 잠금: `test-gate-presence`(규칙 문구·상한 기본값 정합) · 크기 래칫 기준선 명시 갱신(`implementing-ko` 38311→39365B). 규칙은 서술이라 기계는 문구 존재만 잠근다
 
-### ponytail 사다리 효과 대조 실측 — `claude plugin eval` with/without ablation (결과: Δ = 0, 천장 효과)
+### 사다리 효과 대조 실측 — `claude plugin eval` with/without ablation (결과: Δ = 0, 천장 효과)
 
 사다리(rung)가 코드 재사용·양을 줄였는지 처음으로 **플러그인 있는 갈래와 없는 갈래를 같은 prompt 로** 쟀다. `evals/` 에 rung 케이스 5개를 추가했다: `rung-native-date`(플랫폼 기본 기능) · `rung-stdlib-cache`(표준 라이브러리) · `rung-keep-validation`(안전 요소 비절감) · **`rung-reuse-helper`**(이미 있는 `slugify` 유틸 재사용 — 사다리 2단) · **`rung-reuse-dependency`**(이미 설치된 `dayjs` 사용 — 5단). 뒤 둘은 scaffold 로 작은 프로젝트를 깔아 두고 "코드는 쓰지 말고 변경 계획만" 을 묻는다. 케이스당 3회 × 2 갈래(`claude plugin eval --runs 3`, Claude Code 2.1.293, 총 약 $3.2).
 
@@ -1510,7 +1509,7 @@
 
 직전(#114)에 판정 게이트 3곳을 막고 남겨 둔 `python3` 진입부 3곳에 같은 `sys.path` 정리를 넣었다: `is-hook-enabled.sh`(**거버넌스 킬스위치** — cwd 의 가짜 `yaml.py` 가 `{}` 를 돌려주면 `enabled:false` 로 꺼 둔 훅이 켜진 것으로 판정됐다, 수정 전 RED→후 GREEN 확인) · `risk-profile.sh` · `validate-structure.sh` 의 chain_consistency 검사. 잠금: `test-is-hook-enabled` T6 · `propagation-matrix` `yaml-cwd-shadow` 에 edge 3개 추가. `doctor.sh`(존재 확인만)·`cvt.py`(파일 실행이라 `sys.path[0]` 이 스크립트 디렉터리) 는 해당 없음.
 
-### 게이트 보유율 재측정(2026-10-08)·ponytail 사다리 행동 eval 본 실행
+### 게이트 보유율 재측정(2026-10-08)·사다리 행동 eval 본 실행
 
 - `gate-coverage.sh` 를 로컬 specops 사용 repo 11곳에 실행: verified 113 · held 20 · **17%**. 7회차(23%, verified 121·held 28)와 비교하면 그때 gobiseo(8/8)가 빠졌을 뿐 나머지 **113/20 이 동일** — 즉 **점수가 오른 것도 내린 것도 아니다**: 외부 repo 에 새 FID 가 거의 없다(측정 모집단 중 2026-10 FID 는 2건뿐). v2.3~v2.7 의 게이트들은 하류 repo 가 새 버전으로 FID 를 돌리기 전에는 이 지표에 나타날 수 없다(설치본이 이번에야 2.2.0→2.7.0). 지표는 **후행**이다
 - `implementing-ko` e-1~e-4(rung 준수: 네이티브·stdlib 우선·안전 요소 비절감·`shortcut:` 규약) 본 실행: **4/4 PASS**($0.96, routed·n=1). 단 대조군(플러그인 없는 갈래)이 없어 통과가 사다리 덕인지 모델 기본 행동인지 구분하지 못한다
@@ -1578,21 +1577,16 @@ Claude Code 공식 문서(`code.claude.com/docs/en/` skills·sub-agents·hooks·
 
 ⚠️ **한계 (정직 고백)**: 전부 프롬프트 문구라 모델 준수는 잠글 수 없고 존재·배선만 잠근다. 영상은 자동 자막이라 공식 가이드 원문은 확인하지 못했다. 영상의 나머지 팁 — effort 주의사항 문서화(#2)·"서브에이전트 대기 중 메인 계속 작업"(#5, dispatch 순서가 `check-review-audit` 계약과 맞물려 파일럿 필요)·압축 요약 4항목(#10, `session-start` 예산 계약)·거절 회피(#1, 거절 사례 미관측) — 는 이번에 하지 않았다.
 
-### ponytail 참조 버전 확정
-
-흡수한 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) 의 참조 버전은 **v4.13.0** 으로 확인됐다(저자 확인). v2.5.0 의 "흡수일 직전 최신 릴리즈 v4.13.0 추정" 표기에서 추정을 뗐다 — README 출처 표의 각주를 지우고 버전만 남겼다. 4 skill 의 `reference_upstream`(superpowers 계보)은 그대로 둔다.
-
 ## [2.5.0] — 2026-10-07
 
-### ponytail 잔여 반영 — `/improve-arch --lean` 감사 · rung 준수 eval 데이터 · 버전 표기 · 8회차 준비 현황
+### 잔여 반영 — `/improve-arch --lean` 감사 · rung 준수 eval 데이터 · 버전 표기 · 8회차 준비 현황
 
-- **`/improve-arch --lean`** (ponytail-audit 번안) — deep module 분석 대신 repo 전체에서 **지울 수 있는 것**을 `delete/stdlib/native/reuse/yagni/shrink` 6 태그로 큰 순서대로 번호를 매겨 보고하고 `net: -N lines, -M deps possible.` 로 끝낸다(`delete:` 전 트리 전체 grep, `shortcut:` 장부 첨부, 읽기 전용, 검증·에러 처리·보안·접근성·AC 요구 테스트는 절감 대상 아님). 새 command 파일 없이 기존 `/improve-arch` 의 옵션으로 넣어 command 수·skill 크기 baseline 은 불변
+- **`/improve-arch --lean`** — deep module 분석 대신 repo 전체에서 **지울 수 있는 것**을 `delete/stdlib/native/reuse/yagni/shrink` 6 태그로 큰 순서대로 번호를 매겨 보고하고 `net: -N lines, -M deps possible.` 로 끝낸다(`delete:` 전 트리 전체 grep, `shortcut:` 장부 첨부, 읽기 전용, 검증·에러 처리·보안·접근성·AC 요구 테스트는 절감 대상 아님). 새 command 파일 없이 기존 `/improve-arch` 의 옵션으로 넣어 command 수·skill 크기 baseline 은 불변
 - **rung 준수 eval 데이터** — `scripts/tests/llm-eval/skills/implementing-ko/{trigger-queries,evals}.json`(4 case: 네이티브 우선·stdlib 우선·안전 요소 비절감·`shortcut:` 규약). 데이터 계약은 `test-skill-evals` T2(pilot 7종)가 잠근다. **실행은 하지 않았다**(수동 전용·토큰 비용) — 모델 준수는 여전히 미측정
-- **ponytail 버전 표기** — 흡수 당시 참조 버전은 기록돼 있지 않아, 흡수일 직전 최신 릴리즈 v4.13.0(추정)을 README 출처 표에 각주와 함께 적었다. 4 skill 의 `reference_upstream`(superpowers 계보)은 그대로 둔다
 - **`docs/audit/2026-10-07-8th-readiness.md`** — 7회차 사전등록 트리거 3개의 이행 상태(미측정·부분·조건 충족)와 8회차 측정 항목 5종. 점수는 매기지 않는다
 - 잠금: `test-shortcut-scan` T7(`--lean` 절 계약) · `test-skill-evals` T2.implementing-ko
 
-⚠️ **한계**: ponytail 의 `/ponytail-gain` 점수판과 `lite|full|ultra` 강도는 가져오지 않았다(gain 은 벤치마크 평균을 repo 수치처럼 보이게 할 위험이 있고 — ponytail 자신도 repo 별 절감 수치를 지어내지 않는다 — lite 는 이미 `/start-lite`·`/maintain-lite` 가 있다). 스킬 없는 **대조군 arm** 이 있는 벤치마크는 llm-eval 러너 확장이 필요해 후속 후보로 남는다.
+⚠️ **한계**: 벤치마크 점수판과 `lite|full|ultra` 강도는 가져오지 않았다(점수판은 벤치마크 평균을 repo 수치처럼 보이게 할 위험이 있고 — lite 는 이미 `/start-lite`·`/maintain-lite` 가 있다). 스킬 없는 **대조군 arm** 이 있는 벤치마크는 llm-eval 러너 확장이 필요해 후속 후보로 남는다.
 
 ### `test-validate-structure` 300s TIMEOUT 근본 원인 — frontmatter 체크의 파일별 python 스폰
 
@@ -1618,15 +1612,15 @@ Claude Code 공식 문서(`code.claude.com/docs/en/` skills·sub-agents·hooks·
 - `templates/tasks.md`·`decomposing-ko` 에 계획행 표기와 판정기 안내를 적고, `implementing-ko` 최소 구현 rung 의 절감 제외 목록에 "AC 매핑 테스트"를 더했다
 - 잠금: `test-emit-context.sh` T6.a~j(판정기 단독 10종)·T7.a~c(emit 통합) · `test-gate-presence.sh`(배선·문서) · `propagation-matrix.jsonl` `fid-size-gate`(문서↔배선↔판정기). 스위트 수 불변(184)
 
-### ponytail 분석 반영 — 과잉 설계 리뷰 관점 + `shortcut:` 부채 장부
+### 분석 반영 — 과잉 설계 리뷰 관점 + `shortcut:` 부채 장부
 
-[DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)(MIT)을 분석해, v2.3.0 이 사다리(rung)만 가져오고 비워 둔 두 장점을 채웠다 — 사다리를 쓰라고만 하고 **결과를 보는 눈**과 **미룬 것을 추적하는 장부**가 없었다.
+외부 사례를 분석해, v2.3.0 이 사다리(rung)만 가져오고 비워 둔 두 장점을 채웠다 — 사다리를 쓰라고만 하고 **결과를 보는 눈**과 **미룬 것을 추적하는 장부**가 없었다.
 
-- **`code-reviewer-ko` 과잉 설계 탐지 신설** (ponytail-review 번안) — `delete:`·`stdlib:`·`native:`·`reuse:`·`yagni:`·`shrink:` 6 태그로 한 줄씩 자를 것을 지목하고 `net: -N lines possible` 로 끝낸다. 기본 등급 Suggestion, `reuse:` 가 경로 grep 증거로 중복을 입증하면 Important, **Critical 로는 올리지 않는다**. 검증·에러 처리·보안·접근성·AC 요구 테스트는 절감 대상이 아니다. 출력 포맷에 `## 과잉 설계` 표 추가
-- **`shortcut:` 부채 장부** (ponytail-debt 번안) — 의도적 단순화에 `# shortcut: <상한> → <업그레이드 조건>` 주석을 남기는 규약(`implementer-ko` 에 안내)과, 이를 한 장으로 모으는 읽기 전용 `scripts/_internal/scan-shortcuts.sh`(git 추적 파일, `*.md`·`.specops` 제외, `→` 없는 주석은 `no-trigger`). 리뷰어가 `no-trigger` 를 Suggestion 으로 잡는다
+- **`code-reviewer-ko` 과잉 설계 탐지 신설** — `delete:`·`stdlib:`·`native:`·`reuse:`·`yagni:`·`shrink:` 6 태그로 한 줄씩 자를 것을 지목하고 `net: -N lines possible` 로 끝낸다. 기본 등급 Suggestion, `reuse:` 가 경로 grep 증거로 중복을 입증하면 Important, **Critical 로는 올리지 않는다**. 검증·에러 처리·보안·접근성·AC 요구 테스트는 절감 대상이 아니다. 출력 포맷에 `## 과잉 설계` 표 추가
+- **`shortcut:` 부채 장부** — 의도적 단순화에 `# shortcut: <상한> → <업그레이드 조건>` 주석을 남기는 규약(`implementer-ko` 에 안내)과, 이를 한 장으로 모으는 읽기 전용 `scripts/_internal/scan-shortcuts.sh`(git 추적 파일, `*.md`·`.specops` 제외, `→` 없는 주석은 `no-trigger`). 리뷰어가 `no-trigger` 를 Suggestion 으로 잡는다
 - 잠금: 신규 스위트 `test-shortcut-scan.sh`(스캐너 4종·리뷰어 절·implementer 규약, 스위트 184→185) · `propagation-matrix` `overengineering-review`
 
-⚠️ **한계 (정직 고백)**: 이 관점은 리뷰어 프롬프트라 모델이 실제로 따르는지는 잠글 수 없다(수동 llm-eval 몫). ponytail 의 `/ponytail-audit`(repo 전체 과잉 설계 감사)·`/ponytail-gain`(벤치마크 점수판)·`lite|full|ultra` 강도, 그리고 baseline 대조군이 있는 행동 벤치마크는 **이번에 가져오지 않았다**(후속 후보).
+⚠️ **한계 (정직 고백)**: 이 관점은 리뷰어 프롬프트라 모델이 실제로 따르는지는 잠글 수 없다(수동 llm-eval 몫). repo 전체 과잉 설계 감사·벤치마크 점수판·`lite|full|ultra` 강도, 그리고 baseline 대조군이 있는 행동 벤치마크는 **이번에 가져오지 않았다**(후속 후보).
 
 ### cwd `yaml.py` 가짜 모듈 우회 차단 — task id 게이트·DAG 파서·emit-context
 
@@ -1636,7 +1630,6 @@ Claude Code 공식 문서(`code.claude.com/docs/en/` skills·sub-agents·hooks·
 
 ### 출처 표기 보완 (v2.3.0 YAGNI rung)
 
-- **출처**: rung 사다리(존재 필요? → stdlib → 네이티브 → 설치된 의존성 → 한 줄)는 오픈소스 [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail)(MIT)의 의사결정 사다리 개념을 한국어로 번안한 것이다 — 코드 복사 없음, README 출처 표에 등재(발견 시점 npm 4.9.0 — 흡수 당시 정확한 버전은 확인되지 않아 `reference_upstream` 필드는 건드리지 않았다)
 
 ⚠️ **한계 (정직 고백)**
 - 게이트는 **tasks.md 의 태스크 수**만 본다 — 모델이 일부러 태스크를 합쳐 수를 줄이는 것(자기보고)은 못 잡는다. 계획행 내용의 질도 검사하지 않는다(비어 있지 않고 placeholder·코드펜스가 아닌 줄만 본다).
@@ -2334,7 +2327,7 @@ specops 주입은 `.specops/` 없는 빈 폴더에서도 10,309, 본 repo 에서
   10,010 파일행 · 한글 5,000자(15KB) 인라인 · **이모지 5,100개(코드포인트 5,115 / UTF-16 10,215) 파일행**.
   공식 문서에 서술이 없어 프로브로 확정했다(단위 오인은 코드 리뷰가 잡았고 프로브가 갈랐다).
 - **메타 skill 축소** — pending 9단계 절차를 `skills/using-specops-ko/freework-pending.md` 로 원문 이관,
-  Karpathy·Advisor 표는 포인터로, `## 참조`·꼬리 버전줄 삭제. **감지·분류 구간은 무접촉**(신호·배제·flag·
+  행동 원칙·Advisor 표는 포인터로, `## 참조`·꼬리 버전줄 삭제. **감지·분류 구간은 무접촉**(신호·배제·flag·
   부트스트랩·재개·적색 플래그·5원칙). 빈 폴더 주입 10,309 → **7,676**.
 - **문자 예산 가드(9,500)** — 넘치면 rehydrate 만 최신 줄부터 남기고 `…(이하 생략 — 전체: .specops/session-progress.md)`.
   태그명·조립 순서·앞 블록은 불변. 절단은 **이스케이프 전 원문**에서 한다 — bash 3.2 의 `escape_for_json` 이
@@ -2816,7 +2809,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 ### Added
 
 - **MIT LICENSE — 공개 저장소의 전권 유보 상태 해소 (PR #28)** — 2026-08-11 에 저장소를 공개했으나 LICENSE 가 없었다. 라이선스 없는 공개 코드는 법적으로 **모든 권리 저작자 보유**라, 설치는 되지만 사용·수정 권리가 명시되지 않는다(`gh repo view --json licenseInfo` → `null`). 5회차 자기평가가 온보딩 축의 미조치 항목으로 **5회 연속** 지적한 건이다.
-  - **MIT 근거**: 지배적 상류(`obra/superpowers`)가 MIT 라 파생 귀속이 깨끗하고, 이 repo 는 bash+markdown 이라 Apache-2.0 의 특허 조항이 사실상 무의미하며, 플러그인의 목적이 도입이므로 마찰을 낮추는 쪽이 맞다.
+  - **MIT 근거**: 이 repo 는 bash+markdown 이라 Apache-2.0 의 특허 조항이 사실상 무의미하며, 플러그인의 목적이 도입이므로 마찰을 낮추는 쪽이 맞다.
   - ★ **`plugin.json` 동반 수정이 핵심이다** — `"license": "UNLICENSED"` 가 박혀 있어서 LICENSE 파일만 넣으면 **기계 판독 선언과 사람이 읽는 파일이 모순**된다. 같은 커밋에서 `MIT` 로 고쳤다.
   - `README.md` 라이선스·출처 섹션 신설 — `reference_upstream` frontmatter **실측 54건** 요약, 원본 코드 복사(vendoring) 없음 명시. **한계 고백**: 표에서 라이선스를 `—` 로 둔 프로젝트는 **확인하지 않았다는 뜻**이다.
 
@@ -3473,8 +3466,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 
 ### Added
 - **`/doctor` — specops 설치·환경 건강 진단 (실사용 검증 20260807)** — `validate-structure.sh` 는 **플러그인 개발자용**이라 사용자 프로젝트의 `.specops/` 상태를 보는 층이 **0곳**이었다. 가장 위험한 공백은 **git hook 미설치** — `install-git-hooks.sh` 는 clone 마다 수동 1회이고, 미실행 시 2단 게이트가 **조용히 없다**(Claude Code PreToolUse 훅은 Cursor 등 타 도구 커밋에 발화하지 않음 — 계기: 44cd095 가 run-all 없이 나가 main 이 하루 red). read-only 4점검: git hook 2단 게이트(`core.hooksPath`+`pre-commit`+`pre-push`) · memory placeholder(판정은 `scan-enrich-placeholders.sh` **호출**로 재사용 — 중복 로직 금지, propagation edge 로 잠금) · 고아 FID · session-progress 정합. 항상 `exit 0`(조회 도구, 흐름 비차단) · `--json` 기계 판독 · `.specops` 부재 시 면제(5원칙 4 주권). NFR-2 실측 **0.16s / 2s 기준**(12.5배 여유) — `_chk_progress` 를 줄당 프로세스 스폰 0(순수 bash 문자열 연산)으로 구현한 결과다(A/B: 줄당 `printf|grep` 이면 **6.55s**). 어서션 19건, 변이 5종 전부 격추. 본 기능은 **specops 를 자기 lifecycle 로 11단계 완주시킨 실사용 검증**의 산출이다(게이트 우회 0회).
-- **마찰 로그 집계 `gbrain-friction.sh` — 학습 루프 observe→distill 1단계 (20260807)** — `friction-log.jsonl` 이 `.specops/<FID>/` 마다 흩어져 **아무도 읽지 않았다**. 실측: 25개 파일 130행, 그중 **R-1(commit 전 verify) 89행 = 68%**, block 44건. 한 규칙이 23개 FID 에서 89번 울렸는데 그 신호로 바뀐 것이 0이었다 — 데이터가 없어서가 아니라 **집계가 없어서**다. 규칙별 행수·**FID수 분리**(한 FID 편중 vs 전역 패턴 구분)·severity 분포 + 증류 후보(기본 3회, Hermes 학습 루프의 "3회 이상 반복 → 증류" 차용). `/gbrain` **기본 출력**에 편입 — 별도 플래그 뒤로 숨기면 결함 원인(있는데 안 읽힘)이 그대로 재발한다. **게이트 자동 생성은 하지 않는다** — 클래스 B 정적 메타 규칙이 후보 4건 전부 오탐(4/4)으로 철회된 전례. 증류와 게이트 사이에는 사람 승인이 들어간다.
-- **AC 필드 게이트 `check-ac-format.sh` — must 커버리지 fail-open 봉합 (OpenSpec 대조 갭분석 G1)** — `emit-context.sh` 의 **must AC 역방향 커버리지** 검사는 `**우선순위**: must` 가 있는 AC 만 대상으로 삼는다(코드 주석: "우선순위 필드가 아예 없는 구식/픽스처 AC 문서는 자연히 대상 0건(하위호환 fail-open)"). 즉 필드를 빠뜨리면 **검사가 무음으로 꺼진다** — 그런데 그 필드의 존재를 강제하는 층이 0곳이었다. 실측: AC 픽스처 **7개 중 6개가 우선순위 0건**(그 문서들에선 검사가 죽어 있었다). 게이트를 끄는 스위치가 무검증 상태였던 셈. HARD: 우선순위(값 `must`·`should`·`nice-to-have`)·Given/When/Then·골격 잔존·AC 토큰 0건 / WARN: 검증 방법·관련 FR·헤더형 AC 0건. 저작 지점(`specifying-ko`·`clarifying-ko`)까지 지시를 배선했다 — 게이트만 두면 모델이 AC 를 쓴 뒤 **dispatch 직전에야** hard block 을 만난다(클래스 A 의 거울상).
+- **마찰 로그 집계 `gbrain-friction.sh` — 학습 루프 observe→distill 1단계 (20260807)** — `friction-log.jsonl` 이 `.specops/<FID>/` 마다 흩어져 **아무도 읽지 않았다**. 실측: 25개 파일 130행, 그중 **R-1(commit 전 verify) 89행 = 68%**, block 44건. 한 규칙이 23개 FID 에서 89번 울렸는데 그 신호로 바뀐 것이 0이었다 — 데이터가 없어서가 아니라 **집계가 없어서**다. 규칙별 행수·**FID수 분리**(한 FID 편중 vs 전역 패턴 구분)·severity 분포 + 증류 후보(기본 3회 — "3회 이상 반복 → 증류"). `/gbrain` **기본 출력**에 편입 — 별도 플래그 뒤로 숨기면 결함 원인(있는데 안 읽힘)이 그대로 재발한다. **게이트 자동 생성은 하지 않는다** — 클래스 B 정적 메타 규칙이 후보 4건 전부 오탐(4/4)으로 철회된 전례. 증류와 게이트 사이에는 사람 승인이 들어간다.
+- **AC 필드 게이트 `check-ac-format.sh` — must 커버리지 fail-open 봉합 (갭분석 G1)** — `emit-context.sh` 의 **must AC 역방향 커버리지** 검사는 `**우선순위**: must` 가 있는 AC 만 대상으로 삼는다(코드 주석: "우선순위 필드가 아예 없는 구식/픽스처 AC 문서는 자연히 대상 0건(하위호환 fail-open)"). 즉 필드를 빠뜨리면 **검사가 무음으로 꺼진다** — 그런데 그 필드의 존재를 강제하는 층이 0곳이었다. 실측: AC 픽스처 **7개 중 6개가 우선순위 0건**(그 문서들에선 검사가 죽어 있었다). 게이트를 끄는 스위치가 무검증 상태였던 셈. HARD: 우선순위(값 `must`·`should`·`nice-to-have`)·Given/When/Then·골격 잔존·AC 토큰 0건 / WARN: 검증 방법·관련 FR·헤더형 AC 0건. 저작 지점(`specifying-ko`·`clarifying-ko`)까지 지시를 배선했다 — 게이트만 두면 모델이 AC 를 쓴 뒤 **dispatch 직전에야** hard block 을 만난다(클래스 A 의 거울상).
 - **`hardgate_classified` 메타 규칙 — 결함 클래스 A 재발 구조적 차단 (구현 정합성 개선 20260806)** — 20260806 감사에서 **동일 클래스 결함 9건**이 나왔다: SKILL.md 가 HARD 를 선언하는데 그것을 검사하는 구현이 0곳(foundation manifest·재사용 게이트·회귀 AC·advisor 협의·DAST 소유확인·브랜치 삭제·Phase B/C 존재·화면 8섹션·analyzing baseline). **개별 수정만으로는 다음에 또 나온다** — 선언 시점에 결정을 강제하는 규칙이 필요하다. `validate-structure` 에 신규 검사: `<HARD-GATE>` 형식 블록을 가진 skill 은 그 게이트를 **반드시 분류**해야 한다 — ① `판정 SoT = <스크립트>`(기계 판정, **스크립트 실재도 함께 검사**해 dangling 인용 차단) 또는 ② `기계화 불가`/`대화 게이트`(사유 명시). 둘 다 없으면 FAIL — "선언만 하고 구현 여부를 결정하지 않은" 상태를 금지한다. 도입 즉시 **미분류 4건 적발**(brainstorming·clarifying·improve-arch·specifying) 후 전부 분류: 3건은 행위 금지·대화 승인이라 기계화 불가로 명시(후속 관문이 우회를 어떻게 좁히는지 함께 기록), clarifying 은 **부분 기계화**(foundation 스택 축만 `check-stack-decided.sh`)로 분류. 테스트 3건 — T-hg.b 는 분류 문구를 실제로 지워 적발을 확인하는 **mutation 내장** 테스트다.
 - **골격 예시 소비처 계약 잠금 (클래스 B 재발 방지 — 정적 메타 규칙은 의도적으로 미채택)** — 클래스 A 처럼 정적 메타 규칙을 만들려다 **실측이 제안을 뒤집었다**: "실값 행" 휴리스틱으로 템플릿 22종을 스캔하니 후보 4건이 나왔는데 **전부 오탐**이었다(DESIGN.md 색상 `#______`·SKILL.md `{{...}}`·dispatch-context 5원칙 설명표·decisions `(예시)` 접두 — 정상). placeholder 형식이 **4가지**라 정적 판별이 안 되고, 진짜 성질은 "기계가 프로젝트 데이터로 읽는가" 라는 **의미론**이다 — 규칙화하면 오탐 생성기가 된다. 대신 **소비처마다 제외 규칙을 두는 현행 방식**(클래스 A 를 관문에서 잡은 것과 동일 원리)을 유지하고, 그 규칙들이 **조용히 사라지지 않도록** 한곳에서 잠갔다: `check-decisions-ledger`(`(예시)` 접두) · `check-fr-table`(`TBD`) · `scan-enrich-placeholders`(`specops:example`) · `screens-overview` 빈 fence. 새 소비처가 생기면 이 테스트에 행을 추가하는 것이 규약이다. 테스트 4건, 각 소비처 mutation 으로 비-vacuous 확인.
 - **유지보수 baseline 산출물 게이트 — 데이터 안전망 무음 해제 봉합** — 클래스 A 9번째 인스턴스. `analyzing-ko` HARD-GATE 는 "두 산출물 사용자 검토 통과 전 specifying 금지" 인데 **산출물 존재 자체를 검사하는 층이 0곳**이었다(실측: 유지보수 FID 가 analyzing 산출물 0개로 `emit-context` 통과 → 구현). 2차 피해가 크다 — `check-regression-ac` 의 **스키마 override 판정이 `current-state.md` 를 읽으므로**, 파일이 없으면 `need_r2=0` 이 되어 **파괴적 스키마 변경에도 AC-R-2(데이터 보존)가 요구되지 않는다**(안전망 무음 해제). AC-R-1 도 baseline 없이는 "무엇을 보존하는지" 근거가 없다. 신규 `check-maintain-baseline.sh` 를 `emit-context` 에 배선 — 두 산출물 존재 + placeholder 잔존 시 미채움 판정(파일만 만들고 통과 차단). `§유형≠유지보수`·spec 부재는 skip/fail-open. HARD-GATE 본문에 **판정 분리**를 명시했다(산출물 존재·채움 = 기계 / 사용자 검토 = 대화 게이트). 테스트 9건, mutation 비-vacuous.
@@ -3490,7 +3483,6 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - **`gbrain` confidence 기록률 6% 의 근본 원인 + 미기재 순위 역전** — `learnings.jsonl` 167건 중 confidence 기재 10건(6%)이고 그마저 **2026-06-29~30 이틀에 몰려** 있었다. 원인은 모델이 게을러서가 아니라 **문서화된 호출 예시 4곳이 전부 `--confidence` 를 빼고 있어서**다 — 모델은 예시를 복사한다. 2차 결함: `gbrain-recall` 의 동점 가중치가 `high 3 · medium 2 · low 1 · **미기재 0**` 이라 저자가 "확신 낮음"이라 **명시한** 인사이트가 아무 평가도 없는 인사이트보다 위로 올라갔다(코퍼스 94%가 미기재). **평가 부재는 낮은 평가가 아니다** → 미기재를 `low` 와 동급으로.
 
 ### Docs
-- **경쟁 프로젝트 소스 대조 분석 2건** — 문서·검색이 아니라 **소스 clone 후 실측**으로 작성(인용은 커밋 고정). `docs/speckit-repositioning-study.md`(spec-kit@81d5cdb): 훅 이식은 **가능**하다(`events.py` + `CANONICAL_TO_NATIVE` 가 `.claude/settings.json` 에 네이티브 훅을 쓴다 — 직전 판단 정정). 다만 유지비 절감 근거는 실측으로 철회 — 순 감축 1.2~2.2k = **생산 코드 19,298줄의 6~11%**(45k 헤드라인은 테스트 18.1k 포함). `docs/openspec-gap-analysis.md`(OpenSpec@d578896): 축이 직교한다 — OpenSpec 은 스펙 **내용**을 검증(validator 773줄·규칙 ~30), specops 는 **프로세스**를 강제(훅 deny). 갭 6건 우선순위화.
 
 ## [1.62.0] — 2026-08-06
 
@@ -3779,13 +3771,13 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 ## [1.44.0] — 2026-07-13
 
 ### Changed
-- **implementing-ko 모델 라우팅 섹션 drift 화해** — 커밋 97c672b("서브에이전트 모델 라우팅 고정 — 리뷰=fable·개발=opus") 이후 stale 했던 `## 모델 티어 라우팅` 섹션(tasks.md `tier:` 필드→부모가 model 파라미터 동적 결정, 미배선 dead spec)을 실제 고정모델 현실로 화해. `## 모델 라우팅 (역할별 고정)` 로 재작성 — implementer=opus·evaluator=fable·self-config=inherit frontmatter 단일 소스, 품질 편향(비용 다운그레이드 미채택) 명시, L231 오기(implementer inherit↔실제 opus)·BLOCKED "더 강한 모델" 모순 제거. wshobson/agents PluginEval 흡수 분석의 model-tier 항목이 이미 완료(97c672b)였고 doc drift 만 잔여였음을 반영. (#194)
+- **implementing-ko 모델 라우팅 섹션 drift 화해** — 커밋 97c672b("서브에이전트 모델 라우팅 고정 — 리뷰=fable·개발=opus") 이후 stale 했던 `## 모델 티어 라우팅` 섹션(tasks.md `tier:` 필드→부모가 model 파라미터 동적 결정, 미배선 dead spec)을 실제 고정모델 현실로 화해. `## 모델 라우팅 (역할별 고정)` 로 재작성 — implementer=opus·evaluator=fable·self-config=inherit frontmatter 단일 소스, 품질 편향(비용 다운그레이드 미채택) 명시, L231 오기(implementer inherit↔실제 opus)·BLOCKED "더 강한 모델" 모순 제거. model-tier 항목이 이미 완료(97c672b)였고 doc drift 만 잔여였음을 반영. (#194)
 
 ## [1.43.0] — 2026-07-13
 
 ### Added
-- **LLM eval N-run 신뢰성 측정 (`LLM_EVAL_RUNS`)** — wshobson/agents PluginEval Layer3(Monte Carlo) 아이디어를 bash 로 이식. 기존 `run-evals.sh` 는 fixture별 1회 실행(+retry cap=1)이라 확률적 LLM 동작의 flakiness 를 못 잡고 retry 가 오히려 은폐했다. `LLM_EVAL_RUNS=N`(N>1) 시 retry 없이 N회 반복 → per-fixture 성공률·FLAKY(<80%)·총괄 평균활성률 리포트(비차단 exit 0). 기본 N=1 은 기존 단발 동작 완전 무변경, 경계 케이스(`expect_any`)는 집계 제외. FID 20260713-llm-eval-nrun (#192)
-- **SKILL.md 정적 밀도/bloat lint (T10)** — wshobson/agents PluginEval Layer1(BLOATED_SKILL·OVER_CONSTRAINED) 이식. `test-skill-conventions.sh` 에 (a) bloat(>800줄, specops "800 max" norm — e2e-test-ko 문서화 예외) 예외 밖 FAIL 회귀가드, (b) 디렉티브 밀도(`discipline: true` 제외, 임계 25) 초과 시 INFO(FAIL 아님) 추가. 임계를 현 최댓값(22) 위로 두어 현재 0건 flag·미래 폭증만 포착 — OVER_CONSTRAINED 판단은 `discipline: true` marker 를 통해 사용자에게 남긴다. FID 20260713-skill-density-lint (#193)
+- **LLM eval N-run 신뢰성 측정 (`LLM_EVAL_RUNS`)** — Monte Carlo 방식의 반복 측정을 bash 로 구현. 기존 `run-evals.sh` 는 fixture별 1회 실행(+retry cap=1)이라 확률적 LLM 동작의 flakiness 를 못 잡고 retry 가 오히려 은폐했다. `LLM_EVAL_RUNS=N`(N>1) 시 retry 없이 N회 반복 → per-fixture 성공률·FLAKY(<80%)·총괄 평균활성률 리포트(비차단 exit 0). 기본 N=1 은 기존 단발 동작 완전 무변경, 경계 케이스(`expect_any`)는 집계 제외. FID 20260713-llm-eval-nrun (#192)
+- **SKILL.md 정적 밀도/bloat lint (T10)** — BLOATED_SKILL·OVER_CONSTRAINED 검사. `test-skill-conventions.sh` 에 (a) bloat(>800줄, specops "800 max" norm — e2e-test-ko 문서화 예외) 예외 밖 FAIL 회귀가드, (b) 디렉티브 밀도(`discipline: true` 제외, 임계 25) 초과 시 INFO(FAIL 아님) 추가. 임계를 현 최댓값(22) 위로 두어 현재 0건 flag·미래 폭증만 포착 — OVER_CONSTRAINED 판단은 `discipline: true` marker 를 통해 사용자에게 남긴다. FID 20260713-skill-density-lint (#193)
 
 ### Changed
 - **CLAUDE.md 서브시스템 3영역 반영** — 최근 대형 서브시스템(self-config 적대감사 red/blue/auditor·design-first 대칭 Step 5.5/5.6·학습 루프 gbrain/freelog)을 CLAUDE.md 에 문서화 (#191)
@@ -3877,7 +3869,6 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 ## [1.32.3] — 2026-07-02
 
 ### Changed
-- **Superpowers 코멘트성 언급 제거 (21파일 29건)** — skill 본문 산문·`## 참조` upstream 링크 라인·footer stamp·메타 skill description 괄호·템플릿 예시 경로(`docs/superpowers/...`)·템플릿 HTML 주석에서 Superpowers 표기 제거. **인프라 데이터는 유지**: frontmatter `reference_upstream:`(validate-structure·diff-upstream 소비), `docs/upstream-drift-log.md` 자동 생성 기록, CHANGELOG 과거 릴리즈 노트, `.specops-cache/upstream/`. 기능 무변경 — 사용 중 노출 표면만 정리.
 
 ## [1.32.2] — 2026-07-02
 
@@ -3913,7 +3904,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - **`diff-upstream.sh` plugin_root 경로 계산 오류** — `scripts/_internal/` 하위에서 실행 시 `dirname` 1회 적용으로 `scripts/`를 repo root로 오인하던 버그. `cd "$script_dir/../.."` 2단계 상위로 수정. struct=0→21, manual=0→26 정상 산출. 테스트 sandbox 경로도 동일하게 수정 (T2~T7 PASS). (#155)
 
 ### Added
-- **`writing-skills` 방법론 흡수 — failure-first + rationalization table 3 인프라 동시 전파** — superpowers upstream drift 점검에서 rationalization 섹션 대거 추가 확인(실증 근거). 신규 skill 추가 없이 기존 3 인프라에 teeth 동시 전파(aspirational-without-enforcement 방지): `CONTRIBUTING.md` Skill 작성 방법론 신설, `templates/SKILL.md` 합리화 차단표 섹션 양식 추가, `test-skill-conventions.sh` T7/T8 형식 게이트. `using-git-worktrees-ko` 적색 플래그 누락 항목 보강(EnterWorktree native tool 우선, upstream v5.1.0). (#156)
+- **`writing-skills` 방법론 흡수 — failure-first + rationalization table 3 인프라 동시 전파** — 합리화 차단 섹션의 실증 근거를 확인. 신규 skill 추가 없이 기존 3 인프라에 teeth 동시 전파(aspirational-without-enforcement 방지): `CONTRIBUTING.md` Skill 작성 방법론 신설, `templates/SKILL.md` 합리화 차단표 섹션 양식 추가, `test-skill-conventions.sh` T7/T8 형식 게이트. `using-git-worktrees-ko` 적색 플래그 누락 항목 보강(EnterWorktree native tool 우선). (#156)
 
 ### Refactored
 - **discipline-class skill 합리화 차단표 헤딩 통일 + T9 gate** — `## 흔한 합리화`(systematic-debugging-ko, tdd-ko), `## 합리화 방지`(verifying-evidence-ko) → `## 합리화 차단표` 통일. `test-skill-conventions.sh` T9: 3종 discipline-class skill 합리화 차단표 섹션 존재 강제 게이트. T1~T9 10개 체계 완성. (#157)
@@ -3947,7 +3938,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - **`SPECOPS_GOVERNANCE_PROFILE` 프리셋 (minimal/standard/strict) — ecc #4 흡수** — `is-hook-enabled.sh` 에 ENV 프리셋 분기. minimal(pretool+session-start)·standard(4 훅)·strict(6 훅). **minimal 도 R-1/R-2 hard-block 유지**(거버넌스 해자 보존). pyyaml 독립 bash case. (#137)
 
 ### Changed
-- **advisor-ko 이종 백엔드 자동 fallback 확대 — omc #2 경량 흡수** — `critic-ask` 연결지점 2→5곳 + 미연결 시 자동 fallback 트리거. advisor 미연결 환경에서도 graceful. (#136)
+- **advisor-ko 이종 백엔드 자동 fallback 확대** — `critic-ask` 연결지점 2→5곳 + 미연결 시 자동 fallback 트리거. advisor 미연결 환경에서도 graceful. (#136)
 
 ### Fixed
 - **R-1/R-2 verify 면제 방어 보강** — R-1 면제가 verifying-evidence-ko skill transcript 패턴에 강결합돼 직접 verify(skill 우회) 시 false-block 하던 결함 수정. `run-verification.sh` 의 `RUN-VERIFICATION-RESULT` evidence stamp 를 보조 면제 신호로 추가 + `_verify_passed_in_progress` **3-state**(0 유효/1 inconclusive/2 affirmative-stale). stamp 면제는 vp=1 만, vp=2(stale)는 stamp 무시 차단(거짓면제 0, T39 보존). (#138)
@@ -4257,8 +4248,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 ## [1.8.0] — 2026-06-05
 
 ### Added
-- **`integration-test-ko` engine skill (layer 2)** — lifecycle chain에서 통합 표면(API·DB·다중 모듈 경계) 검출 시 통합 테스트 작성·실행·증거화. 표면 부재 시 graceful skip. test-master integration 패턴 번안.
-- **`performance-test-ko` engine skill (layer 2)** — lifecycle chain에서 NFR 성능 임계값(응답시간·처리량·동시성) 검출 시 성능 테스트 작성·실행·증거화. 임계값 부재 시 graceful skip. test-master performance 패턴 번안.
+- **`integration-test-ko` engine skill (layer 2)** — lifecycle chain에서 통합 표면(API·DB·다중 모듈 경계) 검출 시 통합 테스트 작성·실행·증거화. 표면 부재 시 graceful skip.
+- **`performance-test-ko` engine skill (layer 2)** — lifecycle chain에서 NFR 성능 임계값(응답시간·처리량·동시성) 검출 시 성능 테스트 작성·실행·증거화. 임계값 부재 시 graceful skip.
 - **PR 생성 게이트 이전** — `receiving-code-review-ko`에서 PR 생성(`gh pr create`)을 `performance-test-ko` 말미로 이전. 통합/성능 테스트를 PR 직전에 실행하는 구조 확립.
 
 ### Changed
@@ -4361,7 +4352,7 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - `analyzing-ko` 신설 — 유지보수 진입 시 baseline + impact-analysis.md 산출 (★ HARD GATE)
 - `karpathy-ko` cross-cutting skill — Think·Simplicity·Surgical·Goal 4원칙
 - `advisor-ko` skill — 애매한 지점 외부 자문 의무화
-- `brainstorming-ko` — gstack office-hours 한국어 재창작 (Startup/Builder 모드)
+- `brainstorming-ko` — Startup/Builder 모드
 - `plan-reviewer-ko` — planning-ko Eng 리뷰 서브에이전트
 - `gbrain-ko` + `/gbrain` — learnings.jsonl 인사이트 조회
 - `improve-codebase-architecture-ko` + `/improve-arch` — deep module 정적 분석

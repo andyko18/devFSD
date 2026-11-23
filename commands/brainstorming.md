@@ -7,7 +7,7 @@ triggers:
 mode: ask
 specops_version: 2.6.0
 specops_layer: Lifecycle-PreBootstrap
-reference_upstream: specops-ko 독자 추가 (garrytan/gstack office-hours 한국어 재창작)
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /brainstorming [<주제>]
@@ -84,4 +84,4 @@ Startup 모드(YC 6 forcing questions 기반 수요 검증)와 Builder 모드(�
 
 ---
 
-*specops-ko v2.6.0 · 2026-07-09 · garrytan/gstack office-hours/SKILL.md 참조*
+*specops-ko v2.6.0 · 2026-07-09*

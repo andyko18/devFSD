@@ -125,7 +125,7 @@ Claude Code: `Skill` 도구 사용. skill 호출 시 내용이 로드되어 제�
 | 4 주권 | HARD GATE는 engine skill이 본문에서 강제. 메타 skill은 진입만 책임 |
 | 5 한계 고백 | skill이 적합하지 않다고 판단되면 후행 단계에서 사용자에게 "이 skill로 충분한가?" 질문 가능 |
 
-## Karpathy·Advisor (cross-cutting)
+## 행동 원칙·Advisor (cross-cutting)
 
 - 구현 단계는 `devfsd:karpathy-ko` 4원칙(가정 명시·단순성·외과적 변경·목표 기반 검증)을 따른다.
 - 기획·분석·설계·개발 중 애매하거나 모르는 지점은 단정하지 말고 advisor 를 호출한다(자명한 typo·1줄 rename 제외). 단계별 호출 시점: `devfsd:advisor-ko`.

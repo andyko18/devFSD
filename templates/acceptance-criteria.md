@@ -1,7 +1,7 @@
 <!-- FID: <YYYYMMDD-kebab-slug> -->
 <!-- OWNER_COMMAND: /specify -->
 <!-- MUTABLE_BY: /clarify (append only) -->
-<!-- reference_upstream: github/spec-kit + sprint-contracts Given/When/Then -->
+<!-- reference_upstream: specops-ko 독자 추가 -->
 <!-- layer: Lifecycle-Artifact -->
 
 # 수락 기준 (Acceptance Criteria) — <FID>

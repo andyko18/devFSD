@@ -2,7 +2,7 @@
 name: implementing-ko
 description: "본 세션에서 구현 플랜을 태스크별로 실행할 때 사용 — 태스크별 fresh 구현(A) 후 FID 단위 스펙·코드 리뷰(B·C) 각 1회(end-loaded 기본). 레거시 per-task 리뷰는 review_mode: per-task"
 layer: 2
-reference_upstream: obra/superpowers@v5.0.7 skills/subagent-driven-development/SKILL.md
+reference_upstream: specops-ko 독자 추가
 specops_version: 3.1.21
 used_by: decomposing-ko (chain 진입), verifying-evidence-ko (chain 출구 · end-loaded/per-task), /start-all (FR별 implementing)
 user-invocable: false

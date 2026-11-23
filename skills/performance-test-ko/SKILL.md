@@ -2,7 +2,7 @@
 name: performance-test-ko
 description: lifecycle chain에서 NFR 성능 임계값 검출 시 성능 테스트를 작성·실행·증거화. 임계값 부재 시 graceful skip. Lifecycle 최종 단계 — PASS/SKIP 후 demo-ko 로 실제 결과를 보여 준 뒤 PR 생성 게이트 진행
 layer: 2
-reference_upstream: specops-ko 독자 추가 (test-master 패턴 번안)
+reference_upstream: specops-ko 독자 추가
 specops_version: 3.1.22
 used_by: integration-test-ko (chain 진입), PR gate (단일 모드 chain 출구), /start-all (batch 모드 BATCH-PERF-DONE halt 진출), demo-ko (PR 생성 게이트 직전 호출 → 복귀)
 user-invocable: false
@@ -345,7 +345,6 @@ bash "${CLAUDE_PLUGIN_ROOT}"/scripts/split-session.sh finish-note
 
 ## 참조
 
-- 번안 원본 패턴: Jeffallan/claude-skills `skills/test-master/references/performance-testing.md` (HEAD SHA e8be415)
 - 선행 skill: `skills/integration-test-ko/SKILL.md`
 - 증거 원칙: `skills/verifying-evidence-ko/SKILL.md`
 - 실패 우회: `skills/systematic-debugging-ko/SKILL.md`

@@ -7,7 +7,7 @@ triggers:
 mode: auto
 specops_version: 2.6.0
 specops_layer: E2E-Test
-reference_upstream: specops-ko 독자 추가 (upstream 미존재)
+reference_upstream: specops-ko 독자 추가
 ---
 
 # /e2e-test

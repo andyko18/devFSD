@@ -2,7 +2,7 @@
 name: analyzing-ko
 description: 유지보수 진입 시 specifying-ko 앞에서 호출 — 변경 대상의 baseline (current-state.md) 과 외부 영향 (impact-analysis.md) 을 산출하고 사용자 검토 ★ HARD GATE 발동
 layer: 2
-reference_upstream: specops-ko 독자 추가 (본가 obra/superpowers@v5.0.7 미존재 — brainstorming SKILL 흡수 패턴 분석 결과)
+reference_upstream: specops-ko 독자 추가
 specops_version: 2.14.0
 used_by: using-specops-ko (maintenance flag = true 시), /maintain, /promote (promote-fid 분기)
 user-invocable: false

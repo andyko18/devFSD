@@ -267,7 +267,7 @@ _dmi_ref=$(cd "$PLUGIN" && git grep -n -E 'devfsd:(brainstorming|design-interfac
 [ -z "$_dmi_ref" ] && ok "dmi: 비활성 command 를 모델이 skill 로 호출하는 본문 0건" || nope "dmi: 비활성 command 호출 참조" "$_dmi_ref"
 
 # ── implementer-ko 가 karpathy-ko 를 프리로드한다 (공식 sub-agents: `skills` frontmatter = 시작 시 전체 내용 주입) ──
-#   실측: --plugin-dir 로 구현자를 띄워 첫 제목 `# Karpathy 행동 원칙` 이 컨텍스트에 있음을 확인(맨 이름 `karpathy-ko` 로 해석됨).
+#   실측: --plugin-dir 로 구현자를 띄워 첫 제목 `# 코딩 행동 원칙` 이 컨텍스트에 있음을 확인(맨 이름 `karpathy-ko` 로 해석됨).
 #   프리로드 대상은 disable-model-invocation 이 아닌 skill 이어야 한다(문서: 그런 skill 은 프리로드 불가).
 if awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' agents/implementer-ko.md 2>/dev/null | grep -q '^  - karpathy-ko$' \
    || awk 'NR==1&&$0=="---"{on=1;next} on&&$0=="---"{exit} on' "$PLUGIN/agents/implementer-ko.md" | grep -q '^  - karpathy-ko$'; then
@@ -562,13 +562,12 @@ else
   nope "DB 설계 전문가 에이전트" "파일·frontmatter·산출 계약·사고 규칙·엔진 선택·README 중 빠진 것이 있다"
 fi
 
-# DB 전문가 엔진 지식 파일 6개 — 출처·라이선스 머리 주석 · 미대조 없음 · 규칙 5줄 이상 (20261020-db-designer-agent)
+# DB 전문가 엔진 지식 파일 6개 — 머리 주석 · 미대조 없음 · 규칙 5줄 이상 (20261020-db-designer-agent)
 _dbe_bad=""
 for _e in postgres mysql oracle mssql mongodb redis; do
   _f="skills/planning-ko/db-expert/engines/$_e.md"
   if [ ! -f "$_f" ]; then _dbe_bad="$_dbe_bad $_e(없음)"; continue; fi
   head -1 "$_f" | grep -q 'reference_upstream:' || _dbe_bad="$_dbe_bad $_e(출처 주석)"
-  head -1 "$_f" | grep -qE 'MIT|Apache-2\.0|공식 문서' || _dbe_bad="$_dbe_bad $_e(라이선스)"
   grep -q '미대조' "$_f" && _dbe_bad="$_dbe_bad $_e(미대조 잔존)"
   [ "$(grep -cE '^- ' "$_f")" -ge 5 ] || _dbe_bad="$_dbe_bad $_e(규칙 5줄 미만)"
 done
@@ -581,7 +580,7 @@ grep -qE '비휘발 기본값' skills/planning-ko/db-expert/engines/postgres.md 
 # 대량 INSERT 행 수는 고정값이 아니라 '상한 ÷ 컬럼 수' — 컬럼 33개 초과면 asyncpg 32767 을 넘는다(실사고 형태)
 grep -q '≈1000행' skills/planning-ko/db-expert/engines/postgres.md && _dbe_bad="$_dbe_bad postgres(고정 행 수 권고)"
 grep -qF '상한 ÷ 컬럼 수' skills/planning-ko/db-expert/engines/postgres.md && grep -qF 'asyncpg/protocol/prepared_stmt.pyx' skills/planning-ko/db-expert/engines/postgres.md || _dbe_bad="$_dbe_bad postgres(행 수 산식·asyncpg 출처 누락)"
-[ -z "$_dbe_bad" ] && ok "DB 전문가 엔진 파일 6개 — 출처·라이선스 · 미대조 없음 · 규칙 ≥5" || nope "DB 전문가 엔진 파일" "$_dbe_bad"
+[ -z "$_dbe_bad" ] && ok "DB 전문가 엔진 파일 6개 — 머리 주석 · 미대조 없음 · 규칙 ≥5" || nope "DB 전문가 엔진 파일" "$_dbe_bad"
 
 # planning-ko DB 전문가 패스 — 경계 대조 뒤·plan-reviewer 전 · 비batch · 발동 조건 · dispatch · 반영 · 재검사 · 기록(DONE 금지) (20261020-db-designer-agent)
 _PL=skills/planning-ko/SKILL.md
@@ -608,7 +607,6 @@ _apa_body_ok() {
               '커서에 정렬 컬럼 전부|유일' '페이지 메타데이터|has_more' '멱등 키는 의도에서|randomUUID' '멱등 키 재사용·보존|422'; do
     name=${pair%%|*}; body=${pair#*|}
     grep -F -- "- **$name**:" "$_APA" | grep -qF -- "$body" || return 1
-    grep -F -- "- **$name**:" "$_APA" | grep -qE '출처: .*\(MIT\)' || return 1
   done
 }
 if [ -f "$_APA" ] && has "$_APA" '^model: opus$' '^effort: high$' '쓰는 파일은 `\.specops/<FID>/experts/api\.md` 하나뿐이다' \
@@ -627,16 +625,15 @@ else
   nope "API 계약 전문가 에이전트" "파일·frontmatter·판정기 연계·원칙 13·범위 경계·README 중 빠진 것이 있다"
 fi
 
-# API 전문가 GraphQL 지식 파일 — 출처·라이선스 머리 주석 · 규칙 10줄 이상 · 핵심 규칙 앵커 (20261021-api-designer-agent)
+# API 전문가 GraphQL 지식 파일 — 머리 주석 · 규칙 10줄 이상 · 핵심 규칙 앵커 (20261021-api-designer-agent)
 _apg=skills/planning-ko/api-expert/patterns/graphql.md
 _apg_bad=""
 if [ ! -f "$_apg" ]; then _apg_bad=" 파일 없음"; else
   head -1 "$_apg" | grep -q 'reference_upstream:' || _apg_bad="$_apg_bad 출처 주석"
-  head -1 "$_apg" | grep -q 'MIT' || _apg_bad="$_apg_bad 라이선스"
   [ "$(grep -cE '^- ' "$_apg")" -ge 10 ] || _apg_bad="$_apg_bad 규칙 10줄 미만"
   for _k in 'DataLoader' 'pageInfo' '@deprecated' 'graphql-ws' '인자 하나짜리 `input` 타입'; do grep -q -- "$_k" "$_apg" || _apg_bad="$_apg_bad $_k"; done
 fi
-[ -z "$_apg_bad" ] && ok "API 전문가 GraphQL 지식 파일 — 출처·라이선스 · 규칙 ≥10 · 핵심 앵커" || nope "API 전문가 GraphQL 지식 파일" "$_apg_bad"
+[ -z "$_apg_bad" ] && ok "API 전문가 GraphQL 지식 파일 — 머리 주석 · 규칙 ≥10 · 핵심 앵커" || nope "API 전문가 GraphQL 지식 파일" "$_apg_bad"
 
 # planning-ko API 전문가 패스 — DB 뒤·보안 앞(DB → API → 보안 → 테스트 → plan-reviewer) · 발동 조건 · dispatch · 반영 · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음
 #   문구는 API 절 범위(다음 `### ` 앞까지)에서만 찾는다 — 파일 전체 grep 은 다른 절의 같은 문구로 통과했다 (20261021-api-designer-agent · 범위 교정 20261022-api-expert-integrate)
@@ -678,7 +675,6 @@ _sda_body_ok() {
               '응답 민감 필드|응답 전용 타입' '개인정보 분류·최소화|목적' '보존기간과 실제 삭제 경로|백업' '쿠키 인증이면 CSRF|SameSite' '보안 이벤트 기록|로그에 남기지 않는다'; do
     name=${pair%%|*}; body=${pair#*|}
     grep -F -- "- **$name**:" "$_SDA" | grep -qF -- "$body" || return 1
-    grep -F -- "- **$name**:" "$_SDA" | grep -qE '출처: .*\(MIT\)' || return 1
   done
 }
 # 산출 형식에서 신뢰 경계·자산 절이 지적 절보다 먼저 온다
@@ -708,17 +704,16 @@ else
   nope "보안 설계 전문가 에이전트" "파일·frontmatter·판정기 연계·질문 틀·원칙 16·범위 경계·패턴 표·README 중 빠진 것이 있다"
 fi
 
-# 보안 전문가 2층 패턴 파일 — 파일마다 출처·라이선스 머리 주석 · 규칙 4줄 이상 · 핵심 앵커 (20261021-security-designer-agent)
+# 보안 전문가 2층 패턴 파일 — 파일마다 머리 주석 · 규칙 4줄 이상 · 핵심 앵커 (20261021-security-designer-agent)
 for _f in 'ssrf-upload-webhook|DNS 레코드를 \*\*전부\*\*|magic bytes|HMAC' 'llm|LLM05|LLM01|테넌트별' 'browser-session|httpOnly|SameSite|credentials' 'oauth|PKCE\(S256 만\)|Implicit|scope'; do
   _n=${_f%%|*}; _p=skills/planning-ko/security-expert/patterns/$_n.md; _sdp_bad=""
   if [ ! -f "$_p" ]; then _sdp_bad=" 파일 없음"; else
     head -1 "$_p" | grep -q 'reference_upstream:' || _sdp_bad="$_sdp_bad 출처 주석"
-    head -1 "$_p" | grep -q 'MIT' || _sdp_bad="$_sdp_bad 라이선스"
     [ "$(grep -cE '^- ' "$_p")" -ge 4 ] || _sdp_bad="$_sdp_bad 규칙 4줄 미만"
     _rest=${_f#*|}
     while :; do _k=${_rest%%|*}; grep -qE -- "$_k" "$_p" || _sdp_bad="$_sdp_bad $_k"; [ "$_rest" = "$_k" ] && break; _rest=${_rest#*|}; done
   fi
-  [ -z "$_sdp_bad" ] && ok "보안 전문가 패턴 파일 $_n — 출처·라이선스 · 규칙 ≥4 · 핵심 앵커" || nope "보안 전문가 패턴 파일 $_n" "$_sdp_bad"
+  [ -z "$_sdp_bad" ] && ok "보안 전문가 패턴 파일 $_n — 머리 주석 · 규칙 ≥4 · 핵심 앵커" || nope "보안 전문가 패턴 파일 $_n" "$_sdp_bad"
 done
 
 # planning-ko 보안 전문가 패스 — API 패스 뒤·plan-reviewer 전 · 발동 조건 · 판정기 [승인 대상] · dispatch · 반영 · 재검사 한 번 · 기록 3종(DONE 금지) · batch 제외 · 하위 제목 없음 (20261021-security-designer-agent)
@@ -747,7 +742,7 @@ _rqa_rules_ok() {
     grep -F -- "- **$name**:" "$_RQA" | grep -qE '근거: Argus 2026[0-9]{4}-' || return 1
   done
   for name in '공유 경계는 한 곳에 정의' '흐린 말은 시나리오로' '검증 가능한 성공 기준' '엣지 케이스는 spec 에서' '결정은 사용자에게, 질문은 하나씩'; do
-    grep -F -- "- **$name**:" "$_RQA" | grep -qE '출처: .*\(MIT\)' || return 1
+    grep -qF -- "- **$name**:" "$_RQA" || return 1
   done
   [ "$(awk '/^## 핵심 규칙/{f=1;next} /^## /{f=0} f' "$_RQA" | grep -c '^- \*\*')" -eq 12 ] && [ "$(awk '/^## 공통 원칙/{f=1;next} /^## /{f=0} f' "$_RQA" | grep -c '^- \*\*')" -eq 5 ] || return 1
 }
@@ -769,7 +764,7 @@ _uia_rules_ok() {
     grep -F -- "- **$name**:" "$_UIA" | grep -qE '근거: Argus 2026[0-9]{4}-' || return 1
   done
   for name in '안내 문구의 실행 가능성' '디자인 토큰 밖 색' '포커스 이동' '로딩 영역의 이름' '대비 기준의 글자 크기' '부분 데이터가 없는 것보다 낫다'; do
-    grep -F -- "- **$name**:" "$_UIA" | grep -qE '출처: .*\((MIT|Apache-2\.0)\)' || return 1
+    grep -qF -- "- **$name**:" "$_UIA" || return 1
   done
   [ "$(awk '/^## 핵심 규칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 8 ] && [ "$(awk '/^## 공통 원칙/{f=1;next} /^## /{f=0} f' "$_UIA" | grep -c '^- \*\*')" -eq 6 ] || return 1
 }
@@ -791,7 +786,6 @@ _ara_body_ok() {
               '순환 금지|구체 어댑터' '컨텍스트 간 엔티티 직접 import 금지|번역 계층' '집합체는 일관성 경계|불변식 목록' '값 객체는 생성 시점에 검증|생성자' 'DDD 는 필요할 때만|둘 이상'; do
     name=${pair%%|*}; body=${pair#*|}
     grep -F -- "- **$name**:" "$_ARA" | grep -qF -- "$body" || return 1
-    grep -F -- "- **$name**:" "$_ARA" | grep -qE '출처: .*\(MIT\)' || return 1
   done
   grep -F -- '- **프로세스 전역 설정을 바꾸는 호출**:' "$_ARA" | grep -qE '근거: Argus 2026[0-9]{4}-' || return 1
   [ "$(awk '/^## 핵심 규칙/{f=1;next} /^## /{f=0} f' "$_ARA" | grep -c '^- \*\*')" -eq 1 ] && [ "$(awk '/^## 공통 원칙/{f=1;next} /^## /{f=0} f' "$_ARA" | grep -c '^- \*\*')" -eq 10 ] || return 1
@@ -808,20 +802,18 @@ else
   nope "구조 설계 전문가 에이전트" "파일·frontmatter·산출 계약·규칙·근거 인용·README 중 빠진 것이 있다"
 fi
 
-# 구조 전문가 패턴 파일 5개 — 출처·라이선스 머리 주석 · 규칙 수 6·6·7·6·6 · 원문에 없는 규칙은 표시 (20261021-arch-designer-agent · 20261023-arch-expert-integrate 이식)
+# 구조 전문가 패턴 파일 5개 — 머리 주석 · 규칙 수 6·6·7·6·6 (20261021-arch-designer-agent · 20261023-arch-expert-integrate 이식)
 _arp_bad=""
 for _en in backend-layered-clean:6 backend-distributed:6 backend-runtime:7 frontend-react:6 frontend-nextjs:6; do
   _e=${_en%%:*}; _n=${_en#*:}
   _f="skills/planning-ko/arch-expert/patterns/$_e.md"
   if [ ! -f "$_f" ]; then _arp_bad="$_arp_bad $_e(없음)"; continue; fi
-  head -1 "$_f" | grep -q 'reference_upstream: wshobson/agents@0874a27' || _arp_bad="$_arp_bad $_e(출처 주석)"
-  head -1 "$_f" | grep -q 'MIT' || _arp_bad="$_arp_bad $_e(라이선스)"
+  head -1 "$_f" | grep -q 'reference_upstream:' || _arp_bad="$_arp_bad $_e(출처 주석)"
   [ "$(grep -cE '^- ' "$_f")" -eq "$_n" ] || _arp_bad="$_arp_bad $_e(규칙 수 $_n 아님)"
 done
-grep -q '멱등.*specops-ko 추가' skills/planning-ko/arch-expert/patterns/backend-distributed.md 2>/dev/null || _arp_bad="$_arp_bad distributed(추가 규칙 표시 누락)"
 grep -q '직렬화할 수 있는 값' skills/planning-ko/arch-expert/patterns/frontend-nextjs.md 2>/dev/null || _arp_bad="$_arp_bad nextjs(직렬화 규칙 방향)"
 grep -q '단순 CRUD 는 엔티티 단위 저장소' skills/planning-ko/arch-expert/patterns/backend-layered-clean.md 2>/dev/null || _arp_bad="$_arp_bad layered-clean(집합체 저장소는 DDD 조건부)"
-[ -z "$_arp_bad" ] && ok "구조 전문가 패턴 파일 5개 — 출처·라이선스 · 규칙 수 6·6·7·6·6 · 추가 규칙 표시" || nope "구조 전문가 패턴 파일" "$_arp_bad"
+[ -z "$_arp_bad" ] && ok "구조 전문가 패턴 파일 5개 — 머리 주석 · 규칙 수 6·6·7·6·6" || nope "구조 전문가 패턴 파일" "$_arp_bad"
 
 # 테스트 설계 전문가 에이전트 — opus·high · Generator · 산출 파일 하나 · 핵심 규칙 4(이름·본문·근거 같은 줄) · 공통 원칙 11(이름·본문·출처 같은 줄) · 설계표 변이 열 · 범위 경계 (20261022-test-designer-agent)
 _TDA=agents/test-designer-ko.md
@@ -837,10 +829,9 @@ _tda_rules_ok() {
               '테스트 격리|순서에 의존' '공개 인터페이스로 검증|내부 협력자' '위험 영역에 집중|test-strategy'; do
     name=${pair%%|*}; body=${pair#*|}
     grep -F -- "- **$name**:" "$_TDA" | grep -qF -- "$body" || return 1
-    grep -F -- "- **$name**:" "$_TDA" | grep -qF -- '출처: ' || return 1
   done
 }
-if [ -f "$_TDA" ] && has "$_TDA" '^model: opus$' '^effort: high$' '^reference_upstream: mattpocock/skills@5beb35b' '쓰는 파일은 `\.specops/<FID>/experts/test\.md` 하나뿐이다' \
+if [ -f "$_TDA" ] && has "$_TDA" '^model: opus$' '^effort: high$' '^reference_upstream: ' '쓰는 파일은 `\.specops/<FID>/experts/test\.md` 하나뿐이다' \
      '^## 받는 컨텍스트' '^## 작업 순서' '^## 핵심 규칙' '^## 공통 원칙' '^## 범위 경계' '^## 빈 출력 규칙' '^## 산출' '^## 하지 말 것' \
      'acceptance-criteria\.md' 'test-strategy\.md' '^## 수용 기준별 테스트 설계$' '^## 지적$' '^## 확인 필요' '\| AC \| 테스트 \| 떨어뜨리는 잘못된 구현 \| 단언\(값까지\) \| 픽스처가 태우는 경계 \|' \
      '`must` AC 는 모두 한 행씩 쓴다' '^\*\*확인한 사실 위에서만 심각도를 매긴다\*\*:' '테스트 DB 환경.*\*\*DB 전문가\*\*' \

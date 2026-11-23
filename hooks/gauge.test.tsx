@@ -95,25 +95,25 @@ const started = (on: Parameters<Parameters<typeof test>[1]>[1], governed: boolea
   return { opens, closes }
 }
 
-test('full-lane stages fold the gates into one stop and add approval and merge', () => {
-  const stops = stopsOf(FULL, false)
-  expect(stops.map(s => s.label)).toEqual(['명세', '명확화', '승인', '설계', '분해', '구현', '검증', '게이트', 'PR', '머지'])
+test('full-lane stages fold the gates into one stop and add approval, ending at PR like the console', () => {
+  const stops = stopsOf(FULL)
+  expect(stops.map(s => s.label)).toEqual(['명세', '명확화', '승인', '설계', '분해', '구현', '검증', '게이트', 'PR'])
   expect(stops.find(s => s.key === 'approve')?.state).toBe('done')
   expect(stops.find(s => s.key === 'implement')?.state).toBe('now')
   expect(stops.find(s => s.key === 'gate')?.state).toBe('todo')
-  expect(stops.find(s => s.key === 'merge')?.state).toBe('gate')
+  expect(stops.some(s => s.key === 'merge')).toBe(false)
 })
 
 test('approval is the current stop once the stage before it is done and nothing after has begun', () => {
   const waiting = [stage('specify', '명세', '✓'), stage('clarify', '명확화', '✓'), stage('plan', '설계', '○')]
-  expect(stopsOf(waiting, false).find(s => s.key === 'approve')?.state).toBe('now')
+  expect(stopsOf(waiting).find(s => s.key === 'approve')?.state).toBe('now')
   const early = [stage('specify', '명세', '✓'), stage('clarify', '명확화', '●'), stage('plan', '설계', '○')]
-  expect(stopsOf(early, false).find(s => s.key === 'approve')?.state).toBe('todo')
+  expect(stopsOf(early).find(s => s.key === 'approve')?.state).toBe('todo')
 })
 
 test('the gate stop takes the strongest state of the stages it folds', () => {
   const gates = (a: StageMark['mark'], b: StageMark['mark']) =>
-    stopsOf([stage('verify', '검증', '✓'), stage('security', '보안', a), stage('integration', '통합', b)], false).find(s => s.key === 'gate')?.state
+    stopsOf([stage('verify', '검증', '✓'), stage('security', '보안', a), stage('integration', '통합', b)]).find(s => s.key === 'gate')?.state
   expect(gates('✗', '✓')).toBe('fail')
   expect(gates('✓', '○')).toBe('now')
   expect(gates('–', '✓')).toBe('done')
@@ -123,29 +123,28 @@ test('the gate stop takes the strongest state of the stages it folds', () => {
 
 test('a basic lane has no approval stop without a specify stage and no stages draws none', () => {
   const basic = [stage('implement', '구현', '●'), stage('verify', '검증', '○'), stage('pr', 'PR', '○')]
-  expect(stopsOf(basic, false).map(s => s.key)).toEqual(['implement', 'verify', 'pr', 'merge'])
-  expect(stopsOf(undefined, false)).toEqual([])
-  expect(stopsOf([], false)).toEqual([])
-  expect(stopsOf(basic, true).find(s => s.key === 'merge')?.state).toBe('now')
+  expect(stopsOf(basic).map(s => s.key)).toEqual(['implement', 'verify', 'pr'])
+  expect(stopsOf(undefined)).toEqual([])
+  expect(stopsOf([])).toEqual([])
 })
 
 test('the turn note tells whose turn it is', () => {
-  const stops = stopsOf(FULL, false)
+  const stops = stopsOf(FULL)
   const live = { fid: '20261120-x', stages: FULL, activityAt: 900 }
   expect(turnOf(board({}), false, []).tone).toBe('idle')
   expect(turnOf(board(live), true, stops)).toEqual({ tone: 'run', text: '진행 중' })
   expect(turnOf(board({ ...live, working: true }), false, stops).tone).toBe('run')
   expect(turnOf(board(live), false, stops)).toEqual({ tone: 'me', text: '답변 대기' })
-  const waiting = stopsOf([stage('specify', '명세', '✓'), stage('plan', '설계', '○')], false)
+  const waiting = stopsOf([stage('specify', '명세', '✓'), stage('plan', '설계', '○')])
   expect(turnOf(board(live), false, waiting).text).toBe('승인 대기')
   expect(turnOf(board({ ...live, verify: '검증 FAIL' }), false, stops)).toEqual({ tone: 'bad', text: '검증 실패' })
-  const broken = stopsOf([stage('implement', '구현', '✗')], false)
+  const broken = stopsOf([stage('implement', '구현', '✗')])
   expect(turnOf(board(live), false, broken)).toEqual({ tone: 'bad', text: '구현 실패' })
   expect(turnOf(board({ ...live, verify: '완료' }), false, stops).tone).toBe('idle')
 })
 
 test('a past record raises no alarm: no stages, or untouched by this session', () => {
-  const stops = stopsOf(FULL, false)
+  const stops = stopsOf(FULL)
   // 직접 수정 기록 — 단계가 없다(20261120 실화면: 나흘 전 끝난 작업이 새 세션마다 빨강이었다)
   expect(turnOf(board({ fid: '20261116-plan-reflect', lane: '직접 수정', verify: '검증 PASS', activityAt: 900 }), false, [])).toEqual({ tone: 'idle', text: '대기' })
   // 단계는 있지만 이 세션이 건드리지 않은 작업
@@ -293,7 +292,7 @@ test('the dial colour follows the stage group, and an alert or a failure is red'
 })
 
 test('the dial shows the running command and that command\'s own steps', () => {
-  const stops = stopsOf(FULL, false)
+  const stops = stopsOf(FULL)
   const live = { fid: '20261120-x', stages: FULL, activityAt: 900 }
   const run = { tone: 'run', text: '진행 중' } as const
   // 명령이 자기 흐름을 주면 그것이 눈금이다
@@ -305,7 +304,6 @@ test('the dial shows the running command and that command\'s own steps', () => {
   expect(start.command).toBe('start')
   expect(start.ticks.map(t => t.label)).toEqual(stops.map(s => s.label))
   expect(start.ticks.find(t => t.key === 'implement')?.state).toBe('now')
-  expect(start.ticks.find(t => t.key === 'merge')?.state).toBe('todo')
   expect(start.isAlert).toBe(false)
   expect(start.limits).toEqual([
     { name: 'Claude 5h', pct: 42, reset: '2h39m 뒤 초기화' },
@@ -333,14 +331,14 @@ test('a running init keeps its dial while it waits for answers, and never turns 
   expect([dial.command, dial.ticks.length, dial.isAlert]).toEqual(['init-project', 3, false])
   expect(helpLead(hold)).toMatch(/추천대로/)
   // 앞선 작업이 남아 있어도 초기화가 돌면 초기화를 따른다
-  expect(turnOf(board({ fid: '20261120-x', stages: FULL, activityAt: 900, cmd: cmd('init', steps) }), false, stopsOf(FULL, false)).tone).toBe('hold')
+  expect(turnOf(board({ fid: '20261120-x', stages: FULL, activityAt: 900, cmd: cmd('init', steps) }), false, stopsOf(FULL)).tone).toBe('hold')
   // 다 끝난 초기화는 조용하다
   expect(turnOf(board({ cmd: cmd('init', [{ label: '종결', mark: 'done' }]) }), true, []).tone).toBe('idle')
   expect(turnOf(board({ fid: '20261120-init-project', cmd: cmd('init', [{ label: '종결', mark: 'done' }]), activityAt: 900 }), false, []).tone).toBe('idle')
 })
 
 test('only commands with their own flow replace the task stages on the dial', () => {
-  const stops = stopsOf(FULL, false)
+  const stops = stopsOf(FULL)
   const run = { tone: 'run', text: '진행 중' } as const
   const odd = [{ label: '초안', mark: 'cur' as const }]
   for (const kind of ['start', 'maintain', 'foundation'] as const) {
@@ -353,7 +351,7 @@ test('only commands with their own flow replace the task stages on the dial', ()
 })
 
 test('the dial drawing is well formed, escapes its labels and sizes to its limits', () => {
-  const model = dialModelOf(board({ fid: '20261120-x', stages: FULL, activityAt: 900, cmd: cmd('start') }), stopsOf(FULL, false), { tone: 'run', text: '진행 중' }, LIMITS, 1_000)
+  const model = dialModelOf(board({ fid: '20261120-x', stages: FULL, activityAt: 900, cmd: cmd('start') }), stopsOf(FULL), { tone: 'run', text: '진행 중' }, LIMITS, 1_000)
   const svg = dialSvg(model)
   expect(svg.startsWith('<svg xmlns="http://www.w3.org/2000/svg"')).toBe(true)
   expect(svg.endsWith('</svg>')).toBe(true)
@@ -404,7 +402,7 @@ const realStages = (lines: readonly string[]): StageMark[] => {
   return withVerifyMark(stagesOf(progress, FID), undefined, currentStageKey(progress, FID))
 }
 const needleAt = (b: Board): { label: string; ticks: readonly DialTick[] } => {
-  const stops = stopsOf(b.stages, false)
+  const stops = stopsOf(b.stages)
   const ticks = dialModelOf(b, stops, { tone: 'run', text: '진행 중' }, [], 1_000).ticks
 
   return { label: ticks[dialNow(ticks)]?.label ?? '(없음)', ticks }
@@ -438,7 +436,7 @@ test('while waiting for approval the needle stays on the console stage, and the 
   const b = board({ fid: FID, stages, activityAt: 900 })
   expect(needleAt(b).label).toBe('설계') // 관제판의 ▶ 와 같다
   expect(needleAt(b).ticks.filter(t => t.state === 'now')).toHaveLength(1)
-  expect(turnOf(b, false, stopsOf(stages, false)).text).toBe('승인 대기') // 문구는 그대로
+  expect(turnOf(b, false, stopsOf(stages)).text).toBe('승인 대기') // 문구는 그대로
 })
 
 test('aligning to the console leaves a failed current stage red and ignores a current stage the dial does not have', () => {
@@ -460,8 +458,8 @@ test('each state has a short name and its own colour — green running, red for 
   expect(noteTint({ tone: 'idle', text: '완료' })).toBe('suggestion')
   expect(noteTint({ tone: 'idle', text: '대기' })).toBeUndefined()
   const live = { fid: '20261120-x', stages: FULL, activityAt: 900 }
-  expect(turnOf(board(live), true, stopsOf(FULL, false)).text).toBe('진행 중')
-  expect(turnOf(board({ ...live, verify: '검증 FAIL' }), false, stopsOf(FULL, false)).text).toBe('검증 실패')
+  expect(turnOf(board(live), true, stopsOf(FULL)).text).toBe('진행 중')
+  expect(turnOf(board({ ...live, verify: '검증 FAIL' }), false, stopsOf(FULL)).text).toBe('검증 실패')
 })
 
 test('each button opens its pane when it is not up and closes it when it is — the two panes are counted apart', async ($, on) => {

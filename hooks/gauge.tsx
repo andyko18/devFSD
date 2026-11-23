@@ -65,8 +65,8 @@ function approvalState(before: Stop, after: readonly Stop[]): StopState {
   return before.state === 'done' ? 'now' : 'todo'
 }
 
-/** 자료 수집이 만든 단계 막대 → 계기판의 점 줄(게이트 묶음 · 승인 · 머지 추가). 단계가 없으면 빈 배열. */
-export function stopsOf(stages: readonly StageMark[] | undefined, isDone: boolean): Stop[] {
+/** 자료 수집이 만든 단계 막대 → 계기판의 점 줄(게이트 묶음 · 승인 추가 — 끝은 관제판처럼 PR). 단계가 없으면 빈 배열. */
+export function stopsOf(stages: readonly StageMark[] | undefined): Stop[] {
   if (!stages || stages.length === 0) return []
   const plain: Stop[] = []
   const gateStates: StopState[] = []
@@ -96,9 +96,7 @@ export function stopsOf(stages: readonly StageMark[] | undefined, isDone: boolea
   const currentKey = stages.find(s => s.isCurrent)?.key
   const current = currentKey !== undefined && GATE_KEYS.includes(currentKey) ? 'gate' : currentKey
   const isInFlight = withApproval.some(s => s.state === 'now' || s.state === 'fail')
-  const tracked = isInFlight ? withApproval : withApproval.map(s => (s.key === current && s.state === 'todo' ? { ...s, state: 'now' as const } : s))
-
-  return [...tracked, { key: 'merge', label: '머지', state: isDone ? 'now' : 'gate' }]
+  return isInFlight ? withApproval : withApproval.map(s => (s.key === current && s.state === 'todo' ? { ...s, state: 'now' as const } : s))
 }
 
 /** `20261116-plan-reflect` → `plan-reflect` — 날짜 접두는 사람에게 소음이다. */
@@ -267,7 +265,7 @@ export function registerGauge(on: Parameters<Register>[0]): void {
     const m: Main = await read($, main)
     const u: Usage = await read($, usage)
     const at = await read($, nowTick)
-    const stops = stopsOf(b.stages, b.verify === '완료')
+    const stops = stopsOf(b.stages)
     const note = turnOf(b, m.isRunning, stops)
     const isAlert = note.tone === 'me' || note.tone === 'bad'
     const model = prettyModel(m.model || m.startModel || '')
@@ -389,7 +387,7 @@ export function registerGauge(on: Parameters<Register>[0]): void {
     const { Box, Text } = $.ui.resolve(e)
     const b = await read($, board)
     const m: Main = await read($, main)
-    const note = turnOf(b, m.isRunning, stopsOf(b.stages, b.verify === '완료'))
+    const note = turnOf(b, m.isRunning, stopsOf(b.stages))
 
     return (
       <Box flexDirection="column">

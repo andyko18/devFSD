@@ -1,7 +1,7 @@
-// devFSD 상태 계약 — 관제판(Flightdeck 이식)과 자료 수집(진행 기록)을 한 플러그인 상태 'devfsd' 아래에 둔다.
+// devFSD 상태 계약 — 관제판과 자료 수집(진행 기록)을 한 플러그인 상태 'devfsd' 아래에 둔다.
 // Flightdeck types: Copyright (c) 2026 Stephen Casella — MIT License. See NOTICE.
 
-// ---- 관제판 (Flightdeck 이식) ----
+// ---- 관제판 ----
 export type Moment = 'before a plan' | 'error repeats' | 'before done'
 
 export type Bucket = 'file' | 'shell' | 'other'

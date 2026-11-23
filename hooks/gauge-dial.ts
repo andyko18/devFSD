@@ -34,7 +34,6 @@ const PHASE_OF: Record<string, number> = {
   verify: 2,
   gate: 2,
   pr: 2,
-  merge: 2,
 }
 
 export type DialTickState = 'done' | 'now' | 'todo' | 'skip' | 'fail'

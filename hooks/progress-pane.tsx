@@ -694,7 +694,8 @@ export function registerProgress(on: Parameters<Register>[0]): void {
       })
     })
     const ran = await next(e)
-    if (ran.deny !== undefined) await safe(() => endJob($, e.tool_use_id, true))
+    // 거부됐거나 오류로 끝난 호출은 백그라운드로 뜨지 않았다 — 종료 알림이 오지 않으므로 여기서 닫는다(안 그러면 '진행 중'이 풀리지 않는다).
+    if (ran.deny !== undefined || ran.isError === true) await safe(() => endJob($, e.tool_use_id, true))
     else await safe(() => noteOutput($, e.tool_use_id, ran.text))
     void refreshStatus($, cwd, gate)
 

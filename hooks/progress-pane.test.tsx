@@ -312,6 +312,16 @@ test('a foreground agent that errors or is denied lands as failed', async ($, on
   expect(rows.some(row => row.includes('✗ 작업 toolu_deny'))).toBe(true)
 })
 
+test('a background command that errors before launching lands as failed instead of running forever', async ($, on) => {
+  on('clock.now', () => ({ value: 1_000 }))
+  on('tool.call', () => ({ result: {}, isError: true, text: 'x' }))
+  await $.tool.call(bgBash('toolu_be'))
+
+  const rows = await rowsOf()
+  expect(running(rows)).toBe('▶ 실행 중 (0)')
+  expect(rows.some(row => row.includes('✗ 명령 toolu_be'))).toBe(true)
+})
+
 test('a denied background command lands as failed', async ($, on) => {
   on('clock.now', () => ({ value: 1_000 }))
   on('tool.call', () => ({ deny: '막힘' }))

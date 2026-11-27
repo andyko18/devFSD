@@ -907,7 +907,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       const cost: Piece | null = u.costUsd !== null ? { spans: [{ text: fmtUsd(u.costUsd), color: C.text }, ...(delta !== null ? [{ text: ` (+${fmtUsd(delta)})`, dim: true }] : [])] } : null
       const limits = (bar: number, lead: number): Piece[] =>
         u.limits.slice(0, 2).map((l, i): Piece => {
-          const lg = bar > 0 ? gauge(l.pct, bar) : null
+          const lg = bar > 0 ? gauge(l.pct, bar, isTerminal) : null
           // The time to each reset where the line has room for it: both windows fit from 56 columns,
           // so a wide pane's half column (59 at 120) has them.
           const resetIn = w >= 56 ? fmtResetIn(l.resetsAt, now) : ''
@@ -934,7 +934,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
 
     // ---- main: 네 줄 — 제목+상태 · ctx 게이지 | effort·mode · 비용 | 사용 한도 · 마지막 턴(receipt)
     const ctxFill = contextFill(u)
-    const ctxGauge = ctxFill.pct !== null ? gauge(ctxFill.pct, 10) : null
+    const ctxGauge = ctxFill.pct !== null ? gauge(ctxFill.pct, 10, isTerminal) : null
     const ctxColor = ctxFill.pct !== null ? gaugeColor(ctxFill.pct, C) : C.main
     const waitSince = oldestStart(b.running)
     const mainRows = (w: number) => {
@@ -1336,7 +1336,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       const ciFail = ci.filter(c => c.bucket === 'fail').length
       const ciPend = ciPending(b.ci)
       const gaugeW = Math.max(0, Math.min(12, w - 24))
-      const prog = gauge(sp.total > 0 ? (sp.step / sp.total) * 100 : 0, gaugeW)
+      const prog = gauge(sp.total > 0 ? (sp.step / sp.total) * 100 : 0, gaugeW, isTerminal)
       const markColor = (s: StageMark) => (s.mark === '✓' ? C.gate : s.mark === '!' ? C.amber : s.mark === '✗' ? C.warn : C.dim)
       // BG/CI 줄 · 작업 줄 · 방금 끝난 작업 — 두 구성이 같이 쓴다
       const jobsBlock = [
@@ -1378,7 +1378,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
         const K = CMD_COLORS[cfg.palette][cmd.kind]
         const flow = cmdFlow(cmd, b.stages ?? [])
         const pg = cmdProgress(flow)
-        const bar = gauge(pg.pct, Math.max(0, Math.min(24, w - 30)))
+        const bar = gauge(pg.pct, Math.max(0, Math.min(24, w - 30)), isTerminal)
         const fr = frWindow(cmd.frs, CMD_FR_MAX)
         const toneOf = (t: CmdSeg) => (t.tone === 'k' ? { color: K } : t.tone === 'd' ? { color: C.dim } : t.tone === 'g' ? { color: C.gate } : t.tone === 'w' ? { color: C.warn } : t.tone === 'b' ? { bold: true } : {})
         const segs = (list: readonly CmdSeg[]) => list.map((t, i) => <Text key={`seg-${i}`} {...toneOf(t)}>{t.text}</Text>)
@@ -1614,7 +1614,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       const live = [...cards.filter(c => c.status === 'running'), ...cards.filter(c => c.status !== 'running').reverse()].slice(0, 3)
       const counts = `${s.rule} allowed · ${s.cleared} ${decider}${s.ask > 0 ? ` · ${s.ask} pending` : ''} · ${s.deny} denied`
       const strip = g.recent.slice(-Math.max(4, marksIn(W - cfg.gateLabel.length - 2 - counts.length, isTerminal)))
-      const mg = ctxFill.pct !== null ? gauge(ctxFill.pct, 6) : null
+      const mg = ctxFill.pct !== null ? gauge(ctxFill.pct, 6, isTerminal) : null
       // devFSD: 요약에도 지금 작업 한 줄 — 종전 요약은 모델·비용뿐이라 좁은 터미널(입력창 위)에서는 진행이 전혀 보이지 않았다.
       const miniVerify = b.fid && b.verify ? { spans: [{ text: b.verify, color: b.verify === '완료' || b.verify === '검증 PASS' ? C.gate : b.verify === '검증 FAIL' ? C.warn : C.amber }] } : null
       const miniSp = stageProgress(b.stages ?? [])

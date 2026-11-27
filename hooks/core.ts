@@ -344,7 +344,12 @@ export const compactMark = (u: Pick<Usage, 'compactions' | 'isCompactEstimate'>)
 
 const EIGHTHS = ['', '▏', '▎', '▍', '▌', '▋', '▊', '▉'] as const
 /** devFSD: 1/8 칸 정밀도 게이지 — on 은 색칠할 구간(부분 블록 포함), off 는 빈칸(░). 길이는 항상 width. */
-export const gauge = (pct: number, width: number) => {
+export const gauge = (pct: number, width: number, isTerminal = true) => {
+  // 그래픽 화면(데스크톱 앱)은 부분 블록(▎)과 음영(░)을 서로 다른 폭으로 그려 막대가 깨져 보인다 — 꽉 찬 칸(■)과 빈 칸(□)만 쓴다.
+  if (!isTerminal) {
+    const filled = Math.max(0, Math.min(width, Math.round((pct * width) / 100)))
+    return { on: '■'.repeat(filled), off: '□'.repeat(Math.max(0, width - filled)) }
+  }
   const eighths = Math.max(0, Math.min(width * 8, Math.floor((pct * width * 8) / 100)))
   const full = eighths >> 3
   const part = eighths & 7

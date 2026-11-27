@@ -2204,6 +2204,20 @@ test('devFSD: a narrow main panel keeps 5h and 7d side by side on one row', asyn
   }
 })
 
+test('devFSD: on the desktop app the bars use whole cells only — part blocks and shade differ in width there and look broken', async ($, on) => {
+  await fullMainWorld($, on)
+  for (const cols of [80, 50, 34, 24]) {
+    const ui = await $.ui.mount({ ...pane(cols), surface: 'desktop' })
+    const text = rowsOf(subtree(await ui.drawn(), 'panel-main')).map(textOf).join('\n')
+    expect(text).not.toMatch(/[▏▎▍▌▋▊▉█░]/)
+    expect(text).toMatch(/ctx ■+□+ 72%/)
+    await ui.unmount()
+  }
+  const term = await $.ui.mount({ ...pane(80), surface: 'terminal' })
+  expect(rowsOf(subtree(await term.drawn(), 'panel-main')).map(textOf).join('\n')).toMatch(/[▏▎▍▌▋▊▉█]░/) // 터미널은 종전 1/8 칸 정밀도
+  await term.unmount()
+})
+
 test('devFSD: AC-5 a running turn shows its clock on the last row, and an idle session has no empty rows', async ($, on) => {
   fidWorld(on)
   await startFid($)

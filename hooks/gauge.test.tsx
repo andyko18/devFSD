@@ -1,7 +1,8 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { Board, CmdBoard, StageMark } from '../types'
-import { alignCurrent, commandOf, dialModelOf, helpLead, limitParts, noteTint, shortFid, stopsOf, turnOf } from './gauge'
+import { alignCurrent, commandOf, dialModelOf, helpLead, limitParts, modeOf, noteTint, shortFid, stopsOf, turnOf } from './gauge'
+import { roadAlt, roadSvg } from './gauge-road'
 import { dialAlt, dialHue, dialNow, dialSvg, dialWidth } from './gauge-dial'
 import type { DialTick } from './gauge-dial'
 import { HELP_SECTIONS } from './gauge-help'
@@ -650,7 +651,7 @@ test('past work: the desktop gauge and the console say the same thing', async ($
   const desk = await $.ui.mount({ ...BAND, surface: 'desktop' })
   expect(await desk.find({ text: /최근 old/ })).toBeDefined()
   expect(await desk.find({ text: /진행 중|답변 대기|재검증/ })).toBeUndefined()
-  expect(String((await desk.find({ type: 'Svg' }))?.props?.alt)).toContain('진행 중인 단계 없음')
+  expect(String((await desk.find({ type: 'Svg' }))?.props?.alt)).toContain('대기')
   await desk.unmount()
 
   const pane = await $.ui.mount({ ...CONSOLE, surface: 'terminal' })
@@ -689,6 +690,7 @@ test('a narrow band keeps the whole dial picture — it wraps below and shrinks,
   started(on, true)
   on('session.measure', (_, e) => ({ changed: e.changed }))
   await $.session.start({ cwd: '/repo', ...START })
+  await $.command.run({ command: 'devfsd-gauge', args: 'ice' })
   await $.session.measure({
     context: { window: 200_000 },
     rateLimits: [{ kind: 'five_hour', percentUsed: 21 }, { kind: 'seven_day', percentUsed: 37 }],
@@ -711,4 +713,129 @@ test('a narrow band keeps the whole dial picture — it wraps below and shrinks,
     expect(w).toBe(cols * 7)
     expect(Math.abs((h ?? 0) - ((w ?? 0) * (tall ?? 0)) / (wide ?? 1))).toBeLessThan(2) // 비율 유지
   }
+})
+
+// ── 전기차 모드(도로 보기 · 기본) ↔ 내연기관 모드(둥근 계기) ─────────────
+
+const RUNNING: StageMark[] = [
+  stage('specify', '명세', '✓'),
+  stage('clarify', '명확화', '✓'),
+  stage('plan', '설계', '✓'),
+  stage('tasks', '분해', '✓'),
+  { key: 'implement', label: '구현', mark: '●', isCurrent: true },
+  stage('verify', '검증', '○'),
+  stage('security', '보안', '○'),
+  stage('pr', 'PR', '○'),
+]
+
+const roadOf = (stages: StageMark[], isRunning: boolean, over: Partial<Board> = {}) => {
+  const b = board({ fid: '20261127-x', stages, activityAt: 900, ...over })
+  const stops = stopsOf(stages)
+  const note = turnOf(b, isRunning, stops)
+  const dial = dialModelOf(b, stops, note, [], 0)
+
+  return { ticks: dial.ticks, isAlert: dial.isAlert, isMoving: note.tone === 'run' }
+}
+
+test('the road shows the car, the next stages ahead and the merge tollgate, and moves only while running', () => {
+  const moving = roadOf(RUNNING, true)
+  const svg = roadSvg(moving)
+  expect(svg).toContain('>검증</text>')
+  expect(svg).toContain('>게이트</text>')
+  expect(svg).toContain('>PR</text>')
+  expect(svg).toContain('>머지</text>')
+  expect(svg).toContain('class="bob"')
+  expect(svg).toContain('class="ln"')
+  expect(svg).toContain('prefers-reduced-motion')
+  expect(roadAlt(moving)).toBe('도로 보기 — 지금 구현, 앞에 검증 · 게이트 · PR, 길 끝에 머지 톨게이트')
+  const still = roadSvg({ ...moving, isMoving: false })
+  expect(still).not.toContain('class="bob"')
+  expect(still).not.toContain('class="ln"')
+  expect(still).toContain('M-22 17') // 서 있어도 차는 있다
+})
+
+test('waiting for approval stops the car at the approval tollgate', () => {
+  const waiting = [stage('specify', '명세', '✓'), stage('clarify', '명확화', '✓'), stage('plan', '설계', '○')]
+  const m = roadOf(waiting, false)
+  expect(m.isAlert).toBe(true)
+  const svg = roadSvg(m)
+  expect(svg).toContain('>승인</text>')
+  expect(svg).toContain('class="blink"')
+  expect(svg).toContain('#FF3B30') // 브레이크등
+  expect(roadAlt(m)).toContain('승인 톨게이트 앞에서 정지')
+})
+
+test('idle draws an empty grey road with a parked car, and the picture never carries a clock', () => {
+  const idle = { ticks: [], isAlert: false, isMoving: false }
+  expect(roadSvg(idle)).toContain('opacity=".55"')
+  expect(roadAlt(idle)).toBe('도로 보기 — 대기, 출발 전')
+  const a = roadSvg(roadOf(RUNNING, true))
+  expect(a).not.toMatch(/\d+h\d+m|\d+d\d+h|뒤 초기화/)
+  expect(roadSvg(roadOf(RUNNING, true))).toBe(a) // 같은 상태면 같은 그림 — 애니메이션이 처음부터 다시 돌지 않는다
+})
+
+test('the electric mode is the default — the band draws the moving road with the limits as text', async ($, on) => {
+  started(on, true)
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  await $.session.start({ cwd: '/repo', ...START })
+  await $.session.measure({
+    context: { window: 200_000 },
+    rateLimits: [{ kind: 'five_hour', percentUsed: 25 }, { kind: 'seven_day', percentUsed: 38 }],
+    changed: ['rateLimits'],
+  } as never)
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  const svg = await ui.find({ type: 'Svg' })
+  expect(String(svg?.props?.alt)).toMatch(/^도로 보기/)
+  expect(svg?.props?.isInteractive).toBe(true)
+  expect((await ui.find({ text: /Claude 5h/ }))?.text).toMatch(/25%/)
+  expect((await ui.find({ text: /Claude 7d/ }))?.text).toMatch(/38%/)
+  expect(await ui.find({ type: 'Button', key: 'mode-ev' })).toBeDefined()
+  expect(await ui.find({ type: 'Button', key: 'mode-ice' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('the mode buttons switch between the road and the dial, and the choice is remembered for the next session', async ($, on) => {
+  started(on, true)
+  const store = new Map<string, unknown>()
+  on('store.get', (_, e) => ({ value: store.get(e.key) as never }))
+  on('store.set', (_, e) => {
+    store.set(e.key, e.value)
+
+    return { value: undefined }
+  })
+  await $.session.start({ cwd: '/repo', ...START })
+  const ui = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  await ui.press({ key: 'mode-ice' })
+  await flush()
+  await ui.unmount()
+  const ice = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(String((await ice.find({ type: 'Svg' }))?.props?.alt)).not.toMatch(/^도로 보기/)
+  await ice.unmount()
+  expect(store.get('gaugeMode')).toBe('ice')
+
+  await $.session.start({ cwd: '/repo', ...START })
+  const next = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(String((await next.find({ type: 'Svg' }))?.props?.alt)).not.toMatch(/^도로 보기/)
+  await next.press({ key: 'mode-ev' })
+  await flush()
+  await next.unmount()
+  const ev = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(String((await ev.find({ type: 'Svg' }))?.props?.alt)).toMatch(/^도로 보기/)
+  await ev.unmount()
+  expect(store.get('gaugeMode')).toBe('ev')
+})
+
+test('the command switches modes by name, and the terminal keeps its text gauge in either mode', async ($, on) => {
+  started(on, true)
+  await $.session.start({ cwd: '/repo', ...START })
+  expect((await $.command.run({ command: 'devfsd-gauge', args: 'ice' })).text).toMatch(/내연기관 모드/)
+  expect((await $.command.run({ command: 'devfsd-gauge', args: 'ev' })).text).toMatch(/전기차 모드/)
+  const term = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  expect(await term.find({ type: 'Svg' })).toBeUndefined()
+  expect(await term.find({ type: 'Button', key: 'mode-ev' })).toBeUndefined()
+  expect(await term.find({ text: /devFSD/ })).toBeDefined()
+  await term.unmount()
+  expect(modeOf('ice')).toBe('ice')
+  expect(modeOf(undefined)).toBe('ev')
+  expect(modeOf('zzz')).toBe('ev')
 })

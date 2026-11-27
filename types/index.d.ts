@@ -182,7 +182,9 @@ export type Board = {
 }
 
 /** devFSD 계기판(입력창 위 띠) — 관할 저장소에서만 뜨고, 숨김은 세션마다 풀린다. */
-export type GaugeView = { isGoverned: boolean; isHidden: boolean }
+/** `mode`: 전기차(도로 보기 · 기본) 또는 내연기관(둥근 계기). 옛 상태에는 없다 — 없으면 전기차. 세션을 넘겨 `$.store` 에도 둔다. */
+export type GaugeMode = 'ev' | 'ice'
+export type GaugeView = { isGoverned: boolean; isHidden: boolean; mode?: GaugeMode }
 
 declare module 'claude-code' {
   interface PluginState {

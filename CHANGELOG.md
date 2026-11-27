@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.16.0] — 2026-11-27
+
 ### Added
 
 - **계기판 칸 전체를 장면으로 쓰고, 내연기관 모드를 자동차 계기반으로 바꿨다**. 칸이 넉넉하면(80칸 이상) 그림을 칸 전체에 깔고 네 귀퉁이에 글자와 버튼을 겹친다 — 왼쪽 위 상태 · 큰 단계 이름 · 지금 할 일 한 줄, 왼쪽 아래 도움말 · 관제판 · 숨기기, 오른쪽 위 모델(전기차는 한도도), 오른쪽 아래 `⚡ 전기차` · `⛽ 내연기관` 스위치. 내연기관 모드는 회전계(바늘 = 지금 단계 · 승인·머지는 레드존) · 연료계 둘(5h · 7d 남은 한도) · 경고등(승인 · 재검증 · 실패)이다(`hooks/gauge-cluster.ts`). 칸이 좁으면 종전처럼 글자 아래 작은 그림(전기차 도로 · 내연기관 둥근 계기)이다. 한계: 글자를 칸 단위로 겹쳐 올리므로 앱에서 위아래 간격이 시안과 조금 다를 수 있다.
@@ -4460,7 +4462,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.9...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.16.0...HEAD
+[5.16.0]: https://github.com/andyko18/devFSD/compare/v5.15.9...v5.16.0
 [5.15.9]: https://github.com/andyko18/devFSD/compare/v5.15.8...v5.15.9
 [5.15.8]: https://github.com/andyko18/devFSD/compare/v5.15.7...v5.15.8
 [5.15.7]: https://github.com/andyko18/devFSD/compare/v5.15.6...v5.15.7

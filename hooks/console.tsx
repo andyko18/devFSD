@@ -1469,7 +1469,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
           {b.fid ? (
             <Box justifyContent="space-between">
               <Text color={C.gate} bold wrap="truncate">
-                {`devFSD · ${b.fid}${b.lane ? ` · ${b.lane}` : ''}`}
+                {`devFSD · ${b.isPast ? '최근 ' : ''}${b.fid}${b.lane ? ` · ${b.lane}` : ''}`}
               </Text>
               {b.verify ? (
                 <Box flexShrink={0}>
@@ -1626,7 +1626,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
           ? line(
               [
                 { spans: [{ text: 'devFSD', color: C.gate, bold: true }] },
-                { spans: [{ text: [b.fid, b.lane, miniSp.total > 0 ? progressLabel(miniSp) : null].filter(Boolean).join(' · ') }], fill: true },
+                { spans: [{ text: [b.isPast ? `최근 ${b.fid}` : b.fid, b.lane, miniSp.total > 0 ? progressLabel(miniSp) : null].filter(Boolean).join(' · ') }], fill: true },
                 miniVerify,
               ],
               W,

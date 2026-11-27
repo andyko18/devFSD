@@ -175,6 +175,10 @@ export type Board = {
   cmd?: CmdBoard
   activityAt?: number // 마지막 활동 시각(ms) — 훅 이벤트·출력 파일 중 늦은 쪽
   working?: boolean // 메인 턴이 열려 있는 동안 true (시계가 계속 돌게)
+  /** devFSD: 세션을 열 때 이미 오래돼 있던 활성 작업의 기록 서명 — 서명이 그대로면 지난 작업이다. 빈 문자열은 "지금 작업". */
+  baseline?: string
+  /** devFSD: 이 세션에서 움직이지 않은 지난 작업 — fid 만 남기고 단계·검증·경로는 싣지 않는다. */
+  isPast?: boolean
 }
 
 /** devFSD 계기판(입력창 위 띠) — 관할 저장소에서만 뜨고, 숨김은 세션마다 풀린다. */

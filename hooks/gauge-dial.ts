@@ -36,7 +36,7 @@ const PHASE_OF: Record<string, number> = {
   pr: 2,
 }
 
-export type DialTickState = 'done' | 'now' | 'todo' | 'skip' | 'fail'
+export type DialTickState = 'done' | 'now' | 'todo' | 'skip' | 'fail' | 'warn'
 /** 눈금 하나 — `key` 는 단계 묶음을 아는 이름일 때만 준다(없으면 자리 비율로 색을 정한다). */
 export type DialTick = { label: string; state: DialTickState; key?: string }
 export type DialLimit = { name: string; pct: number; reset: string }
@@ -69,7 +69,7 @@ export function dialNow(ticks: readonly DialTick[]): number {
   const live = ticks.findIndex(t => t.state === 'now' || t.state === 'fail')
   if (live >= 0) return live
 
-  return ticks.length > 0 && ticks.every(t => t.state === 'done' || t.state === 'skip') ? ticks.length - 1 : -1
+  return ticks.length > 0 && ticks.every(t => t.state === 'done' || t.state === 'skip' || t.state === 'warn') ? ticks.length - 1 : -1
 }
 
 /** 단계의 색 — 내 차례·실패는 빨강, 아니면 그 단계가 속한 묶음의 색(모르는 단계는 자리 비율로 셋에 나눈다). */
@@ -99,12 +99,15 @@ function stageDial(m: DialModel): string {
       const anchor = c < -0.25 ? 'end' : c > 0.25 ? 'start' : 'middle'
       const isNow = i === now
       const isDone = now >= 0 && i < now
+      const isWarn = !isNow && t.state === 'warn' // 다시 해야 하는 단계 — 지나온 자리에 있어도 호박색으로 남긴다
       const dot = isNow
         ? `<circle cx="${n1(p.x)}" cy="${n1(p.y)}" r="4.5" fill="${hue}"/>`
-        : `<circle${isDone ? '' : ' class="hole"'} cx="${n1(p.x)}" cy="${n1(p.y)}" r="2.6" fill="${isDone ? hue : MUTED}"/>`
-      const hasLabel = !isCrowded || isNow || i === 0 || i === last
+        : isWarn
+          ? `<circle cx="${n1(p.x)}" cy="${n1(p.y)}" r="4" fill="${WARN}"/>`
+          : `<circle${isDone ? '' : ' class="hole"'} cx="${n1(p.x)}" cy="${n1(p.y)}" r="2.6" fill="${isDone ? hue : MUTED}"/>`
+      const hasLabel = !isCrowded || isNow || isWarn || i === 0 || i === last
       const label = hasLabel
-        ? `<text x="${n1(q.x)}" y="${n1(q.y + 3.5)}" text-anchor="${anchor}" font-size="${isNow ? 11 : 10}" font-weight="${isNow ? 600 : 400}" fill="${isNow ? hue : MUTED}"${isNow || isDone ? '' : ' fill-opacity=".8"'}>${esc(t.label)}</text>`
+        ? `<text x="${n1(q.x)}" y="${n1(q.y + 3.5)}" text-anchor="${anchor}" font-size="${isNow ? 11 : 10}" font-weight="${isNow ? 600 : 400}" fill="${isNow ? hue : isWarn ? WARN : MUTED}"${isNow || isDone || isWarn ? '' : ' fill-opacity=".8"'}>${esc(t.label)}</text>`
         : ''
 
       return dot + label
@@ -160,5 +163,7 @@ export function dialAlt(m: DialModel): string {
   const tick = m.ticks[now]
   const stage = tick ? `${m.command} 단계는 ${m.ticks.length}개 중 ${now + 1}번째 ${tick.label}${tick.state === 'fail' ? ' 실패' : ''}` : `${m.command} — 진행 중인 단계 없음`
 
-  return [stage, ...m.limits.slice(0, 2).map(l => `${l.name} 한도 ${Math.round(l.pct)}퍼센트`)].join(', ')
+  const redo = m.ticks.flatMap((t, i) => (i !== now && t.state === 'warn' ? [`${t.label} 다시 필요`] : []))
+
+  return [stage, ...redo, ...m.limits.slice(0, 2).map(l => `${l.name} 한도 ${Math.round(l.pct)}퍼센트`)].join(', ')
 }

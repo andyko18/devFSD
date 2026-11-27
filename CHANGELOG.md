@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.15.8] — 2026-11-27
+
 ### Fixed
 
 - **관제판 폭이 좁으면 7일 사용 한도가 사라지던 문제를 고쳤다**. 메인 칸의 `비용 · 5h · 7d` 줄은 한 줄에 안 들어가는 조각을 뒤에서부터 말없이 버렸다. 이제 좁으면 비용을 제 줄로 올리고 5h 와 7d 는 늘 같은 줄에 나란히 둔다(더 좁으면 막대를 3칸, 그다음 숫자만). 넓으면 종전대로 한 줄이다.
@@ -4447,7 +4449,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.7...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.8...HEAD
+[5.15.8]: https://github.com/andyko18/devFSD/compare/v5.15.7...v5.15.8
 [5.15.7]: https://github.com/andyko18/devFSD/compare/v5.15.6...v5.15.7
 [5.15.6]: https://github.com/andyko18/devFSD/compare/v5.15.5...v5.15.6
 [5.15.5]: https://github.com/andyko18/devFSD/compare/v5.15.4...v5.15.5

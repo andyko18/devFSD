@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.15.7] — 2026-11-27
+
 ### Fixed
 
 - **계기판이 낡은 검증을 통과처럼 보여 주던 문제를 고쳤다**. 관제판이 `검증!`(STALE·PARTIAL)로 알리는 작업을, 계기판은 바늘을 지금 단계에 맞추면서 `검증` 눈금을 "지남"으로 덮었고 작업 중에는 초록 `진행 중` 만 냈다. 이제 `검증` 눈금(글자 계기판은 `!`)이 호박색으로 남고, 작업 중에는 `진행 중 · 재검증 필요` 로 알린다.
@@ -4440,7 +4442,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.6...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.7...HEAD
+[5.15.7]: https://github.com/andyko18/devFSD/compare/v5.15.6...v5.15.7
 [5.15.6]: https://github.com/andyko18/devFSD/compare/v5.15.5...v5.15.6
 [5.15.5]: https://github.com/andyko18/devFSD/compare/v5.15.4...v5.15.5
 [5.15.4]: https://github.com/andyko18/devFSD/compare/v5.15.3...v5.15.4

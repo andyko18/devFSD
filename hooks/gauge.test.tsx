@@ -684,3 +684,31 @@ test('stale verify: the desktop gauge warns and the console shows it too', async
   expect(await pane.find({ text: /검증!/ })).toBeDefined()
   await pane.unmount()
 })
+
+test('a narrow band keeps the whole dial picture — it wraps below and shrinks, never cut off', async ($, on) => {
+  started(on, true)
+  on('session.measure', (_, e) => ({ changed: e.changed }))
+  await $.session.start({ cwd: '/repo', ...START })
+  await $.session.measure({
+    context: { window: 200_000 },
+    rateLimits: [{ kind: 'five_hour', percentUsed: 21 }, { kind: 'seven_day', percentUsed: 37 }],
+    changed: ['rateLimits'],
+  } as never)
+  const sizeAt = async (bodyColumns: number) => {
+    const ui = await $.ui.mount({ ...BAND, props: { ...BAND.props, bodyColumns }, surface: 'desktop' })
+    const svg = await ui.find({ type: 'Svg' })
+    const alt = String(svg?.props?.alt)
+    const size = [Number(svg?.props?.width), Number(svg?.props?.height)]
+    await ui.unmount()
+    expect(alt).toContain('7d 한도 37퍼센트')
+
+    return size
+  }
+  const [wide, tall] = await sizeAt(140)
+  expect(wide).toBe(Math.round(dialWidth(2) * 1.3))
+  for (const cols of [60, 40]) {
+    const [w, h] = await sizeAt(cols)
+    expect(w).toBe(cols * 7)
+    expect(Math.abs((h ?? 0) - ((w ?? 0) * (tall ?? 0)) / (wide ?? 1))).toBeLessThan(2) // 비율 유지
+  }
+})

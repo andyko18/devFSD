@@ -898,6 +898,40 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
       )
     }
 
+    // 비용 · 사용 한도 — 한 줄에 다 들어가면 한 줄. 좁으면 비용을 제 줄로 올리고 **5h 와 7d 는 늘 같은 줄**에 둔다:
+    //   그래도 좁으면 막대를 5칸 → 3칸 → 없음으로 줄인다(종전에는 안 들어가는 7d 가 말없이 빠졌다).
+    //   그래픽 화면은 막대 글자를 칸보다 넓게 그려(■ 약 1.4칸) 그만큼 더 잡는다 — 빠듯하면 잘려 안 보인다.
+    const usageRows = (w: number, delta: number | null) => {
+      if (u.costUsd === null && u.limits.length === 0) return []
+      const room = w - 4
+      const cost: Piece | null = u.costUsd !== null ? { spans: [{ text: fmtUsd(u.costUsd), color: C.text }, ...(delta !== null ? [{ text: ` (+${fmtUsd(delta)})`, dim: true }] : [])] } : null
+      const limits = (bar: number, lead: number): Piece[] =>
+        u.limits.slice(0, 2).map((l, i): Piece => {
+          const lg = bar > 0 ? gauge(l.pct, bar) : null
+          // The time to each reset where the line has room for it: both windows fit from 56 columns,
+          // so a wide pane's half column (59 at 120) has them.
+          const resetIn = w >= 56 ? fmtResetIn(l.resetsAt, now) : ''
+          return {
+            lead: i > 0 ? 1 : lead,
+            spans: [
+              { text: `${limitLabel(l.kind)} `, dim: true },
+              ...(lg ? [{ text: lg.on, color: gaugeColor(l.pct, C) }, { text: lg.off, color: C.faint }] : []),
+              { text: `${lg ? ' ' : ''}${Math.round(l.pct)}%${resetIn ? ` resets ${resetIn}` : ''}`, dim: true },
+            ],
+          }
+        })
+      const fits = (pieces: Piece[], bar: number) => {
+        const sizes = pieces.map(p => ({ width: widthOf(p) + (!isTerminal && p !== cost ? Math.ceil(bar * 0.4) : 0), lead: p.lead }))
+
+        return piecesThatFit(sizes, room, 1) === pieces.length
+      }
+      const one = [...(cost ? [cost] : []), ...limits(5, cost ? 2 : 0)]
+      if (fits(one, 5)) return [line(one, room)]
+      const bar = [5, 3].find(n => fits(limits(n, 0), n)) ?? 0
+
+      return [...(cost ? [line([cost], room)] : []), ...(u.limits.length > 0 ? [line(limits(bar, 0), room)] : [])]
+    }
+
     // ---- main: 네 줄 — 제목+상태 · ctx 게이지 | effort·mode · 비용 | 사용 한도 · 마지막 턴(receipt)
     const ctxFill = contextFill(u)
     const ctxGauge = ctxFill.pct !== null ? gauge(ctxFill.pct, 10) : null
@@ -940,31 +974,7 @@ export function registerConsole(on: Parameters<Register>[0], options: Parameters
           ],
           w - 4,
         ),
-        u.costUsd !== null || u.limits.length > 0
-          ? line(
-              [
-                u.costUsd !== null
-                  ? { spans: [{ text: fmtUsd(u.costUsd), color: C.text }, ...(delta !== null ? [{ text: ` (+${fmtUsd(delta)})`, dim: true }] : [])] }
-                  : null,
-                ...u.limits.slice(0, 2).map((l, i): Piece => {
-                  const lg = gauge(l.pct, 5)
-                  // The time to each reset where the line has room for it: both windows fit from 56 columns,
-                  // so a wide pane's half column (59 at 120) has them; a window that doesn't fit is left out.
-                  const resetIn = w >= 56 ? fmtResetIn(l.resetsAt, now) : ''
-                  return {
-                    lead: i > 0 ? 1 : u.costUsd !== null ? 2 : 0,
-                    spans: [
-                      { text: `${limitLabel(l.kind)} `, dim: true },
-                      { text: lg.on, color: gaugeColor(l.pct, C) },
-                      { text: lg.off, color: C.faint },
-                      { text: ` ${Math.round(l.pct)}%${resetIn ? ` resets ${resetIn}` : ''}`, dim: true },
-                    ],
-                  }
-                }),
-              ],
-              w - 4,
-            )
-          : null,
+        ...usageRows(w, delta),
         m.isRunning ? (
           <Box width={w - 4} columnGap={1} overflow="hidden">
             <Text color={C.main} wrap="truncate">● turn</Text>

@@ -2190,6 +2190,20 @@ test('devFSD: AC-5 the main panel is four rows — title and state, context gaug
   await ui.unmount()
 })
 
+test('devFSD: a narrow main panel keeps 5h and 7d side by side on one row', async ($, on) => {
+  await fullMainWorld($, on)
+  for (const cols of [80, 50, 46, 34, 24]) {
+    for (const surface of ['terminal', 'desktop'] as const) {
+      const ui = await $.ui.mount({ ...pane(cols), surface })
+      const rows = rowsOf(subtree(await ui.drawn(), 'panel-main')).map(textOf)
+      const pair = rows.filter(r => /5h .*40%/.test(r))
+      expect(pair).toHaveLength(1)
+      expect(pair[0]).toMatch(/7d .*85%/)
+      await ui.unmount()
+    }
+  }
+})
+
 test('devFSD: AC-5 a running turn shows its clock on the last row, and an idle session has no empty rows', async ($, on) => {
   fidWorld(on)
   await startFid($)

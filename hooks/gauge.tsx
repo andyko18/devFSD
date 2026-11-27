@@ -21,6 +21,8 @@ const ACCENT = 'suggestion'
 const BAR_WIDTH = 5
 const HOT_PCT = 80 // 이 아래로는 막대에 색을 쓰지 않는다 — 평소엔 무채색
 const LIMITS_SHOWN = 2
+// 글자 한 칸의 픽셀 폭 어림(좁게 잡는다) — 띠가 계기 그림보다 좁을 때 그림을 줄이는 데만 쓴다.
+const CELL_PX = 7
 // 보안·통합·성능·데모는 계기판에서 한 점(게이트)으로 묶는다 — 상세는 관제판이 보여 준다.
 const GATE_KEYS: readonly string[] = ['security', 'integration', 'performance', 'demo']
 // 승인은 기록에 단계로 남지 않는다 — 이 단계 바로 뒤에 끼워 앞뒤 단계로 상태를 추정한다.
@@ -305,9 +307,11 @@ export function registerGauge(on: Parameters<Register>[0]): void {
       const cmd = commandOf(b)
       const doing = note.tone === 'idle' ? '' : [cmd ? `/${cmd}` : undefined, b.cmd?.title || undefined, b.fid ? shortFid(b.fid) : undefined].filter(Boolean).join(' · ')
       const w = dialWidth(dial.limits.length)
+      // 좁으면 계기 그림을 아랫줄로 내리고(flexWrap), 띠보다 넓으면 비율대로 줄인다 — 한 줄에 고정하면 오른쪽 7d 계기가 잘렸다.
+      const dialPx = Math.min(Math.round(w * DIAL_SCALE), Math.round(e.props.bodyColumns * CELL_PX))
 
       return (
-        <Box flexDirection="row" justifyContent="space-between" alignItems="stretch" gap={3}>
+        <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" alignItems="stretch" columnGap={3} rowGap={1}>
           <Box flexDirection="column" justifyContent="space-between">
             <Box flexDirection="column" paddingLeft={1} gap="sm">
               <Text>
@@ -336,7 +340,7 @@ export function registerGauge(on: Parameters<Register>[0]): void {
             </Box>
             {buttons}
           </Box>
-          <Svg source={dialSvg(dial)} width={Math.round(w * DIAL_SCALE)} height={Math.round(DIAL_H * DIAL_SCALE)} alt={dialAlt(dial)} />
+          <Svg source={dialSvg(dial)} width={dialPx} height={Math.round((dialPx * DIAL_H) / w)} alt={dialAlt(dial)} />
         </Box>
       )
     }

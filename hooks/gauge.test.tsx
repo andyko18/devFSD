@@ -1,7 +1,8 @@
 import { expect, test } from 'claude-code/testing'
 
 import type { Board, CmdBoard, StageMark } from '../types'
-import { alignCurrent, commandOf, dialModelOf, helpLead, limitParts, modeOf, noteTint, shortFid, stopsOf, turnOf } from './gauge'
+import { alignCurrent, commandOf, dialModelOf, guideOf, helpLead, limitParts, modeOf, noteTint, sceneTint, shortFid, stopsOf, turnOf } from './gauge'
+import { clusterAlt, clusterBand, lampsOf } from './gauge-cluster'
 import { roadAlt, roadSvg } from './gauge-road'
 import { dialAlt, dialHue, dialNow, dialSvg, dialWidth } from './gauge-dial'
 import type { DialTick } from './gauge-dial'
@@ -686,7 +687,7 @@ test('stale verify: the desktop gauge warns and the console shows it too', async
   await pane.unmount()
 })
 
-test('a narrow band keeps the whole dial picture — it wraps below and shrinks, never cut off', async ($, on) => {
+test('a narrow band keeps the whole dial picture — it wraps below and shrinks; a wide one draws the cluster across the band', async ($, on) => {
   started(on, true)
   on('session.measure', (_, e) => ({ changed: e.changed }))
   await $.session.start({ cwd: '/repo', ...START })
@@ -696,22 +697,21 @@ test('a narrow band keeps the whole dial picture — it wraps below and shrinks,
     rateLimits: [{ kind: 'five_hour', percentUsed: 21 }, { kind: 'seven_day', percentUsed: 37 }],
     changed: ['rateLimits'],
   } as never)
-  const sizeAt = async (bodyColumns: number) => {
+  const svgAt = async (bodyColumns: number) => {
     const ui = await $.ui.mount({ ...BAND, props: { ...BAND.props, bodyColumns }, surface: 'desktop' })
     const svg = await ui.find({ type: 'Svg' })
-    const alt = String(svg?.props?.alt)
-    const size = [Number(svg?.props?.width), Number(svg?.props?.height)]
     await ui.unmount()
-    expect(alt).toContain('7d 한도 37퍼센트')
 
-    return size
+    return { alt: String(svg?.props?.alt), w: Number(svg?.props?.width), h: Number(svg?.props?.height) }
   }
-  const [wide, tall] = await sizeAt(140)
-  expect(wide).toBe(Math.round(dialWidth(2) * 1.3))
+  const wide = await svgAt(140)
+  expect(wide.alt).toContain('7d 남은 한도 63퍼센트')
+  expect(wide.w).toBe(140 * 7)
   for (const cols of [60, 40]) {
-    const [w, h] = await sizeAt(cols)
-    expect(w).toBe(cols * 7)
-    expect(Math.abs((h ?? 0) - ((w ?? 0) * (tall ?? 0)) / (wide ?? 1))).toBeLessThan(2) // 비율 유지
+    const narrow = await svgAt(cols)
+    expect(narrow.alt).toContain('7d 한도 37퍼센트')
+    expect(narrow.w).toBe(cols * 7)
+    expect(Math.abs(narrow.h - (narrow.w * 96) / dialWidth(2))).toBeLessThan(2) // 비율 유지
   }
 })
 
@@ -787,8 +787,7 @@ test('the electric mode is the default — the band draws the moving road with t
   const svg = await ui.find({ type: 'Svg' })
   expect(String(svg?.props?.alt)).toMatch(/^도로 보기/)
   expect(svg?.props?.isInteractive).toBe(true)
-  expect((await ui.find({ text: /Claude 5h/ }))?.text).toMatch(/25%/)
-  expect((await ui.find({ text: /Claude 7d/ }))?.text).toMatch(/38%/)
+  expect((await ui.find({ text: /5h 25%/ }))?.text).toMatch(/7d 38%/)
   expect(await ui.find({ type: 'Button', key: 'mode-ev' })).toBeDefined()
   expect(await ui.find({ type: 'Button', key: 'mode-ice' })).toBeDefined()
   await ui.unmount()
@@ -838,4 +837,59 @@ test('the command switches modes by name, and the terminal keeps its text gauge 
   expect(modeOf('ice')).toBe('ice')
   expect(modeOf(undefined)).toBe('ev')
   expect(modeOf('zzz')).toBe('ev')
+})
+
+// ── 칸 전체 장면 (넓은 칸) ─────────────────────────────────────────
+
+test('the cluster shows the stage on the tachometer, red zones at the human stops, fuel left and warning lamps', () => {
+  const m = roadOf(RUNNING, true)
+  const limits = [
+    { name: 'Claude 5h', pct: 25, reset: '' },
+    { name: 'Claude 7d', pct: 85, reset: '' },
+  ]
+  const svg = clusterBand({ ...m, limits }, 700, 150)
+  expect(svg).toContain('>구현</text>')
+  expect(svg).toContain('>승인</text>')
+  expect(svg).toContain('>머지</text>')
+  expect(svg).toContain('5h 남음 75%')
+  expect(svg).toContain('7d 남음 15%')
+  expect(svg).toContain('class="nd"') // 달리는 중 바늘이 떨린다
+  expect(svg).not.toMatch(/\d+h\d+m|뒤 초기화/)
+  expect(clusterAlt({ ...m, limits })).toContain('7d 남은 한도 15퍼센트')
+  expect(lampsOf({ ...m, limits })).toEqual({ approve: false, redo: false, fail: false })
+
+  const waiting = roadOf([stage('specify', '명세', '✓'), stage('clarify', '명확화', '✓'), stage('plan', '설계', '○')], false)
+  expect(lampsOf({ ...waiting, limits })).toEqual({ approve: true, redo: false, fail: false })
+  expect(clusterBand({ ...waiting, limits }, 700, 150)).toContain('class="blink"')
+  const stale = roadOf(STALE_AT_GATE, true, { verify: '검증 STALE' })
+  expect(lampsOf({ ...stale, limits }).redo).toBe(true)
+})
+
+test('a wide band lays the scene across it and puts the words and buttons in its corners — in both modes', async ($, on) => {
+  started(on, true)
+  await $.session.start({ cwd: '/repo', ...START })
+  for (const mode of ['ev', 'ice'] as const) {
+    await $.command.run({ command: 'devfsd-gauge', args: mode })
+    const ui = await $.ui.mount({ ...BAND, props: { ...BAND.props, bodyColumns: 120 }, surface: 'desktop' })
+    const svg = await ui.find({ type: 'Svg' })
+    expect(svg?.props?.width).toBe(120 * 7)
+    expect(svg?.props?.height).toBe(150)
+    expect(String(svg?.props?.alt)).toMatch(mode === 'ev' ? /^도로 보기/ : /^계기반/)
+    expect((await ui.find({ text: /● 대기/ }))?.text).toBeDefined()
+    expect((await ui.find({ text: /\/start "만들 것"/ }))?.text).toBeDefined()
+    for (const key of ['help', 'console', 'hide', 'mode-ev', 'mode-ice']) expect(await ui.find({ type: 'Button', key })).toBeDefined()
+    await ui.unmount()
+  }
+})
+
+test('the guide line under the big stage name says what to do now', () => {
+  const ticks = roadOf(RUNNING, true).ticks
+  expect(guideOf({ tone: 'run', text: '진행 중' }, ticks, 2, 6.64)).toBe('다음 검증 · 에이전트 2 · $6.64')
+  expect(guideOf({ tone: 'run', text: '진행 중 · 재검증 필요' }, ticks, 0, null)).toMatch(/다시 돌린다/)
+  expect(guideOf({ tone: 'me', text: '승인 대기' }, ticks, 0, null)).toMatch(/"승인"/)
+  expect(guideOf({ tone: 'me', text: '답변 대기' }, ticks, 0, null)).toMatch(/추천대로/)
+  expect(guideOf({ tone: 'idle', text: '완료' }, [], 0, null)).toMatch(/병합/)
+  expect(guideOf({ tone: 'idle', text: '대기' }, [], 0, null)).toMatch(/\/start/)
+  expect(sceneTint({ tone: 'run', text: '진행 중' })).toBe('#4CC38A')
+  expect(sceneTint({ tone: 'me', text: '승인 대기' })).toBe('#FF6B5E')
 })

@@ -9,7 +9,8 @@ import type { Board, CmdBoard, CmdStep, GaugeMode, GaugeView, Main, StageMark, U
 import { DEFAULT_MAIN, DEFAULT_USAGE, fmtResetIn, fmtUsd, limitLabel, prettyModel } from './core'
 import { DIAL_H, DIAL_SCALE, dialAlt, dialSvg, dialWidth } from './gauge-dial'
 import type { DialModel, DialTick, DialTickState } from './gauge-dial'
-import { ROAD_H, ROAD_SCALE, ROAD_W, roadAlt, roadSvg } from './gauge-road'
+import { clusterAlt, clusterBand } from './gauge-cluster'
+import { ROAD_H, ROAD_SCALE, ROAD_W, SCENE_BG, roadAlt, roadBand, roadSvg } from './gauge-road'
 import { HELP_SECTIONS } from './gauge-help'
 import { isGoverned } from './progress-pane'
 
@@ -20,6 +21,37 @@ const CONSOLE_TITLE = 'devFSD 관제판'
 const COMMAND = 'devfsd-gauge'
 const MODE_KEY = 'gaugeMode' // $.store — 세션을 넘겨 기억한다
 const MODE_NAMES: Record<GaugeMode, string> = { ev: '전기차 모드', ice: '내연기관 모드' }
+const MODE_SHORT: Record<GaugeMode, string> = { ev: '⚡ 전기차', ice: '⛽ 내연기관' }
+// 칸 전체 장면 — 이만큼 넓으면 장면을 칸에 깔고 글자·버튼을 겹쳐 올린다. 좁으면 글자 아래 작은 그림.
+const WIDE_MIN = 80
+const BAND_PX = 150
+// 어두운 장면 위 글자색 — 앱 테마와 무관하게 읽혀야 한다.
+const ON = { ink: '#EEF2F6', soft: '#C7D0DA', dim: '#8B96A5', run: '#4CC38A', alert: '#FF6B5E', hold: '#E0A030', done: '#5EA2FF', ev: '#8FC0FF', ice: '#FFB27A' }
+
+/** 장면 위 상태 글자색. */
+export function sceneTint(note: TurnNote): string {
+  if (note.tone === 'run') return note.text.includes('재검증') ? ON.hold : ON.run
+  if (note.tone === 'me' || note.tone === 'bad') return ON.alert
+  if (note.tone === 'hold') return ON.hold
+
+  return note.text.startsWith('완료') ? ON.done : ON.dim
+}
+
+/** 큰 글자 아래 안내 한 줄 — 지금 무엇을 하면 되는가. */
+export function guideOf(note: TurnNote, ticks: readonly DialTick[], agents: number, cost: number | null): string {
+  const now = ticks.findIndex(t => t.state === 'now' || t.state === 'fail')
+  const next = now >= 0 ? ticks[now + 1]?.label : undefined
+  if (note.tone === 'run') {
+    if (note.text.includes('재검증')) return '검증 결과가 낡았다 — 다시 돌린다'
+
+    return [next ? `다음 ${next}` : undefined, agents > 0 ? `에이전트 ${agents}` : undefined, cost !== null ? fmtUsd(cost) : undefined].filter(Boolean).join(' · ')
+  }
+  if (note.tone === 'me') return note.text.includes('승인') ? '명세를 읽고 "승인"이라고 답한다' : '질문에 답한다 — 모르겠으면 "추천대로"'
+  if (note.tone === 'bad') return '대화창의 설명을 읽는다 — 모르겠으면 "어떻게 하면 돼?"'
+  if (note.tone === 'hold') return note.text.includes('재검증') ? '검증 결과가 낡았다 — 다시 돌린다' : '대화창에 질문이 있으면 답한다'
+
+  return note.text.startsWith('완료') ? 'PR 을 읽고 직접 병합한다' : '/start "만들 것" 으로 출발'
+}
 
 /** 저장된 값 → 모드. 모르는 값·없음은 기본(전기차). */
 export function modeOf(stored: unknown): GaugeMode {
@@ -347,6 +379,74 @@ export function registerGauge(on: Parameters<Register>[0]): void {
       // 도로는 달리는 중에만 움직인다 — 사람 차례·일시 멈춤·대기는 정지 화면(그림 문자열도 같아 다시 그리지 않는다).
       const road = { ticks: dial.ticks, isAlert: dial.isAlert, isMoving: note.tone === 'run' }
       const roadPx = Math.min(Math.round(ROAD_W * ROAD_SCALE), Math.round(e.props.bodyColumns * CELL_PX))
+
+      if (e.props.bodyColumns >= WIDE_MIN) {
+        // 칸 전체 장면 — 그림을 칸에 깔고(배경색도 같은 색이라 폭 어림이 모자라도 이어 보인다) 네 귀퉁이에 글자·버튼을 겹친다.
+        const px = e.props.bodyColumns * CELL_PX
+        const cur = dial.ticks.find(t => t.state === 'now' || t.state === 'fail')
+        const big = note.tone === 'idle' ? note.text : (cur?.label ?? note.text)
+        const agents = b.running.filter(j => j.kind === 'agent').length
+        const scene = mode === 'ice'
+          ? { source: clusterBand({ ...road, limits: dial.limits }, px, BAND_PX), alt: clusterAlt({ ...road, limits: dial.limits }) }
+          : { source: roadBand(road, px, BAND_PX), alt: roadAlt(road) }
+        const sceneButtons = (
+          <Box flexDirection="row" gap={0}>
+            <Button key="help" plain onPress={() => togglePane($, { id: HELP_PANE, title: HELP_TITLE })}>
+              <Text color={ON.dim}>? 도움말</Text>
+            </Button>
+            <Button key="console" plain onPress={() => togglePane($, { id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })}>
+              <Text color={ON.dim}>↗ 관제판</Text>
+            </Button>
+            <Button key="hide" plain onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))}>
+              <Text color={ON.dim}>× 숨기기</Text>
+            </Button>
+          </Box>
+        )
+        const sceneModes = (
+          <Box flexDirection="row" gap={0}>
+            {(['ev', 'ice'] as const).map(k => (
+              <Button key={`mode-${k}`} plain onPress={() => (k === mode ? undefined : setMode($, k))}>
+                <Text bold={k === mode} color={k === mode ? ON[k] : ON.dim}>
+                  {MODE_SHORT[k]}
+                </Text>
+              </Button>
+            ))}
+          </Box>
+        )
+
+        return (
+          <Box key="scene" backgroundColor={SCENE_BG} width="100%" overflow="hidden">
+            <Svg source={scene.source} width={px} height={BAND_PX} alt={scene.alt} isInteractive />
+            <Box position="absolute" top={1} left={2} flexDirection="column">
+              <Text color={ON.dim} wrap="truncate-end">
+                <Text color={sceneTint(note)} bold>
+                  ● {note.text}
+                </Text>
+                {doing ? ` · ${doing}` : recent}
+              </Text>
+              <Text size="title" bold color={note.tone === 'idle' ? ON.dim : ON.ink}>
+                {big}
+              </Text>
+              <Text color={note.tone === 'idle' ? ON.dim : ON.soft}>{guideOf(note, dial.ticks, agents, u.costUsd)}</Text>
+            </Box>
+            <Box position="absolute" top={1} right={2} flexDirection="column" alignItems="flex-end">
+              <Text color={ON.dim}>
+                {model}
+                {m.effort ? ` · ${m.effort}` : ''}
+              </Text>
+              {mode === 'ev' && dial.limits.length > 0 ? (
+                <Text color={ON.dim}>{dial.limits.map(l => `${l.name.replace(/^Claude /, '')} ${Math.round(l.pct)}%`).join('  ·  ')}</Text>
+              ) : ''}
+            </Box>
+            <Box position="absolute" bottom={1} left={1}>
+              {sceneButtons}
+            </Box>
+            <Box position="absolute" bottom={1} right={1}>
+              {sceneModes}
+            </Box>
+          </Box>
+        )
+      }
 
       return (
         <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" alignItems="stretch" columnGap={3} rowGap={1}>

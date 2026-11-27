@@ -74,21 +74,17 @@ function tollgate(cx: number, top: number, s: number, label: string, blink: bool
 /** 사람이 서는 단계 — 승인 · 머지. 그 단계에서 멈췄으면 톨게이트로 그린다. */
 const isHumanGate = (t: DialTick | undefined) => t?.key === 'approve' || t?.key === 'merge'
 
-export function roadSvg(m: RoadModel): string {
+function roadBody(m: RoadModel): string {
   const isIdle = m.ticks.length === 0
   const now = dialNow(m.ticks)
   const cur = m.ticks[now]
   const isGateStop = m.isAlert && isHumanGate(cur)
   const tone = m.isAlert ? RED : BLUE
   const head =
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${ROAD_W}" height="${ROAD_H}" viewBox="0 0 ${ROAD_W} ${ROAD_H}" font-family="-apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif">` +
-    STYLE +
-    `<rect width="${ROAD_W}" height="${ROAD_H}" rx="10" fill="#12171E"/>` +
-    `<path d="M0 10 Q0 0 10 0 L${ROAD_W - 10} 0 Q${ROAD_W} 0 ${ROAD_W} 10 L${ROAD_W} ${VY} L0 ${VY} Z" fill="#161C24"/>` +
     `<path d="M24 ${ROAD_H} L${VX - 5} ${VY} L${VX + 5} ${VY} L${ROAD_W - 24} ${ROAD_H} Z" fill="${isIdle ? '#191F27' : '#1C232C'}"/>` +
     `<path d="M24 ${ROAD_H} L${VX - 5} ${VY} M${ROAD_W - 24} ${ROAD_H} L${VX + 5} ${VY}" stroke="${isIdle ? '#2C3440' : '#3A4452'}" stroke-width="1"/>` +
     `<path${m.isMoving ? ' class="ln"' : ''} d="M${VX} ${ROAD_H} L${VX} ${VY}" stroke="${isIdle ? '#3A4350' : '#5B6675'}" stroke-width="1.4" stroke-dasharray="6 12"/>`
-  if (isIdle) return head + `<g transform="translate(${VX},${ROAD_H - 22})">${car(false, true)}</g></svg>`
+  if (isIdle) return head + `<g transform="translate(${VX},${ROAD_H - 22})">${car(false, true)}</g>`
 
   // 경로 띠 — 사람 앞에서 멈췄으면 톨게이트 앞에서 끊긴다.
   const stopY = 52
@@ -132,7 +128,42 @@ export function roadSvg(m: RoadModel): string {
     ? `<g transform="translate(${VX},${carY})"><g class="bob">${car(false, false)}</g></g>`
     : `<g transform="translate(${VX},${carY})">${car(m.isAlert, false)}</g>`
 
-  return head + far + ribbon + scene + halt + back + theCar + '</svg>'
+  return head + far + ribbon + scene + halt + back + theCar
+}
+
+const FONT = "-apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif"
+export const SCENE_BG = '#12171E'
+const SKY = '#161C24'
+
+/** 작은 그림 한 장(좁은 칸) — 300×96, 둥근 모서리. */
+export function roadSvg(m: RoadModel): string {
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${ROAD_W}" height="${ROAD_H}" viewBox="0 0 ${ROAD_W} ${ROAD_H}" font-family="${FONT}">` +
+    STYLE +
+    `<rect width="${ROAD_W}" height="${ROAD_H}" rx="10" fill="${SCENE_BG}"/>` +
+    `<path d="M0 10 Q0 0 10 0 L${ROAD_W - 10} 0 Q${ROAD_W} 0 ${ROAD_W} 10 L${ROAD_W} ${VY} L0 ${VY} Z" fill="${SKY}"/>` +
+    roadBody(m) +
+    '</svg>'
+  )
+}
+
+/**
+ * 칸 전체 장면(넓은 칸) — 배경과 하늘은 칸 끝까지, 길은 오른쪽(소실점이 폭의 약 2/3)에 둔다.
+ * 왼쪽은 비워 둔다: 상태·단계 이름·안내 글자와 버튼을 그 위에 겹쳐 올린다.
+ */
+export function roadBand(m: RoadModel, w: number, h: number): string {
+  const s = h / ROAD_H
+  const vx = Math.max(w * 0.66, w - (ROAD_W - VX) * s)
+  const dx = Math.round(vx - VX * s)
+  const sky = Math.round(VY * s)
+
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" font-family="${FONT}">` +
+    STYLE +
+    `<rect width="${w}" height="${h}" fill="${SCENE_BG}"/><rect width="${w}" height="${sky}" fill="${SKY}"/>` +
+    `<g transform="translate(${dx},0) scale(${s.toFixed(4)})">${roadBody(m)}</g>` +
+    '</svg>'
+  )
 }
 
 /** 그림을 못 보는 독자를 위한 설명. */

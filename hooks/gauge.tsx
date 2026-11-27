@@ -1,13 +1,16 @@
 // devFSD 계기판 — 입력창 바로 위 띠. 자료 수집(progress-pane.tsx)이 채운 상태를 읽어 그리기만 한다(차단·수정 없음).
-//   그림을 그리는 화면(데스크톱 앱 등): 왼쪽에 이름(모델) · 명령·작업·누구 차례 · 버튼, 오른쪽에 둥근 계기 셋(gauge-dial.ts — 명령의 단계 · Claude 5h · Claude 7d).
+//   그림을 그리는 화면(데스크톱 앱 등): 왼쪽에 이름(모델) · 명령·작업·누구 차례 · 버튼, 오른쪽에 그림 — 모드 둘을 버튼으로 바꾼다:
+//     전기차 모드(기본) = 도로 보기(gauge-road.ts — 경로 띠 · 남은 단계 · 톨게이트) + 한도 글자 · 내연기관 모드 = 둥근 계기 셋(gauge-dial.ts).
 //   터미널: 그림 요소가 없어 글자 세 줄로 그린다(상태+버튼 · 단계 점 · 모델·한도·비용).
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Board, CmdBoard, CmdStep, GaugeView, Main, StageMark, Usage } from '../types'
+import type { Board, CmdBoard, CmdStep, GaugeMode, GaugeView, Main, StageMark, Usage } from '../types'
 import { DEFAULT_MAIN, DEFAULT_USAGE, fmtResetIn, fmtUsd, limitLabel, prettyModel } from './core'
 import { DIAL_H, DIAL_SCALE, dialAlt, dialSvg, dialWidth } from './gauge-dial'
 import type { DialModel, DialTick, DialTickState } from './gauge-dial'
+import { clusterAlt, clusterBand } from './gauge-cluster'
+import { ROAD_H, ROAD_SCALE, ROAD_W, SCENE_BG, roadAlt, roadBand, roadSvg } from './gauge-road'
 import { HELP_SECTIONS } from './gauge-help'
 import { isGoverned } from './progress-pane'
 
@@ -16,6 +19,44 @@ const HELP_TITLE = 'devFSD 도움말'
 const CONSOLE_PANE = 'devfsd-console'
 const CONSOLE_TITLE = 'devFSD 관제판'
 const COMMAND = 'devfsd-gauge'
+const MODE_KEY = 'gaugeMode' // $.store — 세션을 넘겨 기억한다
+const MODE_NAMES: Record<GaugeMode, string> = { ev: '전기차 모드', ice: '내연기관 모드' }
+const MODE_SHORT: Record<GaugeMode, string> = { ev: '⚡ 전기차', ice: '⛽ 내연기관' }
+// 칸 전체 장면 — 이만큼 넓으면 장면을 칸에 깔고 글자·버튼을 겹쳐 올린다. 좁으면 글자 아래 작은 그림.
+const WIDE_MIN = 80
+const BAND_PX = 150
+// 어두운 장면 위 글자색 — 앱 테마와 무관하게 읽혀야 한다.
+const ON = { ink: '#EEF2F6', soft: '#C7D0DA', dim: '#8B96A5', run: '#4CC38A', alert: '#FF6B5E', hold: '#E0A030', done: '#5EA2FF', ev: '#8FC0FF', ice: '#FFB27A' }
+
+/** 장면 위 상태 글자색. */
+export function sceneTint(note: TurnNote): string {
+  if (note.tone === 'run') return note.text.includes('재검증') ? ON.hold : ON.run
+  if (note.tone === 'me' || note.tone === 'bad') return ON.alert
+  if (note.tone === 'hold') return ON.hold
+
+  return note.text.startsWith('완료') ? ON.done : ON.dim
+}
+
+/** 큰 글자 아래 안내 한 줄 — 지금 무엇을 하면 되는가. */
+export function guideOf(note: TurnNote, ticks: readonly DialTick[], agents: number, cost: number | null): string {
+  const now = ticks.findIndex(t => t.state === 'now' || t.state === 'fail')
+  const next = now >= 0 ? ticks[now + 1]?.label : undefined
+  if (note.tone === 'run') {
+    if (note.text.includes('재검증')) return '검증 결과가 낡았다 — 다시 돌린다'
+
+    return [next ? `다음 ${next}` : undefined, agents > 0 ? `에이전트 ${agents}` : undefined, cost !== null ? fmtUsd(cost) : undefined].filter(Boolean).join(' · ')
+  }
+  if (note.tone === 'me') return note.text.includes('승인') ? '명세를 읽고 "승인"이라고 답한다' : '질문에 답한다 — 모르겠으면 "추천대로"'
+  if (note.tone === 'bad') return '대화창의 설명을 읽는다 — 모르겠으면 "어떻게 하면 돼?"'
+  if (note.tone === 'hold') return note.text.includes('재검증') ? '검증 결과가 낡았다 — 다시 돌린다' : '대화창에 질문이 있으면 답한다'
+
+  return note.text.startsWith('완료') ? 'PR 을 읽고 직접 병합한다' : '/start "만들 것" 으로 출발'
+}
+
+/** 저장된 값 → 모드. 모르는 값·없음은 기본(전기차). */
+export function modeOf(stored: unknown): GaugeMode {
+  return stored === 'ice' ? 'ice' : 'ev'
+}
 // 강조색 하나 — 이름 · 지금 단계 · 버튼 기호에만 쓴다. 초록은 '달리는 중' 상태 점의 뜻이라 이름에는 쓰지 않는다.
 const ACCENT = 'suggestion'
 const BAR_WIDTH = 5
@@ -255,14 +296,27 @@ export async function gaugeStart($: EngineInterface, cwd: string): Promise<void>
   try {
     await $.command.register({ name: COMMAND, description: 'devFSD 계기판 보이기/숨기기' })
     const governed = await isGoverned($, cwd)
-    await update($, gaugeView, () => ({ isGoverned: governed, isHidden: false }))
+    const mode = modeOf(await $.store.get(MODE_KEY).catch(() => undefined))
+    await update($, gaugeView, () => ({ isGoverned: governed, isHidden: false, mode }))
   } catch {
     // 관찰만 — 계기판이 안 뜨는 것으로 충분하다.
   }
 }
 
+/** 모드를 바꾸고 다음 세션을 위해 기억한다. 기억에 실패해도 이 세션은 바뀐다. */
+export async function setMode($: EngineInterface, mode: GaugeMode): Promise<void> {
+  await update($, gaugeView, v => ({ ...v, mode, isHidden: false }))
+  await $.store.set(MODE_KEY, mode).catch(() => undefined)
+}
+
 export function registerGauge(on: Parameters<Register>[0]): void {
-  on('command.run', { command: COMMAND }, async $ => {
+  on('command.run', { command: COMMAND }, async ($, e) => {
+    const arg = String(e.args ?? '').trim()
+    if (arg === 'ev' || arg === 'ice') {
+      await setMode($, arg)
+
+      return { text: `devFSD 계기판을 ${MODE_NAMES[arg]}로 바꿨습니다.` }
+    }
     await update($, gaugeView, v => ({ ...v, isHidden: !v.isHidden }))
     const { isHidden } = await read($, gaugeView)
 
@@ -303,12 +357,96 @@ export function registerGauge(on: Parameters<Register>[0]): void {
 
     if (e.surface !== 'terminal') {
       const { Svg } = $.ui.resolve(e)
+      const mode = v.mode ?? 'ev'
+      // 모드 버튼 둘 — 지금 모드는 강조, 다른 쪽을 누르면 바뀐다.
+      const modes = (
+        <Box flexDirection="row" gap={0}>
+          {(['ev', 'ice'] as const).map(k => (
+            <Button key={`mode-${k}`} plain dimColor={k !== mode} onPress={() => (k === mode ? undefined : setMode($, k))}>
+              <Text bold={k === mode} color={k === mode ? ACCENT : undefined}>
+                {MODE_NAMES[k]}
+              </Text>
+            </Button>
+          ))}
+        </Box>
+      )
       const dial = dialModelOf(b, stops, note, u.limits, at)
       const cmd = commandOf(b)
       const doing = note.tone === 'idle' ? '' : [cmd ? `/${cmd}` : undefined, b.cmd?.title || undefined, b.fid ? shortFid(b.fid) : undefined].filter(Boolean).join(' · ')
       const w = dialWidth(dial.limits.length)
       // 좁으면 계기 그림을 아랫줄로 내리고(flexWrap), 띠보다 넓으면 비율대로 줄인다 — 한 줄에 고정하면 오른쪽 7d 계기가 잘렸다.
       const dialPx = Math.min(Math.round(w * DIAL_SCALE), Math.round(e.props.bodyColumns * CELL_PX))
+      // 도로는 달리는 중에만 움직인다 — 사람 차례·일시 멈춤·대기는 정지 화면(그림 문자열도 같아 다시 그리지 않는다).
+      const road = { ticks: dial.ticks, isAlert: dial.isAlert, isMoving: note.tone === 'run' }
+      const roadPx = Math.min(Math.round(ROAD_W * ROAD_SCALE), Math.round(e.props.bodyColumns * CELL_PX))
+
+      if (e.props.bodyColumns >= WIDE_MIN) {
+        // 칸 전체 장면 — 그림을 칸에 깔고(배경색도 같은 색이라 폭 어림이 모자라도 이어 보인다) 네 귀퉁이에 글자·버튼을 겹친다.
+        const px = e.props.bodyColumns * CELL_PX
+        const cur = dial.ticks.find(t => t.state === 'now' || t.state === 'fail')
+        const big = note.tone === 'idle' ? note.text : (cur?.label ?? note.text)
+        const agents = b.running.filter(j => j.kind === 'agent').length
+        const scene = mode === 'ice'
+          ? { source: clusterBand({ ...road, limits: dial.limits }, px, BAND_PX), alt: clusterAlt({ ...road, limits: dial.limits }) }
+          : { source: roadBand(road, px, BAND_PX), alt: roadAlt(road) }
+        const sceneButtons = (
+          <Box flexDirection="row" gap={0}>
+            <Button key="help" plain onPress={() => togglePane($, { id: HELP_PANE, title: HELP_TITLE })}>
+              <Text color={ON.dim}>? 도움말</Text>
+            </Button>
+            <Button key="console" plain onPress={() => togglePane($, { id: CONSOLE_PANE, title: CONSOLE_TITLE, columns: 66, rows: 8 })}>
+              <Text color={ON.dim}>↗ 관제판</Text>
+            </Button>
+            <Button key="hide" plain onPress={() => update($, gaugeView, x => ({ ...x, isHidden: true }))}>
+              <Text color={ON.dim}>× 숨기기</Text>
+            </Button>
+          </Box>
+        )
+        const sceneModes = (
+          <Box flexDirection="row" gap={0}>
+            {(['ev', 'ice'] as const).map(k => (
+              <Button key={`mode-${k}`} plain onPress={() => (k === mode ? undefined : setMode($, k))}>
+                <Text bold={k === mode} color={k === mode ? ON[k] : ON.dim}>
+                  {MODE_SHORT[k]}
+                </Text>
+              </Button>
+            ))}
+          </Box>
+        )
+
+        return (
+          <Box key="scene" backgroundColor={SCENE_BG} width="100%" overflow="hidden">
+            <Svg source={scene.source} width={px} height={BAND_PX} alt={scene.alt} isInteractive />
+            <Box position="absolute" top={1} left={2} flexDirection="column">
+              <Text color={ON.dim} wrap="truncate-end">
+                <Text color={sceneTint(note)} bold>
+                  ● {note.text}
+                </Text>
+                {doing ? ` · ${doing}` : recent}
+              </Text>
+              <Text size="title" bold color={note.tone === 'idle' ? ON.dim : ON.ink}>
+                {big}
+              </Text>
+              <Text color={note.tone === 'idle' ? ON.dim : ON.soft}>{guideOf(note, dial.ticks, agents, u.costUsd)}</Text>
+            </Box>
+            <Box position="absolute" top={1} right={2} flexDirection="column" alignItems="flex-end">
+              <Text color={ON.dim}>
+                {model}
+                {m.effort ? ` · ${m.effort}` : ''}
+              </Text>
+              {mode === 'ev' && dial.limits.length > 0 ? (
+                <Text color={ON.dim}>{dial.limits.map(l => `${l.name.replace(/^Claude /, '')} ${Math.round(l.pct)}%`).join('  ·  ')}</Text>
+              ) : ''}
+            </Box>
+            <Box position="absolute" bottom={1} left={1}>
+              {sceneButtons}
+            </Box>
+            <Box position="absolute" bottom={1} right={1}>
+              {sceneModes}
+            </Box>
+          </Box>
+        )
+      }
 
       return (
         <Box flexDirection="row" flexWrap="wrap" justifyContent="space-between" alignItems="stretch" columnGap={3} rowGap={1}>
@@ -339,8 +477,23 @@ export function registerGauge(on: Parameters<Register>[0]): void {
               </Box>
             </Box>
             {buttons}
+            {modes}
           </Box>
-          <Svg source={dialSvg(dial)} width={dialPx} height={Math.round((dialPx * DIAL_H) / w)} alt={dialAlt(dial)} />
+          {mode === 'ice' ? (
+            <Svg source={dialSvg(dial)} width={dialPx} height={Math.round((dialPx * DIAL_H) / w)} alt={dialAlt(dial)} />
+          ) : (
+            <Box flexDirection="row" flexWrap="wrap" alignItems="flex-start" columnGap={2} rowGap={1}>
+              <Svg source={roadSvg(road)} width={roadPx} height={Math.round((roadPx * ROAD_H) / ROAD_W)} alt={roadAlt(road)} isInteractive />
+              <Box flexDirection="column">
+                {dial.limits.map(l => (
+                  <Text dimColor>
+                    {l.name} <Text bold color={l.pct >= HOT_PCT ? 'warning' : undefined}>{Math.round(l.pct)}%</Text>
+                    {l.reset ? ` · ${l.reset}` : ''}
+                  </Text>
+                ))}
+              </Box>
+            </Box>
+          )}
         </Box>
       )
     }

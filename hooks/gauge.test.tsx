@@ -107,7 +107,7 @@ test('full-lane stages fold the gates into one stop and add approval, ending at 
 test('a stale or partial verify reads as re-verify in amber, not as a red failure like the console', () => {
   const stale = [stage('implement', '구현', '✓'), stage('verify', '검증', '!'), stage('pr', 'PR', '○')]
   const stops = stopsOf(stale)
-  expect(stops.find(s => s.key === 'verify')?.state).toBe('now')
+  expect(stops.find(s => s.key === 'verify')?.state).toBe('warn')
   expect(stops.some(s => s.state === 'fail')).toBe(false)
   for (const verify of ['검증 STALE', '검증 PARTIAL']) {
     const note = turnOf(board({ fid: '20261123-x', stages: stale, verify, activityAt: 900 }), false, stops)
@@ -505,4 +505,182 @@ test('each button opens its pane when it is not up and closes it when it is — 
   expect(closes).toEqual(['devfsd-help', 'devfsd-console'])
   expect(opens).toEqual(['devfsd-help', 'devfsd-help', 'devfsd-console']) // 도움말 상태와 무관하다
   await ui.unmount()
+})
+
+// ── 20261127: 검증 STALE 보존 · 지난 작업 ─────────────────────────────
+
+const STALE_AT_GATE: StageMark[] = [
+  stage('specify', '명세', '✓'),
+  stage('implement', '구현', '✓'),
+  stage('verify', '검증', '!'),
+  stage('security', '보안', '✓'),
+  { key: 'demo', label: '데모', mark: '○', isCurrent: true },
+  stage('pr', 'PR', '○'),
+]
+
+test('a stale verify stays a warning on the dial after the needle moves to the console stage', () => {
+  const stops = stopsOf(STALE_AT_GATE)
+  const model = dialModelOf(board({ fid: '20261127-x', stages: STALE_AT_GATE, verify: '검증 STALE', activityAt: 900 }), stops, { tone: 'run', text: '진행 중' }, [], 0)
+  expect(model.ticks.find(t => t.label === '검증')?.state).toBe('warn')
+  expect(model.ticks.find(t => t.label === '게이트')?.state).toBe('now')
+  expect(model.ticks[dialNow(model.ticks)]?.label).toBe('게이트')
+})
+
+test('a warning tick is drawn amber with its name even when the dial is crowded', () => {
+  const ticks: DialTick[] = ['가', '나', '다', '라', '마', '바', '사', '아', '자', '차'].map((label, i) => ({
+    label,
+    state: i === 2 ? 'warn' : i < 5 ? 'done' : i === 5 ? 'now' : 'todo',
+  }))
+  const svg = dialSvg({ command: 'start', ticks, isAlert: false, limits: [] })
+  expect(svg).toContain('>다</text>')
+  expect(svg).toContain('#E0A030')
+  expect(dialAlt({ command: 'start', ticks, isAlert: false, limits: [] })).toContain('다 다시 필요')
+})
+
+test('a stale verify is announced while the session is busy too', () => {
+  const note = turnOf(board({ fid: '20261127-x', stages: STALE_AT_GATE, verify: '검증 STALE', activityAt: 900 }), true, stopsOf(STALE_AT_GATE))
+  expect(note).toEqual({ tone: 'run', text: '진행 중 · 재검증 필요' })
+  expect(noteTint(note)).toBe('warning')
+})
+
+test('a past work reads as waiting even while the session is busy with something else', () => {
+  const past = board({ fid: '20261026-old', isPast: true, activityAt: 900, working: true })
+  expect(turnOf(past, true, [])).toEqual({ tone: 'idle', text: '대기' })
+})
+
+const OLD_RECORD = '# s\n\n## 20261026-old · 설명\n\n- 2026-10-26 11:19 /performance-test SKIP (x)\n- 2026-10-26 11:15 /implement DONE (x)\n'
+
+const NOW = Date.parse('2026-11-27T10:00')
+
+const withRecord = (on: Parameters<Parameters<typeof test>[1]>[1], text = OLD_RECORD) => {
+  const file = { text }
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('clock.every', () => ({ value: { cancel: () => {} } }))
+  on('clock.now', () => ({ value: NOW }))
+  on('fs.read', () => ({ value: file.text }))
+  // 관할 폴더와 그 안의 작업 폴더가 있다 — 작업 폴더가 있어야 검증 상태를 읽는다.
+  on('fs.exists', (_, e) => ({ value: e.path === '/repo/.specops' || /^\/repo\/\.specops\/\d{8}-[a-z0-9-]+$/.test(e.path) }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('tool.call', () => ({ result: {}, text: 'ok' }))
+
+  return file
+}
+
+const bandText = async ($: Parameters<Parameters<typeof test>[1]>[0]) => {
+  const ui = await $.ui.mount({ ...BAND, surface: 'terminal' })
+  const found = await ui.find({ type: 'Text', text: /devFSD/ })
+  await ui.unmount()
+
+  return found?.text ?? ''
+}
+
+// 상태 갱신은 도구 호출이 돌아온 뒤에 이어지는 비동기 작업이라 여러 번 비운다.
+const settle = async () => {
+  for (let i = 0; i < 100; i++) await flush()
+}
+
+const edit = ($: Parameters<Parameters<typeof test>[1]>[0], id: string) =>
+  $.tool.call({ tool: 'Edit', tool_use_id: id, file_path: '/repo/a.txt', old_string: 'a', new_string: 'b' } as never)
+
+test('work recorded before this session shows as recent until its record changes', async ($, on) => {
+  const file = withRecord(on)
+  await $.session.start({ cwd: '/repo', ...START })
+  await settle()
+  await edit($, 'toolu_e1')
+  await settle()
+  expect(await bandText($)).toMatch(/대기 · 최근 old/)
+
+  file.text = OLD_RECORD.replace('- 2026-10-26 11:19', '- 2026-11-27 09:00 /demo DONE (x)\n- 2026-10-26 11:19')
+  await edit($, 'toolu_e2')
+  await settle()
+  expect(await bandText($)).not.toMatch(/최근/)
+  expect(await bandText($)).toMatch(/old/)
+})
+
+test('a devFSD skill call in this session brings past work back', async ($, on) => {
+  withRecord(on)
+  await $.session.start({ cwd: '/repo', ...START })
+  await settle()
+  expect(await bandText($)).toMatch(/최근 old/)
+  await $.tool.call({ tool: 'Skill', tool_use_id: 'toolu_s', skill: 'devfsd:verifying-evidence-ko' } as never)
+  await settle()
+  expect(await bandText($)).not.toMatch(/최근/)
+})
+
+test('a work started in this session is live from its first record', async ($, on) => {
+  const file = withRecord(on)
+  await $.session.start({ cwd: '/repo', ...START })
+  await settle()
+  file.text = '# s\n\n## 20261127-new · 설명\n\n- 2026-11-27 09:00 /specify 완료 (x)\n\n' + OLD_RECORD.slice(4)
+  await edit($, 'toolu_e1')
+  await settle()
+  const text = await bandText($)
+  expect(text).toMatch(/new/)
+  expect(text).not.toMatch(/최근/)
+})
+
+test('work recorded within three days stays live when the session is reopened', async ($, on) => {
+  withRecord(on, OLD_RECORD.replace(/2026-10-26/g, '2026-11-25'))
+  await $.session.start({ cwd: '/repo', ...START })
+  await settle()
+  await edit($, 'toolu_e1')
+  await settle()
+  expect(await bandText($)).not.toMatch(/최근/)
+  expect(await bandText($)).toMatch(/old/)
+})
+
+// ── 두 화면이 같은 말을 한다 (지난 작업 · 낡은 검증) ──────────────────────
+
+const CONSOLE = {
+  plugin: 'devfsd',
+  component: 'Pane',
+  requestId: 'devfsd-console',
+  props: { title: 'devFSD 관제판', isFocused: true, bodyColumns: 66, placement: 'dock', scroll: { offset: 0, bodyRows: 70 }, view: {} },
+} as const
+
+test('past work: the desktop gauge and the console say the same thing', async ($, on) => {
+  on('ui.status', () => ({ value: undefined }))
+  withRecord(on)
+  await $.session.start({ cwd: '/repo', ...START })
+  await settle()
+  await edit($, 'toolu_e1')
+  await settle()
+
+  const desk = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect(await desk.find({ text: /최근 old/ })).toBeDefined()
+  expect(await desk.find({ text: /진행 중|답변 대기|재검증/ })).toBeUndefined()
+  expect(String((await desk.find({ type: 'Svg' }))?.props?.alt)).toContain('진행 중인 단계 없음')
+  await desk.unmount()
+
+  const pane = await $.ui.mount({ ...CONSOLE, surface: 'terminal' })
+  expect(await pane.find({ text: /devFSD · 최근 20261026-old/ })).toBeDefined()
+  expect(await pane.find({ text: /▶/ })).toBeUndefined()
+  expect(await pane.find({ text: /구현|검증|STALE/ })).toBeUndefined()
+  await pane.unmount()
+})
+
+test('stale verify: the desktop gauge warns and the console shows it too', async ($, on) => {
+  on('ui.status', () => ({ value: undefined }))
+  withRecord(on, '# s\n\n## 20261127-x · 설명\n\n- 2026-11-27 09:30 /integration-test DONE (x)\n- 2026-11-27 09:20 /security-review DONE (x)\n- 2026-11-27 09:10 /verify PASS (x)\n- 2026-11-27 09:00 /implement DONE (x)\n')
+  on('process.run', (_, e) => {
+    const argv = (e as unknown as { argv: string[] }).argv
+    const isVerify = argv.some(a => a.endsWith('verification-state.sh'))
+
+    return { value: { exitCode: isVerify ? 0 : 1, stdout: isVerify ? 'STALE\n' : '', stderr: '' } }
+  })
+  await $.session.start({ cwd: '/repo', ...START })
+  await settle()
+  await edit($, 'toolu_e1')
+  await settle()
+
+  const desk = await $.ui.mount({ ...BAND, surface: 'desktop' })
+  expect((await desk.find({ text: /●/ }))?.text).toContain('재검증 필요')
+  expect(String((await desk.find({ type: 'Svg' }))?.props?.alt)).toContain('검증 다시 필요')
+  await desk.unmount()
+
+  const pane = await $.ui.mount({ ...CONSOLE, surface: 'terminal' })
+  expect(await pane.find({ text: /검증 STALE/ })).toBeDefined()
+  expect(await pane.find({ text: /검증!/ })).toBeDefined()
+  await pane.unmount()
 })

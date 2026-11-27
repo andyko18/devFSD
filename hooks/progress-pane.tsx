@@ -133,6 +133,28 @@ export function latestStamp(progress: string): string | undefined {
   return undefined
 }
 
+/**
+ * 활성 작업 기록의 서명(작업 · 기록 줄 수 · 최신 시각). 세션을 열 때 것과 같으면 그 뒤로 아무 기록도 없는 작업이다 —
+ * 끝맺음 줄 없이 남은 옛 작업이 무관한 일을 하는 세션에서 `진행 중` 으로 보였다. 활성 작업이 없으면 빈 문자열.
+ */
+export function recordSignature(progress: string): string {
+  const fid = activeFid(progress)
+  if (!fid) return ''
+
+  return `${fid}|${recordsOf(progress, fid).length}|${latestStamp(progress) ?? ''}`
+}
+
+// 마지막 기록이 이보다 오래됐으면 지난 작업 후보 — 어제·지난 금요일에 하던 일은 다시 열어도 그대로 보인다.
+const PAST_AFTER_MS = 3 * 24 * 60 * 60 * 1000
+
+/** 세션을 열 때의 기준 — 마지막 기록이 오래된 작업이면 그 서명, 아니면(최근·시각 판독 실패) 빈 문자열. */
+export function pastBaseline(progress: string, now: number): string {
+  const stamp = latestStamp(progress)
+  const at = stamp ? Date.parse(stamp.replace(' ', 'T')) : NaN
+
+  return Number.isFinite(at) && now - at > PAST_AFTER_MS ? recordSignature(progress) : ''
+}
+
 /** `other` 기록이 `base` 보다 확실히 최근일 때만 true — 동률·판독 실패는 false(종전: base 우선). */
 export function isNewer(other: string, base: string): boolean {
   const o = latestStamp(other)
@@ -470,14 +492,22 @@ async function refreshStatus($: EngineInterface, cwd: string, gate: RefreshGate)
         // 작업(FID)이 없어도 명령이 돌고 있을 수 있다 — /init-project 는 끝날 때까지 작업을 만들지 않는다.
         const dir = record?.dir ?? (await governedDir($, cwd))
         const cmd = dir ? await cmdFor($, dir).catch(() => undefined) : undefined
-        await update($, board, b => ({ ...b, fid: undefined, stages: undefined, verify: undefined, lane: undefined, cmd }))
+        await update($, board, b => ({ ...b, fid: undefined, stages: undefined, verify: undefined, lane: undefined, cmd, isPast: false }))
+        continue
+      }
+      const baseline = (await read($, board)).baseline
+      if (baseline && recordSignature(progress) === baseline) {
+        // 지난 작업 — 단계·검증을 싣지 않는다(계기판·관제판이 같은 자료를 읽는다). 초기화는 작업과 무관하게 도니 남긴다.
+        const flow = record ? await cmdFor($, record.dir).catch(() => undefined) : undefined
+        const cmd = flow?.kind === 'init' ? flow : undefined
+        await update($, board, b => ({ ...b, fid, stages: undefined, verify: undefined, lane: undefined, stage: undefined, cmd, isPast: true }))
         continue
       }
       const batch = record ? await batchFor($, record.dir, fid).catch(() => undefined) : undefined
       // 직접 고치고 검증만 기록한 작업(단계 기록·작업 문서 없음) — 단계 막대를 그리면 `검증✓ ▶ 보안●` 처럼 돌지 않는 단계가 진행 중으로 보인다.
       if (!batch && isDirectRecord(progress, fid) && !(await hasLifecycleDocs($, [record?.dir, cwd, projectRoot(cwd)], fid))) {
         const verify = await verifyFor($, cwd, fid, record?.dir).catch(() => '검증 ?')
-        await update($, board, b => ({ ...b, fid, stages: undefined, verify, lane: DIRECT_LANE, cmd: undefined }))
+        await update($, board, b => ({ ...b, fid, stages: undefined, verify, lane: DIRECT_LANE, cmd: undefined, isPast: false }))
         continue
       }
       const stages = stagesOf(progress, fid, batch)
@@ -487,7 +517,7 @@ async function refreshStatus($: EngineInterface, cwd: string, gate: RefreshGate)
       const label = laneLabel(progress, fid, batch)
       const lane = label === FULL_LANE ? undefined : label
       const cmd = record ? await cmdFor($, record.dir, fid).catch(() => undefined) : undefined
-      await update($, board, b => ({ ...b, fid, stages: marked, verify, lane, cmd }))
+      await update($, board, b => ({ ...b, fid, stages: marked, verify, lane, cmd, isPast: false }))
     } while (gate.again)
   } catch {
     await safe(() => update($, board, b => ({ ...b, verify: '검증 ?' })))
@@ -609,8 +639,10 @@ export async function progressStart($: EngineInterface, cwdNow: string, ciOpt?: 
     }
     await safe(async () => {
       const fid = await readFid($, cwd)
-      await update($, board, b => ({ ...b, fid }))
+      // 다시 불려도(모드 재적재) 처음 값을 지킨다 — 이 세션에서 움직인 작업이 지난 작업으로 되돌아가지 않게.
+      const progress = (await readRecord($, cwd).catch(() => undefined))?.progress ?? ''
       const t = await $.clock.now()
+      await update($, board, b => ({ ...b, fid, baseline: b.baseline ?? pastBaseline(progress, t) }))
       await update($, now, () => t)
       // Keeps elapsed times moving while something runs. A restart replaces the old timer.
       ticker?.cancel()
@@ -707,7 +739,8 @@ export function registerProgress(on: Parameters<Register>[0]): void {
     if (stage) {
       await safe(async () => {
         const fid = await readFid($, cwd)
-        await update($, board, b => ({ ...b, stage, fid: fid ?? b.fid }))
+        // devFSD skill 을 부른 세션은 그 작업을 하고 있다 — 첫 기록이 남기 전이라도 지난 작업으로 두지 않는다.
+        await update($, board, b => ({ ...b, stage, fid: fid ?? b.fid, baseline: '', isPast: false }))
       })
     }
 

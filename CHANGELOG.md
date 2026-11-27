@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [5.15.9] — 2026-11-27
+
 ### Fixed
 
 - **데스크톱 앱에서 관제판 막대가 깨져 보이던 문제를 고쳤다**. 부분 블록(`▎`)과 음영(`░`)은 앱 글꼴에서 폭이 서로 달라 `ctx`·`5h`·`7d`·진행 막대가 들쭉날쭉했다. 데스크톱 앱에서는 꽉 찬 칸(`■`)과 빈 칸(`□`)만 쓴다. 터미널은 종전대로 1/8 칸 정밀도다.
@@ -4453,7 +4455,8 @@ PR #38 이 `iso::make_tree` 헬퍼를 만들고 2종을 옮겼으나 **스스로
 - 서브에이전트 2단계 리뷰 (Phase B spec-reviewer-ko, Phase C code-reviewer-ko)
 - Harness skill 5종 — sprint-contracts, structured-artifacts, generator-evaluator, context-resets, file-based-communication
 
-[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.8...HEAD
+[Unreleased]: https://github.com/andyko18/devFSD/compare/v5.15.9...HEAD
+[5.15.9]: https://github.com/andyko18/devFSD/compare/v5.15.8...v5.15.9
 [5.15.8]: https://github.com/andyko18/devFSD/compare/v5.15.7...v5.15.8
 [5.15.7]: https://github.com/andyko18/devFSD/compare/v5.15.6...v5.15.7
 [5.15.6]: https://github.com/andyko18/devFSD/compare/v5.15.5...v5.15.6
